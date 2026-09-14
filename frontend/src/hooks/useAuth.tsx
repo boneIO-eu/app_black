@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import axios from '@/api/axios';
+import axios, { UNAUTHORIZED_EVENT } from '@/api/axios';
 import { closeWebSocket } from './useWebSocket';
 import { useAppInit } from '@/contexts/AppInitContext';
 
@@ -111,6 +111,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsAuthRequired(true);
     void refreshIdentity();
   }, [refreshIdentity]);
+
+  // A rejected token must end the session, or the UI sits in a half-signed-in
+  // state: no token on the wire, every view empty, and no login prompt.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      closeWebSocket();
+      setIsAuthenticated(false);
+      setUsername(null);
+      setRole(null);
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');

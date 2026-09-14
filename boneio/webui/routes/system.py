@@ -256,7 +256,12 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
         "serial_override": config_helper.serial_override,
         "auth_required": auth_required,
         "needs_onboarding": needs_onboarding,
-        "allow_anonymous": is_anonymous_allowed(),
+        # Effective state, not the setting. The opt-out only applies while the
+        # device has no account, so reporting the raw flag made the UI warn
+        # about unauthenticated access on a device that was in fact requiring
+        # a password — and point at a config.yaml key that need not even exist,
+        # since BONEIO_DEV opts in too.
+        "allow_anonymous": is_anonymous_allowed() and not auth_required,
         "pwa_name": config_helper.pwa_name,
         "pwa_default": f"bIO {serial_suffix}",
         "pwa_max_length": 12,

@@ -3,6 +3,9 @@ import { getBasePath } from './basePath';
 
 const baseURL = getBasePath();
 
+/** Fired when the backend rejects our token, so the session can be reset. */
+export const UNAUTHORIZED_EVENT = 'boneio:unauthorized';
+
 const axiosInstance = axios.create({
   baseURL,
   timeout: 5000,
@@ -45,9 +48,16 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Clear token and redirect to login
+      // Drop the dead token AND tell the auth layer, which owns the React
+      // state. Clearing storage alone left the app believing it was signed in:
+      // every later request went out without a token, so views came back
+      // empty and role-gated controls vanished, while the login screen never
+      // appeared because isAuthenticated was still true.
+      //
+      // An event rather than an import: useAuth imports axios, so calling into
+      // it from here would be circular.
       localStorage.removeItem('token');
-      console.log("Error 401", error)
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
     }
     return Promise.reject(error);
   }

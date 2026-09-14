@@ -21,6 +21,7 @@ from boneio.webui.middleware.auth import (
     is_anonymous_allowed,
     is_auth_required,
     set_allow_anonymous,
+    set_auth_config,
     set_user_store,
 )
 
@@ -34,9 +35,19 @@ def config_file(tmp_path):
 
 @pytest.fixture(autouse=True)
 def _reset_auth_globals():
+    """Reset every module-level auth global around each test.
+
+    init_app writes several of these. Leaving _auth_config behind let the
+    legacy-migration test make later tests see a device that still had
+    credentials configured.
+    """
+    set_user_store(None)
+    set_allow_anonymous(False)
+    set_auth_config({})
     yield
     set_user_store(None)
     set_allow_anonymous(False)
+    set_auth_config({})
 
 
 def _init(config_file, auth_config=None, monkeypatch=None, dev=False):
@@ -104,3 +115,40 @@ def test_boneio_dev_does_not_unlock_a_provisioned_device(config_file, monkeypatc
 
     _init(config_file, monkeypatch=monkeypatch, dev=True)
     assert is_auth_required() is True
+
+
+# ------------------------------------------- what /api/init reports to the UI
+
+
+def _effective_anonymous() -> bool:
+    """What /api/init publishes as `allow_anonymous`.
+
+    Mirrors the expression in boneio/webui/routes/system.py: the UI needs the
+    effective state, because the opt-out stops applying once an account exists.
+    """
+    return is_anonymous_allowed() and not is_auth_required()
+
+
+def test_anonymous_is_reported_active_on_a_fresh_dev_device(config_file, monkeypatch):
+    _init(config_file, monkeypatch=monkeypatch, dev=True)
+    assert _effective_anonymous() is True
+
+
+def test_anonymous_is_not_reported_once_an_account_exists(config_file, monkeypatch):
+    """The banner warned about unauthenticated access on a device that was
+    actually demanding a password, and pointed at a config key that need not
+    exist, because the raw setting was published instead of its effect."""
+    seed = UserStore(config_file.parent / USERS_FILENAME)
+    seed.add_user("pawel", "haslo-admina", Role.ADMIN)
+
+    _init(config_file, monkeypatch=monkeypatch, dev=True)
+    assert is_anonymous_allowed() is True  # the setting is still on...
+    assert _effective_anonymous() is False  # ...but it no longer applies
+
+
+def test_config_opt_out_also_stops_applying_once_provisioned(config_file, monkeypatch):
+    seed = UserStore(config_file.parent / USERS_FILENAME)
+    seed.add_user("pawel", "haslo-admina", Role.ADMIN)
+
+    _init(config_file, auth_config={"allow_anonymous": True}, monkeypatch=monkeypatch)
+    assert _effective_anonymous() is False
