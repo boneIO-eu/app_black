@@ -201,11 +201,21 @@ REMOTE_HARNESS
 
 phase_pytest() {
   section "pytest → device venv (real ARM)"
-  # Make sure the test deps are present; they are dev-only and harmless.
+  # Make sure the test deps are present. They are read out of the rsynced
+  # pyproject.toml rather than named here, so pyproject stays the single source
+  # of truth and a freshly flashed dev controller gets the same versions CI and
+  # the laptop use. tomllib is stdlib on the 3.13 the device runs.
   "${SSH[@]}" "$REMOTE" "$VENV/bin/python -c 'import pytest, httpx' 2>/dev/null" || {
-    info "installing pytest + httpx into the device venv (one-off)"
-    "${SSH[@]}" "$REMOTE" "$VENV/bin/pip install -q pytest pytest-asyncio httpx" \
-      && ok "test deps installed" || { bad "could not install test deps"; return; }
+    info "installing the pyproject 'test' group into the device venv (one-off)"
+    "${SSH[@]}" "$REMOTE" "REMOTE_APP='$REMOTE_APP' $VENV/bin/python - " <<'REMOTE_DEPS' \
+      && ok "test deps installed from pyproject" || { bad "could not install test deps"; return; }
+import os, pathlib, subprocess, sys, tomllib
+
+pyproject = pathlib.Path.home() / os.environ["REMOTE_APP"] / "pyproject.toml"
+specs = tomllib.loads(pyproject.read_text())["tool"]["pdm"]["dev-dependencies"]["test"]
+print("installing:", " ".join(specs))
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *specs])
+REMOTE_DEPS
   }
   local target="tests/unit/core/test_auth_store.py tests/unit/core/test_auth_migration.py tests/unit/webui/test_onboarding_routes.py tests/unit/webui/test_auth_middleware.py"
   if [ "${FULL:-0}" = "1" ]; then target="tests"; info "running the FULL suite (slow on a BBB)"; fi
