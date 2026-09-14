@@ -23,9 +23,9 @@ function errorMessage(err: unknown, fallback: string): string {
 /** Mirrors the backend minimum in boneio/core/auth/store.py. */
 const MIN_PASSWORD_LENGTH = 8;
 
-type Step = 'welcome' | 'account' | 'import' | 'done';
+type Step = 'welcome' | 'account' | 'import' | 'cloud' | 'done';
 
-const STEP_ORDER: Step[] = ['welcome', 'account', 'import', 'done'];
+const STEP_ORDER: Step[] = ['welcome', 'account', 'import', 'cloud', 'done'];
 
 /**
  * First-run wizard.
@@ -51,6 +51,10 @@ export default function OnboardingWizard() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importDone, setImportDone] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  const [cloudError, setCloudError] = useState<string | null>(null);
+  const [cloudDone, setCloudDone] = useState(false);
+  const [isEnablingCloud, setIsEnablingCloud] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const legacy = initData?.legacy_migration ?? null;
@@ -121,6 +125,24 @@ export default function OnboardingWizard() {
       setImportError(errorMessage(err, t('onboarding.import_failed')));
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleEnableCloud = async () => {
+    setCloudError(null);
+    setIsEnablingCloud(true);
+    try {
+      // PUT replaces the whole section, so merge rather than overwrite — the
+      // port and proxy port set moments ago live in here too.
+      const { data: config } = await axios.get('/api/config');
+      const web = (config?.web ?? {}) as Record<string, unknown>;
+      const cloud = (web.cloud ?? {}) as Record<string, unknown>;
+      await axios.put('/api/config/web', { ...web, cloud: { ...cloud, enabled: true } });
+      setCloudDone(true);
+    } catch (err: unknown) {
+      setCloudError(errorMessage(err, t('onboarding.cloud_failed')));
+    } finally {
+      setIsEnablingCloud(false);
     }
   };
 
@@ -291,8 +313,45 @@ export default function OnboardingWizard() {
               </button>
               {/* Outline, not ghost: ghost renders borderless on the light card,
                   so this read as plain text rather than a button. */}
-              <button className="btn btn-outline flex-1" onClick={() => setStep('done')}>
+              <button className="btn btn-outline flex-1" onClick={() => setStep('cloud')}>
                 {importDone ? t('onboarding.next') : t('onboarding.skip_import')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 'cloud' && (
+          <div className="space-y-4">
+            <p className="text-sm opacity-80">{t('onboarding.cloud_intro')}</p>
+
+            <ul className="text-sm opacity-80 list-disc list-inside space-y-1">
+              <li>{t('onboarding.cloud_benefit_ssl')}</li>
+              <li>{t('onboarding.cloud_benefit_pwa')}</li>
+            </ul>
+
+            <div className="alert alert-warning text-sm">
+              <span>{t('onboarding.cloud_caveat')}</span>
+            </div>
+
+            {cloudError && <div className="text-error text-sm">{cloudError}</div>}
+
+            {cloudDone && (
+              <div className="alert alert-success text-sm">
+                <span>{t('onboarding.cloud_done')}</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary flex-1"
+                disabled={isEnablingCloud || cloudDone}
+                onClick={handleEnableCloud}
+              >
+                {isEnablingCloud && <span className="loading loading-spinner loading-sm" />}
+                {t('onboarding.cloud_enable')}
+              </button>
+              <button className="btn btn-outline flex-1" onClick={() => setStep('done')}>
+                {cloudDone ? t('onboarding.next') : t('onboarding.cloud_skip')}
               </button>
             </div>
           </div>

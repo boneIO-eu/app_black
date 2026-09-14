@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -13,7 +14,15 @@ interface WebServerFormProps {
 
 /**
  * Custom form for Web Server section configuration.
- * Fields: port, auth (username, password)
+ * Fields: port, proxy port, cloud registration, PWA name.
+ *
+ * Credentials are deliberately absent. From 1.6 accounts live in users.json
+ * with hashed passwords and roles, managed by the Accounts section rendered
+ * next to this form. The `web.auth` keys stay in the config schema so a
+ * pre-1.6 config still parses and the startup migration can move the old pair
+ * across — the validator purges unknown keys, so dropping them from the schema
+ * would silently strip an upgrading user's credentials before the migration
+ * ever saw them.
  */
 const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
@@ -83,19 +92,6 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
     }
   };
 
-  const handleAuthChange = (field: string, value: any) => {
-    const auth = data?.auth || {};
-    const newAuth = { ...auth, [field]: value || undefined };
-    
-    // Remove auth object if both fields are empty
-    if (!newAuth.username && !newAuth.password) {
-      const { auth: _, ...rest } = data || {};
-      onChange(rest);
-    } else {
-      onChange({ ...data, auth: newAuth });
-    }
-  };
-
   const handleFixPermissions = async (password: string) => {
     setIsFixingPermissions(true);
     setFixResult(null);
@@ -143,27 +139,18 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         help={t('webserver.proxy_port_help')}
       />
 
-      {/* Auth Section */}
+
+      {/* Where the username/password fields used to be, so nobody hunts for
+          the web password that moved to hashed accounts in 1.6. */}
       <div className="divider">{t('webserver.auth')}</div>
-
-      {/* Username */}
-      <FormInputText
-        label={t('webserver.username')}
-        value={data?.auth?.username || ''}
-        onChange={(val) => handleAuthChange('username', val)}
-        placeholder="admin"
-        help={t('webserver.username_help')}
-      />
-
-      {/* Password */}
-      <FormInputText
-        label={t('webserver.password')}
-        value={data?.auth?.password || ''}
-        onChange={(val) => handleAuthChange('password', val)}
-        placeholder="••••••••"
-        help={t('webserver.password_help')}
-        type="password"
-      />
+      <div className="alert alert-info text-sm">
+        <span>
+          {t('webserver.accounts_moved')}{' '}
+          <Link to="/accounts" className="link font-semibold">
+            {t('navigation.accounts')}
+          </Link>
+        </span>
+      </div>
 
       {/* Cloud Registration (PWA) */}
       <div className="divider"></div>

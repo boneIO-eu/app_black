@@ -13,7 +13,8 @@
     "help": "Pomoc",
     "templates": "Szablony",
     "experimental": "EKSPERYMENTALNE",
-    "irrigation": "Nawadnianie"
+    "irrigation": "Nawadnianie",
+    "accounts": "Konta"
   },
   "outputs": {
     "title": "Wyjścia",
@@ -1019,10 +1020,7 @@
     "proxy_port_help": "Port używany w URL autodiscovery Home Assistant. Ustaw jeśli używasz nginx reverse proxy (np. dla integracji Node-RED).",
     "proxy_port_placeholder": "Zostaw puste aby użyć portu serwera web",
     "auth": "Uwierzytelnianie (opcjonalnie)",
-    "username": "Nazwa użytkownika",
-    "username_help": "Nazwa użytkownika do interfejsu web",
-    "password": "Hasło",
-    "password_help": "Hasło do interfejsu web"
+    "accounts_moved": "Logowanie do panelu nie jest już konfigurowane tutaj. Od wersji 1.6 konta mają hasła zapisane jako hash i role — zarządzasz nimi w zakładce"
   },
   "common": {
     "save": "Zapisz",
@@ -2528,7 +2526,16 @@
     "next": "Dalej",
     "done_summary": "Gotowe. Konto administratora „{{username}}” zostało utworzone, a panel jest teraz chroniony hasłem.",
     "done_remove_web_auth": "Pamiętaj, żeby usunąć sekcję web.auth z config.yaml.",
-    "finish": "Przejdź do panelu"
+    "finish": "Przejdź do panelu",
+    "step_cloud": "Chmura",
+    "cloud_intro": "Możesz zarejestrować to urządzenie w boneIO Cloud. Dostanie własną subdomenę i prawdziwy certyfikat SSL, więc połączenie przestanie być oznaczane jako niezaufane.",
+    "cloud_benefit_ssl": "Szyfrowane połączenie HTTPS z zaufanym certyfikatem — zamiast ostrzeżenia o certyfikacie samopodpisanym.",
+    "cloud_benefit_pwa": "Instalacja panelu jako aplikacji (PWA) na telefonie i komputerze.",
+    "cloud_caveat": "Rejestracja wysyła numer seryjny urządzenia do boneIO Cloud. Subdomena wskazuje na Twoje lokalne IP, więc urządzenie pozostaje dostępne tylko w Twojej sieci. Router nie może mieć włączonej ochrony przed DNS rebinding. Możesz to włączyć później w Ustawieniach → Serwer Web.",
+    "cloud_enable": "Włącz rejestrację",
+    "cloud_skip": "Pomiń",
+    "cloud_done": "Rejestracja włączona. Zacznie działać po restarcie urządzenia.",
+    "cloud_failed": "Nie udało się włączyć rejestracji w chmurze."
   },
   "accounts": {
     "title": "Konta użytkowników",

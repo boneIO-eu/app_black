@@ -14,7 +14,6 @@ import SelfTest from './SelfTest';
 import FixAppPermissions from './FixAppPermissions';
 import HardwareErrors from './HardwareErrors';
 import MigrationsSection from './MigrationsSection';
-import AccountsView from '../AccountsView';
 
 import {
   DeviceControlSection,
@@ -334,9 +333,6 @@ const SystemState: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      {/* Web UI accounts — device administration, same as hostname or updates */}
-      <AccountsView />
-
       {/* System migrations (bootstrap + pending migrations) */}
       <MigrationsSection />
 

@@ -13,7 +13,8 @@
     "help": "Help",
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
-    "irrigation": "Irrigation"
+    "irrigation": "Irrigation",
+    "accounts": "Accounts"
   },
   "outputs": {
     "title": "Outputs",
@@ -1019,10 +1020,7 @@
     "proxy_port_help": "Port used in Home Assistant discovery URL. Set this if you use nginx reverse proxy (e.g. for Node-RED integration).",
     "proxy_port_placeholder": "Leave empty to use web server port",
     "auth": "Authentication (optional)",
-    "username": "Username",
-    "username_help": "Username to connect to web interface",
-    "password": "Password",
-    "password_help": "Password to web interface"
+    "accounts_moved": "Panel sign-in is no longer configured here. From 1.6 accounts have hashed passwords and roles — manage them under"
   },
   "common": {
     "save": "Save",
@@ -2529,7 +2527,16 @@
     "next": "Next",
     "done_summary": "All set. The administrator account “{{username}}” has been created and the panel is now password-protected.",
     "done_remove_web_auth": "Remember to remove the web.auth section from config.yaml.",
-    "finish": "Go to the panel"
+    "finish": "Go to the panel",
+    "step_cloud": "Cloud",
+    "cloud_intro": "You can register this device with boneIO Cloud. It gets its own subdomain and a real SSL certificate, so the connection stops being flagged as untrusted.",
+    "cloud_benefit_ssl": "Encrypted HTTPS with a trusted certificate, instead of a self-signed certificate warning.",
+    "cloud_benefit_pwa": "Install the panel as an app (PWA) on your phone and desktop.",
+    "cloud_caveat": "Registration sends the device serial number to boneIO Cloud. The subdomain points at your local IP, so the device stays reachable only on your own network. Your router must not have DNS rebinding protection enabled. You can turn this on later under Settings → Web server.",
+    "cloud_enable": "Enable registration",
+    "cloud_skip": "Skip",
+    "cloud_done": "Registration enabled. It takes effect after the device restarts.",
+    "cloud_failed": "Could not enable cloud registration."
   },
   "accounts": {
     "title": "User accounts",

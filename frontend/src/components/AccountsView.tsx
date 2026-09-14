@@ -23,9 +23,12 @@ function errorMessage(err: unknown, fallback: string): string {
 /**
  * Account management, for administrators.
  *
- * Rendered as a section of the System page, alongside the other device-level
- * administration: accounts belong with hostname and updates, not with the
- * boneIO configuration under Settings.
+ * Its own page rather than a section of the Settings editor: that sidebar is
+ * titled Configuration Sections and every entry in it reads, saves and
+ * restores a slice of config.yaml, with a YAML preview to match. Accounts
+ * write to users.json and have none of that, so they would need the save,
+ * restore and preview chrome suppressed to sit there honestly. The Web server
+ * section links here instead, from where the old password fields used to be.
  *
  * Everything here is also enforced server-side — the middleware refuses a
  * viewer's request whatever this component renders — so the UI's job is to not
@@ -132,11 +135,13 @@ export default function AccountsView() {
   // URL, so the section says why it is empty rather than rendering nothing.
   if (!isAdmin) {
     return (
-      <div className="card bg-base-200 shadow-xl">
+      <div className="container mx-auto p-4">
+        <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
           <h2 className="text-2xl font-bold">{t('accounts.title')}</h2>
-          <div className="alert alert-warning mt-2">
-            <span>{t('accounts.admin_only')}</span>
+            <div className="alert alert-warning mt-2">
+              <span>{t('accounts.admin_only')}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -144,7 +149,8 @@ export default function AccountsView() {
   }
 
   return (
-    <div className="card bg-base-200 shadow-xl">
+    <div className="container mx-auto p-4">
+      <div className="card bg-base-200 shadow-xl">
       <div className="card-body space-y-6">
       <div>
         <h2 className="text-2xl font-bold">{t('accounts.title')}</h2>
@@ -258,6 +264,7 @@ export default function AccountsView() {
           {t('accounts.add_button')}
         </button>
       </form>
+      </div>
       </div>
     </div>
   );

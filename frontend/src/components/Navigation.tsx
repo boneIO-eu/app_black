@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer } from 'react-icons/fa';
+import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer, FaUsers } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect } from 'react';
@@ -150,6 +150,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     ...(isAdmin && hasBoneioSection ? [{ path: '/settings', icon: FaCog, label: t('navigation.settings'), right: true }] : []),
     ...(isAdmin ? [
       { path: '/config', icon: FaCode, label: t('navigation.config'), right: true },
+      { path: '/accounts', icon: FaUsers, label: t('navigation.accounts'), right: true },
       { path: '/system', icon: FaServer, label: t('navigation.system_update'), right: true },
     ] : []),
     // Node-RED - only show if available via nginx proxy
