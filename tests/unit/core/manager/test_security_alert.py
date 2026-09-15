@@ -205,3 +205,18 @@ async def test_advice_alone_does_not_raise_the_problem_sensor(tmp_path):
     attrs = json.loads(topics["boneio/security/attributes"])
     assert attrs["actionable"] == 0
     assert attrs["failed"] > 0  # the advice is still there to read
+
+
+async def test_summary_describes_only_what_turned_the_sensor_on(device):
+    """An automation templating on `summary` must not report the advice.
+
+    The state counts actionable findings; a summary listing every finding
+    would make a notification say something the sensor does not.
+    """
+    await SecurityAlertPublisher(device).publish_state()
+    attrs = json.loads(dict(device.published)["boneio/security/attributes"])
+
+    assert "MQTT" in attrs["summary"]
+    assert "certificate" not in attrs["summary"].lower()
+    assert "certificate" in attrs["advice"].lower()
+    assert attrs["summary"].count(";") + 1 == attrs["actionable"]

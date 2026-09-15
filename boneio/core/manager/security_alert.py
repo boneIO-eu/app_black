@@ -56,19 +56,27 @@ def build_payloads(posture: Posture) -> tuple[str, str]:
     # a week, which is the same as not having it.
     state = json.dumps({"state": "ON" if posture.actionable else "OFF"})
 
+    actionable = posture.actionable
+    advice = [c for c in failures if c not in actionable]
+
     attributes = {
         "failed": len(failures),
-        "actionable": len(posture.actionable),
+        "actionable": len(actionable),
         "critical": posture.count(Severity.CRITICAL),
         "warning": posture.count(Severity.WARNING),
         "info": posture.count(Severity.INFO),
         "worst": str(posture.worst) if posture.worst else "none",
         # Human-readable, because this is what an HA notification will carry.
+        # It describes what turned the sensor ON and nothing else: a summary
+        # listing four things while the state counts two is how an automation
+        # ends up saying something untrue.
         "summary": (
-            "; ".join(f"{c.title}: {c.detail}" for c in failures[:5])
-            if failures
+            "; ".join(f"{c.title}: {c.detail}" for c in actionable[:5])
+            if actionable
             else "No security recommendations outstanding"
         ),
+        # Advice, kept apart for the same reason it is kept apart in the panel.
+        "advice": "; ".join(f"{c.title}: {c.detail}" for c in advice[:5]),
         # Machine-readable, for anyone templating against it.
         "recommendations": [
             {

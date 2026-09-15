@@ -138,11 +138,8 @@ export default function SecurityView() {
                 {t('security.severity_count.warning', { count: posture.summary.warning })}
               </span>
             )}
-            {posture.summary.info > 0 && (
-              <span className="badge badge-info badge-sm">
-                {t('security.severity_count.info', { count: posture.summary.info })}
-              </span>
-            )}
+            {/* No info badge here: those have their own block below, and
+                counting them in the same line would undo the split. */}
           </div>
 
           {failed.map(renderCheck)}
