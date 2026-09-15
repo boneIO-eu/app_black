@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Editor, { BeforeMount, OnMount, loader } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import * as monaco from '../monaco-editor';
 import axios from '@/api/axios';
 import { useTheme } from '../hooks/useTheme';
 import { FaChevronRight, FaChevronDown, FaRegFolder, FaRegFolderOpen, FaRegFile } from 'react-icons/fa';
@@ -8,8 +8,8 @@ import { GoSidebarExpand } from 'react-icons/go';
 import ConfigCheckModal from './ConfigCheckModal';
 import { configureMonacoYaml, MonacoYaml } from 'monaco-yaml';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import yamlWorker from '../yaml.worker.ts?worker';
+import { installMonacoWorkerCompat } from '../monaco-worker-compat';
 
 // Configure Monaco workers and loader (lazy-loaded with this component)
 (self as any).MonacoEnvironment = {
@@ -17,12 +17,15 @@ import yamlWorker from '../yaml.worker.ts?worker';
     if (label === 'yaml') {
       return new yamlWorker();
     }
-    if (label === 'json') {
-      return new jsonWorker();
-    }
     return new editorWorker();
   }
 };
+
+// monaco-yaml still asks for its worker through the pre-0.52 createWebWorker
+// options, which the bundled Monaco no longer understands. Without this the
+// YAML worker is never started and every language feature fails with
+// "Missing requestHandler or method: ...". See monaco-worker-compat.ts.
+installMonacoWorkerCompat(monaco);
 
 loader.config({ monaco });
 
