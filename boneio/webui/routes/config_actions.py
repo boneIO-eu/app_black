@@ -20,6 +20,17 @@ from boneio.core.config.yaml_util import (
     update_config_section,
     yaml_saves_pending,
 )
+from boneio.core.config.input_bindings import (
+    INPUT_MODE_COVERS,
+    INPUT_MODE_COVERS_AND_OUTPUTS,
+    INPUT_MODE_NONE,
+    INPUT_MODE_OUTPUTS,
+    INPUT_MODES,
+    bindable_targets,
+    board_input_ids,
+    plan_input_bindings,
+    taken_inputs,
+)
 from boneio.core.manager import Manager
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 from boneio.webui.routes.config_core import (
@@ -846,3 +857,130 @@ async def delete_quick_action(payload: dict = Body(...)):
         _LOGGER.error("Error deleting quick action: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error deleting quick action: {e}") from e
 
+
+
+# --------------------------------------------------------------- input bindings
+#
+# The first-run wizard offers to wire the inputs to what the board already has.
+# Output and cover configs are flashed per model at assembly, so both routes
+# below read them rather than assuming any particular hardware.
+
+
+def _board_inputs(config: dict) -> list[str]:
+    """Every input id the assembled board exposes, in board order.
+
+    Args:
+        config: The loaded configuration.
+
+    Returns:
+        Lower-cased input ids.
+
+    Raises:
+        HTTPException: 400 if the board's input map cannot be read.
+    """
+    boneio = (config or {}).get("boneio") or {}
+    version = normalize_version(boneio.get("version", "0.8"))
+    try:
+        input_config = load_yaml_file(get_board_config_path("input", version))
+    except Exception as e:
+        _LOGGER.error("Failed to load input map for version %s: %s", version, e)
+        raise HTTPException(
+            status_code=400, detail=f"Input map not found for board version {version}"
+        ) from e
+    return board_input_ids(input_config)
+
+
+@router.get("/config/input-bindings/targets")
+async def get_input_binding_targets():
+    """Report what this board can bind its inputs to.
+
+    Lets the wizard offer only the modes the hardware supports: a cover board
+    has no plain relays, and a relay board has no covers unless someone has
+    already paired two of them.
+
+    Returns:
+        Counts and the modes that make sense for this device.
+    """
+    config = load_config_from_file(_get_app_state().yaml_config_file) or {}
+    outputs, covers = bindable_targets(config)
+    free_inputs = [i for i in _board_inputs(config) if i.lower() not in taken_inputs(config)]
+
+    modes = [INPUT_MODE_NONE]
+    if outputs:
+        modes.insert(0, INPUT_MODE_OUTPUTS)
+    if covers:
+        modes.insert(0, INPUT_MODE_COVERS)
+    if outputs and covers:
+        modes.insert(0, INPUT_MODE_COVERS_AND_OUTPUTS)
+
+    return {
+        "device_type": ((config.get("boneio") or {}).get("device_type")),
+        "free_inputs": len(free_inputs),
+        "outputs": len(outputs),
+        "covers": len(covers),
+        "available_modes": modes,
+    }
+
+
+@router.post("/config/input-bindings")
+async def apply_input_bindings(request: dict = Body(...)):
+    """Wire the inputs to the board's outputs and/or covers.
+
+    Replaces the ``event`` section outright — the shipped config ships example
+    bindings and a half-merged result would be harder to reason about than a
+    clean one. ``none`` leaves the section alone entirely.
+
+    Args:
+        request: ``mode`` (see INPUT_MODES) and optional ``restore_state``
+            (bool) to apply to relays and covers.
+
+    Returns:
+        What was written.
+
+    Raises:
+        HTTPException: 400 for an unknown mode, 500 if a write fails.
+    """
+    mode = request.get("mode")
+    if mode not in INPUT_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of {', '.join(INPUT_MODES)}",
+        )
+    restore_state = request.get("restore_state")
+    if restore_state is not None and not isinstance(restore_state, bool):
+        raise HTTPException(status_code=400, detail="restore_state must be a boolean")
+
+    config_file = _get_app_state().yaml_config_file
+    config = load_config_from_file(config_file) or {}
+    outputs, covers = bindable_targets(config)
+
+    written = {}
+
+    if mode != INPUT_MODE_NONE:
+        entries = plan_input_bindings(
+            mode=mode,
+            available_inputs=_board_inputs(config),
+            taken_inputs=taken_inputs(config),
+            outputs=outputs,
+            covers=covers,
+        )
+        result = update_config_section(config_file, "event", entries)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message"))
+        invalidate_config_cache(section="event", section_data=entries)
+        written["event"] = len(entries)
+
+    if restore_state is not None:
+        for section in ("output", "cover"):
+            current = [e for e in (config.get(section) or []) if isinstance(e, dict)]
+            if not current:
+                continue
+            updated = [{**entry, "restore_state": restore_state} for entry in current]
+            result = update_config_section(config_file, section, updated)
+            if result.get("status") == "error":
+                raise HTTPException(status_code=500, detail=result.get("message"))
+            invalidate_config_cache(section=section, section_data=updated)
+            written[section] = len(updated)
+
+    _LOGGER.info("Input bindings applied: mode=%s written=%s", mode, written)
+    return {"status": "success", "mode": mode, "written": written}

@@ -24,8 +24,12 @@ def mock_gpiod():
     mock_line = MagicMock()
     mock_chip.get_line.return_value = mock_line
     
+    # gpiod.line is imported as a submodule (`from gpiod.line import Edge`),
+    # which a mock of `gpiod` alone does not satisfy — without this, importing
+    # any module that reaches the GPIO layer fails outright off-device.
     with patch.dict("sys.modules", {
         "gpiod": MagicMock(),
+        "gpiod.line": MagicMock(),
     }):
         yield mock_chip
 
