@@ -59,7 +59,9 @@ class Check:
     state: State
     detail: str
     remedy: str = ""
-    #: Where in the panel this is fixed, when it can be fixed there.
+    #: Where in the panel this is fixed, when it can be fixed there. A bare
+    #: name is a Settings section; ``system:<anchor>`` is the System page.
+    #: None means there is no control — the remedy is a file or a shell.
     settings_section: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -181,6 +183,7 @@ def evaluate(
                 "wizard first takes control of it."
             ),
             remedy="Finish the first-run wizard, or run: boneio accounts add <name> --role admin",
+            settings_section="accounts",
         )
     )
 
@@ -221,7 +224,7 @@ def evaluate(
             state=mqtt_state,
             detail=mqtt_detail,
             remedy="Set a new broker password, then update Home Assistant with it.",
-            settings_section="security",
+            settings_section="system:mqtt-passwords",
         )
     )
 

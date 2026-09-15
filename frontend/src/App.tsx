@@ -64,6 +64,7 @@ function prefetchRouteChunks() {
 
 import LoginView from './components/LoginView';
 import OnboardingWizard from './components/OnboardingWizard';
+import SecurityUpdatePrompt from './components/SecurityUpdatePrompt';
 import Layout from './components/Layout';
 import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, GroupEvent, isOutputEvent, isGroupEvent, isConfigReloadEvent } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -483,6 +484,9 @@ function AppContent() {
         } />
       </Routes>
       </Suspense>
+      {/* Renders nothing unless an admin is signed in and something is
+          outstanding, so it stays inert on the login and wizard screens. */}
+      <SecurityUpdatePrompt />
     </WebSocketContext.Provider>
   );
 }

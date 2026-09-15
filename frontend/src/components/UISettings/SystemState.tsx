@@ -25,6 +25,7 @@ import {
   BackupSection,
   NodeRedManagement,
 } from './SystemStateComponents';
+import { useLocation } from 'react-router-dom';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -93,6 +94,18 @@ const SystemState: React.FC = () => {
     null
   );
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+
+  // React Router does not scroll to a #fragment on navigation, so a deep link
+  // from the Security section would land at the top of a long page and look
+  // like it did nothing. The frame waits for the sections below to mount.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    const id = requestAnimationFrame(() => {
+      document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [hash]);
 
   // Restart state
   const [restartRequired, setRestartRequired] = useState(false);
@@ -863,7 +876,12 @@ const SystemState: React.FC = () => {
 
             <TimezoneSection />
 
-            <MqttPasswordsSection />
+            {/* Anchor target: the Security section links here to fix the
+                factory broker password. scroll-mt keeps the heading clear of
+                the sticky header when the browser jumps to it. */}
+            <div id="mqtt-passwords" className="scroll-mt-24">
+              <MqttPasswordsSection />
+            </div>
 
             <SslSection />
 

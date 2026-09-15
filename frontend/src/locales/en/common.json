@@ -397,7 +397,8 @@
     "device_shutting_down": "Device is shutting down...",
     "shutdown_warning": "After shutdown, the device must be powered on physically by disconnecting and reconnecting power.",
     "web_sections": "Web panel",
-    "badge_restart": "restart"
+    "badge_restart": "restart",
+    "security_sections": "Security"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",
@@ -748,7 +749,8 @@
     "mcp23017": "MCP23017 (Advanced)",
     "board_sensors": "Board Sensors",
     "oled": "OLED Display",
-    "accounts": "User accounts"
+    "accounts": "User accounts",
+    "security": "Security"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",
@@ -2595,6 +2597,78 @@
     "load_failed": "Could not load the account list."
   },
   "security": {
+    "title": "Security",
+    "intro": "What is still open on this controller, and where to close it. The same information reaches Home Assistant as a diagnostic entity.",
+    "outstanding": "{{count}} outstanding",
+    "all_clear": "Nothing is outstanding — {{count}} checks passed.",
+    "passed": "Passing ({{count}})",
+    "fix": "Fix",
+    "recheck": "Check again",
+    "retry": "Try again",
+    "unavailable": "Could not read the security state.",
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Information"
+    },
+    "severity_count": {
+      "critical": "{{count}} critical",
+      "warning": "{{count}} warning",
+      "info": "{{count}} info"
+    },
+    "checks": {
+      "admin_account": {
+        "title": "Administrator account",
+        "detail": "This device has no account. Whoever reaches the first-run wizard first takes control of it.",
+        "ok": "An administrator account exists.",
+        "remedy": "Finish the first-run wizard, or run: boneio accounts add <name> --role admin"
+      },
+      "anonymous_access": {
+        "title": "Unauthenticated access",
+        "detail": "Anyone on the network can read the configuration, switch outputs and reboot this device without a password.",
+        "ok": "Requests need to be signed in.",
+        "remedy": "Create an account, and remove allow_anonymous from web.auth in config.yaml."
+      },
+      "mqtt_password": {
+        "title": "MQTT broker password",
+        "detail": "The broker still uses the password every boneIO ships with, which is published and identical on every device.",
+        "ok": "The broker password has been changed.",
+        "remedy": "Set a new broker password, then update Home Assistant with it."
+      },
+      "legacy_web_auth": {
+        "title": "Old credentials in config.yaml",
+        "detail": "config.yaml still holds the pre-1.6 web.auth block, with the password in clear text. It is no longer read.",
+        "ok": "No credentials are stored in config.yaml.",
+        "remedy": "Delete the web.auth username and password from config.yaml."
+      },
+      "certificate": {
+        "title": "HTTPS certificate",
+        "detail": "Served with a self-signed certificate, so browsers warn on every visit and people learn to click through the warning.",
+        "ok": "Served with a certificate browsers trust.",
+        "remedy": "Enable boneIO Cloud registration to get a trusted certificate."
+      },
+      "frame_ancestors": {
+        "title": "Embedding in other sites",
+        "detail": "Any site may embed this panel in a frame, which is what clickjacking needs.",
+        "ok": "Only the configured origin may embed this panel.",
+        "remedy": "Set web.security.frame_ancestors once you know what embeds the panel."
+      },
+      "dev_mode": {
+        "title": "Development mode",
+        "detail": "BONEIO_DEV is set: development routes are mounted and CORS accepts local dev servers.",
+        "ok": "Development mode is off.",
+        "remedy": "Unset BONEIO_DEV on any device that is not a development board."
+      }
+    },
+    "after_update": {
+      "title": "boneIO updated to {{version}}",
+      "body": "This release adds security settings your device does not have switched on yet. Reviewing them takes a moment.",
+      "body_clean": "This release adds security settings. Nothing on this device needs attention.",
+      "review": "Review security",
+      "later": "Later",
+      "outstanding": "{{count}} outstanding",
+      "title_first": "Security recommendations"
+    },
     "anonymous_title": "Unauthenticated access is enabled.",
     "anonymous_body": "Anyone who can reach this device on the network can read its configuration, switch its outputs and reboot it, with no password. Remove “allow_anonymous” from web.auth in config.yaml and create an administrator account."
   },

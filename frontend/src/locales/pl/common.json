@@ -397,7 +397,8 @@
     "device_shutting_down": "Urządzenie się wyłącza...",
     "shutdown_warning": "Po wyłączeniu urządzenie musi być włączone fizycznie przez odłączenie i ponowne podłączenie zasilania.",
     "web_sections": "Panel webowy",
-    "badge_restart": "restart"
+    "badge_restart": "restart",
+    "security_sections": "Bezpieczeństwo"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Proszę naprawić błędy walidacji przed zapisaniem",
@@ -712,7 +713,8 @@
     "mcp23017": "MCP23017 (Zaawansowane)",
     "board_sensors": "Czujniki sterownika",
     "oled": "Wyświetlacz OLED",
-    "accounts": "Konta użytkowników"
+    "accounts": "Konta użytkowników",
+    "security": "Bezpieczeństwo"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
@@ -2594,6 +2596,78 @@
     "load_failed": "Nie udało się wczytać listy kont."
   },
   "security": {
+    "title": "Bezpieczeństwo",
+    "intro": "Co na tym sterowniku jest jeszcze otwarte i gdzie to zamknąć. Te same informacje trafiają do Home Assistant jako encja diagnostyczna.",
+    "outstanding": "Do zrobienia: {{count}}",
+    "all_clear": "Nic nie zostało otwarte — sprawdzono {{count}} pozycji.",
+    "passed": "W porządku ({{count}})",
+    "fix": "Napraw",
+    "recheck": "Sprawdź ponownie",
+    "retry": "Spróbuj ponownie",
+    "unavailable": "Nie udało się sprawdzić stanu bezpieczeństwa.",
+    "severity": {
+      "critical": "Krytyczne",
+      "warning": "Ostrzeżenie",
+      "info": "Informacja"
+    },
+    "severity_count": {
+      "critical": "krytyczne: {{count}}",
+      "warning": "ostrzeżenia: {{count}}",
+      "info": "informacje: {{count}}"
+    },
+    "checks": {
+      "admin_account": {
+        "title": "Konto administratora",
+        "detail": "To urządzenie nie ma żadnego konta. Kto pierwszy otworzy kreator pierwszego uruchomienia, ten je przejmuje.",
+        "ok": "Konto administratora istnieje.",
+        "remedy": "Dokończ kreator pierwszego uruchomienia albo uruchom: boneio accounts add <nazwa> --role admin"
+      },
+      "anonymous_access": {
+        "title": "Dostęp bez logowania",
+        "detail": "Każdy w Twojej sieci może odczytać konfigurację, przełączać wyjścia i zrestartować urządzenie bez hasła.",
+        "ok": "Żądania wymagają zalogowania.",
+        "remedy": "Załóż konto i usuń allow_anonymous z web.auth w config.yaml."
+      },
+      "mqtt_password": {
+        "title": "Hasło brokera MQTT",
+        "detail": "Broker nadal używa hasła, z którym boneIO wychodzi z fabryki — jest opublikowane i identyczne na każdym urządzeniu.",
+        "ok": "Hasło brokera zostało zmienione.",
+        "remedy": "Ustaw nowe hasło brokera, a potem wpisz je w Home Assistant."
+      },
+      "legacy_web_auth": {
+        "title": "Stare dane logowania w config.yaml",
+        "detail": "W config.yaml został blok web.auth sprzed 1.6, z hasłem zapisanym otwartym tekstem. Nie jest już używany.",
+        "ok": "W config.yaml nie ma zapisanych danych logowania.",
+        "remedy": "Usuń username i password z sekcji web.auth w config.yaml."
+      },
+      "certificate": {
+        "title": "Certyfikat HTTPS",
+        "detail": "Panel działa na certyfikacie samopodpisanym, więc przeglądarka ostrzega przy każdej wizycie — a ludzie uczą się to ostrzeżenie klikać.",
+        "ok": "Panel działa na certyfikacie, któremu przeglądarki ufają.",
+        "remedy": "Włącz rejestrację w boneIO Cloud, żeby dostać zaufany certyfikat."
+      },
+      "frame_ancestors": {
+        "title": "Osadzanie w innych stronach",
+        "detail": "Dowolna strona może osadzić ten panel w ramce — dokładnie tego potrzebuje clickjacking.",
+        "ok": "Panel może osadzić tylko wskazane źródło.",
+        "remedy": "Ustaw web.security.frame_ancestors, kiedy już wiesz, co osadza panel."
+      },
+      "dev_mode": {
+        "title": "Tryb deweloperski",
+        "detail": "Ustawione jest BONEIO_DEV: działają trasy deweloperskie, a CORS wpuszcza lokalne serwery dev.",
+        "ok": "Tryb deweloperski wyłączony.",
+        "remedy": "Usuń BONEIO_DEV na każdym urządzeniu, które nie jest płytką deweloperską."
+      }
+    },
+    "after_update": {
+      "title": "boneIO zaktualizowane do {{version}}",
+      "body": "Ta wersja dokłada ustawienia bezpieczeństwa, których Twoje urządzenie jeszcze nie ma włączonych. Sprawdzenie zajmuje chwilę.",
+      "body_clean": "Ta wersja dokłada ustawienia bezpieczeństwa. Na tym urządzeniu nic nie wymaga uwagi.",
+      "review": "Pokaż bezpieczeństwo",
+      "later": "Później",
+      "outstanding": "Do zrobienia: {{count}}",
+      "title_first": "Zalecenia bezpieczeństwa"
+    },
     "anonymous_title": "Dostęp bez logowania jest włączony.",
     "anonymous_body": "Każdy, kto ma dostęp do tego urządzenia w sieci, może odczytać konfigurację, przełączać wyjścia i je zrestartować — bez hasła. Usuń „allow_anonymous” z sekcji web.auth w config.yaml i utwórz konto administratora."
   },

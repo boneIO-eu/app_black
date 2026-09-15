@@ -7,6 +7,7 @@
 import { FaCheck, FaExclamationTriangle, FaUndo, FaSave } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
+import { useSecurityPosture } from '@/hooks/useSecurityPosture';
 
 interface SectionConfig {
   name: string;
@@ -161,6 +162,11 @@ function SidebarContent({
   const localReloadSections = reloadSections.filter(s => !s.group);
   const remoteReloadSections = reloadSections.filter(s => s.group === 'remote');
   const toolsSections = reloadSections.filter(s => s.group === 'tools');
+  const securitySections = reloadSections.filter(s => s.group === 'security');
+  // A count on the label, so the section says there is something to do before
+  // it is opened. Nothing outstanding shows no badge rather than a zero.
+  const { posture } = useSecurityPosture();
+  const securityCount = posture?.summary.failed ?? 0;
   // The web panel group is a domain group, so it draws from both lists: the
   // server settings need a restart, the accounts do not. That difference is
   // carried by a per-entry badge instead of by which box they sit in.
@@ -195,6 +201,29 @@ function SidebarContent({
 
   return (
     <>
+      {/* Security first: it is the section people do not know to look for. */}
+      {securitySections.length > 0 && (
+        <div className="mb-4 border border-error/20 rounded-xl bg-error/5 p-3">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-sm font-semibold text-error">
+              🛡️ {t('settings.security_sections')}
+            </span>
+            {securityCount > 0 && (
+              <span className="badge badge-error badge-sm">{securityCount}</span>
+            )}
+          </div>
+          <SectionList
+            sections={sections}
+            filterSections={securitySections}
+            configSections={configSections}
+            activeSection={activeSection}
+            saveStatus={saveStatus}
+            unsavedChanges={unsavedChanges}
+            onNavigate={onNavigate}
+          />
+        </div>
+      )}
+
       {/* Local sections - hot reload supported */}
       <div className="mb-4">
         <SectionList

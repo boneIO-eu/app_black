@@ -35,6 +35,9 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs', group: 'remote' },
   { name: 'binding_matrix', icon: '📊', translationKey: 'sections.binding_matrix', group: 'tools' },
   { name: 'accounts', icon: '👥', translationKey: 'sections.accounts', group: 'web' },
+  // Its own group, and deliberately first in the sidebar: the people this is
+  // for are the ones who already own a device and do not know to look.
+  { name: 'security', icon: '🛡️', translationKey: 'sections.security', group: 'security' },
 ];
 
 /**
