@@ -1280,6 +1280,47 @@ def ha_migration_alert_availability_message(
     return msg
 
 
+def ha_security_alert_availability_message(
+    config_helper: ConfigHelper,
+    **kwargs,
+) -> HomeAssistantDiscoveryMessage:
+    """Create the Security binary_sensor (diagnostic) for HA.
+
+    ``device_class: problem``, ON while any security check is failing. The
+    failures themselves ride on the JSON attributes topic, so Home Assistant
+    can show what is wrong without boneIO inventing an entity per check — the
+    set of checks grows between releases, and entities that come and go leave
+    orphans in HA's registry.
+
+    Args:
+        config_helper: ConfigHelper instance.
+        **kwargs: Additional fields forwarded to ``ha_availabilty_message``.
+
+    Returns:
+        HA discovery message dict for the security binary_sensor.
+    """
+    topic = config_helper.topic_prefix
+
+    msg = ha_availabilty_message(
+        id="security_alert",
+        name="Security",
+        entity_type="binary_sensor",
+        config_helper=config_helper,
+        device_type="update",
+        **kwargs,
+    )
+    msg["state_topic"] = f"{topic}/security/state"
+    msg["value_template"] = "{{ value_json.state }}"
+    msg["payload_on"] = "ON"
+    msg["payload_off"] = "OFF"
+    msg["json_attributes_topic"] = f"{topic}/security/attributes"
+    msg["icon"] = "mdi:shield-alert"
+    msg["entity_category"] = "diagnostic"
+    msg["device_class"] = "problem"
+
+    return msg
+
+
 def ha_climate_availability_message(
     id: str,
     name: str,

@@ -73,6 +73,7 @@ from boneio.webui.routes import (
     mqtt_reference_router,
     outputs_router,
     remote_devices_router,
+    security_router,
     sensors_router,
     system_router,
     templates_router,
@@ -81,6 +82,7 @@ from boneio.webui.routes import (
 )
 from boneio.webui.routes import config as config_module
 from boneio.webui.routes import onboarding as onboarding_module
+from boneio.webui.routes import security as security_module
 from boneio.webui.routes import system as system_module
 
 # Import WebSocket manager
@@ -168,6 +170,7 @@ app.include_router(config_router)
 app.include_router(update_router)
 app.include_router(modbus_router)
 app.include_router(sensors_router)
+app.include_router(security_router)
 app.include_router(caddy_router)
 app.include_router(nodered_router)
 app.include_router(onboarding_router)
@@ -775,6 +778,7 @@ def init_app(
     config_module.set_app_state(app.state)
     config_module.set_websocket_manager(app.state.websocket_manager)
     system_module.set_app_state(app.state)
+    security_module.set_app_state(app.state)
 
     # Pre-populate config cache if initial_config provided
     if initial_config is not None:

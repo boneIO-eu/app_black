@@ -50,6 +50,9 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/config/backups",
     "/api/caddy",
     "/api/nodered",
+    # A list of what is still unlocked is a shopping list for anyone who
+    # should not have it.
+    "/api/security",
 )
 
 # Writes a viewer may perform: operating the device, never configuring it.

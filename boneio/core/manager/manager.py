@@ -14,6 +14,8 @@ from collections.abc import Callable, Coroutine
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from boneio.components.cover.remote import RemoteCoverOutput
+from boneio.components.output.remote import RemoteOutputBase
 from boneio.const import (
     BUTTON,
     CAN,
@@ -47,15 +49,14 @@ from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.remote import RemoteDeviceManager
+from boneio.core.manager.security_alert import SecurityAlertPublisher
 from boneio.core.manager.sensors import SensorManager
 from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.messaging import MessageBus
+from boneio.core.remote.wled import WLEDRemoteDevice
 from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
-from boneio.components.output.remote import RemoteOutputBase
-from boneio.components.cover.remote import RemoteCoverOutput
-from boneio.core.remote.wled import WLEDRemoteDevice
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner
 
@@ -163,6 +164,9 @@ class Manager:
         self._config_helper = config_helper
         self._config_file_path = config_file_path
         self._topic_prefix = config_helper.topic_prefix
+
+        # Reports outstanding security recommendations to Home Assistant.
+        self.security_alert = SecurityAlertPublisher(self)
 
         # Hardware errors storage for WebUI
         self._hardware_errors: list[dict[str, Any]] = []
@@ -494,6 +498,7 @@ class Manager:
         await self.modbus.send_ha_autodiscovery()
         await self.display.send_ha_autodiscovery()
         await self.update_manager.send_ha_autodiscovery()
+        await self.security_alert.send_ha_autodiscovery()
         await self.templates.send_ha_autodiscovery()
         await self.irrigation.send_ha_autodiscovery()
 
