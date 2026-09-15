@@ -44,6 +44,7 @@ from boneio.models.events import (
 )
 from boneio.models.state import ModbusDeviceState
 from boneio.version import __version__
+from boneio.webui.middleware.csrf import CSRFMiddleware
 from boneio.webui.security_headers import apply_security_headers
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
@@ -847,6 +848,11 @@ def init_app(
             "http://127.0.0.1:3000",
         ]
         _LOGGER.info("CORS: dev mode — allowing origins: %s", cors_origins)
+
+    # Refuses cross-site state changes, trusting exactly the origins CORS
+    # trusts. Added before CORS so CORS ends up outermost and its headers are
+    # still attached to the refusal, which is what lets the browser show it.
+    app.add_middleware(CSRFMiddleware, allowed_origins=cors_origins)
 
     app.add_middleware(
         CORSMiddleware,

@@ -6,6 +6,13 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from boneio.core.net.discovery_guard import (
+    ESPHOME_PORTS,
+    WLED_PORTS,
+    DiscoveryTargetError,
+    assert_target_allowed,
+)
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
@@ -182,17 +189,34 @@ async def discover_esphome(request: ESPHomeDiscoverRequest):
             detail="aioesphomeapi not installed - ESPHome API support disabled"
         )
     
+    try:
+        assert_target_allowed(request.host, request.port, ESPHOME_PORTS)
+    except DiscoveryTargetError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
     _LOGGER.info("Discovering ESPHome entities at %s:%d", request.host, request.port)
-    
+
     result = await discover_esphome_entities(
         host=request.host,
         port=request.port,
         password=request.password,
         encryption_key=request.encryption_key,
     )
-    
+
     if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
+        # Logged, never returned: the native-API handshake error carried the
+        # first byte of whatever answered, which is how "Invalid preamble 0x53"
+        # spelled out the S of an SSH banner in the report.
+        _LOGGER.warning(
+            "ESPHome discovery failed for %s:%d: %s",
+            request.host,
+            request.port,
+            result["error"],
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="No ESPHome device answered at that address.",
+        )
     
     _LOGGER.info(
         "Discovered %d switches, %d lights, %d covers, %d binary_sensors at %s",
@@ -266,15 +290,32 @@ async def discover_wled(request: WLEDDiscoverRequest):
     Raises:
         HTTPException: 500 if discovery fails.
     """
+    try:
+        assert_target_allowed(request.host, request.port, WLED_PORTS)
+    except DiscoveryTargetError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
     _LOGGER.info("Discovering WLED segments at %s:%d", request.host, request.port)
-    
+
     result = await discover_wled_info(
         host=request.host,
         port=request.port,
     )
-    
+
     if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
+        # The upstream error is logged, never returned. Handing it back is how
+        # an HTTP probe became a banner grabber: the report reads an SSH
+        # version string out of "Bad status line".
+        _LOGGER.warning(
+            "WLED discovery failed for %s:%d: %s",
+            request.host,
+            request.port,
+            result["error"],
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="No WLED device answered at that address.",
+        )
     
     _LOGGER.info(
         "Discovered WLED '%s' with %d segments at %s",
