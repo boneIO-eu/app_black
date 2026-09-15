@@ -188,3 +188,14 @@ describe('the framing card is translated', () => {
     });
   }
 });
+
+describe('the prompt and the section agree on wording', () => {
+  it('both translate a check by id rather than showing the backend English', () => {
+    // The prompt used to render check.title directly, so it read half in one
+    // language and half in the other on a Polish panel.
+    const t = fakeT({ 'security.checks.mqtt_password.title': 'Hasło brokera MQTT' });
+    expect(checkText(t, 'mqtt_password', 'title', 'MQTT broker password')).toBe(
+      'Hasło brokera MQTT',
+    );
+  });
+});

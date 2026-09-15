@@ -4,7 +4,7 @@ import { useAppInit } from '../contexts/AppInitContext';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { useSecurityPosture } from '../hooks/useSecurityPosture';
-import { promptDecision } from '../utils/securityPosture';
+import { checkText, promptDecision } from '../utils/securityPosture';
 
 /**
  * Points an administrator at the Security section after an update.
@@ -105,7 +105,10 @@ export default function SecurityUpdatePrompt() {
             .slice(0, 3)
             .map(c => (
               <span key={c.id} className="badge badge-ghost badge-sm">
-                {c.title}
+                {/* Translated the same way the section does. Taking the
+                    backend's own English here made the prompt read half in
+                    one language and half in the other. */}
+                {checkText(t, c.id, 'title', c.title)}
               </span>
             ))}
         </div>
