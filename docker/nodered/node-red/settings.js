@@ -23,7 +23,14 @@
  *
  * If boneIO is unreachable the answer is "no". That is the right way round —
  * an authentication source that cannot be consulted must not be assumed to
- * have said yes.
+ * have said yes. The refusal is logged, so a misconfigured address shows up in
+ * `docker logs` rather than as a silent inability to sign in.
+ *
+ * The API address assumes boneIO's default port. A device serving the panel on
+ * a different `web.port` has to say so, by setting BONEIO_API_URL on the
+ * node-red service in docker-compose.yaml. That is deliberately not written
+ * into the compose file by the migration: cloud registration edits that same
+ * file, and replacing it to carry one optional variable is a poor trade.
  */
 
 const BONEIO_API =
