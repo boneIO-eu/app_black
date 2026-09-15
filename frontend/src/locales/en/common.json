@@ -1658,7 +1658,8 @@
     "exclude_modules": "Exclude",
     "excluded_count_one": "{{count}} excluded",
     "excluded_count_other": "{{count}} excluded",
-    "search_placeholder": "Search logs..."
+    "search_placeholder": "Search logs...",
+    "first_seen": "First seen {{first}} — last {{last}}"
   },
   "tools": {
     "title": "Tools",

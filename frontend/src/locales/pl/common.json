@@ -1657,7 +1657,8 @@
     "exclude_modules": "Wyklucz",
     "excluded_count_one": "{{count}} wykluczony",
     "excluded_count_other": "{{count}} wykluczonych",
-    "search_placeholder": "Szukaj w logach..."
+    "search_placeholder": "Szukaj w logach...",
+    "first_seen": "Pierwszy raz: {{first}} — ostatni: {{last}}"
   },
   "tools": {
     "title": "Narzędzia",
