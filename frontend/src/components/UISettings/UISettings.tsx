@@ -15,11 +15,10 @@ import {
   ALL_SECTIONS,
   COMPOSITE_SECTIONS,
 } from '@/components/UISettings/constants/sectionDefinitions';
+import { STANDALONE_SECTIONS } from '@/components/UISettings/constants/standaloneSections';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
-import AccountsView from '../AccountsView';
-import SecurityView from '../SecurityView';
 import { useOverlayCheck } from './hooks/useOverlayCheck';
 import OverlayChangeDialog from './components/OverlayChangeDialog';
 
@@ -172,6 +171,10 @@ export default function UISettings() {
     () => ALL_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
     [t]
   );
+
+  // Sections that bring their own component. Null for a schema-driven one,
+  // which is what the render below branches on.
+  const StandaloneComponent = STANDALONE_SECTIONS[activeSection]?.component ?? null;
 
   /**
    * Convert data to match schema types (for form display)
@@ -1430,20 +1433,13 @@ export default function UISettings() {
 
       {/* Main content area */}
       <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0 pb-14 lg:pb-0">
-        {/* Tool sections (not schema-driven) */}
-        {activeSection === 'security' ? (
-          // Not schema-driven either: the posture is computed, not configured.
+        {/* Sections rendered by their own component rather than from the
+            schema — accounts, the security posture, and everything that moved
+            in from the System page. See constants/standaloneSections. */}
+        {StandaloneComponent ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
             <div className="flex-1 overflow-y-auto">
-              <SecurityView />
-            </div>
-          </Suspense>
-        ) : activeSection === 'accounts' ? (
-          // Not schema-driven: accounts live in users.json, so this section has
-          // nothing to save, restore or preview as YAML and skips the header.
-          <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
-            <div className="flex-1 overflow-y-auto">
-              <AccountsView />
+              <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />
             </div>
           </Suspense>
         ) : activeSection === 'binding_matrix' ? (

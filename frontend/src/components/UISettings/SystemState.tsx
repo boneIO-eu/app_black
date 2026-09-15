@@ -13,23 +13,11 @@ import {
 import SelfTest from './SelfTest';
 import FixAppPermissions from './FixAppPermissions';
 import HardwareErrors from './HardwareErrors';
-import MigrationsSection from './MigrationsSection';
 
-import {
-  DeviceControlSection,
-  MqttPasswordsSection,
-  HostnameSection,
-  TimezoneSection,
-  SslSection,
-  FactoryResetSection,
-  BackupSection,
-  NodeRedManagement,
-} from './SystemStateComponents';
 import { useLocation } from 'react-router-dom';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useNodeRedAvailability } from '@/hooks/useNodeRedAvailability';
 import axios from '@/api/axios';
 
 interface UpdateStatus {
@@ -76,7 +64,6 @@ interface AvailableVersion {
 
 const SystemState: React.FC = () => {
   const { outputs } = useContext(WebSocketContext);
-  const { isNodeRedAvailable } = useNodeRedAvailability();
   const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -108,7 +95,7 @@ const SystemState: React.FC = () => {
   }, [hash]);
 
   // Restart state
-  const [restartRequired, setRestartRequired] = useState(false);
+  // The restart banner lives in Settings now, with the sections that raise it.
   const [isRestarting, setIsRestarting] = useState(false);
 
   // Hardware errors state
@@ -346,9 +333,6 @@ const SystemState: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      {/* System migrations (bootstrap + pending migrations) */}
-      <MigrationsSection />
-
       {/* Hardware Errors - Separate Container */}
       <HardwareErrors errors={hardwareErrors} />
 
@@ -695,17 +679,6 @@ const SystemState: React.FC = () => {
         </div>
       </div>
 
-      {/* Backup Card */}
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h2 className="text-2xl font-bold">{t('backup.title')}</h2>
-          <BackupSection />
-        </div>
-      </div>
-
-      {/* Node-RED Management Card */}
-      {isNodeRedAvailable && <NodeRedManagement />}
-
       {/* Device Management Card */}
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
@@ -870,22 +843,12 @@ const SystemState: React.FC = () => {
               </div>
             </div>
 
-            <DeviceControlSection />
-
-            <HostnameSection />
-
-            <TimezoneSection />
-
-            {/* Anchor target: the Security section links here to fix the
-                factory broker password. scroll-mt keeps the heading clear of
-                the sticky header when the browser jumps to it. */}
-            <div id="mqtt-passwords" className="scroll-mt-24">
-              <MqttPasswordsSection />
-            </div>
-
-            <SslSection />
-
-            <FactoryResetSection onRestartRequired={() => setRestartRequired(true)} />
+            {/* Device control, hostname, time zone, the broker's accounts,
+                the certificate and the factory reset have moved into Settings.
+                See SETTINGS_IA.md — they are settings, and the split that kept
+                them here was about where their data lives, not about what they
+                are. Software update, the self-test and hardware errors stay
+                until they are extracted from this file. */}
           </div>
         </div>
       </div>
@@ -897,44 +860,6 @@ const SystemState: React.FC = () => {
       {/* Self Test Modal */}
       <SelfTest isOpen={showSelfTest} onClose={() => setShowSelfTest(false)} />
 
-      {/* Restart required toast - persistent, with restart button */}
-      {restartRequired && (
-        <div className="toast toast-top toast-center z-50">
-          <div className="alert alert-error shadow-lg">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="stroke-current shrink-0 h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            <div>
-              <h3 className="font-bold">⚠️ {t('settings.app_restart_required')}</h3>
-              <div className="text-xs">{t('settings.config_changed')}</div>
-            </div>
-            <button
-              className="btn btn-sm btn-warning"
-              onClick={handleRestart}
-              disabled={isRestarting}
-            >
-              {isRestarting ? (
-                <>
-                  <span className="loading loading-spinner loading-xs"></span>
-                  {t('settings.restarting')}
-                </>
-              ) : (
-                `🔄 ${t('settings.restart_now')}`
-              )}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

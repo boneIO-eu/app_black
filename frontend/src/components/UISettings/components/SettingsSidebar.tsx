@@ -8,6 +8,7 @@ import { FaCheck, FaExclamationTriangle, FaUndo, FaSave } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
 import { useSecurityPosture } from '@/hooks/useSecurityPosture';
+import { SECTION_GROUPS } from '../constants/sectionDefinitions';
 
 interface SectionConfig {
   name: string;
@@ -148,8 +149,6 @@ function SectionList({
  */
 function SidebarContent({
   sections,
-  reloadSections,
-  restartSections,
   configSections,
   activeSection,
   saveStatus,
@@ -158,21 +157,18 @@ function SidebarContent({
 }: Omit<SettingsSidebarProps, 'isSidebarOpen' | 'onSidebarToggle'>) {
   const { t } = useTranslation();
 
-  // Split reload sections into local (no group), remote, and tools
-  const localReloadSections = reloadSections.filter(s => !s.group);
-  const remoteReloadSections = reloadSections.filter(s => s.group === 'remote');
-  const toolsSections = reloadSections.filter(s => s.group === 'tools');
-  const securitySections = reloadSections.filter(s => s.group === 'security');
-  // A count on the label, so the section says there is something to do before
-  // it is opened. Nothing outstanding shows no badge rather than a zero.
+  // One pass over the declared groups instead of a hand-written box per
+  // concern. Adding a section is now an entry in sectionDefinitions; the
+  // sidebar does not need to know it exists.
+  const grouped = SECTION_GROUPS.map(group => ({
+    ...group,
+    entries: configSections.filter(section => section.group === group.name),
+  })).filter(group => group.entries.length > 0);
+
+  // A count on the access group, so it says there is something to do before it
+  // is opened. Nothing outstanding shows no badge rather than a zero.
   const { posture } = useSecurityPosture();
-  const securityCount = posture?.summary.actionable ?? 0;
-  // The web panel group is a domain group, so it draws from both lists: the
-  // server settings need a restart, the accounts do not. That difference is
-  // carried by a per-entry badge instead of by which box they sit in.
-  // Server settings first, then who may reach them — it reads as one story.
-  const webSections = [...restartSections, ...reloadSections].filter(s => s.group === 'web');
-  const ungroupedRestartSections = restartSections.filter(s => !s.group);
+  const outstanding = posture?.summary.actionable ?? 0;
 
   // Show skeleton while config sections are still loading
   const isLoading = sections.length === 0;
@@ -201,20 +197,19 @@ function SidebarContent({
 
   return (
     <>
-      {/* Security first: it is the section people do not know to look for. */}
-      {securitySections.length > 0 && (
-        <div className="mb-4 border border-error/20 rounded-xl bg-error/5 p-3">
+      {grouped.map(group => (
+        <div key={group.name} className="mb-4 border border-base-content/10 rounded-xl bg-base-200/40 p-3">
           <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-sm font-semibold text-error">
-              🛡️ {t('settings.security_sections')}
+            <span className="text-sm font-semibold opacity-80">
+              {group.icon} {t(group.translationKey)}
             </span>
-            {securityCount > 0 && (
-              <span className="badge badge-error badge-sm">{securityCount}</span>
+            {group.name === 'access' && outstanding > 0 && (
+              <span className="badge badge-error badge-sm">{outstanding}</span>
             )}
           </div>
           <SectionList
             sections={sections}
-            filterSections={securitySections}
+            filterSections={group.entries}
             configSections={configSections}
             activeSection={activeSection}
             saveStatus={saveStatus}
@@ -222,101 +217,7 @@ function SidebarContent({
             onNavigate={onNavigate}
           />
         </div>
-      )}
-
-      {/* Local sections - hot reload supported */}
-      <div className="mb-4">
-        <SectionList
-          sections={sections}
-          filterSections={localReloadSections}
-          configSections={configSections}
-          activeSection={activeSection}
-          saveStatus={saveStatus}
-          unsavedChanges={unsavedChanges}
-          onNavigate={onNavigate}
-        />
-      </div>
-
-      {/* Remote sections */}
-      {remoteReloadSections.length > 0 && (
-        <div className="mb-4 border border-info/20 rounded-xl bg-info/5 p-3">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-sm font-semibold text-info">
-              📡 {t('settings.remote_sections')}
-            </span>
-          </div>
-          <SectionList
-            sections={sections}
-            filterSections={remoteReloadSections}
-            configSections={configSections}
-            activeSection={activeSection}
-            saveStatus={saveStatus}
-            unsavedChanges={unsavedChanges}
-            onNavigate={onNavigate}
-          />
-        </div>
-      )}
-
-      {/* Web panel: how the panel is reached, and who may reach it */}
-      {webSections.length > 0 && (
-        <div className="mb-4 border border-primary/20 rounded-xl bg-primary/5 p-3">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-sm font-semibold text-primary">
-              🌐 {t('settings.web_sections')}
-            </span>
-          </div>
-          <SectionList
-            sections={sections}
-            filterSections={webSections}
-            configSections={configSections}
-            activeSection={activeSection}
-            saveStatus={saveStatus}
-            unsavedChanges={unsavedChanges}
-            onNavigate={onNavigate}
-          />
-        </div>
-      )}
-
-      {/* Restart-required sections */}
-      <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
-        <div className="flex items-center gap-2 mb-2 px-1">
-          <span className="text-sm font-semibold text-warning">
-            ⚠️ {t('settings.restart_sections')}
-          </span>
-        </div>
-        <SectionList
-          sections={sections}
-          filterSections={ungroupedRestartSections}
-          configSections={configSections}
-          activeSection={activeSection}
-          saveStatus={saveStatus}
-          unsavedChanges={unsavedChanges}
-          onNavigate={onNavigate}
-        />
-      </div>
-
-      {/* Tools sections — not schema-driven, rendered directly */}
-      {toolsSections.length > 0 && (
-        <div className="mt-4 border border-accent/20 rounded-xl bg-accent/5 p-3">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-sm font-semibold text-accent">
-              🛠️ {t('settings.tools_sections')}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {toolsSections.map(tool => (
-              <SectionButton
-                key={tool.name}
-                sectionConfig={{ ...tool, title: t(tool.translationKey) }}
-                isActive={activeSection === tool.name}
-                status={undefined}
-                hasUnsavedChanges={false}
-                onClick={() => onNavigate(tool.name)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      ))}
     </>
   );
 }

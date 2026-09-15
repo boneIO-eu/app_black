@@ -399,7 +399,14 @@
     "shutdown_warning": "After shutdown, the device must be powered on physically by disconnecting and reconnecting power.",
     "web_sections": "Web panel",
     "badge_restart": "restart",
-    "security_sections": "Security"
+    "security_sections": "Security",
+    "group_device": "Device",
+    "group_control": "Control",
+    "group_connections": "Connections",
+    "group_services": "Services on this controller",
+    "group_access": "Access",
+    "group_maintenance": "Maintenance",
+    "group_advanced": "Advanced"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",
@@ -751,7 +758,16 @@
     "board_sensors": "Board Sensors",
     "oled": "OLED Display",
     "accounts": "User accounts",
-    "security": "Security"
+    "security": "Security",
+    "hostname": "Hostname",
+    "timezone": "Time zone",
+    "mosquitto": "MQTT broker (local)",
+    "nodered_service": "Node-RED",
+    "certificate": "Certificate and proxy",
+    "backup": "Backups",
+    "migrations": "System migrations",
+    "power": "Restart and shutdown",
+    "factory_reset": "Factory reset"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",

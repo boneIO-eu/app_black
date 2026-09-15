@@ -243,7 +243,7 @@ def evaluate(
             state=mqtt_state,
             detail=mqtt_detail,
             remedy="Set a new broker password, then update Home Assistant with it.",
-            settings_section="system:mqtt-passwords",
+            settings_section="mosquitto",
         )
     )
 

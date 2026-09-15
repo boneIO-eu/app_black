@@ -237,3 +237,14 @@ def test_a_wildcard_hidden_among_origins_is_still_a_wildcard():
     assert _framing(
         {"web": {"security": {"frame_ancestors": ["self", "*"]}}}
     ).state is State.FAILED
+
+
+def test_the_mqtt_remedy_points_at_a_section_that_exists():
+    """The broker's accounts moved out of the System page into Settings.
+
+    The check named `system:mqtt-passwords`, an anchor on a page that no
+    longer carries it, so the Fix button led nowhere. Pinned here because the
+    destination is a string and nothing else checks it.
+    """
+    check = _check(_posture({"mqtt": {"password": DEFAULT_MQTT_PASSWORD}}), "mqtt_password")
+    assert check.settings_section == "mosquitto"

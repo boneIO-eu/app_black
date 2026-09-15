@@ -399,7 +399,14 @@
     "shutdown_warning": "Po wyłączeniu urządzenie musi być włączone fizycznie przez odłączenie i ponowne podłączenie zasilania.",
     "web_sections": "Panel webowy",
     "badge_restart": "restart",
-    "security_sections": "Bezpieczeństwo"
+    "security_sections": "Bezpieczeństwo",
+    "group_device": "Urządzenie",
+    "group_control": "Sterowanie",
+    "group_connections": "Połączenia",
+    "group_services": "Usługi na sterowniku",
+    "group_access": "Dostęp",
+    "group_maintenance": "Konserwacja",
+    "group_advanced": "Zaawansowane"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Proszę naprawić błędy walidacji przed zapisaniem",
@@ -715,7 +722,16 @@
     "board_sensors": "Czujniki sterownika",
     "oled": "Wyświetlacz OLED",
     "accounts": "Konta użytkowników",
-    "security": "Bezpieczeństwo"
+    "security": "Bezpieczeństwo",
+    "hostname": "Nazwa hosta",
+    "timezone": "Strefa czasowa",
+    "mosquitto": "Broker MQTT (lokalny)",
+    "nodered_service": "Node-RED",
+    "certificate": "Certyfikat i proxy",
+    "backup": "Kopie zapasowe",
+    "migrations": "Migracje systemowe",
+    "power": "Restart i wyłączenie",
+    "factory_reset": "Reset fabryczny"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
