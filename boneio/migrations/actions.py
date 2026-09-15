@@ -412,3 +412,34 @@ def render_template(content: str, template_vars: dict[str, str]) -> str:
     if not template_vars:
         return content
     return Template(content).safe_substitute(template_vars)
+
+
+@dataclass
+class SetFilePermissions(MigrationAction):
+    """Set owner, group and mode on a file that already exists.
+
+    For files the device owns and a migration must not overwrite — a password
+    database, for one. InstallFile would replace the contents; this only
+    corrects who may read them.
+
+    Args:
+        path: Absolute path whose permissions to correct.
+        mode: Final mode, e.g. ``0o640``.
+        owner: Owning user.
+        group: Owning group.
+    """
+
+    path: str
+    mode: int = 0o640
+    owner: str = "root"
+    group: str = "root"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "action": "set_file_permissions",
+            "path": self.path,
+            "mode": self.mode,
+            "owner": self.owner,
+            "group": self.group,
+        }

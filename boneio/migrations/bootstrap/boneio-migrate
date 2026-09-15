@@ -65,6 +65,7 @@ ALLOWED_ACTIONS = {
     "pip_install_wheel",
     "disable_apparmor_profiles",
     "prune_orphaned_journal_dirs",
+    "set_file_permissions",
 }
 
 # Debian package names accepted by the apt_install action
@@ -622,7 +623,40 @@ def handle_disable_apparmor_profiles(action: dict[str, Any], assets_base: str) -
 # Dispatcher
 # ---------------------------------------------------------------------------
 
+def handle_set_file_permissions(action: dict[str, Any], assets_base: str) -> None:
+    """Set owner, group and mode on an existing file.
+
+    Deliberately narrow: it changes the permissions of one named path and
+    nothing else. The alternative — a general "run this command" action —
+    would hand every future migration the ability to execute arbitrary code as
+    root, which is a large amount of new power for a small job.
+
+    Missing files are ignored: a device that never had the file has nothing to
+    correct, and failing there would stall the migration for everyone.
+
+    Args:
+        action: Action dict with path, mode, owner, group.
+        assets_base: Unused; kept for handler signature consistency.
+    """
+    path = Path(action["path"])
+    if not path.exists():
+        print(f"  set_file_permissions: {path} does not exist, skipping")
+        return
+
+    if path.is_symlink():
+        raise ValueError(f"Refusing to change permissions of a symlink: {path}")
+
+    mode = int(action.get("mode", 0o640))
+    owner = action.get("owner", "root")
+    group = action.get("group", "root")
+
+    shutil.chown(path, user=owner, group=group)
+    os.chmod(path, mode)
+    print(f"  set_file_permissions: {path} -> {owner}:{group} {mode:04o}")
+
+
 ACTION_HANDLERS = {
+    "set_file_permissions": handle_set_file_permissions,
     "install_file": handle_install_file,
     "remove_file": handle_remove_file,
     "systemctl_daemon_reload": handle_systemctl_daemon_reload,
