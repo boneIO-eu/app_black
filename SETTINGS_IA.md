@@ -1,6 +1,6 @@
 # Układ ustawień boneIO Black — plan przebudowy
 
-Stan: plan zatwierdzony, wdrożenie nierozpoczęte.
+Stan: punkty 1–3 wdrożone, 4–7 przed nami. Szczegóły na końcu dokumentu.
 Powiązane: [SECURITY_ROADMAP_1.6.md](SECURITY_ROADMAP_1.6.md) (F-05 jest tu domykane inaczej, niż zakładała roadmapa).
 
 ## Problem
@@ -262,3 +262,30 @@ Punkty 1–6 są w `app_black` i można je wypuścić niezależnie od 7.
 - **Pasek boczny robi się długi.** Siedem grup razy kilka pozycji to około trzydziestu wpisów. Grupy
   powinny się zwijać, a otwarta pozostaje ta, w której się jest.
 - **Tłumaczenia.** Siedem nazw grup plus opisy; reszta nazw pozycji bez zmian.
+
+
+## Status wdrożenia
+
+### Zrobione
+
+- **Sekcje Systemu w pasku bocznym.** Strona `/system` już nie istnieje, `/system` przekierowuje
+  na `/settings/update`. Górne menu schudło z siedmiu pozycji administracyjnych do czterech.
+  Aktualizacja, narzędzia urządzenia i błędy sprzętowe są wybierane parametrem `SystemState`, nie
+  rozbite na osobne pliki — flow aktualizacji instaluje firmware i nie da się go stąd przećwiczyć.
+  Do rozbicia, gdy będzie zapasowy sterownik do przejścia pełnej aktualizacji.
+- **Siedem grup.** Pozycje nie-schematowe idą przez rejestr `constants/standaloneSections.ts`
+  zamiast łańcucha warunków w renderze.
+- **Rozdzielenie mosquitto od MQTT.** Protokoły komunikacyjne są w Połączeniach, broker lokalny
+  w Usługach na sterowniku. Check bezpieczeństwa wskazuje teraz na `mosquitto`, nie na kotwicę
+  nieistniejącej już strony.
+- **Zwijanie paska.** Zmierzone: telefon 2569 px → 704 px treści (3,73 → 1,35 ekranu), desktop
+  ten sam spis → 922 px w kolumnie 602 px. Desktop dostał akordeon z otwartą grupą aktywnej
+  sekcji, telefon dwa kroki — kafelki grup, potem sekcje. Filtr działa na obu i ignoruje grupy.
+
+### Zostaje
+
+- **Narzędzia do Diagnostyki** (skany I2C, Modbus, CAN), eksport dashboardu HA do Połączeń.
+- **Edytor YAML do Zaawansowanych**, `/config` przekierowuje. Dziś nadal jest osobną pozycją
+  w górnym menu, więc „jedno wejście" jest prawdziwe tylko prawie.
+- **Hasło per urządzenie** w obrazie — osobna gałąź, osobny cykl wydawniczy.
+- **Liczniki przy pozycjach** („Wyjścia 32", „Rolety 2") — rozważane, nieuzgodnione.
