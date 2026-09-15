@@ -192,3 +192,40 @@ def test_reload_does_not_undo_our_own_writes(config):
     store.add_user("pawel", "haslo-admina", Role.ADMIN)
     store.add_user("gosc", "poufne-haslo", Role.VIEWER)
     assert {u.username for u in store.list_users()} == {"pawel", "gosc"}
+
+
+# ------------------------------------------------------- argument ergonomics
+
+
+def _parser():
+    import argparse as _argparse
+
+    from boneio.core.auth.cli import add_accounts_parser
+
+    parser = _argparse.ArgumentParser()
+    add_accounts_parser(parser.add_subparsers(dest="action"))
+    return parser
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["accounts", "-c", "/tmp/cfg.yaml", "add", "pawel"],
+        ["accounts", "add", "pawel", "-c", "/tmp/cfg.yaml"],
+    ],
+)
+def test_config_flag_works_on_either_side_of_the_subcommand(argv):
+    """argparse only looks for an option on the parser currently parsing, so
+    the order everyone reaches for was rejected until each action accepted it."""
+    assert _parser().parse_args(argv).config == "/tmp/cfg.yaml"
+
+
+def test_config_defaults_when_not_given():
+    assert _parser().parse_args(["accounts", "list"]).config == "./config.yaml"
+
+
+def test_a_late_flag_wins_over_an_early_one():
+    args = _parser().parse_args(
+        ["accounts", "-c", "/tmp/wczesny.yaml", "add", "pawel", "-c", "/tmp/pozny.yaml"]
+    )
+    assert args.config == "/tmp/pozny.yaml"

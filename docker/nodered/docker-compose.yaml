@@ -4,6 +4,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/Warsaw
+      # Node-RED asks boneIO whether a login belongs to one of its admins,
+      # so there is one account list instead of two. host.docker.internal is
+      # already mapped below.
+      BONEIO_API_URL: ${BONEIO_API_URL:-http://host.docker.internal:8090}
     volumes:
       - ./node-red/data:/data
       - ./node-red/settings.js:/data/settings.js:ro

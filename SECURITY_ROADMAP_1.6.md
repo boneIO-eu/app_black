@@ -79,12 +79,25 @@ więc to domyślne hasło w przebraniu.
 
 **Uwaga:** F-08 zostało domknięte już w #1 dla urządzeń z kontem; otwarta zostaje tylko ścieżka urządzenia bez żadnych poświadczeń, czyli stan anonimowy opisany w #2.
 
+### 4. Ochrona sekretów (F-03, część F-12)
+- `GET /api/config` zwraca **placeholder** zamiast hasła MQTT (i każdego innego). Maskowanie zawsze na kopii — parsowany config leży w cache'u współdzielonym z resztą procesu.
+- **Maskowanie samo w sobie byłoby błędem**: formularze ustawień są zasilane tą samą odpowiedzią i odsyłają całą sekcję, więc placeholder zapisany wprost nadpisałby prawdziwe hasło przy pierwszym zapisie czegokolwiek na tej stronie. `PUT` rozwiązuje więc placeholder z tego, co jest zapisane; nowa wartość (także pusta, czyli wyczyszczenie) brana jest dosłownie.
+- Placeholder celowo **nie jest rzędem kropek** — kropki ktoś mógłby wpisać jako hasło i jego wybór zostałby po cichu odrzucony.
+- Logi czyszczone z **konkretnych wartości z configu** (logi to wolny tekst, nie ma klucza do dopasowania). Od najdłuższych, sekrety krótsze niż 4 znaki pomijane. Nigdy nie rzuca wyjątkiem — nieczytelny config nie może kosztować operatora logów.
+
+### 5. Node-RED adminAuth (F-01 — RCE)
+- Node-RED **deleguje uwierzytelnianie do boneIO** zamiast trzymać drugi zestaw poświadczeń: jedna lista kont, brak drugiej implementacji hashowania, reużyta prawdziwa ścieżka logowania razem z rate-limitem z #3.
+- **Tylko admin.** Konto tylko-do-odczytu nie ma czego szukać w edytorze, którego istotą jest wykonywanie kodu.
+- **Fail-closed**: gdy boneIO jest nieosiągalne, odpowiedź brzmi „nie".
+- Nie wymaga nowej paczki — kontener ma już `host.docker.internal`, a obraz Node 22 ma wbudowany `fetch`.
+- Zweryfikowane na żywym sterowniku: admin z dobrym hasłem wpuszczony, admin ze złym odrzucony, **viewer z dobrym hasłem odrzucony**, konto nieistniejące odrzucone, martwy adres → odmowa.
+
 ## Status
 - [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
 - [x] 2. Role admin/read-only — **zrobione** (gałąź `feature/rbac-admin-viewer`)
 - [x] 3. Twardnienie logowania — **zrobione w aplikacji** (gałąź `feature/login-hardening`); część SSH przeniesiona do #8
-- [ ] 4. Ochrona sekretów
-- [ ] 5. Node-RED adminAuth
+- [x] 4. Ochrona sekretów — **zrobione**
+- [x] 5. Node-RED adminAuth — **zrobione**
 - [ ] 6. SSRF
 - [ ] 7. CSRF
 - [ ] 8. Twardnienie kodu/systemu

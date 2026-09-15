@@ -201,9 +201,32 @@ def add_accounts_parser(subparsers: argparse._SubParsersAction) -> None:
 
     actions = accounts_parser.add_subparsers(dest="accounts_action", required=True)
 
-    actions.add_parser("list", help="List accounts and their roles")
+    def _with_config(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Accept -c after the subcommand as well as before it.
 
-    add_action = actions.add_parser("add", help="Create an account")
+        argparse only looks for an option on the parser that is parsing at the
+        time, so `accounts add pawel -c cfg.yaml` — the order everyone reaches
+        for — is rejected unless each action accepts it too. SUPPRESS keeps the
+        action's default from overwriting a value already given to `accounts`.
+
+        Args:
+            parser: Action subparser to extend.
+
+        Returns:
+            The same parser, for chaining.
+        """
+        parser.add_argument(
+            "-c",
+            "--config",
+            metavar="path_to_config",
+            default=argparse.SUPPRESS,
+            help="boneIO config file; users.json lives next to it",
+        )
+        return parser
+
+    _with_config(actions.add_parser("list", help="List accounts and their roles"))
+
+    add_action = _with_config(actions.add_parser("add", help="Create an account"))
     add_action.add_argument("username", help="Username to create")
     add_action.add_argument(
         "--role",
@@ -212,8 +235,8 @@ def add_accounts_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Role to grant (default: viewer)",
     )
 
-    reset_action = actions.add_parser("reset", help="Set a new password")
+    reset_action = _with_config(actions.add_parser("reset", help="Set a new password"))
     reset_action.add_argument("username", help="Account to change")
 
-    delete_action = actions.add_parser("delete", help="Remove an account")
+    delete_action = _with_config(actions.add_parser("delete", help="Remove an account"))
     delete_action.add_argument("username", help="Account to remove")
