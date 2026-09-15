@@ -52,16 +52,18 @@ Jedno wejście: **Ustawienia**. Siedem grup.
 | Wyjścia lokalne, Grupy wyjść, Rolety | Ustawienia |
 | Wejścia lokalne | Ustawienia |
 | Sensory ADC, Czujki 1-Wire, Wirtualne sensory energii | Ustawienia |
-| Szablony | Ustawienia |
-| Nawadnianie | **brak UI** — tylko edytor YAML |
+| Szablony — w tym nawadnianie | Ustawienia |
 | Macierz powiązań | Ustawienia / grupa „Narzędzia" |
+
+Nawadnianie nie jest osobną pozycją: to platforma szablonu, konfigurowana przez `TemplateForm`
+→ `IrrigationForm` wewnątrz sekcji Szablony. Obsługa na żywo zostaje w zakładce Szablony w górnym
+menu.
 
 ### 3. Połączenia — dokąd boneIO się łączy
 
 | Pozycja | Skąd dziś |
 |---|---|
-| MQTT — adres brokera, konto, hasło, prefiks tematów | Ustawienia / restart |
-| Loxone UDP | Ustawienia (doklejone do MQTT) |
+| Protokoły komunikacyjne — MQTT i Loxone UDP | Ustawienia / restart |
 | Modbus (magistrala) + Urządzenia Modbus | Ustawienia |
 | Magistrala CAN | Ustawienia / restart |
 | Urządzenia zdalne + wejścia i wyjścia zdalne | Ustawienia / grupa „Zdalne" |
@@ -223,15 +225,16 @@ wartość**. Wymuszać nie można.
 
 ## Luki wykryte przy okazji
 
-Cztery sekcje schematu nie mają żadnego wejścia w Ustawieniach — konfiguruje się je wyłącznie przez
-edytor YAML:
+Dwa ekspandery, `pca9685` i `pcf8575`, nie mają formularza — w przeciwieństwie do `mcp23017`.
+Konfiguruje się je wyłącznie edytorem YAML. W typach frontendu figurują, w interfejsie nie.
 
-- `irrigation` — obsługa jest w zakładce Szablony, konfiguracji nie ma gdzie wyklikać,
-- `pca9685`, `pcf8575` — ekspandery bez formularza, w przeciwieństwie do `mcp23017`,
-- `lox_udp` — doklejony do sekcji MQTT, bez własnej nazwy.
+Nie planuję dorabiać im formularzy w tym kroku, ale w nowym układzie mają swoje miejsce
+(Urządzenie → Ekspandery), więc luka staje się widoczna zamiast niewidocznej.
 
-Nie planuję dorabiać im formularzy w tym kroku. W nowym układzie mają jednak swoje miejsca, więc luka
-staje się widoczna zamiast niewidocznej.
+Uwaga metodologiczna. Pierwsza wersja tej listy była dłuższa o `irrigation` i `lox_udp` i **była
+błędna**. Powstała z porównania kluczy najwyższego poziomu schematu z `sectionDefinitions.ts`, co
+pomija wszystko osiągalne *przez* inną sekcję: nawadnianie przez Szablony, Loxone przez Protokoły
+komunikacyjne. Nieobecność nazwy na liście sekcji nie oznacza braku UI.
 
 ## Kolejność wdrożenia
 
