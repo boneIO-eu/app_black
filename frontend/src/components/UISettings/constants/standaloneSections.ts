@@ -62,6 +62,27 @@ export const STANDALONE_SECTIONS: Record<string, StandaloneSection> = {
   certificate: {
     component: lazySection(() => import('../SystemStateComponents/SslSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
   },
+  update: {
+    component: lazySection(
+      () => import('../SystemState').then(m => ({
+        default: (props: StandaloneSectionProps) => m.default({ ...props, section: 'update' }),
+      })) as Promise<{ default: ComponentType<StandaloneSectionProps> }>,
+    ),
+  },
+  device_tools: {
+    component: lazySection(
+      () => import('../SystemState').then(m => ({
+        default: (props: StandaloneSectionProps) => m.default({ ...props, section: 'tools' }),
+      })) as Promise<{ default: ComponentType<StandaloneSectionProps> }>,
+    ),
+  },
+  hardware_errors: {
+    component: lazySection(
+      () => import('../SystemState').then(m => ({
+        default: (props: StandaloneSectionProps) => m.default({ ...props, section: 'hardware_errors' }),
+      })) as Promise<{ default: ComponentType<StandaloneSectionProps> }>,
+    ),
+  },
   backup: {
     component: lazySection(() => import('../SystemStateComponents/BackupSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
   },

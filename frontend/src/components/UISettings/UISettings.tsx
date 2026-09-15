@@ -10,8 +10,6 @@ import {
   convertMillisecondsToTimeperiod,
 } from '@/components/UISettings/helpers/configSchemaUtils';
 import {
-  RELOAD_SECTIONS,
-  RESTART_SECTIONS,
   ALL_SECTIONS,
   COMPOSITE_SECTIONS,
 } from '@/components/UISettings/constants/sectionDefinitions';
@@ -142,15 +140,6 @@ export default function UISettings() {
     return remoteInputs.length > 0 || remoteDevices.length > 0;
   }, [formData.remote_inputs, formData.remote_devices]);
 
-  // Use imported section definitions with translated titles
-  // Hide remote_inputs when no remote devices exist and no inputs configured
-  const reloadSections = useMemo(
-    () => RELOAD_SECTIONS
-      .filter(s => s.name !== 'remote_inputs' || hasRemoteInputs)
-      .map(s => ({ ...s, title: t(s.translationKey) })),
-    [t, hasRemoteInputs]
-  );
-
   // Hardware version determines which sections are available
   // CAN bus support was added in hardware version 0.5
   const hwVersion = parseFloat(formData.boneio?.version || '0');
@@ -160,16 +149,17 @@ export default function UISettings() {
     console.log('CAN not supported: hardware version', hwVersion, '< 0.5');
   }
 
-  const restartSections = useMemo(
-    () => RESTART_SECTIONS
+  const configSections = useMemo(
+    () => ALL_SECTIONS
+      // Two sections are hidden rather than shown empty: remote inputs on a
+      // device with no remote devices to take them from, and the CAN bus on
+      // hardware older than 0.5, which has none. These filters used to live on
+      // the two lists the sidebar was built from; they moved here when the
+      // sidebar started reading a single list.
+      .filter(s => s.name !== 'remote_inputs' || hasRemoteInputs)
       .filter(s => s.name !== 'can' || canSupported)
       .map(s => ({ ...s, title: t(s.translationKey) })),
-    [t, canSupported]
-  );
-
-  const configSections = useMemo(
-    () => ALL_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
-    [t]
+    [t, hasRemoteInputs, canSupported]
   );
 
   // Sections that bring their own component. Null for a schema-driven one,
@@ -1407,8 +1397,6 @@ export default function UISettings() {
       {/* Sidebar with section tabs */}
       <SettingsSidebar
         sections={sections}
-        reloadSections={reloadSections}
-        restartSections={restartSections}
         configSections={configSections}
         activeSection={activeSection}
         saveStatus={saveStatus}

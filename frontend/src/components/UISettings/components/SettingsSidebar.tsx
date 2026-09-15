@@ -4,7 +4,8 @@
  * Mobile: Sticky section selector that opens a bottom sheet with the full list.
  * Desktop: Always-visible sidebar with section list.
  */
-import { FaCheck, FaExclamationTriangle, FaUndo, FaSave } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaCheck, FaExclamationTriangle, FaUndo, FaSave, FaSearch } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
 import { useSecurityPosture } from '@/hooks/useSecurityPosture';
@@ -29,8 +30,11 @@ interface ConfigSection {
 
 interface SettingsSidebarProps {
   sections: ConfigSection[];
-  reloadSections: SectionConfig[];
-  restartSections: SectionConfig[];
+  /**
+   * Every section, with its group and title. The reload/restart split used to
+   * come in as two more lists because it decided which box an entry sat in;
+   * the groups decide that now, and what saving costs is carried by the badge.
+   */
   configSections: SectionConfig[];
   activeSection: string;
   saveStatus: Record<string, 'idle' | 'saving' | 'success' | 'error'>;
@@ -145,7 +149,26 @@ function SectionList({
 }
 
 /**
- * Sidebar content - shared between mobile bottom sheet and desktop sidebar.
+ * Sidebar content.
+ *
+ * Thirty-seven sections in seven groups is 2569px of list in a 689px sheet —
+ * measured, not guessed. Fully expanded, that is close to four screens of
+ * scrolling on a phone to reach anything near the bottom. So neither surface
+ * shows everything at once any more, and each does it the way its own shape
+ * allows:
+ *
+ * **Desktop** keeps the persistent column and collapses it to an accordion,
+ * with the active section's group open. The column sits beside the form rather
+ * than covering it, which is the whole reason a sidebar beats a menu there —
+ * turning it into a separate step would throw that away.
+ *
+ * **Mobile** is already a modal sheet: opening it covers the content and
+ * choosing dismisses it. Since it is a separate screen regardless, making it
+ * two costs one tap and no context. Groups first as tiles, then that group's
+ * sections — the arrangement every phone's own settings app uses.
+ *
+ * **The filter spans both**, and is the fast path for anyone who knows the
+ * name. With text in it, groups stop mattering and matches are listed flat.
  */
 function SidebarContent({
   sections,
@@ -154,70 +177,206 @@ function SidebarContent({
   saveStatus,
   unsavedChanges,
   onNavigate,
-}: Omit<SettingsSidebarProps, 'isSidebarOpen' | 'onSidebarToggle'>) {
+  variant,
+}: Omit<SettingsSidebarProps, 'isSidebarOpen' | 'onSidebarToggle'> & {
+  variant: 'desktop' | 'mobile';
+}) {
   const { t } = useTranslation();
 
-  // One pass over the declared groups instead of a hand-written box per
-  // concern. Adding a section is now an entry in sectionDefinitions; the
-  // sidebar does not need to know it exists.
+  const [filter, setFilter] = useState('');
+  // Which group is open. Desktop starts on the active section's group; mobile
+  // starts on none, which is what shows the tiles.
+  const groupOfActive = configSections.find(s => s.name === activeSection)?.group ?? null;
+  const [openGroup, setOpenGroup] = useState<string | null>(
+    variant === 'desktop' ? groupOfActive : null,
+  );
+
+  // Following a link from elsewhere — a security finding's Fix button, say —
+  // must open the group it landed in, or the sidebar would disagree with the
+  // page beside it. React's own pattern for adjusting state when a prop
+  // changes: compare during render, no effect, no ref.
+  const [syncedTo, setSyncedTo] = useState(activeSection);
+  if (syncedTo !== activeSection) {
+    setSyncedTo(activeSection);
+    if (variant === 'desktop' && groupOfActive && groupOfActive !== openGroup) {
+      setOpenGroup(groupOfActive);
+    }
+  }
+
+  const { posture } = useSecurityPosture();
+  const outstanding = posture?.summary.actionable ?? 0;
+
   const grouped = SECTION_GROUPS.map(group => ({
     ...group,
     entries: configSections.filter(section => section.group === group.name),
   })).filter(group => group.entries.length > 0);
 
-  // A count on the access group, so it says there is something to do before it
-  // is opened. Nothing outstanding shows no badge rather than a zero.
-  const { posture } = useSecurityPosture();
-  const outstanding = posture?.summary.actionable ?? 0;
+  const query = filter.trim().toLowerCase();
+  const matches = query
+    ? configSections.filter(section => section.title.toLowerCase().includes(query))
+    : [];
 
-  // Show skeleton while config sections are still loading
   const isLoading = sections.length === 0;
 
   if (isLoading) {
     return (
-      <>
-        {/* Skeleton for reload sections */}
-        <div className="mb-4 space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton h-12 w-full rounded-lg" />
-          ))}
-        </div>
-        {/* Skeleton for restart sections */}
-        <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
-          <div className="skeleton h-4 w-40 mb-2" />
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="skeleton h-12 w-full rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </>
+      <div className="space-y-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="skeleton h-12 w-full rounded-lg" />
+        ))}
+      </div>
     );
   }
 
-  return (
-    <>
-      {grouped.map(group => (
-        <div key={group.name} className="mb-4 border border-base-content/10 rounded-xl bg-base-200/40 p-3">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-sm font-semibold opacity-80">
-              {group.icon} {t(group.translationKey)}
-            </span>
-            {group.name === 'access' && outstanding > 0 && (
-              <span className="badge badge-error badge-sm">{outstanding}</span>
-            )}
-          </div>
+  const searchBox = (
+    <div className="relative mb-3">
+      <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-40 pointer-events-none" />
+      <input
+        type="text"
+        className="input input-sm input-bordered w-full pl-9"
+        placeholder={t('settings.filter_placeholder')}
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+        autoComplete="off"
+      />
+      {filter && (
+        <button
+          className="absolute right-1 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs"
+          onClick={() => setFilter('')}
+          aria-label={t('settings.filter_clear')}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+
+  if (query) {
+    return (
+      <>
+        {searchBox}
+        {matches.length === 0 ? (
+          <p className="text-sm opacity-60 px-1 py-4">{t('settings.filter_empty')}</p>
+        ) : (
           <SectionList
             sections={sections}
-            filterSections={group.entries}
+            filterSections={matches}
             configSections={configSections}
             activeSection={activeSection}
             saveStatus={saveStatus}
             unsavedChanges={unsavedChanges}
             onNavigate={onNavigate}
           />
+        )}
+      </>
+    );
+  }
+
+  // Mobile, no group chosen yet: the tiles.
+  if (variant === 'mobile' && openGroup === null) {
+    return (
+      <>
+        {searchBox}
+        <div className="grid grid-cols-2 gap-2">
+          {grouped.map(group => (
+            <button
+              key={group.name}
+              className="btn h-auto py-4 flex flex-col gap-1 normal-case"
+              onClick={() => setOpenGroup(group.name)}
+            >
+              <span className="text-2xl" aria-hidden="true">{group.icon}</span>
+              <span className="text-sm font-medium">{t(group.translationKey)}</span>
+              {/* A bare number rather than "N items": Polish inflects the
+                  noun three ways by count and this `t` has no plural forms,
+                  so any phrasing would be wrong for some of them. */}
+              <span className="text-xs opacity-60 flex items-center gap-1.5">
+                {group.entries.length}
+                {group.name === 'access' && outstanding > 0 && (
+                  <span className="badge badge-error badge-xs">{outstanding}</span>
+                )}
+              </span>
+            </button>
+          ))}
         </div>
-      ))}
+      </>
+    );
+  }
+
+  // Mobile, inside a group: back plus that group's sections.
+  if (variant === 'mobile') {
+    const group = grouped.find(g => g.name === openGroup);
+    if (!group) return searchBox;
+    return (
+      <>
+        {searchBox}
+        <button
+          className="btn btn-sm btn-ghost gap-2 mb-2"
+          onClick={() => setOpenGroup(null)}
+        >
+          ← {t('settings.all_groups')}
+        </button>
+        <div className="flex items-center gap-2 mb-2 px-1">
+          <span className="text-sm font-semibold opacity-80">
+            {group.icon} {t(group.translationKey)}
+          </span>
+        </div>
+        <SectionList
+          sections={sections}
+          filterSections={group.entries}
+          configSections={configSections}
+          activeSection={activeSection}
+          saveStatus={saveStatus}
+          unsavedChanges={unsavedChanges}
+          onNavigate={onNavigate}
+        />
+      </>
+    );
+  }
+
+  // Desktop: accordion.
+  return (
+    <>
+      {searchBox}
+      {grouped.map(group => {
+        const isOpen = openGroup === group.name;
+        const holdsActive = group.entries.some(e => e.name === activeSection);
+        return (
+          <div
+            key={group.name}
+            className={`mb-2 border rounded-xl ${holdsActive ? 'border-primary/30 bg-primary/5' : 'border-base-content/10 bg-base-200/40'}`}
+          >
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+              onClick={() => setOpenGroup(isOpen ? null : group.name)}
+              aria-expanded={isOpen}
+            >
+              <span aria-hidden="true">{group.icon}</span>
+              <span className="text-sm font-semibold opacity-80 flex-1">
+                {t(group.translationKey)}
+              </span>
+              {group.name === 'access' && outstanding > 0 && (
+                <span className="badge badge-error badge-sm">{outstanding}</span>
+              )}
+              <span className="text-xs opacity-50">
+                {isOpen ? '▾' : `${group.entries.length} ▸`}
+              </span>
+            </button>
+            {isOpen && (
+              <div className="px-3 pb-3">
+                <SectionList
+                  sections={sections}
+                  filterSections={group.entries}
+                  configSections={configSections}
+                  activeSection={activeSection}
+                  saveStatus={saveStatus}
+                  unsavedChanges={unsavedChanges}
+                  onNavigate={onNavigate}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -230,8 +389,6 @@ function SidebarContent({
  */
 export default function SettingsSidebar({
   sections,
-  reloadSections,
-  restartSections,
   configSections,
   activeSection,
   saveStatus,
@@ -301,13 +458,12 @@ export default function SettingsSidebar({
       >
         <SidebarContent
           sections={sections}
-          reloadSections={reloadSections}
-          restartSections={restartSections}
           configSections={configSections}
           activeSection={activeSection}
           saveStatus={saveStatus}
           unsavedChanges={unsavedChanges}
           onNavigate={handleMobileNavigate}
+          variant="mobile"
         />
       </BottomPeekBar>
 
@@ -317,13 +473,12 @@ export default function SettingsSidebar({
           <h2 className="text-xl font-bold text-base-content mb-4">{t('settings.configuration_sections')}</h2>
           <SidebarContent
             sections={sections}
-            reloadSections={reloadSections}
-            restartSections={restartSections}
             configSections={configSections}
             activeSection={activeSection}
             saveStatus={saveStatus}
             unsavedChanges={unsavedChanges}
             onNavigate={onNavigate}
+            variant="desktop"
           />
         </div>
       </div>

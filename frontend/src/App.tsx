@@ -15,7 +15,6 @@ const lazyImports = {
   Tools: () => import('./components/Tools'),
   HelpView: () => import('./components/HelpView'),
   UISettings: () => import('./components/UISettings/UISettings'),
-  SystemState: () => import('./components/UISettings/SystemState'),
   NodeRedView: () => import('./components/NodeRedView'),
   TemplatesView: () => import('./components/TemplatesView'),
 } as const;
@@ -29,7 +28,6 @@ const ModbusView = lazy(lazyImports.ModbusView);
 const Tools = lazy(lazyImports.Tools);
 const HelpView = lazy(lazyImports.HelpView);
 const UISettings = lazy(lazyImports.UISettings);
-const SystemState = lazy(lazyImports.SystemState);
 const NodeRedView = lazy(lazyImports.NodeRedView);
 const TemplatesView = lazy(lazyImports.TemplatesView);
 
@@ -51,7 +49,6 @@ function prefetchRouteChunks() {
     lazyImports.Tools,
     lazyImports.TemplatesView,
     lazyImports.HelpView,
-    lazyImports.SystemState,
     lazyImports.NodeRedView,
   ];
   // Stagger imports so they don't all fire at once
@@ -471,13 +468,9 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/system" element={
-          <ProtectedRoute>
-            <Layout>
-              <SystemState />
-            </Layout>
-          </ProtectedRoute>
-        } />
+        {/* The System page's blocks are Settings sections now. Kept as a
+            redirect so bookmarks and older links still land somewhere. */}
+        <Route path="/system" element={<Navigate to="/settings/update" replace />} />
         <Route path="/nodered" element={
           <ProtectedRoute>
             <Layout>

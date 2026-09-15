@@ -406,7 +406,11 @@
     "group_services": "Services on this controller",
     "group_access": "Access",
     "group_maintenance": "Maintenance",
-    "group_advanced": "Advanced"
+    "group_advanced": "Advanced",
+    "filter_placeholder": "Search settings...",
+    "filter_clear": "Clear filter",
+    "filter_empty": "Nothing matches.",
+    "all_groups": "All groups"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",
@@ -767,7 +771,10 @@
     "backup": "Backups",
     "migrations": "System migrations",
     "power": "Restart and shutdown",
-    "factory_reset": "Factory reset"
+    "factory_reset": "Factory reset",
+    "update": "Software update",
+    "device_tools": "Device tools",
+    "hardware_errors": "Hardware errors"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",

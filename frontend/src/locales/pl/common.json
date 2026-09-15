@@ -406,7 +406,11 @@
     "group_services": "Usługi na sterowniku",
     "group_access": "Dostęp",
     "group_maintenance": "Konserwacja",
-    "group_advanced": "Zaawansowane"
+    "group_advanced": "Zaawansowane",
+    "filter_placeholder": "Szukaj ustawienia...",
+    "filter_clear": "Wyczyść filtr",
+    "filter_empty": "Nic nie pasuje.",
+    "all_groups": "Wszystkie grupy"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Proszę naprawić błędy walidacji przed zapisaniem",
@@ -731,7 +735,10 @@
     "backup": "Kopie zapasowe",
     "migrations": "Migracje systemowe",
     "power": "Restart i wyłączenie",
-    "factory_reset": "Reset fabryczny"
+    "factory_reset": "Reset fabryczny",
+    "update": "Aktualizacja oprogramowania",
+    "device_tools": "Narzędzia urządzenia",
+    "hardware_errors": "Błędy sprzętowe"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",

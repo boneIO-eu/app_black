@@ -14,6 +14,13 @@ import SelfTest from './SelfTest';
 import FixAppPermissions from './FixAppPermissions';
 import HardwareErrors from './HardwareErrors';
 
+/** Which block of the old System page to render. */
+export type SystemSection = 'update' | 'tools' | 'hardware_errors';
+
+interface SystemStateProps {
+  section?: SystemSection;
+}
+
 import { useLocation } from 'react-router-dom';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
@@ -62,7 +69,12 @@ interface AvailableVersion {
   is_current: boolean;
 }
 
-const SystemState: React.FC = () => {
+/**
+ * What was the System page, now a set of Settings sections.
+ *
+ * @param section Which block to render.
+ */
+const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
   const { outputs } = useContext(WebSocketContext);
   const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -331,11 +343,20 @@ const SystemState: React.FC = () => {
     }
   };
 
-  return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Hardware Errors - Separate Container */}
-      <HardwareErrors errors={hardwareErrors} />
-
+  // Rendered a piece at a time.
+  //
+  // The page this came from is gone; its blocks are now Settings sections.
+  // They are selected by prop rather than split into separate files because
+  // the software-update flow installs firmware, and separating three hundred
+  // lines of its markup from the state that drives it — with no way to
+  // rehearse a real update from here — is where a subtle break would come
+  // from. The state stays where it was; only one branch is ever mounted.
+  //
+  // Splitting it properly is worth doing once an update can be exercised
+  // end to end on a spare controller.
+  if (section === 'update') {
+    return (
+      <div className="p-4 sm:p-6 space-y-6">
       {/* Software Update Card */}
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
@@ -679,6 +700,22 @@ const SystemState: React.FC = () => {
         </div>
       </div>
 
+      </div>
+    );
+  }
+
+  if (section === 'hardware_errors') {
+    return (
+      <div className="p-4 sm:p-6 space-y-6">
+      {/* Hardware Errors - Separate Container */}
+      <HardwareErrors errors={hardwareErrors} />
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Device Management Card */}
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
@@ -852,14 +889,12 @@ const SystemState: React.FC = () => {
           </div>
         </div>
       </div>
-
       {/* Fix App Permissions */}
       <FixAppPermissions />
 
 
       {/* Self Test Modal */}
       <SelfTest isOpen={showSelfTest} onClose={() => setShowSelfTest(false)} />
-
     </div>
   );
 };
