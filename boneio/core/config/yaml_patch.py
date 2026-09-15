@@ -94,7 +94,12 @@ def ensure_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
 
         if depth and indent <= parent_indent:
             # Left the section we were inside without finding the next level.
+            # Back up over the blank lines that separated it from what follows,
+            # so the new block joins the section rather than being stranded
+            # past its own whitespace.
             insert_at = index
+            while insert_at > 0 and not lines[insert_at - 1].strip():
+                insert_at -= 1
             break
 
         if depth < len(path) and key == path[depth] and indent == depth * len(INDENT):

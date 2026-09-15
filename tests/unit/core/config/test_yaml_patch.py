@@ -109,3 +109,20 @@ def test_naive_quoting_would_lose_the_csp_keyword():
     """Pins the trap this module exists to avoid."""
     assert yaml.safe_load("frame_ancestors: 'self'")["frame_ancestors"] == "self"
     assert yaml.safe_load("frame_ancestors: \"'self'\"")["frame_ancestors"] == "'self'"
+
+
+def test_the_new_block_joins_its_section_not_the_gap_after_it(tmp_path):
+    """Blank lines separating two top-level sections must stay separating them.
+
+    Inserting after them is valid YAML and reads as though the setting fell
+    out of the section it belongs to — in a file people open by hand.
+    """
+    path = write(
+        tmp_path,
+        "web:\n  port: 8090\n\n\nmqtt:\n  host: localhost\n",
+    )
+    ensure_section(path, ("web", "security"))
+    lines = path.read_text().splitlines()
+
+    assert lines.index("  security:") < lines.index("")
+    assert yaml.safe_load(path.read_text())["web"] == {"port": 8090, "security": None}
