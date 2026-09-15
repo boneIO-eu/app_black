@@ -872,9 +872,9 @@ def init_app(
     # expressed through CSP frame-ancestors instead. Unset means the secure
     # default, which the HA add-on satisfies because it proxies; see
     # security_headers for why.
+    # Passed through as configured — a list or, from an older config, a
+    # string. build_csp reads both; joining here would only lose the shape.
     frame_ancestors = (web_security or {}).get("frame_ancestors")
-    if isinstance(frame_ancestors, list):
-        frame_ancestors = " ".join(str(item) for item in frame_ancestors)
 
     @app.middleware("http")
     async def security_headers_middleware(request, call_next):

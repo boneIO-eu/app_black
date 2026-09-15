@@ -13,17 +13,10 @@ import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from boneio.core.config.yaml_patch import (
-    YamlPatchError,
-    ensure_section,
-    quote_scalar,
-)
-from boneio.core.config.yaml_util import load_yaml_file, update_yaml_field
-from boneio.core.security.posture import (
-    DEFAULT_FRAME_ANCESTORS,
-    Posture,
-    evaluate,
-)
+from boneio.core.config.yaml_patch import YamlPatchError, set_block_list
+from boneio.core.config.yaml_util import load_yaml_file
+from boneio.core.security import framing
+from boneio.core.security.posture import Posture, evaluate
 from boneio.webui.middleware.auth import (
     get_user_store,
     is_anonymous_allowed,
@@ -116,18 +109,17 @@ async def get_posture():
 class FrameAncestorsRequest(BaseModel):
     """Who may embed this panel in a frame.
 
-    Deliberately not a free-text CSP value. The directive's syntax is a trap —
-    ``self`` without its quotes is a host name, a trailing slash makes an
-    origin invalid, and getting either wrong fails silently in a way only a
-    browser console reveals. The panel asks the two questions that matter and
-    assembles the value here.
+    Deliberately not a list of raw CSP sources. A trailing slash makes an
+    origin invalid and a stray ``*`` widens the policy to everything, both of
+    which fail silently in a way only a browser console reveals. The panel asks
+    the two questions that matter and the tokens are composed here.
     """
 
     #: False writes ``*``: framing by anyone, chosen on purpose.
     restrict: bool = True
-    #: Extra origins allowed alongside ``'self'`` — a Home Assistant server
-    #: whose dashboard frames this device directly, rather than through the
-    #: add-on's proxy.
+    #: Origins allowed alongside ``self`` — a Home Assistant server whose
+    #: dashboard frames this device directly, rather than through the add-on's
+    #: proxy.
     extra_origins: list[str] = Field(default_factory=list)
 
 
@@ -172,24 +164,25 @@ def _clean_origins(origins: list[str]) -> list[str]:
     return cleaned
 
 
-def _parse_frame_ancestors(value: str | None) -> dict:
-    """Describe a stored frame-ancestors value in the terms the panel asks in.
+def _describe(raw: object) -> dict:
+    """Describe a stored frame_ancestors value in the terms the panel asks in.
 
     Args:
-        value: The configured value, or None when config.yaml says nothing.
+        raw: The configured value — a list, an older string, or None.
 
     Returns:
-        Dictionary with ``restrict``, ``extra_origins`` and the raw value.
+        Dictionary with the tokens, the two answers the card shows, and the
+        directive as the browser will receive it.
     """
-    effective = (value or DEFAULT_FRAME_ANCESTORS).strip()
-    tokens = effective.split()
-    restrict = "*" not in tokens
+    tokens = framing.effective(raw)
+    keywords = set(framing.DEFAULT_FRAME_ANCESTORS) | {framing.WILDCARD}
     return {
-        "restrict": restrict,
-        "extra_origins": [t for t in tokens if t not in {"*", DEFAULT_FRAME_ANCESTORS}],
-        "value": effective,
-        "configured": value is not None,
-        "default": DEFAULT_FRAME_ANCESTORS,
+        "tokens": list(tokens),
+        "restrict": not framing.is_unrestricted(tokens),
+        "extra_origins": [t for t in tokens if t not in keywords],
+        "value": framing.to_csp(tokens),
+        "configured": bool(framing.normalize(raw)),
+        "default": list(framing.DEFAULT_FRAME_ANCESTORS),
     }
 
 
@@ -204,8 +197,7 @@ async def get_frame_ancestors():
     config = _load_config()
     web = config.get("web") if isinstance(config.get("web"), dict) else {}
     security = web.get("security") if isinstance(web.get("security"), dict) else {}
-    stored = security.get("frame_ancestors")
-    return _parse_frame_ancestors(stored if isinstance(stored, str) else None)
+    return _describe(security.get("frame_ancestors"))
 
 
 @router.put("/frame-ancestors")
@@ -222,26 +214,22 @@ async def set_frame_ancestors(payload: FrameAncestorsRequest):
         HTTPException: If an origin is malformed or the file cannot be edited.
     """
     if payload.restrict:
-        value = " ".join([DEFAULT_FRAME_ANCESTORS, *_clean_origins(payload.extra_origins)])
+        tokens = [*framing.DEFAULT_FRAME_ANCESTORS, *_clean_origins(payload.extra_origins)]
     else:
         # One token, and no origins: listing sites alongside * would suggest
         # they mean something.
-        value = "*"
+        tokens = [framing.WILDCARD]
 
     config_file = getattr(_app_state, "yaml_config_file", None)
     if not config_file:
         raise HTTPException(status_code=503, detail="No configuration file is loaded.")
 
     try:
-        ensure_section(config_file, ("web", "security"))
-        result = update_yaml_field(
-            str(config_file), "web.security", "frame_ancestors", quote_scalar(value)
-        )
+        set_block_list(config_file, ("web", "security"), "frame_ancestors", tokens)
     except YamlPatchError as err:
         raise HTTPException(status_code=409, detail=str(err)) from err
-
-    if result.get("status") == "error":
-        raise HTTPException(status_code=500, detail=result.get("message", "Write failed."))
+    except OSError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
 
     helper = getattr(_app_state, "config_helper", None)
     if helper is not None:
@@ -253,5 +241,5 @@ async def set_frame_ancestors(payload: FrameAncestorsRequest):
             # the setting did not take when it did; the banner is the loss.
             _LOGGER.warning("Could not flag the restart banner: %s", err)
 
-    _LOGGER.info("frame-ancestors set to %s", value)
-    return {**_parse_frame_ancestors(value), "restart_required": True}
+    _LOGGER.info("frame-ancestors set to %s", tokens)
+    return {**_describe(tokens), "restart_required": True}

@@ -14,6 +14,7 @@ from boneio.core.config.yaml_patch import (
     YamlPatchError,
     ensure_section,
     quote_scalar,
+    set_block_list,
 )
 from boneio.core.config.yaml_util import update_yaml_field
 
@@ -126,3 +127,84 @@ def test_the_new_block_joins_its_section_not_the_gap_after_it(tmp_path):
 
     assert lines.index("  security:") < lines.index("")
     assert yaml.safe_load(path.read_text())["web"] == {"port": 8090, "security": None}
+
+
+# --------------------------------------------------------------- block lists
+
+
+def test_writes_a_block_list(tmp_path):
+    path = write(tmp_path, "web:\n  port: 8090\n")
+    set_block_list(path, ("web", "security"), "frame_ancestors", ["self"])
+
+    assert yaml.safe_load(path.read_text())["web"]["security"] == {
+        "frame_ancestors": ["self"]
+    }
+    assert "    - \"self\"" in path.read_text()
+
+
+def test_the_keyword_needs_no_quoting_gymnastics(tmp_path):
+    """A list entry reads back as typed, which is the point of the list form."""
+    path = write(tmp_path, "web:\n  port: 8090\n")
+    set_block_list(
+        path,
+        ("web", "security"),
+        "frame_ancestors",
+        ["self", "https://homeassistant.local:8123"],
+    )
+    assert yaml.safe_load(path.read_text())["web"]["security"]["frame_ancestors"] == [
+        "self",
+        "https://homeassistant.local:8123",
+    ]
+
+
+def test_replacing_a_longer_list_with_a_shorter_one(tmp_path):
+    """Leftover entries would silently widen the policy."""
+    path = write(
+        tmp_path,
+        "web:\n  security:\n    frame_ancestors:\n      - self\n      - https://a.local\n"
+        "      - https://b.local\n  port: 8090\n",
+    )
+    set_block_list(path, ("web", "security"), "frame_ancestors", ["self"])
+
+    loaded = yaml.safe_load(path.read_text())
+    assert loaded["web"]["security"]["frame_ancestors"] == ["self"]
+    assert loaded["web"]["port"] == 8090  # what followed is still there
+
+
+def test_replacing_the_old_scalar_form(tmp_path):
+    """Configs written by 1.6 before the list existed."""
+    path = write(
+        tmp_path,
+        "web:\n  security:\n    frame_ancestors: \"'self'\"\n  port: 8090\n",
+    )
+    set_block_list(path, ("web", "security"), "frame_ancestors", ["self", "https://ha.local"])
+
+    loaded = yaml.safe_load(path.read_text())
+    assert loaded["web"]["security"]["frame_ancestors"] == ["self", "https://ha.local"]
+    assert loaded["web"]["port"] == 8090
+
+
+def test_surrounding_comments_and_secrets_survive(tmp_path):
+    path = write(
+        tmp_path,
+        "# top\nmqtt:\n  password: !secret p\nweb:\n  # how it is reached\n  port: 8090\n",
+    )
+    set_block_list(path, ("web", "security"), "frame_ancestors", ["self"])
+    text = path.read_text()
+
+    assert "# top" in text
+    assert "!secret p" in text
+    assert "# how it is reached" in text
+
+
+def test_an_empty_list_is_written_as_an_empty_list(tmp_path):
+    """Not as a dangling key that reads back as null and means the default."""
+    path = write(tmp_path, "web:\n  port: 8090\n")
+    set_block_list(path, ("web", "security"), "frame_ancestors", [])
+    assert yaml.safe_load(path.read_text())["web"]["security"]["frame_ancestors"] is None
+
+
+def test_refuses_an_included_section(tmp_path):
+    path = write(tmp_path, "web: !include web.yaml\n")
+    with pytest.raises(YamlPatchError):
+        set_block_list(path, ("web", "security"), "frame_ancestors", ["self"])

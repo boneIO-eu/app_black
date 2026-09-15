@@ -61,6 +61,111 @@ def _line_key(line: str) -> tuple[str, int, str] | None:
     return key.strip(), len(line) - len(line.lstrip()), rest.strip()
 
 
+def set_block_list(
+    config_file: str | Path, path: tuple[str, ...], field: str, items: list[str]
+) -> None:
+    """Replace a field with a block list, creating the section if needed.
+
+    ``update_yaml_field`` writes ``key: value`` on one line, which cannot
+    express the shape config.yaml should hold for something people edit::
+
+        security:
+          frame_ancestors:
+            - self
+            - https://homeassistant.local:8123
+
+    Anything already stored under the field — a scalar, or an older list — is
+    replaced whole. Everything around it, comments included, is untouched.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Section path, outermost first, e.g. ``("web", "security")``.
+        field: Field name to write.
+        items: List entries, written as double-quoted scalars.
+
+    Raises:
+        YamlPatchError: If the section cannot be created — see
+            :func:`ensure_section`.
+    """
+    ensure_section(config_file, path)
+
+    file_path = Path(config_file)
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    field_indent = len(path) * len(INDENT)
+    block = f"{INDENT * len(path)}{field}:\n" + "".join(
+        f"{INDENT * (len(path) + 1)}- {quote_scalar(item)}\n" for item in items
+    )
+
+    depth = 0
+    parent_indent = -1
+    start = None
+    end = None
+
+    for index, line in enumerate(lines):
+        parsed = _line_key(line)
+
+        if start is not None:
+            # Inside the old value: its own entries are indented past the
+            # field, and anything at or left of it belongs to someone else.
+            stripped = line.strip()
+            indent = len(line) - len(line.lstrip())
+            if stripped and indent <= field_indent:
+                end = index
+                break
+            continue
+
+        if parsed is None:
+            continue
+        key, indent, rest = parsed
+
+        if depth == len(path) and key == field and indent == field_indent:
+            start = index
+            continue
+
+        if depth and indent <= parent_indent:
+            break
+
+        if depth < len(path) and key == path[depth] and indent == depth * len(INDENT):
+            depth += 1
+            parent_indent = indent
+            del rest
+
+    if start is None:
+        # ensure_section guarantees the section exists, so the field is simply
+        # new: it goes at the top of the section, where a reader looks first.
+        insert_at = _section_body_start(lines, path)
+        lines.insert(insert_at, block)
+    else:
+        lines[start : (end if end is not None else len(lines))] = [block]
+
+    file_path.write_text("".join(lines), encoding="utf-8")
+    _LOGGER.info("Wrote %s.%s (%d entries)", ".".join(path), field, len(items))
+
+
+def _section_body_start(lines: list[str], path: tuple[str, ...]) -> int:
+    """The index just after a section's own header line.
+
+    Args:
+        lines: File lines.
+        path: Section path, outermost first.
+
+    Returns:
+        Index at which the section's contents begin.
+    """
+    depth = 0
+    for index, line in enumerate(lines):
+        parsed = _line_key(line)
+        if parsed is None:
+            continue
+        key, indent, _ = parsed
+        if key == path[depth] and indent == depth * len(INDENT):
+            depth += 1
+            if depth == len(path):
+                return index + 1
+    return len(lines)
+
+
 def ensure_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
     """Make sure a nested mapping exists, creating the missing levels.
 

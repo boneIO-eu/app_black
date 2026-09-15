@@ -27,17 +27,15 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from boneio.core.security import framing
+
 #: The password the factory image writes for every MQTT account. Published in
 #: the setup script and identical on every controller ever shipped, which is
 #: what makes it worth naming here rather than treating as a secret.
 DEFAULT_MQTT_PASSWORD = "boneio123"
 
-#: What the panel sends when config.yaml says nothing about framing. It lives
-#: here, beside the other shipped defaults the checks know about, and the
-#: header builder imports it — so the check and the header cannot disagree
-#: about what an unconfigured device actually does. See
-#: :mod:`boneio.webui.security_headers` for why this value and not another.
-DEFAULT_FRAME_ANCESTORS = "'self'"
+#: Re-exported so callers that only care about the checks need one import.
+DEFAULT_FRAME_ANCESTORS = framing.DEFAULT_FRAME_ANCESTORS
 
 
 class Severity(StrEnum):
@@ -287,8 +285,9 @@ def evaluate(
     )
 
     security = web.get("security") if isinstance(web.get("security"), dict) else {}
-    frame_ancestors = security.get("frame_ancestors") or DEFAULT_FRAME_ANCESTORS
-    unrestricted = "*" in str(frame_ancestors).split()
+    frame_tokens = framing.effective(security.get("frame_ancestors"))
+    frame_ancestors = framing.to_csp(frame_tokens)
+    unrestricted = framing.is_unrestricted(frame_tokens)
     checks.append(
         Check(
             id="frame_ancestors",
@@ -302,7 +301,7 @@ def evaluate(
                 else f"Only {frame_ancestors} may embed this panel."
             ),
             remedy=(
-                "Replace * with 'self', adding your Home Assistant address if a "
+                "Replace * with self, adding your Home Assistant address if a "
                 "dashboard frames this device directly."
             ),
             settings_section="security",

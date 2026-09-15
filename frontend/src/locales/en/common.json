@@ -2684,7 +2684,9 @@
       "saving": "Saving...",
       "restart_needed": "Saved — takes effect after the app restarts.",
       "load_failed": "Could not read the setting.",
-      "save_failed": "Could not save the setting."
+      "save_failed": "Could not save the setting.",
+      "add_origin": "Add an address",
+      "remove_origin": "Remove address"
     }
   },
   "login": {

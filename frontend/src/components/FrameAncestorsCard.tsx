@@ -19,11 +19,14 @@ import { useTranslation } from '../hooks/useTranslation';
  */
 
 interface FrameAncestorsState {
+  /** The plain tokens config.yaml holds, e.g. ["self", "https://ha.local:8123"]. */
+  tokens: string[];
   restrict: boolean;
   extra_origins: string[];
+  /** The directive as the browser receives it, keywords quoted. */
   value: string;
   configured: boolean;
-  default: string;
+  default: string[];
 }
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -35,7 +38,9 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
 
   const [state, setState] = useState<FrameAncestorsState | null>(null);
   const [restrict, setRestrict] = useState(true);
-  const [origin, setOrigin] = useState('');
+  // A list, not one field: config.yaml holds a list, and a card that edited
+  // only the first entry would silently drop the rest on save.
+  const [origins, setOrigins] = useState<string[]>(['']);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -45,7 +50,7 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
       const { data } = await api.get<FrameAncestorsState>('/api/security/frame-ancestors');
       setState(data);
       setRestrict(data.restrict);
-      setOrigin(data.extra_origins[0] ?? '');
+      setOrigins(data.extra_origins.length ? data.extra_origins : ['']);
     } catch (err) {
       setError(errorMessage(err, t('security.framing.load_failed')));
     }
@@ -56,6 +61,14 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
     void load();
   }, [load]);
 
+  const cleanOrigins = origins.map(o => o.trim()).filter(Boolean);
+
+  const setOriginAt = (index: number, value: string) =>
+    setOrigins(prev => prev.map((o, i) => (i === index ? value : o)));
+
+  const removeOriginAt = (index: number) =>
+    setOrigins(prev => (prev.length > 1 ? prev.filter((_, i) => i !== index) : ['']));
+
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -63,9 +76,10 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
     try {
       const { data } = await api.put<FrameAncestorsState>('/api/security/frame-ancestors', {
         restrict,
-        extra_origins: restrict && origin.trim() ? [origin.trim()] : [],
+        extra_origins: restrict ? cleanOrigins : [],
       });
       setState(data);
+      setOrigins(data.extra_origins.length ? data.extra_origins : ['']);
       setSaved(true);
       onSaved?.();
     } catch (err) {
@@ -88,7 +102,8 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
   }
 
   const dirty =
-    restrict !== state.restrict || origin.trim() !== (state.extra_origins[0] ?? '');
+    restrict !== state.restrict ||
+    cleanOrigins.join('\u0000') !== state.extra_origins.join('\u0000');
 
   return (
     <div className="border border-base-300 rounded-xl p-4 space-y-3">
@@ -112,22 +127,44 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
 
       {restrict && (
         <div>
-          <label htmlFor="frame-extra-origin" className="block text-sm font-medium">
+          <label htmlFor="frame-extra-origin-0" className="block text-sm font-medium">
             {t('security.framing.extra_origin')}
           </label>
           <p className="text-xs opacity-70 mt-1 max-w-3xl">
             {t('security.framing.extra_origin_help')}
           </p>
-          <input
-            id="frame-extra-origin"
-            type="url"
-            className="input input-bordered w-full max-w-md mt-2"
-            placeholder="https://homeassistant.local:8123"
-            value={origin}
-            onChange={e => setOrigin(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
+          <div className="mt-2 space-y-2">
+            {origins.map((value, index) => (
+              <div key={index} className="flex items-center gap-2 max-w-xl">
+                <input
+                  id={`frame-extra-origin-${index}`}
+                  type="url"
+                  className="input input-bordered flex-1"
+                  placeholder="https://homeassistant.local:8123"
+                  value={value}
+                  onChange={e => setOriginAt(index, e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => removeOriginAt(index)}
+                  aria-label={t('security.framing.remove_origin')}
+                  disabled={origins.length === 1 && !value}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline mt-2"
+            onClick={() => setOrigins(prev => [...prev, ''])}
+          >
+            {t('security.framing.add_origin')}
+          </button>
         </div>
       )}
 

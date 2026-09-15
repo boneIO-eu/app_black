@@ -167,16 +167,18 @@ async def test_unconfigured_device_reports_the_default(framing_device):
     body = await security_route.get_frame_ancestors()
     assert body["restrict"] is True
     assert body["configured"] is False
+    assert body["tokens"] == ["self"]
+    # Reported as the browser will receive it, keywords quoted.
     assert body["value"] == "'self'"
 
 
 @pytest.mark.asyncio
-async def test_writing_self_keeps_its_quotes(framing_device):
-    """`frame_ancestors: 'self'` would read back as the bare word `self`."""
+async def test_writes_a_plain_list(framing_device):
+    """The list form is what removes the quoting trap from the config."""
     await security_route.set_frame_ancestors(
         security_route.FrameAncestorsRequest(restrict=True)
     )
-    assert _stored(framing_device) == "'self'"
+    assert _stored(framing_device) == ["self"]
 
 
 @pytest.mark.asyncio
@@ -187,7 +189,7 @@ async def test_an_extra_origin_is_added_alongside_self(framing_device):
         )
     )
     # The trailing slash is dropped: an origin with a path is not an origin.
-    assert _stored(framing_device) == "'self' https://homeassistant.local:8123"
+    assert _stored(framing_device) == ["self", "https://homeassistant.local:8123"]
 
 
 @pytest.mark.asyncio
@@ -198,7 +200,7 @@ async def test_lifting_the_restriction_drops_the_origins(framing_device):
             restrict=False, extra_origins=["https://ha.local:8123"]
         )
     )
-    assert _stored(framing_device) == "*"
+    assert _stored(framing_device) == ["*"]
 
 
 @pytest.mark.asyncio
@@ -252,3 +254,38 @@ def test_framing_routes_are_admin_only():
     assert policy.required_role("PUT", "/api/security/frame-ancestors") is Role.ADMIN
     assert not policy.role_allows(Role.VIEWER, "PUT", "/api/security/frame-ancestors")
     assert not policy.role_allows(Role.VIEWER, "GET", "/api/security/frame-ancestors")
+
+
+@pytest.mark.asyncio
+async def test_several_origins_are_all_kept(framing_device):
+    """The config is a list, so the panel must not quietly keep only one."""
+    await security_route.set_frame_ancestors(
+        security_route.FrameAncestorsRequest(
+            restrict=True,
+            extra_origins=["https://ha.local:8123", "https://spare.local:8123"],
+        )
+    )
+    assert _stored(framing_device) == [
+        "self",
+        "https://ha.local:8123",
+        "https://spare.local:8123",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_hand_written_string_is_read_and_replaced(tmp_path, monkeypatch):
+    """Configs written by 1.6 before the list existed still open and save."""
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "web:\n  security:\n    frame_ancestors: \"'self' https://old.local\"\n",
+        encoding="utf-8",
+    )
+    _install(monkeypatch, str(path))
+
+    body = await security_route.get_frame_ancestors()
+    assert body["extra_origins"] == ["https://old.local"]
+
+    await security_route.set_frame_ancestors(
+        security_route.FrameAncestorsRequest(restrict=True, extra_origins=["https://new.local"])
+    )
+    assert _stored(path) == ["self", "https://new.local"]

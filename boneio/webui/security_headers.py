@@ -9,8 +9,11 @@ Its modern replacement, CSP ``frame-ancestors``, can — so framing policy is a
 config option (``web.security.frame_ancestors``) rather than a header nailed
 shut here.
 
-It defaults to ``'self'``, which is both the secure answer and the one the
-boneIO Black Home Assistant add-on needs. The add-on's nginx *proxies* each
+It is a list of plain tokens — ``self``, or an address — which this module
+quotes the way CSP requires; see :mod:`boneio.core.security.framing` for why
+the config does not hold the directive verbatim. It defaults to ``self``,
+which is both the secure answer and the one the boneIO Black Home Assistant
+add-on needs. The add-on's nginx *proxies* each
 device (``proxy_pass https://<device>:8443``) and the dashboard frames a path
 on Home Assistant's own origin, so the framed document and the page framing it
 share an origin — ``'self'`` permits exactly that while refusing a page on any
@@ -19,7 +22,7 @@ other site.
 The setup this does break is a dashboard pointing an iframe card or
 ``panel_iframe`` straight at ``https://<device>:8443``: there the framed
 document is on the device's origin and Home Assistant's is a different one.
-Such an install adds its Home Assistant origin alongside ``'self'``, which the
+Such an install adds its Home Assistant origin alongside ``self``, which the
 Security section offers as a field. ``*`` turns the restriction off entirely
 for anyone who needs that.
 
@@ -36,9 +39,10 @@ from __future__ import annotations
 from starlette.requests import Request
 from starlette.responses import Response
 
-# Defined in core beside the other shipped defaults, so the security check and
-# this header cannot drift apart about what an unconfigured device does.
-from boneio.core.security.posture import DEFAULT_FRAME_ANCESTORS
+# The framing policy is a list of plain tokens in config.yaml; core turns it
+# into the directive, so the security check and this header cannot drift apart
+# about what a given configuration actually does.
+from boneio.core.security import framing
 
 #: Kept deliberately permissive where the app genuinely needs it, so that the
 #: policy can actually ship rather than being switched off the first time the
@@ -80,31 +84,34 @@ _PERMISSIONS_POLICY = ", ".join(
 HSTS_MAX_AGE = 86400
 
 
-def build_csp(frame_ancestors: str | None = None) -> str:
+def build_csp(frame_ancestors: object = None) -> str:
     """Assemble the Content-Security-Policy header value.
 
     Args:
-        frame_ancestors: Value for the frame-ancestors directive. None means
-            the device has not been configured, and the secure default applies;
-            pass ``"*"`` to lift the restriction deliberately.
+        frame_ancestors: ``web.security.frame_ancestors`` as config.yaml holds
+            it — a list of plain tokens, or the single string earlier versions
+            wrote. None means the device has not been configured and the secure
+            default applies; ``["*"]`` lifts the restriction deliberately.
 
     Returns:
         The header value.
     """
     directives = list(_CSP_DIRECTIVES)
-    directives.append(f"frame-ancestors {frame_ancestors or DEFAULT_FRAME_ANCESTORS}")
+    tokens = framing.effective(frame_ancestors)
+    directives.append(f"frame-ancestors {framing.to_csp(tokens)}")
     return "; ".join(directives)
 
 
 def apply_security_headers(
-    request: Request, response: Response, frame_ancestors: str | None = None
+    request: Request, response: Response, frame_ancestors: object = None
 ) -> None:
     """Set the security headers on an outgoing response.
 
     Args:
         request: The request being answered, used to tell HTTPS from HTTP.
         response: Response to annotate, modified in place.
-        frame_ancestors: CSP frame-ancestors value, or None for the default.
+        frame_ancestors: Configured frame_ancestors value, or None for the
+            default. See :func:`build_csp`.
     """
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"

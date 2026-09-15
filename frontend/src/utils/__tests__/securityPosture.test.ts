@@ -175,6 +175,8 @@ describe('the framing card is translated', () => {
     'restart_needed',
     'load_failed',
     'save_failed',
+    'add_origin',
+    'remove_origin',
   ];
 
   for (const [lang, bundle] of [['pl', plCommon], ['en', enCommon]] as const) {

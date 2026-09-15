@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from boneio.core.security.posture import (
-    DEFAULT_FRAME_ANCESTORS,
     DEFAULT_MQTT_PASSWORD,
     Severity,
     State,
@@ -14,7 +13,7 @@ from boneio.core.security.posture import (
 
 SECURE = {
     "mqtt": {"host": "localhost", "password": "wlasne-haslo"},
-    "web": {"port": 8090, "security": {"frame_ancestors": "'self'"}},
+    "web": {"port": 8090, "security": {"frame_ancestors": ["self"]}},
 }
 
 
@@ -205,7 +204,9 @@ def test_an_unconfigured_device_is_already_protected():
     """
     check = _framing({})
     assert check.state is State.OK
-    assert DEFAULT_FRAME_ANCESTORS in check.detail
+    # Reported as the directive, keywords quoted — that is what the browser
+    # receives, and the panel shows it verbatim.
+    assert "'self'" in check.detail
 
 
 def test_explicitly_unrestricted_framing_is_a_warning():
@@ -213,20 +214,26 @@ def test_explicitly_unrestricted_framing_is_a_warning():
     check = _framing({"web": {"security": {"frame_ancestors": "*"}}})
     assert check.state is State.FAILED
     assert check.severity is Severity.WARNING
-    assert "'self'" in check.remedy
+    assert "self" in check.remedy
 
 
 def test_an_extra_origin_alongside_self_still_passes():
     """A dashboard framing the device directly is a supported setup."""
     check = _framing(
-        {"web": {"security": {"frame_ancestors": "'self' https://ha.local:8123"}}}
+        {"web": {"security": {"frame_ancestors": ["self", "https://ha.local:8123"]}}}
     )
     assert check.state is State.OK
     assert "https://ha.local:8123" in check.detail
 
 
+def test_the_string_form_older_configs_wrote_still_reads():
+    """1.6 wrote a single quoted string before the list existed."""
+    check = _framing({"web": {"security": {"frame_ancestors": "'self'"}}})
+    assert check.state is State.OK
+
+
 def test_a_wildcard_hidden_among_origins_is_still_a_wildcard():
     """`'self' *` permits everything, whatever it looks like."""
     assert _framing(
-        {"web": {"security": {"frame_ancestors": "'self' *"}}}
+        {"web": {"security": {"frame_ancestors": ["self", "*"]}}}
     ).state is State.FAILED

@@ -2683,7 +2683,9 @@
       "saving": "Zapisuję...",
       "restart_needed": "Zapisane — zadziała po restarcie aplikacji.",
       "load_failed": "Nie udało się odczytać ustawienia.",
-      "save_failed": "Nie udało się zapisać ustawienia."
+      "save_failed": "Nie udało się zapisać ustawienia.",
+      "add_origin": "Dodaj adres",
+      "remove_origin": "Usuń adres"
     }
   },
   "login": {

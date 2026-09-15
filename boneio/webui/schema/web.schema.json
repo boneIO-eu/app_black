@@ -79,6 +79,7 @@
           "properties": {
             "frame_ancestors": {
               "type": [
+                "array",
                 "null",
                 "string"
               ],
