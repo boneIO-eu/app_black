@@ -139,7 +139,7 @@ def test_writes_a_block_list(tmp_path):
     assert yaml.safe_load(path.read_text())["web"]["security"] == {
         "frame_ancestors": ["self"]
     }
-    assert "    - \"self\"" in path.read_text()
+    assert "      - self\n" in path.read_text()
 
 
 def test_the_keyword_needs_no_quoting_gymnastics(tmp_path):
@@ -208,3 +208,51 @@ def test_refuses_an_included_section(tmp_path):
     path = write(tmp_path, "web: !include web.yaml\n")
     with pytest.raises(YamlPatchError):
         set_block_list(path, ("web", "security"), "frame_ancestors", ["self"])
+
+
+# ----------------------------------------------------------- entry quoting
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "self",
+        "none",
+        "https://homeassistant.local:8123",
+        "http://ha.local",
+        "*",
+        "yes",
+        "null",
+        "a b",
+        "#comment-ish",
+        "- dash",
+        "",
+        "'self'",
+        "x: y",
+    ],
+)
+def test_every_entry_reads_back_exactly_as_written(tmp_path, token):
+    """Quoting is an optimisation for readability, never for correctness."""
+    path = write(tmp_path, "web:\n  port: 8090\n")
+    set_block_list(path, ("web", "security"), "frame_ancestors", [token])
+    assert yaml.safe_load(path.read_text())["web"]["security"]["frame_ancestors"] == [token]
+
+
+def test_ordinary_entries_are_left_unquoted(tmp_path):
+    """The list form exists so the file reads as someone would type it."""
+    path = write(tmp_path, "web:\n  port: 8090\n")
+    set_block_list(
+        path, ("web", "security"), "frame_ancestors", ["self", "https://ha.local:8123"]
+    )
+    text = path.read_text()
+    assert "      - self\n" in text
+    assert "      - https://ha.local:8123\n" in text
+    assert '"' not in text
+
+
+def test_the_wildcard_is_quoted_because_yaml_would_choke(tmp_path):
+    """`- *` is an alias reference and a syntax error, not a string."""
+    path = write(tmp_path, "web:\n  port: 8090\n")
+    set_block_list(path, ("web", "security"), "frame_ancestors", ["*"])
+    assert '- "*"' in path.read_text()
+    assert yaml.safe_load(path.read_text())["web"]["security"]["frame_ancestors"] == ["*"]

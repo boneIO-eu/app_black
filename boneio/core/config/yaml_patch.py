@@ -13,6 +13,7 @@ survives the trip back through the parser.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,6 +42,38 @@ def quote_scalar(value: str) -> str:
     """
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
+
+
+#: Tokens matching this are written bare, so the file reads the way someone
+#: would type it. Deliberately narrow: it starts with a letter, so `*` — which
+#: YAML reads as an alias reference and rejects outright — never qualifies, and
+#: it admits no whitespace, so the `": "` that would turn an entry into a
+#: mapping cannot occur.
+_PLAIN_ITEM = re.compile(r"^[A-Za-z][A-Za-z0-9._:/@%+~=&?-]*$")
+
+#: Words YAML reads as something other than a string, so an entry spelling one
+#: of them must be quoted or it stops being text. `none` is deliberately absent
+#: — YAML's null is `null` or `~`, and `none` is the CSP keyword, which would
+#: look wrong quoted beside a bare `self`.
+_YAML_WORDS = frozenset({"true", "false", "yes", "no", "on", "off", "null"})
+
+
+def item_scalar(value: str) -> str:
+    """Render a list entry, quoting only when YAML would read it wrongly.
+
+    The list form exists so config.yaml reads as someone would write it, which
+    quoting every entry undoes. Anything that is not plainly a word or an
+    address is still quoted.
+
+    Args:
+        value: The entry to write.
+
+    Returns:
+        A bare or double-quoted YAML scalar.
+    """
+    if _PLAIN_ITEM.match(value) and value.lower() not in _YAML_WORDS:
+        return value
+    return quote_scalar(value)
 
 
 def _line_key(line: str) -> tuple[str, int, str] | None:
@@ -94,7 +127,7 @@ def set_block_list(
 
     field_indent = len(path) * len(INDENT)
     block = f"{INDENT * len(path)}{field}:\n" + "".join(
-        f"{INDENT * (len(path) + 1)}- {quote_scalar(item)}\n" for item in items
+        f"{INDENT * (len(path) + 1)}- {item_scalar(item)}\n" for item in items
     )
 
     depth = 0
