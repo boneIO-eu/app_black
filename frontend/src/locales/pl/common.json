@@ -2694,5 +2694,27 @@
     "password": "Hasło",
     "submit": "Zaloguj",
     "invalid": "Nieprawidłowa nazwa użytkownika lub hasło."
+  },
+  "diagnostics": {
+    "title": "Dane diagnostyczne dla wsparcia",
+    "intro": "Zbiera w jeden plik to, o co wsparcie i tak zapyta. Możesz go wysłać mailem — nie musisz nikomu dawać dostępu do sterownika.",
+    "contains_title": "Co jest w środku:",
+    "contains_config": "Twoja konfiguracja YAML",
+    "contains_logs": "Log urządzenia",
+    "contains_status": "Stan MQTT, Mosquitto, Dockera, systemu i sieci",
+    "excluded": "Czego nie ma: plik secrets.yaml i plik kont nie są w ogóle czytane, a hasła z konfiguracji są zamienione na znacznik wszędzie, także w logach.",
+    "privacy": "Plik nadal zawiera nazwy Twoich urządzeń, topiki MQTT i adresy w sieci. Wyślij go komuś, kogo prosisz o pomoc — nie na publiczne forum.",
+    "capture_title": "Logi są zwykle za ubogie",
+    "capture_help": "Domyślnie urządzenie nie zapisuje szczegółów, więc paczka zebrana „na zimno” rzadko tłumaczy usterkę. Otwórz okno diagnostyczne, odtwórz problem, a potem pobierz paczkę — obejmie dokładnie ten czas. Okno zamyka się samo.",
+    "capture_length": "Długość okna",
+    "capture_minutes": "{{count}} min",
+    "capture_start": "Otwórz okno diagnostyczne",
+    "capture_stop": "Zamknij teraz",
+    "capture_active": "Okno diagnostyczne otwarte — odtwórz problem. Zamknie się za {{time}}.",
+    "capture_failed": "Nie udało się zmienić okna diagnostycznego.",
+    "download": "Pobierz paczkę diagnostyczną",
+    "building": "Zbieram...",
+    "build_time": "Zebranie zajmuje kilkanaście sekund.",
+    "download_failed": "Nie udało się zebrać paczki."
   }
 }

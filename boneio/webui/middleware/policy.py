@@ -53,6 +53,8 @@ _ADMIN_ONLY_READ_PREFIXES = (
     # A list of what is still unlocked is a shopping list for anyone who
     # should not have it.
     "/api/security",
+    # The bundle is the whole configuration and the device log in one file.
+    "/api/diagnostics",
 )
 
 # Writes a viewer may perform: operating the device, never configuring it.

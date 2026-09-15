@@ -2695,5 +2695,27 @@
     "password": "Password",
     "submit": "Sign in",
     "invalid": "Invalid username or password."
+  },
+  "diagnostics": {
+    "title": "Diagnostics for support",
+    "intro": "Collects what support will ask for into one file. You can email it — nobody needs access to the controller.",
+    "contains_title": "What is inside:",
+    "contains_config": "Your YAML configuration",
+    "contains_logs": "The device log",
+    "contains_status": "MQTT, Mosquitto, Docker, system and network state",
+    "excluded": "What is not: secrets.yaml and your account file are never read, and passwords from the configuration are replaced with a placeholder everywhere, including in the logs.",
+    "privacy": "The file still holds your device names, MQTT topics and network addresses. Send it to someone you are asking for help, not to a public forum.",
+    "capture_title": "The logs are usually too thin",
+    "capture_help": "By default the device does not record the detail, so a bundle collected cold rarely explains a fault. Open a capture window, reproduce the problem, then download — the bundle covers exactly that period. The window closes itself.",
+    "capture_length": "Window length",
+    "capture_minutes": "{{count}} min",
+    "capture_start": "Open a capture window",
+    "capture_stop": "Close now",
+    "capture_active": "Capture window open — reproduce the problem. It closes in {{time}}.",
+    "capture_failed": "Could not change the capture window.",
+    "download": "Download diagnostics",
+    "building": "Collecting...",
+    "build_time": "Collecting takes a few seconds.",
+    "download_failed": "Could not collect the bundle."
   }
 }

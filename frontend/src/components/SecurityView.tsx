@@ -6,6 +6,7 @@ import {
   type Severity,
 } from '../hooks/useSecurityPosture';
 import { checkText as checkTextOf, fixRoute } from '../utils/securityPosture';
+import DiagnosticsCard from './DiagnosticsCard';
 import FrameAncestorsCard from './FrameAncestorsCard';
 
 /** This view's own route, so a check fixed here offers no button back to it. */
@@ -163,6 +164,10 @@ export default function SecurityView() {
       {/* A control, not a finding: shown whether or not the check passes, so
           the restriction can be tightened as well as repaired. */}
       <FrameAncestorsCard onSaved={() => void refresh()} />
+
+      {/* Not a security setting, but the same audience: this is the page an
+          admin is on when something is wrong. */}
+      <DiagnosticsCard />
 
       {passed.length > 0 && (
         <details className="border border-base-300 rounded-xl">

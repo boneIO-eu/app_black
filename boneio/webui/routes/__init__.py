@@ -15,6 +15,7 @@ from boneio.webui.routes.onboarding import router as onboarding_router
 from boneio.webui.routes.mqtt_reference import router as mqtt_reference_router
 from boneio.webui.routes.outputs import router as outputs_router
 from boneio.webui.routes.remote_devices import router as remote_devices_router
+from boneio.webui.routes.diagnostics import router as diagnostics_router
 from boneio.webui.routes.security import router as security_router
 from boneio.webui.routes.sensors import router as sensors_router
 from boneio.webui.routes.system import router as system_router
@@ -41,6 +42,7 @@ __all__ = [
     "mqtt_reference_router",
     "outputs_router",
     "remote_devices_router",
+    "diagnostics_router",
     "security_router",
     "sensors_router",
     "system_router",
