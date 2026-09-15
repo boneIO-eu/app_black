@@ -16,6 +16,7 @@ from fastapi import APIRouter, Body, HTTPException
 if TYPE_CHECKING:
     from starlette.datastructures import State
 
+from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.core.config.yaml_util import (
     clear_config_cache,
     load_config_from_file,
@@ -241,7 +242,9 @@ async def get_parsed_config():
 
         if _config_cache["data"] is not None and _config_cache["mtime"] >= current_mtime:
             _LOGGER.debug("Returning cached configuration (mtime unchanged)")
-            return {"config": _config_cache["data"]}
+            # Masked on the way out, always on a copy: the cache is shared with
+            # the rest of the process, which needs the real values.
+            return {"config": mask_secrets(_config_cache["data"])}
 
         start = time.time()
         try:
@@ -327,7 +330,7 @@ async def get_parsed_config():
         _config_cache["mtime"] = current_mtime
 
         _LOGGER.info("Loaded and cached configuration in %.2fs (mtime: %.0f)", elapsed, current_mtime)
-        return {"config": config_data}
+        return {"config": mask_secrets(config_data)}
 
     except Exception as e:
         _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
@@ -367,6 +370,16 @@ def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
+    # The client was shown a placeholder instead of each configured secret, and
+    # posts the whole section back. Anything still carrying the placeholder is
+    # resolved from what is stored, so saving an unrelated field cannot
+    # overwrite a password with the mask that stood in for it.
+    try:
+        current = _config_cache["data"] or {}
+        data = restore_secrets(data, current.get(section))
+    except Exception as err:  # noqa: BLE001 - a save must not fail over this
+        _LOGGER.warning("Could not resolve masked secrets for %s: %s", section, err)
+
     RESTART_REQUIRED_SECTIONS = {
         "boneio", "mqtt", "lox_udp", "web", "modbus",
         "mcp23017", "lm75", "ina219", "ina226", "mcp9808", "can",
