@@ -41,7 +41,7 @@ def test_list_on_a_fresh_device(config, capsys):
 def test_list_shows_roles(config, capsys):
     store = UserStore.for_config_file(config)
     store.add_user("pawel", "haslo-admina", Role.ADMIN)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
 
     assert _run(config, "list") == 0
     out = capsys.readouterr().out
@@ -139,7 +139,7 @@ def test_reset_on_an_unknown_account(config, capsys):
 def test_delete_removes_an_account(config):
     store = UserStore.for_config_file(config)
     store.add_user("pawel", "haslo-admina", Role.ADMIN)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
 
     assert _run(config, "delete", username="gosc") == 0
     fresh = UserStore.for_config_file(config)
@@ -190,5 +190,5 @@ def test_reload_does_not_undo_our_own_writes(config):
     """The store must not treat its own save as an external change."""
     store = UserStore.for_config_file(config)
     store.add_user("pawel", "haslo-admina", Role.ADMIN)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
     assert {u.username for u in store.list_users()} == {"pawel", "gosc"}

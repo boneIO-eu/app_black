@@ -123,7 +123,7 @@ def test_throttling_one_account_does_not_reveal_whether_it_exists(client):
 def test_one_account_being_throttled_leaves_another_usable(client, store):
     """An attacker grinding one name must not lock the rest of the household
     out — that would be a denial of service on the owner."""
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
 
     for _ in range(LOGIN_MAX_ATTEMPTS):
         _attempt(client, username="pawel")
@@ -131,7 +131,7 @@ def test_one_account_being_throttled_leaves_another_usable(client, store):
 
     # Same client IP, different account: the per-IP bucket is shared, so this
     # documents the deliberate trade — see test_ip_bucket_is_shared below.
-    assert _attempt(client, username="gosc", password="haslo-goscia").status_code == 429
+    assert _attempt(client, username="gosc", password="poufne-haslo").status_code == 429
 
 
 def test_ip_bucket_is_shared_on_purpose(client):

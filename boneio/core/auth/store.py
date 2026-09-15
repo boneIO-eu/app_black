@@ -34,6 +34,12 @@ _FORBIDDEN_CHARS = set('/\\:"\'`$\x00\r\n\t')
 _MAX_USERNAME_LEN = 64
 _MIN_PASSWORD_LEN = 8
 
+# Below this, a username is too short to be worth banning from inside a
+# password: forbidding "ab" would reject half the dictionary for no real gain.
+# At or above it, containing the username is what makes a password guessable by
+# anyone who can read the login form.
+_MIN_USERNAME_IN_PASSWORD_LEN = 4
+
 
 class UserStoreError(Exception):
     """Raised when an account operation cannot be carried out."""
@@ -68,19 +74,38 @@ def normalize_username(username: str) -> str:
     return cleaned.lower()
 
 
-def validate_password(password: str) -> None:
-    """Reject passwords that are too short to be worth hashing.
+def validate_password(password: str, username: str | None = None) -> None:
+    """Reject passwords that are too short or too close to the account name.
+
+    The username is public — it is typed into the same form, logged, and
+    embedded in every token — so a password built out of it is guessable by
+    anyone who can reach the login page. Rejecting it is the one context-specific
+    rule worth enforcing on a device whose web UI is often the only thing
+    between a LAN and a box full of relays.
 
     Args:
         password: Plain-text password.
+        username: Account the password is for, when known. Omitting it skips
+            the similarity rule, never the length one.
 
     Raises:
-        UserStoreError: If the password is shorter than the minimum length.
+        UserStoreError: If the password is shorter than the minimum length, or
+            is (or contains) the username.
     """
     if not password or len(password) < _MIN_PASSWORD_LEN:
         raise UserStoreError(
             f"Password must be at least {_MIN_PASSWORD_LEN} characters"
         )
+
+    name = (username or "").strip().casefold()
+    if not name:
+        return
+
+    secret = password.casefold()
+    if name == secret or (
+        len(name) >= _MIN_USERNAME_IN_PASSWORD_LEN and name in secret
+    ):
+        raise UserStoreError("Password must not contain the username")
 
 
 class UserStore:
@@ -342,7 +367,7 @@ class UserStore:
         self._ensure_loaded()
         key = normalize_username(username)
         if enforce_policy:
-            validate_password(password)
+            validate_password(password, username)
         elif not password:
             raise UserStoreError("Password must not be empty")
 
@@ -380,7 +405,7 @@ class UserStore:
         """
         self._ensure_loaded()
         key = normalize_username(username)
-        validate_password(password)
+        validate_password(password, username)
 
         with self._lock:
             user = self._users.get(key)

@@ -32,11 +32,13 @@ from boneio.core.auth.store import UserStore, UserStoreError, validate_password
 _LOGGER = logging.getLogger(__name__)
 
 
-def _prompt_password(prompt: str) -> str | None:
+def _prompt_password(prompt: str, username: str | None = None) -> str | None:
     """Ask for a password twice, with echo off.
 
     Args:
         prompt: Text for the first prompt.
+        username: Account the password is for, so the same policy the store
+            applies is reported here rather than after the second prompt.
 
     Returns:
         The password, or None if the two entries differed, it was empty, or the
@@ -48,7 +50,7 @@ def _prompt_password(prompt: str) -> str | None:
         return None
 
     try:
-        validate_password(first)
+        validate_password(first, username)
     except UserStoreError as err:
         print(f"Rejected: {err}", file=sys.stderr)
         return None
@@ -125,7 +127,9 @@ def run_accounts_command(args: argparse.Namespace) -> int:
         return 0
 
     if action == "add":
-        password = _prompt_password(f"New password for '{args.username}'")
+        password = _prompt_password(
+            f"New password for '{args.username}'", args.username
+        )
         if password is None:
             return 1
         try:
@@ -141,7 +145,9 @@ def run_accounts_command(args: argparse.Namespace) -> int:
         if store.get_user(args.username) is None:
             print(f"No such account: {args.username}", file=sys.stderr)
             return 1
-        password = _prompt_password(f"New password for '{args.username}'")
+        password = _prompt_password(
+            f"New password for '{args.username}'", args.username
+        )
         if password is None:
             return 1
         try:

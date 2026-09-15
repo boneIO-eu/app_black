@@ -104,6 +104,74 @@ def test_validate_password_accepts_eight_chars():
     validate_password("12345678")
 
 
+@pytest.mark.parametrize(
+    "username, password",
+    [
+        # The exact case Pawel asked about: name and secret identical.
+        ("boneioAAA", "boneioAAA"),
+        # Case is irrelevant — logging in does not care either.
+        ("boneioAAA", "BONEIOaaa"),
+        ("admin123", "ADMIN123"),
+        # Padding the username out to the length minimum fools nobody.
+        ("boneio", "boneio1234"),
+        ("boneio", "xx-boneio-xx"),
+        # The store matches usernames case-insensitively and trims them, so the
+        # policy has to look at the same canonical form.
+        ("  boneio  ", "boneio-panel"),
+    ],
+)
+def test_validate_password_rejects_username_lookalikes(username, password):
+    with pytest.raises(UserStoreError, match="username"):
+        validate_password(password, username)
+
+
+@pytest.mark.parametrize(
+    "username, password",
+    [
+        # Shares a prefix but is not the username.
+        ("boneio", "bone-shaker-42"),
+        ("pawel", "correct horse battery"),
+        # Too short to ban from inside a password without absurd collateral.
+        ("ab", "abstract-cat"),
+    ],
+)
+def test_validate_password_accepts_unrelated(username, password):
+    validate_password(password, username)
+
+
+def test_validate_password_still_rejects_a_short_password_with_username():
+    # Length is checked first: the caller should hear the simpler complaint.
+    with pytest.raises(UserStoreError, match="at least"):
+        validate_password("bone", "boneio")
+
+
+def test_validate_password_without_username_keeps_length_only():
+    # Callers that do not know the account yet must not start failing.
+    validate_password("boneioAAA")
+
+
+def test_add_user_rejects_password_equal_to_username(store):
+    with pytest.raises(UserStoreError, match="username"):
+        store.add_user("boneioAAA", "boneioAAA", Role.ADMIN)
+    assert store.is_provisioned() is False
+
+
+def test_set_password_rejects_password_equal_to_username(store):
+    store.add_user("boneio", "correct horse battery", Role.ADMIN)
+    with pytest.raises(UserStoreError, match="username"):
+        store.set_password("boneio", "boneio-boneio")
+    # The old password must survive a rejected change.
+    assert store.verify_credentials("boneio", "correct horse battery") is not None
+
+
+def test_legacy_migration_keeps_a_weak_password(store):
+    # enforce_policy=False exists for credentials that already exist in
+    # config.yaml: rejecting them here would lock the owner out of their own
+    # device at upgrade time, which is worse than the weak password.
+    user = store.add_user("boneio", "boneio", Role.ADMIN, enforce_policy=False)
+    assert user.username == "boneio"
+
+
 # --------------------------------------------------------------- provisioning
 
 

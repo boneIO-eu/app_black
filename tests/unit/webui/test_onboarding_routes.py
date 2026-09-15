@@ -129,12 +129,12 @@ def test_existing_admin_cannot_be_overwritten_by_the_wizard(client, store):
 
     response = client.post(
         "/api/onboarding/admin",
-        json={"username": "pawel", "password": "haslo-napastnika"},
+        json={"username": "pawel", "password": "haslo-intruza"},
     )
 
     assert response.status_code == 409
     assert store.verify_credentials("pawel", "dobre-haslo") is not None
-    assert store.verify_credentials("pawel", "haslo-napastnika") is None
+    assert store.verify_credentials("pawel", "haslo-intruza") is None
 
 
 def test_a_viewer_only_device_can_still_be_provisioned(client, store):
@@ -210,10 +210,10 @@ def test_login_rejects_a_wrong_password_on_a_provisioned_device(client, store):
 
 def test_login_reports_the_viewer_role(client, store):
     store.add_user("pawel", "dobre-haslo", Role.ADMIN)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
 
     body = client.post(
-        "/api/login", json={"username": "gosc", "password": "haslo-goscia"}
+        "/api/login", json={"username": "gosc", "password": "poufne-haslo"}
     ).json()
 
     assert body["role"] == "viewer"

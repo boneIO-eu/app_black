@@ -111,7 +111,7 @@ def test_first_admin_endpoint_is_open_but_self_guarding(client, store):
 
     response = client.post(
         "/api/onboarding/admin",
-        json={"username": "napastnik", "password": "haslo-napastnika"},
+        json={"username": "napastnik", "password": "haslo-intruza"},
     )
 
     assert response.status_code == 409
@@ -189,7 +189,7 @@ def rbac_client(store):
 
     app.add_middleware(AuthMiddleware)
     store.add_user("pawel", "dobre-haslo", Role.ADMIN)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
     return TestClient(app)
 
 

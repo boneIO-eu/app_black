@@ -46,7 +46,7 @@ def test_provisioned_device_is_silent(config_file):
 def test_viewer_only_device_still_needs_setup(config_file):
     """A viewer is not an owner, so the device is still unmanageable."""
     store = UserStore.for_config_file(config_file)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
     draw = _run(config_file, {"port": 8090})
     draw.assert_called_once()
 

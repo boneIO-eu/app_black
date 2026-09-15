@@ -28,7 +28,7 @@ def store(tmp_path):
     set_allow_anonymous(False)
     set_user_store(store)
     store.add_user("pawel", "haslo-admina", Role.ADMIN)
-    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    store.add_user("gosc", "poufne-haslo", Role.VIEWER)
     yield store
     set_user_store(None)
 
@@ -225,7 +225,7 @@ def test_viewer_may_change_their_own_password(client, store):
     response = client.put(
         "/api/account/password",
         headers=_as(*VIEWER),
-        json={"current_password": "haslo-goscia", "new_password": "nowe-haslo-123"},
+        json={"current_password": "poufne-haslo", "new_password": "nowe-haslo-123"},
     )
     assert response.status_code == 200
     assert store.verify_credentials("gosc", "nowe-haslo-123") is not None
@@ -239,14 +239,14 @@ def test_own_password_change_needs_the_current_one(client, store):
         json={"current_password": "zgadywane", "new_password": "nowe-haslo-123"},
     )
     assert response.status_code == 401
-    assert store.verify_credentials("gosc", "haslo-goscia") is not None
+    assert store.verify_credentials("gosc", "poufne-haslo") is not None
 
 
 def test_own_password_change_enforces_the_policy(client):
     assert client.put(
         "/api/account/password",
         headers=_as(*VIEWER),
-        json={"current_password": "haslo-goscia", "new_password": "krotkie"},
+        json={"current_password": "poufne-haslo", "new_password": "krotkie"},
     ).status_code == 422
 
 
@@ -255,7 +255,7 @@ def test_self_service_route_cannot_touch_other_accounts(client, store):
     client.put(
         "/api/account/password",
         headers=_as(*VIEWER),
-        json={"current_password": "haslo-goscia", "new_password": "nowe-haslo-123"},
+        json={"current_password": "poufne-haslo", "new_password": "nowe-haslo-123"},
     )
     assert store.verify_credentials("pawel", "haslo-admina") is not None
 
