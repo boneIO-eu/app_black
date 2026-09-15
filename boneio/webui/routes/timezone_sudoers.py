@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import tempfile
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,12 +124,19 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
     user = os.environ.get("USER", "boneio")
     content = get_sudoers_content(user)
 
+    tmp_path = None
     try:
-        # Write content to a temp file first, then move it with sudo
-        tmp_path = f"/tmp/boneio-timedatectl-sudoers-{os.getpid()}"
-
-        with open(tmp_path, "w") as f:
-            f.write(content)
+        # mkstemp, not a name built from the pid: it opens with O_EXCL at mode
+        # 0600 under a name nobody can guess. The old path was predictable, so
+        # another local account could pre-create it as a symlink and have this
+        # write through it, or swap the contents between validation and
+        # install. Owned by us at 0600 inside a sticky /tmp, neither is
+        # possible any more.
+        fd, tmp_path = tempfile.mkstemp(
+            prefix="boneio-timedatectl-sudoers-", suffix=".tmp"
+        )
+        with os.fdopen(fd, "w") as handle:
+            handle.write(content)
 
         # Validate the sudoers file before installing
         validate_cmd = ["sudo", "-S", "visudo", "-c", "-f", tmp_path]
@@ -145,13 +153,28 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
 
         if proc.returncode != 0:
             stderr_str = stderr.decode().strip()
-            os.unlink(tmp_path)
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
                 return {"status": "error", "message": "Authentication failed.", "_auth_failed": True}
             return {"status": "error", "message": f"Sudoers validation failed: {stderr_str}"}
 
-        # Copy the validated file to /etc/sudoers.d/ and set correct permissions
-        install_cmd = ["sudo", "-S", "cp", tmp_path, SUDOERS_FILE]
+        # install, not cp followed by chmod: it places the file with its final
+        # owner and mode in one step. The old sequence left the file in
+        # /etc/sudoers.d readable-and-writable for the moment between the two,
+        # and left it that way for good if the chmod failed — a mode sudo
+        # refuses to honour, so the rule would silently not apply.
+        install_cmd = [
+            "sudo",
+            "-S",
+            "install",
+            "-m",
+            "0440",
+            "-o",
+            "root",
+            "-g",
+            "root",
+            tmp_path,
+            SUDOERS_FILE,
+        ]
         proc = await asyncio.create_subprocess_exec(
             *install_cmd,
             stdin=asyncio.subprocess.PIPE,
@@ -165,27 +188,9 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
 
         if proc.returncode != 0:
             stderr_str = stderr.decode().strip()
-            os.unlink(tmp_path)
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
                 return {"status": "error", "message": "Authentication failed.", "_auth_failed": True}
             return {"status": "error", "message": f"Failed to install sudoers file: {stderr_str}"}
-
-        # Set correct permissions (must be 0440)
-        chmod_cmd = ["sudo", "-S", "chmod", "0440", SUDOERS_FILE]
-        proc = await asyncio.create_subprocess_exec(
-            *chmod_cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await asyncio.wait_for(
-            proc.communicate(input=(password + "\n").encode()),
-            timeout=10,
-        )
-
-        # Clean up temp file
-        with contextlib.suppress(OSError):
-            os.unlink(tmp_path)
 
         _LOGGER.info("Successfully created sudoers file for timedatectl: %s", SUDOERS_FILE)
         return {
@@ -199,3 +204,9 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
     except Exception as e:
         _LOGGER.error("Failed to create timedatectl sudoers file: %s", e)
         return {"status": "error", "message": str(e)}
+    finally:
+        # One place, so no error path can leave the file behind — it holds the
+        # sudoers rule we are about to install and should not linger in /tmp.
+        if tmp_path:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)

@@ -105,6 +105,15 @@ Jedno ustalenie, trzy osobne problemy — i wszystkie trzy trzeba było zamkną�
 - Lista dozwolonych origin to **ta sama, którą zna CORS**, żeby obie nie rozjechały się co do tego, komu się ufa — dzięki temu `pnpm dev` na :5173 dalej działa.
 - Zweryfikowane **poleceniami z raportu**: `create_backup` i `reboot` z `Origin: https://evil.example` → `403`; to samo bez `Origin` → `401`, czyli normalne wymaganie tokenu.
 
+### 8a. Twardnienie kodu aplikacji (F-09, F-16)
+- **F-09 — TOCTOU w `timezone_sudoers.py`.** Nazwa pliku tymczasowego budowana z PID-u była przewidywalna, więc inne lokalne konto mogło ją odgadnąć, podstawić dowiązanie i przechwycić zapis, albo podmienić treść między `visudo -c` a instalacją. Teraz `tempfile.mkstemp()`: `O_EXCL`, tryb 0600, nazwa nie do odgadnięcia.
+- **Trzeci problem, którego raport nie wymienia:** plik lądował w `/etc/sudoers.d/` przez `cp`, a tryb 0440 ustawiał dopiero osobny `chmod`. Między nimi miał złe uprawnienia — a gdyby `chmod` zawiódł, zostałby taki na stałe, w trybie, którego `sudo` nie honoruje, więc reguła po cichu by nie działała. Zastąpione jednym `install -m 0440 -o root -g root`. Sprzątanie pliku tymczasowego przeniesione do `finally`.
+- **F-16 — `!secret` psuł migrację `v4_wled_cache`.** Loader rejestrował tylko `!include`, więc config z `!secret` rzucał „could not determine a constructor", szeroki `except` to łykał i migracja cicho nie robiła nic — **dokładnie u tych, którzy zastosowali się do zaleceń bezpieczeństwa**. Dodany catch-all na dowolny tag (nie tylko `!secret`, żeby nie powtórzyło się przy następnym), ten sam loader dla pliku dołączonego (`remote_devices.yaml` trzyma hasła urządzeń, czyli naturalne miejsce na `!secret`), i głośniejszy komunikat błędu.
+- Zapis pliku idzie **regexem po surowym tekście**, nie przez re-serializację, więc tagi przeżywają nietknięte — sprawdzone.
+- Zweryfikowane na sterowniku scenariuszem z raportu: migracja wykonana, dane wyodrębnione, `!secret` nietknięty, pola WLED usunięte.
+
+**Zostaje w #8 (obraz, `black_debian_images`):** domyślne hasło SSH (F-04 sudo, hasło z obrazu), domyślne MQTT `boneio123` (F-05), certyfikat self-signed i HTTP (F-10), uprawnienia `/etc/mosquitto/passwd` (F-11) oraz throttling SSH przeniesiony z #3.
+
 ## Status
 - [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
 - [x] 2. Role admin/read-only — **zrobione** (gałąź `feature/rbac-admin-viewer`)
@@ -113,4 +122,4 @@ Jedno ustalenie, trzy osobne problemy — i wszystkie trzy trzeba było zamkną�
 - [x] 5. Node-RED adminAuth — **zrobione**
 - [x] 6. SSRF — **zrobione**
 - [x] 7. CSRF — **zrobione**
-- [ ] 8. Twardnienie kodu/systemu
+- [~] 8. Twardnienie kodu/systemu — **część aplikacyjna zrobiona** (F-09, F-16); obraz (F-04, F-05, F-10, F-11 + SSH z #3) zostaje
