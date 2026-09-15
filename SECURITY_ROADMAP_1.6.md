@@ -92,12 +92,25 @@ więc to domyślne hasło w przebraniu.
 - Nie wymaga nowej paczki — kontener ma już `host.docker.internal`, a obraz Node 22 ma wbudowany `fetch`.
 - Zweryfikowane na żywym sterowniku: admin z dobrym hasłem wpuszczony, admin ze złym odrzucony, **viewer z dobrym hasłem odrzucony**, konto nieistniejące odrzucone, martwy adres → odmowa.
 
+### 6. Ochrona SSRF (F-15)
+Jedno ustalenie, trzy osobne problemy — i wszystkie trzy trzeba było zamknąć osobno:
+- **Dowolny host** → `boneio/core/net/discovery_guard.py` przepuszcza wyłącznie adresy prywatne. Prywatnych **nie blokujemy**, bo tam żyją WLED i ESPHome — blokada zabiłaby funkcję. Odrzucane: loopback (skaner z raportu), link-local (w tym 169.254.169.254), publiczne (sterownik nie ma po co sięgać do internetu), multicast/zarezerwowane. Sprawdzane są **wszystkie** adresy z rozwiązania nazwy, nie pierwszy — inaczej nazwa wskazująca na dwa adresy przeszłaby.
+- **Dowolny port** → lista dozwolonych per protokół (WLED 80/443/8080, ESPHome 6053). Swobodny wybór portu jest tym, co czyni z odkrywania skaner. Nietypowy port: dodanie urządzenia ręcznie.
+- **Echo błędu z góry** → komunikat nigdy nie wraca do klienta, tylko do logu. To on wyciekał banner SSH („Bad status line", „Invalid preamble 0x53"). Każda odmowa brzmi identycznie.
+
+### 7. Ochrona CSRF (F-07)
+- Po #2 CSRF jest **w dużej mierze zamknięte strukturalnie**: token siedzi w nagłówku `Authorization`, nie w ciasteczku, więc formularz cross-site go nie dołączy i dostaje 401.
+- Zostawała dziura dla urządzenia bez uwierzytelniania (`allow_anonymous` / `BONEIO_DEV`) — tam PoC z rebootem działał. Domyka to `CSRFMiddleware`.
+- Sprawdzany jest **tylko `Origin`**: przeglądarka dołącza go dokładnie do żądań cross-site, a curl/skrypt/usługa nie dołączają nic i nie da się ich podstępem zmusić do działania w cudzym imieniu. Ocenianie żądań bez `Origin` zepsułoby każdą integrację, nie chroniąc nikogo.
+- Lista dozwolonych origin to **ta sama, którą zna CORS**, żeby obie nie rozjechały się co do tego, komu się ufa — dzięki temu `pnpm dev` na :5173 dalej działa.
+- Zweryfikowane **poleceniami z raportu**: `create_backup` i `reboot` z `Origin: https://evil.example` → `403`; to samo bez `Origin` → `401`, czyli normalne wymaganie tokenu.
+
 ## Status
 - [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
 - [x] 2. Role admin/read-only — **zrobione** (gałąź `feature/rbac-admin-viewer`)
 - [x] 3. Twardnienie logowania — **zrobione w aplikacji** (gałąź `feature/login-hardening`); część SSH przeniesiona do #8
 - [x] 4. Ochrona sekretów — **zrobione**
 - [x] 5. Node-RED adminAuth — **zrobione**
-- [ ] 6. SSRF
-- [ ] 7. CSRF
+- [x] 6. SSRF — **zrobione**
+- [x] 7. CSRF — **zrobione**
 - [ ] 8. Twardnienie kodu/systemu
