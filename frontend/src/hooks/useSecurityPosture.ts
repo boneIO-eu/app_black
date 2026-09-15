@@ -30,6 +30,12 @@ export interface SecurityCheck {
 
 export interface SecuritySummary {
   failed: number;
+  /**
+   * Failures worth interrupting someone about — critical and warning only.
+   * INFO is advice that applies to almost every device, and a badge that is
+   * always red is a badge nobody reads.
+   */
+  actionable: number;
   critical: number;
   warning: number;
   info: number;

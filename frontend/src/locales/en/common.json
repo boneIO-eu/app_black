@@ -2600,7 +2600,7 @@
     "title": "Security",
     "intro": "What is still open on this controller, and where to close it. The same information reaches Home Assistant as a diagnostic entity.",
     "outstanding": "{{count}} outstanding",
-    "all_clear": "Nothing is outstanding — {{count}} checks passed.",
+    "all_clear": "Nothing urgent — {{count}} checks run.",
     "passed": "Passing ({{count}})",
     "fix": "Fix",
     "recheck": "Check again",
@@ -2670,7 +2670,9 @@
       "title_first": "Security recommendations"
     },
     "anonymous_title": "Unauthenticated access is enabled.",
-    "anonymous_body": "Anyone who can reach this device on the network can read its configuration, switch its outputs and reboot it, with no password. Remove “allow_anonymous” from web.auth in config.yaml and create an administrator account."
+    "anonymous_body": "Anyone who can reach this device on the network can read its configuration, switch its outputs and reboot it, with no password. Remove “allow_anonymous” from web.auth in config.yaml and create an administrator account.",
+    "advice": "Worth considering",
+    "advice_intro": "Applies to nearly every controller and depends on how you use the device. Not a problem with this one."
   },
   "login": {
     "title": "Sign in to your",

@@ -102,6 +102,18 @@ class Posture:
         failures = self.failed
         return failures[0].severity if failures else None
 
+    @property
+    def actionable(self) -> list[Check]:
+        """Failures worth interrupting someone about, worst first.
+
+        INFO is excluded deliberately. A self-signed certificate is the
+        designed default and cloud registration is a choice, not a fix; if
+        those counted, every controller would wear a permanent red badge, and
+        a badge that is always red is a badge nobody reads. They still appear
+        in the panel, under their own heading.
+        """
+        return [c for c in self.failed if c.severity is not Severity.INFO]
+
     def count(self, severity: Severity) -> int:
         """How many failures of one severity.
 
@@ -123,6 +135,8 @@ class Posture:
             "checks": [c.to_dict() for c in self.checks],
             "summary": {
                 "failed": len(self.failed),
+                # What the badge counts and what the prompt fires on.
+                "actionable": len(self.actionable),
                 "critical": self.count(Severity.CRITICAL),
                 "warning": self.count(Severity.WARNING),
                 "info": self.count(Severity.INFO),

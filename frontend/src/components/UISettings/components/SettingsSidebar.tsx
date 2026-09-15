@@ -166,7 +166,7 @@ function SidebarContent({
   // A count on the label, so the section says there is something to do before
   // it is opened. Nothing outstanding shows no badge rather than a zero.
   const { posture } = useSecurityPosture();
-  const securityCount = posture?.summary.failed ?? 0;
+  const securityCount = posture?.summary.actionable ?? 0;
   // The web panel group is a domain group, so it draws from both lists: the
   // server settings need a restart, the accounts do not. That difference is
   // carried by a per-entry badge instead of by which box they sit in.

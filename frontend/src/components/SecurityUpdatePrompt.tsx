@@ -60,7 +60,7 @@ export default function SecurityUpdatePrompt() {
   // the notice is about the gap, not about the release.
   useEffect(() => {
     if (!isAdmin || !version || !posture) return;
-    if (posture.summary.failed === 0) {
+    if (posture.summary.actionable === 0) {
       // Only the stored value changes. React state is left alone on purpose:
       // this branch already renders nothing, and writing state from an effect
       // would re-render for no visible reason.
@@ -98,10 +98,10 @@ export default function SecurityUpdatePrompt() {
         <p className="py-3 text-sm">{t('security.after_update.body')}</p>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="badge badge-error">
-            {t('security.after_update.outstanding', { count: posture.summary.failed })}
+            {t('security.after_update.outstanding', { count: posture.summary.actionable })}
           </span>
           {posture.checks
-            .filter(c => c.state === 'failed')
+            .filter(c => c.state === 'failed' && c.severity !== 'info')
             .slice(0, 3)
             .map(c => (
               <span key={c.id} className="badge badge-ghost badge-sm">

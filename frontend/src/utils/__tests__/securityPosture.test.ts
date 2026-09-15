@@ -4,11 +4,13 @@ import type { SecurityPosture } from '../../hooks/useSecurityPosture';
 import plCommon from '../../locales/pl/common.json';
 import enCommon from '../../locales/en/common.json';
 
+/** A posture with `failed` actionable critical findings and no advice. */
 function posture(failed: number): SecurityPosture {
   return {
     checks: [],
     summary: {
       failed,
+      actionable: failed,
       critical: failed,
       warning: 0,
       info: 0,
@@ -96,6 +98,16 @@ describe('promptDecision', () => {
 
   it('shows after an update when something is outstanding', () => {
     expect(promptDecision(base)).toEqual({ show: true, knownUpgrade: true });
+  });
+
+  it('ignores advice that applies to every device', () => {
+    // Self-signed certificate and unset frame_ancestors are INFO: reported in
+    // the panel, never a reason to interrupt.
+    const adviceOnly: SecurityPosture = {
+      checks: [],
+      summary: { failed: 2, actionable: 0, critical: 0, warning: 0, info: 2, worst: 'info' },
+    };
+    expect(promptDecision({ ...base, posture: adviceOnly }).show).toBe(false);
   });
 
   it('stays away when nothing is outstanding', () => {

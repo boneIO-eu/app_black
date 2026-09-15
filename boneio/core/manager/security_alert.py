@@ -51,10 +51,14 @@ def build_payloads(posture: Posture) -> tuple[str, str]:
         Tuple of ``(state_payload, attributes_payload)``, both JSON.
     """
     failures = posture.failed
-    state = json.dumps({"state": "ON" if failures else "OFF"})
+    # ON tracks the actionable findings, not the advice. A problem sensor that
+    # is ON on every controller ever shipped would be automated around within
+    # a week, which is the same as not having it.
+    state = json.dumps({"state": "ON" if posture.actionable else "OFF"})
 
     attributes = {
         "failed": len(failures),
+        "actionable": len(posture.actionable),
         "critical": posture.count(Severity.CRITICAL),
         "warning": posture.count(Severity.WARNING),
         "info": posture.count(Severity.INFO),
@@ -176,11 +180,11 @@ class SecurityAlertPublisher:
             topic=f"{topic}/security/attributes", payload=attr_payload, retain=True
         )
 
-        failures = posture.failed
-        if failures:
+        actionable = posture.actionable
+        if actionable:
             _LOGGER.info(
                 "Security: %d recommendation(s) outstanding, worst %s",
-                len(failures),
+                len(actionable),
                 posture.worst,
             )
         else:

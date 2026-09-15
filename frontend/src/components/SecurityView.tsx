@@ -64,8 +64,48 @@ export default function SecurityView() {
     );
   }
 
-  const failed = posture.checks.filter(c => c.state === 'failed');
+  // Two groups, because they ask for different things. Actionable findings are
+  // a problem on this device; advice applies to nearly every controller and is
+  // a choice the owner makes — mixing them would make the whole list feel
+  // optional.
+  const failed = posture.checks.filter(c => c.state === 'failed' && c.severity !== 'info');
+  const advice = posture.checks.filter(c => c.state === 'failed' && c.severity === 'info');
   const passed = posture.checks.filter(c => c.state !== 'failed');
+
+  const renderCheck = (check: SecurityCheck) => {
+    const style = SEVERITY_STYLES[check.severity];
+    return (
+      <div key={check.id} className={`border rounded-xl p-4 ${style.border}`}>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex items-start gap-2 min-w-0">
+            <span aria-hidden="true">{style.icon}</span>
+            <div className="min-w-0">
+              <h3 className="font-semibold">
+                {checkText(check.id, 'title', check.title)}
+              </h3>
+              <p className="text-sm opacity-80 mt-1">
+                {checkText(check.id, 'detail', check.detail)}
+              </p>
+            </div>
+          </div>
+          <span className={`badge ${style.badge} badge-sm shrink-0`}>
+            {t(`security.severity.${check.severity}`)}
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {check.settings_section ? (
+            <button className="btn btn-sm btn-primary" onClick={() => goToFix(check)}>
+              {t('security.fix')}
+            </button>
+          ) : null}
+          <p className="text-xs opacity-70 font-mono break-all">
+            {checkText(check.id, 'remedy', check.remedy)}
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -105,46 +145,17 @@ export default function SecurityView() {
             )}
           </div>
 
-          {failed.map(check => {
-            const style = SEVERITY_STYLES[check.severity];
-            return (
-              <div
-                key={check.id}
-                className={`border rounded-xl p-4 ${style.border}`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 min-w-0">
-                    <span aria-hidden="true">{style.icon}</span>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold">
-                        {checkText(check.id, 'title', check.title)}
-                      </h3>
-                      <p className="text-sm opacity-80 mt-1">
-                        {checkText(check.id, 'detail', check.detail)}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`badge ${style.badge} badge-sm shrink-0`}>
-                    {t(`security.severity.${check.severity}`)}
-                  </span>
-                </div>
+          {failed.map(renderCheck)}
+        </div>
+      )}
 
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  {check.settings_section ? (
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={() => goToFix(check)}
-                    >
-                      {t('security.fix')}
-                    </button>
-                  ) : null}
-                  <p className="text-xs opacity-70 font-mono break-all">
-                    {checkText(check.id, 'remedy', check.remedy)}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+      {advice.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-semibold text-sm">{t('security.advice')}</h3>
+            <p className="text-xs opacity-70 mt-1 max-w-3xl">{t('security.advice_intro')}</p>
+          </div>
+          {advice.map(renderCheck)}
         </div>
       )}
 

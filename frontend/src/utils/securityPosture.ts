@@ -58,8 +58,9 @@ export interface PromptDecision {
  * Whether the post-update security prompt should be on screen.
  *
  * It appears for an administrator, once per version, and only when something
- * is actually outstanding — interrupting someone to say everything is fine is
- * how the next notice gets dismissed unread.
+ * actionable is outstanding — interrupting someone to say everything is fine
+ * is how the next notice gets dismissed unread, and the INFO advice applies
+ * to nearly every device, so it would fire for everyone forever.
  *
  * With no recorded version there is no evidence an update happened; this
  * browser may simply never have been here. The prompt still appears, because
@@ -78,7 +79,7 @@ export function promptDecision(input: {
   const knownUpgrade = Boolean(seenVersion) && seenVersion !== version;
 
   if (!isAdmin || !version || !posture || dismissed) return { show: false, knownUpgrade };
-  if (posture.summary.failed === 0) return { show: false, knownUpgrade };
+  if (posture.summary.actionable === 0) return { show: false, knownUpgrade };
   if (seenVersion === version) return { show: false, knownUpgrade };
 
   return { show: true, knownUpgrade };

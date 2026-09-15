@@ -175,3 +175,33 @@ def test_both_entry_points_agree(monkeypatch, config, provisioned):
         cloud_active=False,
     )
     assert from_files.to_dict() == from_runtime.to_dict()
+
+
+async def test_advice_alone_does_not_raise_the_problem_sensor(tmp_path):
+    """A default device is OFF, and still carries the advice.
+
+    Self-signed certificate and unset frame_ancestors apply to nearly every
+    controller. A problem sensor that is ON everywhere gets automated around.
+    """
+    config = tmp_path / "config.yaml"
+    config.write_text("mqtt:\n  host: localhost\n  password: changed\n", encoding="utf-8")
+    (tmp_path / "users.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "users": [
+                    {"username": "admin", "password_hash": "scrypt$x", "role": "admin"}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = _FakeManager(str(config))
+    await SecurityAlertPublisher(manager).publish_state()
+
+    topics = dict(manager.published)
+    assert json.loads(topics["boneio/security/state"])["state"] == "OFF"
+    attrs = json.loads(topics["boneio/security/attributes"])
+    assert attrs["actionable"] == 0
+    assert attrs["failed"] > 0  # the advice is still there to read

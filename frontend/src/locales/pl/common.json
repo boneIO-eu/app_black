@@ -2599,7 +2599,7 @@
     "title": "Bezpieczeństwo",
     "intro": "Co na tym sterowniku jest jeszcze otwarte i gdzie to zamknąć. Te same informacje trafiają do Home Assistant jako encja diagnostyczna.",
     "outstanding": "Do zrobienia: {{count}}",
-    "all_clear": "Nic nie zostało otwarte — sprawdzono {{count}} pozycji.",
+    "all_clear": "Nic pilnego — sprawdzono {{count}} pozycji.",
     "passed": "W porządku ({{count}})",
     "fix": "Napraw",
     "recheck": "Sprawdź ponownie",
@@ -2669,7 +2669,9 @@
       "title_first": "Zalecenia bezpieczeństwa"
     },
     "anonymous_title": "Dostęp bez logowania jest włączony.",
-    "anonymous_body": "Każdy, kto ma dostęp do tego urządzenia w sieci, może odczytać konfigurację, przełączać wyjścia i je zrestartować — bez hasła. Usuń „allow_anonymous” z sekcji web.auth w config.yaml i utwórz konto administratora."
+    "anonymous_body": "Każdy, kto ma dostęp do tego urządzenia w sieci, może odczytać konfigurację, przełączać wyjścia i je zrestartować — bez hasła. Usuń „allow_anonymous” z sekcji web.auth w config.yaml i utwórz konto administratora.",
+    "advice": "Do rozważenia",
+    "advice_intro": "Dotyczy niemal każdego sterownika i zależy od tego, jak korzystasz z urządzenia. Nie jest to problem tego egzemplarza."
   },
   "login": {
     "title": "Zaloguj się do",

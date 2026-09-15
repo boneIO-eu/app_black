@@ -150,3 +150,35 @@ def test_every_failure_says_how_to_fix_it():
     """A finding nobody can act on is just noise."""
     posture = _posture({"mqtt": {"password": DEFAULT_MQTT_PASSWORD}}, is_provisioned=False)
     assert all(c.remedy for c in posture.failed)
+
+
+def test_info_findings_do_not_drive_the_badge():
+    """A default device must not wear a permanent red badge.
+
+    Self-signed certificates and unset frame_ancestors are INFO and apply to
+    almost every controller. If they counted, the badge would always be red
+    and would stop meaning anything.
+    """
+    posture = evaluate(
+        {"mqtt": {"password": "changed"}},
+        is_provisioned=True,
+        anonymous_allowed=False,
+        auth_required=True,
+        cloud_active=False,
+    )
+    assert posture.failed  # the advice is still reported
+    assert posture.actionable == []
+    assert posture.to_dict()["summary"]["actionable"] == 0
+
+
+def test_a_real_problem_is_actionable():
+    """Critical and warning findings do drive it."""
+    posture = evaluate(
+        {"mqtt": {"password": DEFAULT_MQTT_PASSWORD}},
+        is_provisioned=True,
+        anonymous_allowed=False,
+        auth_required=True,
+        cloud_active=False,
+    )
+    assert [c.id for c in posture.actionable] == ["mqtt_password"]
+    assert posture.to_dict()["summary"]["actionable"] == 1
