@@ -44,7 +44,7 @@ def _persist_wled_cache_strip(config_file: str) -> None:
         from boneio.core.config.yaml_compat import FastSafeLoader
 
         class IncludeLoader(FastSafeLoader):
-            """YAML loader that preserves !include tags."""
+            """YAML loader that tolerates boneIO's custom tags."""
 
         def _include_constructor(
             loader: IncludeLoader, node: object
@@ -54,7 +54,30 @@ def _persist_wled_cache_strip(config_file: str) -> None:
                 "Include", (), {"filename": filename, "tag": "!include"}
             )()
 
+        def _unknown_tag_constructor(
+            loader: IncludeLoader, tag_suffix: str, node: object
+        ) -> object:
+            """Stand in for any tag this migration has no opinion about.
+
+            Registering only !include is what broke this: a config using
+            !secret — a documented feature, and the right way to keep an MQTT
+            or device password out of config.yaml — raised
+            "could not determine a constructor", the broad except below
+            swallowed it, and the migration quietly did nothing for exactly the
+            people who had followed the security advice.
+
+            A placeholder is enough because the parse is only used to locate
+            the WLED fields; the file itself is edited with regexes further
+            down, so whatever a tag stood for is written back untouched. The
+            catch-all covers tags added later too, so this cannot break the
+            same way twice.
+            """
+            return type(
+                "UnknownTag", (), {"tag": f"!{tag_suffix}", "node": node}
+            )()
+
         IncludeLoader.add_constructor("!include", _include_constructor)
+        IncludeLoader.add_multi_constructor("!", _unknown_tag_constructor)
 
         with open(config_file, encoding="utf-8") as f:
             config = load(f, Loader=IncludeLoader)  # noqa: S506
@@ -72,7 +95,10 @@ def _persist_wled_cache_strip(config_file: str) -> None:
             include_path = config_dir / rd_section.filename
             if include_path.exists():
                 with open(include_path, encoding="utf-8") as f:
-                    rd_list = load(f, Loader=FastSafeLoader)  # noqa: S506
+                    # Same tolerant loader: an included remote_devices.yaml
+                    # carries device passwords, which is precisely where
+                    # !secret belongs.
+                    rd_list = load(f, Loader=IncludeLoader)  # noqa: S506
                 _strip_wled_fields_from_file(include_path, rd_list, config_dir)
             return
 
@@ -83,7 +109,16 @@ def _persist_wled_cache_strip(config_file: str) -> None:
             )
 
     except Exception as exc:
-        _LOGGER.error("Failed to strip WLED cache fields from file: %s", exc)
+        # Loud on purpose. This used to be the end of the road for any config
+        # the loader could not parse, with nothing to tell the owner their
+        # migration had not run.
+        _LOGGER.error(
+            "Failed to strip WLED cache fields from %s: %s. The WLED metadata "
+            "stays in the YAML; nothing was lost, but this migration did not "
+            "run.",
+            config_file,
+            exc,
+        )
 
 
 def _strip_wled_fields_from_file(
