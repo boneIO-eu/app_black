@@ -95,3 +95,51 @@ def test_the_migration_leaves_the_compose_file_alone():
 
 def test_the_migration_is_numbered_for_this_release():
     assert migration.VERSION == "1.6.0"
+
+
+# ------------------------------------------------------- the nginx leftover
+
+
+def test_the_baseline_no_longer_installs_nginx():
+    """nginx was replaced by Caddy in 1.4.4, which deletes the file — so the
+    baseline was creating something purely for a later migration to remove."""
+    from boneio.migrations.versions import v1_3_0_baseline
+
+    sources = [getattr(a, "src", "") for a in v1_3_0_baseline.plan()]
+    assert not any("nginx" in src for src in sources)
+
+
+def test_the_caddy_migration_still_removes_nginx():
+    """A controller set up before 1.4.4 still has the file and must lose it;
+    RemoveFile is a no-op on the ones that never had it."""
+    from boneio.migrations.versions import v1_4_4_caddy
+
+    removed = [getattr(a, "path", "") for a in v1_4_4_caddy.plan()]
+    assert any("nginx/default.conf" in path for path in removed)
+
+
+def test_the_nginx_asset_is_gone():
+    assert not (
+        REPO_ROOT / "boneio/migrations/assets/docker/nodered/nginx"
+    ).exists()
+
+
+def test_every_installed_asset_exists_on_disk():
+    """A migration naming an asset that was deleted would fail on the device,
+    not here — so check the whole set."""
+    import importlib
+    import pkgutil
+
+    from boneio.migrations import versions
+
+    assets = REPO_ROOT / "boneio/migrations/assets"
+    missing = []
+    for module in pkgutil.iter_modules(versions.__path__):
+        plan = importlib.import_module(
+            f"boneio.migrations.versions.{module.name}"
+        ).plan()
+        for action in plan:
+            src = getattr(action, "src", None)
+            if src and not (assets / src).exists():
+                missing.append(f"{module.name}: {src}")
+    assert not missing, f"migrations reference missing assets: {missing}"

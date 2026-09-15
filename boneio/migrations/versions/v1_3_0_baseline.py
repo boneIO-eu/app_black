@@ -136,8 +136,13 @@ def plan() -> list[MigrationAction]:
         ),
 
         # ----------------------------------------------------------------
-        # 8. Node-RED docker-compose + nginx config
+        # 8. Node-RED docker-compose + settings
         #    (user-owned: installed to BONEIO_HOME)
+        #
+        # No nginx config here any more. 1.4.4 replaced nginx with Caddy and
+        # deletes the file, so installing it first only ever created something
+        # for a later migration to remove. Its RemoveFile stays, because a
+        # controller that was set up before 1.4.4 still has the file to lose.
         # ----------------------------------------------------------------
         InstallFile(
             src="docker/nodered/docker-compose.yaml",
@@ -149,13 +154,6 @@ def plan() -> list[MigrationAction]:
         InstallFile(
             src="docker/nodered/node-red/settings.js",
             dst=f"{_BONEIO_HOME}/docker/nodered/node-red/settings.js",
-            mode=0o644,
-            owner=_BONEIO_USER,
-            group=_BONEIO_USER,
-        ),
-        InstallFile(
-            src="docker/nodered/nginx/default.conf",
-            dst=f"{_BONEIO_HOME}/docker/nodered/nginx/default.conf",
             mode=0o644,
             owner=_BONEIO_USER,
             group=_BONEIO_USER,
