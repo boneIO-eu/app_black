@@ -10,6 +10,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import axios from '@/api/axios';
 import { prefetchConfig } from '@/api/configCache';
+import { writeProvisioningHint } from '@/utils/provisioning';
 
 interface CloudStatus {
   enabled: boolean;
@@ -120,6 +121,13 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
           return initData;
         });
         setNeedsOnboarding(prev => latchNeedsOnboarding(prev, initData));
+        // Remember this for the next cold start, so the first paint knows
+        // whether to draw the app shell or stay quiet for the wizard.
+        writeProvisioningHint(
+          window.localStorage,
+          window.__BONEIO_BASE_PATH__,
+          Boolean(initData?.needs_onboarding),
+        );
         setIsApiAvailable(true);
         setIsLoading(false);
         // Warm /api/config cache in background so UISettings loads instantly

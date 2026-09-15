@@ -61,6 +61,57 @@ body {
   animation: subtle-glow 2.5s ease-in-out infinite;
 }
 
+/* Animation: the first-run wizard's closing checkmark, drawn rather than
+   popped in. Circumference of r=24 is ~151; the tick path is ~34 long, and 36
+   gives it room to sit fully hidden before it starts. */
+@keyframes wizard-check-ring {
+  from { stroke-dashoffset: 151; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes wizard-check-tick {
+  from { stroke-dashoffset: 36; }
+  to { stroke-dashoffset: 0; }
+}
+.wizard-check-ring {
+  stroke-dasharray: 151;
+  animation: wizard-check-ring 0.6s ease-out forwards;
+}
+.wizard-check-tick {
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+  /* Starts as the ring closes, so it reads as one gesture. */
+  animation: wizard-check-tick 0.35s 0.45s ease-out forwards;
+}
+
+/* daisyUI reserves 4rem per step, which puts five labelled steps at 320px —
+   wider than the 311px a 375px phone leaves inside the wizard card, so the
+   last one ("Gotowe") was cut off. 3.75rem brings the row to 300px and the
+   labels still fit at text-xs. The wrapper keeps scrolling for anything
+   narrower still. */
+@media (max-width: 480px) {
+  /* The labels are hidden at this width (the wizard spells the current step
+     out underneath instead), so the row only has to fit six numbered circles
+     in the 295px the card leaves on a 375px phone. */
+  .wizard-steps .step {
+    min-width: 2.75rem;
+  }
+}
+
+/* tw-animate-css ships no reduced-motion handling, so add it here.
+   Deliberately narrow: `.animate-in` is decoration and can simply not happen,
+   while spinners and progress indicators keep moving — freezing those would
+   make a working device look hung. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in {
+    animation: none !important;
+  }
+  .wizard-check-ring,
+  .wizard-check-tick {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+}
+
 @plugin "daisyui" {
   themes: light --default, dark --prefersdark;
 }

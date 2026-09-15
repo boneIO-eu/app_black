@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { pickLanguage } from '@/utils/language';
 
 // Import translations
 import enTranslations from '../locales/en/common.json';
@@ -174,22 +175,39 @@ const translationsMap: Record<string, any> = {
   pl: deepMerge(plTranslations, plModbusDevices),
 };
 
+const LANGUAGE_STORAGE_KEY = 'boneio-language';
+
+/**
+ * Read the starting language off the platform and hand the decision to
+ * {@link pickLanguage}.
+ *
+ * English rather than Polish as the last resort: the device is sold outside
+ * Poland too, and the first screen a new owner sees is the onboarding wizard,
+ * which they cannot read their way out of if we guess wrong.
+ */
+function detectLanguage(): string {
+  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return pickLanguage(
+    localStorage.getItem(LANGUAGE_STORAGE_KEY),
+    preferred,
+    Object.keys(translationsMap),
+  );
+}
+
 interface TranslationProviderProps {
   children: ReactNode;
 }
 
 export const TranslationProvider: React.FC<TranslationProviderProps> = ({ children }) => {
-  // Get language from localStorage or default to Polish
-  const [language, setLanguage] = useState<string>(() => {
-    return localStorage.getItem('boneio-language') || 'pl';
-  });
+  // Remembered choice, else the browser's preference, else English.
+  const [language, setLanguage] = useState<string>(detectLanguage);
 
   const [translations, setTranslations] = useState(translationsMap[language]);
 
   // Update translations when language changes
   useEffect(() => {
     setTranslations(translationsMap[language]);
-    localStorage.setItem('boneio-language', language);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     
     // Update document language for accessibility
     document.documentElement.lang = language;

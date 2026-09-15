@@ -72,6 +72,7 @@ import NotAvailable from './components/NotAvailable';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 import { appendModbusHistoryPointToStorage, clearModbusHistoryStorage } from './hooks/useModbusHistory';
+import { readProvisioningHint } from '@/utils/provisioning';
 
 export const WebSocketContext = createContext<{
   outputs: OutputEvent[];
@@ -94,18 +95,36 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, isAuthRequired } = useAuth();
   const { isApiAvailable, isLoading: initLoading, needsOnboarding } = useAppInit();
 
+  // Read once per mount: the value cannot change while this render tree lives,
+  // and touching localStorage on every render would be pure waste.
+  const [showShellWhileLoading] = useState(() =>
+    readProvisioningHint(window.localStorage, window.__BONEIO_BASE_PATH__),
+  );
+
   // API confirmed unavailable after retries — show error screen
   if (!isApiAvailable && !initLoading) {
     return <NotAvailable />
   }
 
-  // Still loading init data or auth — show spinner inside layout shell
+  // Still loading init data or auth — show a spinner.
+  //
+  // Inside the layout shell only for a device this browser has seen
+  // provisioned: the navigation is what the user is waiting for, so drawing it
+  // straight away reads as speed. On a device that may still need onboarding
+  // the same shell reads as the app flashing up and being snatched away, so
+  // that case gets a bare spinner on the wizard's own background instead.
   if (initLoading || authLoading) {
+    const spinner = <span className="loading loading-spinner loading-lg text-primary"></span>;
+
+    if (!showShellWhileLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-base-100">{spinner}</div>
+      );
+    }
+
     return (
       <Layout>
-        <div className="flex items-center justify-center h-full min-h-[60vh]">
-          <span className="loading loading-spinner loading-lg text-primary"></span>
-        </div>
+        <div className="flex items-center justify-center h-full min-h-[60vh]">{spinner}</div>
       </Layout>
     );
   }

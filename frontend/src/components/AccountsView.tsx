@@ -3,9 +3,11 @@ import type { AxiosError } from 'axios';
 import axios from '@/api/axios';
 import { useAuth, type Role } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
-
-/** Mirrors the backend minimum in boneio/core/auth/store.py. */
-const MIN_PASSWORD_LENGTH = 8;
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_PROBLEM_KEYS,
+  checkPassword,
+} from '@/utils/passwordPolicy';
 
 interface Account {
   username: string;
@@ -47,6 +49,13 @@ export default function AccountsView() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<Role>('viewer');
   const [isCreating, setIsCreating] = useState(false);
+
+  // The backend applies the same rules, so this only means the admin hears
+  // about a doomed password before submitting rather than after.
+  const newPasswordIssue = newPassword ? checkPassword(newPassword, newUsername) : null;
+  const newPasswordProblem = newPasswordIssue
+    ? t(PASSWORD_PROBLEM_KEYS[newPasswordIssue], { min: MIN_PASSWORD_LENGTH })
+    : null;
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +130,14 @@ export default function AccountsView() {
     if (!password) return;
     setError(null);
     setNotice(null);
+
+    // A prompt has nowhere to put inline feedback, so the policy is checked
+    // here; otherwise the only answer is the backend's untranslated detail.
+    const problem = checkPassword(password, account.username);
+    if (problem) {
+      setError(t(PASSWORD_PROBLEM_KEYS[problem], { min: MIN_PASSWORD_LENGTH }));
+      return;
+    }
     try {
       await axios.put(`/api/accounts/${encodeURIComponent(account.username)}/password`, {
         password,
@@ -237,11 +254,13 @@ export default function AccountsView() {
           />
           <input
             type="password"
-            className="input input-bordered flex-1"
+            className={`input input-bordered flex-1 ${newPasswordProblem ? 'input-error' : ''}`}
             placeholder={t('accounts.password')}
             autoComplete="new-password"
             required
             minLength={MIN_PASSWORD_LENGTH}
+            aria-invalid={newPasswordProblem ? true : undefined}
+            aria-describedby={newPasswordProblem ? 'accounts-password-error' : undefined}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
@@ -255,10 +274,16 @@ export default function AccountsView() {
           </select>
         </div>
 
+        {newPasswordProblem && (
+          <p id="accounts-password-error" className="text-error text-sm">
+            {newPasswordProblem}
+          </p>
+        )}
+
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={isCreating || !newUsername || !newPassword}
+          disabled={isCreating || !newUsername || !newPassword || !!newPasswordProblem}
         >
           {isCreating && <span className="loading loading-spinner loading-sm" />}
           {t('accounts.add_button')}
