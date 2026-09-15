@@ -32,6 +32,13 @@ from typing import Any
 #: what makes it worth naming here rather than treating as a secret.
 DEFAULT_MQTT_PASSWORD = "boneio123"
 
+#: What the panel sends when config.yaml says nothing about framing. It lives
+#: here, beside the other shipped defaults the checks know about, and the
+#: header builder imports it — so the check and the header cannot disagree
+#: about what an unconfigured device actually does. See
+#: :mod:`boneio.webui.security_headers` for why this value and not another.
+DEFAULT_FRAME_ANCESTORS = "'self'"
+
 
 class Severity(StrEnum):
     """How much a failed check costs."""
@@ -280,21 +287,25 @@ def evaluate(
     )
 
     security = web.get("security") if isinstance(web.get("security"), dict) else {}
-    frame_ancestors = security.get("frame_ancestors")
+    frame_ancestors = security.get("frame_ancestors") or DEFAULT_FRAME_ANCESTORS
+    unrestricted = "*" in str(frame_ancestors).split()
     checks.append(
         Check(
             id="frame_ancestors",
             title="Embedding in other sites",
-            severity=Severity.INFO,
-            state=State.OK if frame_ancestors else State.FAILED,
+            severity=Severity.WARNING,
+            state=State.FAILED if unrestricted else State.OK,
             detail=(
-                f"Only {frame_ancestors} may embed this panel."
-                if frame_ancestors
-                else "Any site may embed this panel in a frame, which is what "
+                "Any site may embed this panel in a frame, which is what "
                 "clickjacking needs."
+                if unrestricted
+                else f"Only {frame_ancestors} may embed this panel."
             ),
-            remedy="Set web.security.frame_ancestors once you know what embeds the panel.",
-            settings_section="web",
+            remedy=(
+                "Replace * with 'self', adding your Home Assistant address if a "
+                "dashboard frames this device directly."
+            ),
+            settings_section="security",
         )
     )
 

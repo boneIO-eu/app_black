@@ -144,3 +144,45 @@ describe('promptDecision', () => {
     expect(promptDecision({ ...base, seenVersion: '1.5.4' }).knownUpgrade).toBe(true);
   });
 });
+
+describe('fixRoute and the page it is on', () => {
+  it('offers no button when the fix is on this very page', () => {
+    // frame_ancestors is fixed by the card in the Security section itself; a
+    // button that navigates nowhere teaches people the buttons do nothing.
+    expect(fixRoute({ settings_section: 'security' }, '/settings/security')).toBeNull();
+  });
+
+  it('still offers a button for anywhere else', () => {
+    expect(fixRoute({ settings_section: 'accounts' }, '/settings/security')).toBe(
+      '/settings/accounts',
+    );
+    expect(fixRoute({ settings_section: 'system:mqtt-passwords' }, '/settings/security')).toBe(
+      '/system#mqtt-passwords',
+    );
+  });
+});
+
+describe('the framing card is translated', () => {
+  const keys = [
+    'title',
+    'intro',
+    'restrict',
+    'restrict_help',
+    'extra_origin',
+    'extra_origin_help',
+    'save',
+    'saving',
+    'restart_needed',
+    'load_failed',
+    'save_failed',
+  ];
+
+  for (const [lang, bundle] of [['pl', plCommon], ['en', enCommon]] as const) {
+    it(`${lang} has every framing string`, () => {
+      const framing = (bundle as any).security.framing;
+      for (const key of keys) {
+        expect(framing?.[key], `${lang}: framing.${key}`).toBeTruthy();
+      }
+    });
+  }
+});

@@ -82,13 +82,30 @@ def test_csp_still_allows_what_the_panel_needs():
     assert "'unsafe-inline'" in csp
 
 
-def test_frame_ancestors_is_omitted_by_default():
-    """Turning it on blindly would break whatever embeds the panel today."""
-    assert "frame-ancestors" not in build_csp()
+def test_frame_ancestors_defaults_to_self():
+    """An unconfigured device refuses framing by any other site.
+
+    'self' is also what the boneIO Black Home Assistant add-on needs: its
+    nginx proxies each device, so the framed document is served on Home
+    Assistant's own origin and the page framing it is the same origin.
+    """
+    assert "frame-ancestors 'self'" in build_csp()
+    assert "frame-ancestors 'self'" in build_csp(None)
 
 
 def test_frame_ancestors_is_included_when_configured():
     assert "frame-ancestors 'self'" in build_csp("'self'")
+
+
+def test_an_extra_origin_is_added_not_replaced():
+    """A dashboard framing the device directly names its own origin too."""
+    csp = build_csp("'self' https://ha.local:8123")
+    assert "frame-ancestors 'self' https://ha.local:8123" in csp
+
+
+def test_the_restriction_can_be_lifted_deliberately():
+    """`*` is the documented way out, so 'unset' need not mean 'unprotected'."""
+    assert "frame-ancestors *" in build_csp("*")
 
 
 def test_frame_ancestors_reaches_the_response():

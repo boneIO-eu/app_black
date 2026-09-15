@@ -2649,8 +2649,8 @@
       "frame_ancestors": {
         "title": "Osadzanie w innych stronach",
         "detail": "Dowolna strona może osadzić ten panel w ramce — dokładnie tego potrzebuje clickjacking.",
-        "ok": "Panel może osadzić tylko wskazane źródło.",
-        "remedy": "Ustaw web.security.frame_ancestors, kiedy już wiesz, co osadza panel."
+        "ok": "Panel mogą osadzić tylko wskazane adresy.",
+        "remedy": "Włącz ograniczenie poniżej, a jeśli Twój dashboard osadza urządzenie wprost — dopisz adres Home Assistanta."
       },
       "dev_mode": {
         "title": "Tryb deweloperski",
@@ -2671,7 +2671,20 @@
     "anonymous_title": "Dostęp bez logowania jest włączony.",
     "anonymous_body": "Każdy, kto ma dostęp do tego urządzenia w sieci, może odczytać konfigurację, przełączać wyjścia i je zrestartować — bez hasła. Usuń „allow_anonymous” z sekcji web.auth w config.yaml i utwórz konto administratora.",
     "advice": "Do rozważenia",
-    "advice_intro": "Dotyczy niemal każdego sterownika i zależy od tego, jak korzystasz z urządzenia. Nie jest to problem tego egzemplarza."
+    "advice_intro": "Dotyczy niemal każdego sterownika i zależy od tego, jak korzystasz z urządzenia. Nie jest to problem tego egzemplarza.",
+    "framing": {
+      "title": "Osadzanie panelu w innych stronach",
+      "intro": "Ogranicza, kto może wyświetlić ten panel w ramce. Domyślnie tylko to urządzenie — dodatek boneIO Black w Home Assistant działa z tym ustawieniem, bo sam proxuje sterownik.",
+      "restrict": "Ogranicz osadzanie",
+      "restrict_help": "Wyłączenie pozwala każdej stronie w internecie wyświetlić ten panel w ramce. Tego potrzebuje clickjacking.",
+      "extra_origin": "Dodatkowy adres, któremu ufasz",
+      "extra_origin_help": "Potrzebne tylko wtedy, gdy Twój dashboard osadza to urządzenie wprost (karta iframe albo panel_iframe), z pominięciem dodatku. Podaj sam adres serwera, bez ścieżki.",
+      "save": "Zapisz",
+      "saving": "Zapisuję...",
+      "restart_needed": "Zapisane — zadziała po restarcie aplikacji.",
+      "load_failed": "Nie udało się odczytać ustawienia.",
+      "save_failed": "Nie udało się zapisać ustawienia."
+    }
   },
   "login": {
     "title": "Zaloguj się do",

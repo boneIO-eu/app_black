@@ -2650,8 +2650,8 @@
       "frame_ancestors": {
         "title": "Embedding in other sites",
         "detail": "Any site may embed this panel in a frame, which is what clickjacking needs.",
-        "ok": "Only the configured origin may embed this panel.",
-        "remedy": "Set web.security.frame_ancestors once you know what embeds the panel."
+        "ok": "Only the listed addresses may embed this panel.",
+        "remedy": "Turn the restriction on below, adding your Home Assistant address if a dashboard frames this device directly."
       },
       "dev_mode": {
         "title": "Development mode",
@@ -2672,7 +2672,20 @@
     "anonymous_title": "Unauthenticated access is enabled.",
     "anonymous_body": "Anyone who can reach this device on the network can read its configuration, switch its outputs and reboot it, with no password. Remove “allow_anonymous” from web.auth in config.yaml and create an administrator account.",
     "advice": "Worth considering",
-    "advice_intro": "Applies to nearly every controller and depends on how you use the device. Not a problem with this one."
+    "advice_intro": "Applies to nearly every controller and depends on how you use the device. Not a problem with this one.",
+    "framing": {
+      "title": "Embedding this panel in other sites",
+      "intro": "Limits who may show this panel in a frame. The default is this device only — the boneIO Black add-on for Home Assistant works with that, because it proxies the controller itself.",
+      "restrict": "Restrict embedding",
+      "restrict_help": "Turning this off lets any site on the internet show this panel in a frame, which is what clickjacking needs.",
+      "extra_origin": "One more address you trust",
+      "extra_origin_help": "Only needed when your dashboard frames this device directly (an iframe card or panel_iframe) rather than through the add-on. Give the server address only, with no path.",
+      "save": "Save",
+      "saving": "Saving...",
+      "restart_needed": "Saved — takes effect after the app restarts.",
+      "load_failed": "Could not read the setting.",
+      "save_failed": "Could not save the setting."
+    }
   },
   "login": {
     "title": "Sign in to your",

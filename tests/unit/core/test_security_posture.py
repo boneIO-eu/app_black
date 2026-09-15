@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from boneio.core.security.posture import (
+    DEFAULT_FRAME_ANCESTORS,
     DEFAULT_MQTT_PASSWORD,
     Severity,
     State,
@@ -155,9 +156,9 @@ def test_every_failure_says_how_to_fix_it():
 def test_info_findings_do_not_drive_the_badge():
     """A default device must not wear a permanent red badge.
 
-    Self-signed certificates and unset frame_ancestors are INFO and apply to
-    almost every controller. If they counted, the badge would always be red
-    and would stop meaning anything.
+    A self-signed certificate is INFO and applies to almost every controller.
+    If it counted, the badge would always be red and would stop meaning
+    anything.
     """
     posture = evaluate(
         {"mqtt": {"password": "changed"}},
@@ -182,3 +183,50 @@ def test_a_real_problem_is_actionable():
     )
     assert [c.id for c in posture.actionable] == ["mqtt_password"]
     assert posture.to_dict()["summary"]["actionable"] == 1
+
+
+def _framing(config: dict):
+    """The frame_ancestors check for one configuration."""
+    posture = evaluate(
+        config,
+        is_provisioned=True,
+        anonymous_allowed=False,
+        auth_required=True,
+        cloud_active=False,
+    )
+    return next(c for c in posture.checks if c.id == "frame_ancestors")
+
+
+def test_an_unconfigured_device_is_already_protected():
+    """Saying nothing now means 'self', so it must not read as a problem.
+
+    'self' is also what the boneIO Black add-on needs: it proxies each device,
+    so the framed page is on Home Assistant's own origin.
+    """
+    check = _framing({})
+    assert check.state is State.OK
+    assert DEFAULT_FRAME_ANCESTORS in check.detail
+
+
+def test_explicitly_unrestricted_framing_is_a_warning():
+    """`*` is a deliberate choice, and worth saying out loud."""
+    check = _framing({"web": {"security": {"frame_ancestors": "*"}}})
+    assert check.state is State.FAILED
+    assert check.severity is Severity.WARNING
+    assert "'self'" in check.remedy
+
+
+def test_an_extra_origin_alongside_self_still_passes():
+    """A dashboard framing the device directly is a supported setup."""
+    check = _framing(
+        {"web": {"security": {"frame_ancestors": "'self' https://ha.local:8123"}}}
+    )
+    assert check.state is State.OK
+    assert "https://ha.local:8123" in check.detail
+
+
+def test_a_wildcard_hidden_among_origins_is_still_a_wildcard():
+    """`'self' *` permits everything, whatever it looks like."""
+    assert _framing(
+        {"web": {"security": {"frame_ancestors": "'self' *"}}}
+    ).state is State.FAILED

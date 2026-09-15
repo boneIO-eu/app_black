@@ -6,6 +6,10 @@ import {
   type Severity,
 } from '../hooks/useSecurityPosture';
 import { checkText as checkTextOf, fixRoute } from '../utils/securityPosture';
+import FrameAncestorsCard from './FrameAncestorsCard';
+
+/** This view's own route, so a check fixed here offers no button back to it. */
+const SELF_ROUTE = '/settings/security';
 
 /**
  * What is still unlocked on this controller, and where to fix it.
@@ -39,7 +43,7 @@ export default function SecurityView() {
 
   /** Send the admin to whatever fixes this check. */
   const goToFix = (check: SecurityCheck) => {
-    const route = fixRoute(check);
+    const route = fixRoute(check, SELF_ROUTE);
     if (route) navigate(route);
   };
 
@@ -94,7 +98,7 @@ export default function SecurityView() {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          {check.settings_section ? (
+          {fixRoute(check, SELF_ROUTE) ? (
             <button className="btn btn-sm btn-primary" onClick={() => goToFix(check)}>
               {t('security.fix')}
             </button>
@@ -155,6 +159,10 @@ export default function SecurityView() {
           {advice.map(renderCheck)}
         </div>
       )}
+
+      {/* A control, not a finding: shown whether or not the check passes, so
+          the restriction can be tightened as well as repaired. */}
+      <FrameAncestorsCard onSaved={() => void refresh()} />
 
       {passed.length > 0 && (
         <details className="border border-base-300 rounded-xl">

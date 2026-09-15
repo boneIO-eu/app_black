@@ -69,6 +69,26 @@
           "description": "boneIO Cloud registration for PWA support",
           "title": "Cloud"
         },
+        "security": {
+          "type": [
+            "null",
+            "object",
+            "string"
+          ],
+          "default": {},
+          "properties": {
+            "frame_ancestors": {
+              "type": [
+                "null",
+                "string"
+              ],
+              "description": "Which sites may embed this panel in a frame",
+              "title": "Frame ancestors"
+            }
+          },
+          "description": "Web security headers",
+          "title": "Security"
+        },
         "auth": {
           "type": [
             "null",
@@ -86,6 +106,28 @@
               "type": "string",
               "description": "Password to web interface",
               "title": "Password"
+            },
+            "allow_anonymous": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": false,
+              "description": "Allow unauthenticated access to the web UI and API",
+              "title": "Allow anonymous"
             }
           },
           "description": "Auth if defined",

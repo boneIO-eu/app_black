@@ -212,15 +212,23 @@ web:
               Sets the Content-Security-Policy frame-ancestors directive, which
               is what protects the panel from clickjacking.
 
-              Left unset (the default) any site may frame the panel, which is
-              how boneIO has always behaved. It stays the default because the
-              panel is meant to be embeddable in a Home Assistant ingress
-              iframe, and locking it down blindly would break those dashboards.
+              Unset means 'self' since 1.6: only this device may frame the
+              panel. That is also what the boneIO Black add-on for Home
+              Assistant needs — its nginx proxies each controller, so the
+              framed page is served on Home Assistant's own origin and is
+              same-origin with the dashboard framing it.
 
-              Set it once you know how your installation embeds the panel:
-                'self'                      only this device
-                'self' https://ha.local:8123   also that Home Assistant
-                'none'                      never framed anywhere
+              Set it when your installation embeds the panel some other way:
+                'self'                         only this device (the default)
+                'self' https://ha.local:8123   also that Home Assistant, for a
+                                               dashboard whose iframe card
+                                               points straight at the device
+                '*'                            no restriction at all
+
+              Quote it in YAML: frame_ancestors: 'self' reads back as the bare
+              word self, which is a host name. Write "'self'".
+
+              The Security section in the panel sets this without the syntax.
 
               X-Frame-Options is deliberately not sent: it cannot name an
               allowed origin, so it could not express the ingress case.

@@ -869,7 +869,9 @@ def init_app(
     # Security headers middleware (F-13).
     # NOTE: still no X-Frame-Options — boneIO must be embeddable in an HA
     # ingress iframe, and that header cannot name an allowed origin. Framing is
-    # expressed through CSP frame-ancestors instead, configured per install.
+    # expressed through CSP frame-ancestors instead. Unset means the secure
+    # default, which the HA add-on satisfies because it proxies; see
+    # security_headers for why.
     frame_ancestors = (web_security or {}).get("frame_ancestors")
     if isinstance(frame_ancestors, list):
         frame_ancestors = " ".join(str(item) for item in frame_ancestors)

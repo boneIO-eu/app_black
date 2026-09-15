@@ -19,14 +19,21 @@ import type { SecurityCheck, SecurityPosture } from '../hooks/useSecurityPosture
  * Settings section, `system:<anchor>` is a spot on the System page. Keeping
  * the mapping here means a new check needs no frontend release to be
  * actionable, as long as it points at somewhere that already exists.
+ *
+ * Pass `currentRoute` to suppress a button that leads where the reader already
+ * is — some checks are fixed by a control on this very page, and a Fix button
+ * that does nothing teaches people the buttons do nothing.
  */
-export function fixRoute(check: Pick<SecurityCheck, 'settings_section'>): string | null {
+export function fixRoute(
+  check: Pick<SecurityCheck, 'settings_section'>,
+  currentRoute?: string,
+): string | null {
   const target = check.settings_section;
   if (!target) return null;
-  if (target.startsWith('system:')) {
-    return `/system#${target.slice('system:'.length)}`;
-  }
-  return `/settings/${target}`;
+  const route = target.startsWith('system:')
+    ? `/system#${target.slice('system:'.length)}`
+    : `/settings/${target}`;
+  return route === currentRoute ? null : route;
 }
 
 /**

@@ -53,7 +53,8 @@
             "enum": [
               "switch",
               "light",
-              "valve"
+              "valve",
+              "cover"
             ],
             "examples": [
               "switch"
