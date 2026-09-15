@@ -3,6 +3,7 @@ import axios from '@/api/axios';
 import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaEyeSlash, FaSearch, FaDiscord, FaBug, FaCalendarAlt } from 'react-icons/fa';
 import { useTranslation } from '../hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useCaptureWindow } from '../hooks/useCaptureWindow';
 
 // Create formatter once, not on every function call
 const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
@@ -80,8 +81,17 @@ export default function LogViewer() {
   const [excludeDropdownOpen, setExcludeDropdownOpen] = useState(false);
   const excludeDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(new Set());
-  const [debugActive, setDebugActive] = useState(false);
-  const [debugLoading, setDebugLoading] = useState(false);
+  // Shared with the support card on the same page: one piece of process-global
+  // state, so one control. The window closes itself, which the old toggle did
+  // not — a device left at debug logs ~21 MQTT publishes a second.
+  const {
+    state: capture,
+    clock: captureClock,
+    busy: debugLoading,
+    open: openCapture,
+    close: closeCapture,
+  } = useCaptureWindow();
+  const debugActive = capture.active;
   const [logSource, setLogSource] = useState<'systemd' | 'standalone' | null>(null);
   const [serverPriority, setServerPriority] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -157,31 +167,12 @@ export default function LogViewer() {
     }
   }, [isLoadingMore, hasMore, logs, buildLogParams]);
 
-  const fetchLogLevel = useCallback(async () => {
-    try {
-      const response = await axios.get('/api/log-level');
-      setDebugActive(response.data.debug_active);
-    } catch (error) {
-      console.error('Error fetching log level:', error);
-    }
-  }, []);
-
-  const toggleDebug = useCallback(async () => {
-    setDebugLoading(true);
-    try {
-      const newLevel = debugActive ? 'RESTORE' : 'DEBUG';
-      await axios.post('/api/log-level', { level: newLevel });
-      setDebugActive(!debugActive);
-    } catch (error) {
-      console.error('Error toggling debug:', error);
-    } finally {
-      setDebugLoading(false);
-    }
-  }, [debugActive]);
+  const toggleDebug = useCallback(() => {
+    void (debugActive ? closeCapture() : openCapture());
+  }, [debugActive, openCapture, closeCapture]);
 
   useEffect(() => {
     fetchLogs();
-    fetchLogLevel();
   }, []);
 
   useEffect(() => {
@@ -870,7 +861,7 @@ export default function LogViewer() {
             title={debugActive ? t('log_viewer.debug_disable') : t('log_viewer.debug_enable')}
           >
             <FaBug className={`w-3 h-3 ${debugLoading ? 'animate-pulse' : ''}`} />
-            {debugActive ? t('log_viewer.debug_on') : t('log_viewer.debug_off')}
+            {debugActive ? `${t('log_viewer.debug_on')} ${captureClock}` : t('log_viewer.debug_off')}
           </button>
           {debugActive && (
             <div className="absolute top-full left-0 mt-1 z-50 hidden group-hover:block bg-warning text-warning-content text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap">

@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { createContext, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { getRouterBasename } from './api/basePath';
 
@@ -7,7 +7,7 @@ import { getRouterBasename } from './api/basePath';
 // needed on every page. Everything else loads on-demand when the route is visited.
 const lazyImports = {
   ConfigEditor: () => import('./components/ConfigEditor'),
-  LogViewer: () => import('./components/LogViewer'),
+  DiagnosticsView: () => import('./components/DiagnosticsView'),
   OutputsView: () => import('./components/OutputsView'),
   InputsView: () => import('./components/InputsView'),
   SensorView: () => import('./components/SensorView'),
@@ -21,7 +21,7 @@ const lazyImports = {
 } as const;
 
 const ConfigEditor = lazy(lazyImports.ConfigEditor);
-const LogViewer = lazy(lazyImports.LogViewer);
+const DiagnosticsView = lazy(lazyImports.DiagnosticsView);
 const OutputsView = lazy(lazyImports.OutputsView);
 const InputsView = lazy(lazyImports.InputsView);
 const SensorView = lazy(lazyImports.SensorView);
@@ -47,7 +47,7 @@ function prefetchRouteChunks() {
     lazyImports.SensorView,
     lazyImports.ModbusView,
     lazyImports.UISettings,
-    lazyImports.LogViewer,
+    lazyImports.DiagnosticsView,
     lazyImports.Tools,
     lazyImports.TemplatesView,
     lazyImports.HelpView,
@@ -426,13 +426,16 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/logs" element={
+        <Route path="/diagnostics" element={
           <ProtectedRoute>
             <Layout>
-              <LogViewer />
+              <DiagnosticsView />
             </Layout>
           </ProtectedRoute>
         } />
+        {/* The page was /logs until the support bundle joined it. Kept so
+            bookmarks and anything linking to it still land somewhere. */}
+        <Route path="/logs" element={<Navigate to="/diagnostics" replace />} />
         <Route path="/sensors" element={
           <ProtectedRoute>
             <Layout>

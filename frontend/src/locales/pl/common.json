@@ -13,7 +13,8 @@
     "help": "Pomoc",
     "templates": "Szablony",
     "experimental": "EKSPERYMENTALNE",
-    "irrigation": "Nawadnianie"
+    "irrigation": "Nawadnianie",
+    "diagnostics": "Diagnostyka"
   },
   "outputs": {
     "title": "Wyjścia",
@@ -2715,6 +2716,9 @@
     "download": "Pobierz paczkę diagnostyczną",
     "building": "Zbieram...",
     "build_time": "Zebranie zajmuje kilkanaście sekund.",
-    "download_failed": "Nie udało się zebrać paczki."
+    "download_failed": "Nie udało się zebrać paczki.",
+    "page_title": "Diagnostyka",
+    "page_intro": "Co robi to urządzenie i dlaczego. Log na żywo, okno ze szczegółami, i paczka do wysłania, gdy trzeba kogoś poprosić o pomoc.",
+    "persistent_levels": "Na stałe poziomy logowania ustawisz w"
   }
 }

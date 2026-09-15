@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer } from 'react-icons/fa';
+import { FaCode, FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect } from 'react';
@@ -142,7 +142,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
     { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
     { path: '/tools', icon: FaToolbox, label: t('navigation.tools'), right: true },
-    { path: '/logs', icon: FaList, label: t('navigation.logs'), right: true },
+    { path: '/diagnostics', icon: FaStethoscope, label: t('navigation.diagnostics'), right: true },
     // Everything below configures the device, so a viewer is not offered it.
     // The backend refuses these routes for a viewer regardless; hiding them
     // just avoids dead ends. See boneio/webui/middleware/policy.py.

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { AxiosError } from 'axios';
 import api from '@/api/axios';
 import { useTranslation } from '../hooks/useTranslation';
+import { useCaptureWindow } from '../hooks/useCaptureWindow';
 
 /**
  * A support bundle the owner can send, and the capture window that makes it
@@ -23,12 +24,6 @@ import { useTranslation } from '../hooks/useTranslation';
  * someone about to email that should know it before they do, not after.
  */
 
-interface CaptureState {
-  active: boolean;
-  seconds_remaining: number;
-  started: number | null;
-}
-
 function errorMessage(err: unknown, fallback: string): string {
   return (err as AxiosError<{ detail?: string }>)?.response?.data?.detail || fallback;
 }
@@ -36,66 +31,12 @@ function errorMessage(err: unknown, fallback: string): string {
 export default function DiagnosticsCard() {
   const { t } = useTranslation();
 
-  const [capture, setCapture] = useState<CaptureState | null>(null);
+  // Shared with the log viewer's bug button on the same page.
+  const { state: capture, clock, busy, error: captureError, open, close } = useCaptureWindow();
+
   const [minutes, setMinutes] = useState(10);
-  const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const { data } = await api.get<CaptureState>('/api/diagnostics/capture');
-      setCapture(data);
-    } catch {
-      setCapture({ active: false, seconds_remaining: 0, started: null });
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
-
-  // While a window is open the remaining time is the whole point of the
-  // display, so it ticks rather than waiting for the next page load.
-  useEffect(() => {
-    if (!capture?.active) return;
-    const id = setInterval(() => {
-      setCapture(prev => {
-        if (!prev?.active) return prev;
-        const remaining = prev.seconds_remaining - 1;
-        return remaining <= 0
-          ? { active: false, seconds_remaining: 0, started: null }
-          : { ...prev, seconds_remaining: remaining };
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [capture?.active]);
-
-  const startCapture = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { data } = await api.post<CaptureState>('/api/diagnostics/capture', { minutes });
-      setCapture(data);
-    } catch (err) {
-      setError(errorMessage(err, t('diagnostics.capture_failed')));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const stopCapture = async () => {
-    setBusy(true);
-    try {
-      const { data } = await api.delete<CaptureState>('/api/diagnostics/capture');
-      setCapture(data);
-    } catch (err) {
-      setError(errorMessage(err, t('diagnostics.capture_failed')));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const download = async () => {
     setDownloading(true);
@@ -121,8 +62,6 @@ export default function DiagnosticsCard() {
     }
   };
 
-  const remaining = capture?.seconds_remaining ?? 0;
-  const clock = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
 
   return (
     <div className="border border-base-300 rounded-xl p-4 space-y-4">
@@ -142,10 +81,10 @@ export default function DiagnosticsCard() {
         <p className="mt-1 opacity-80">{t('diagnostics.privacy')}</p>
       </div>
 
-      {capture?.active ? (
+      {capture.active ? (
         <div className="alert alert-warning">
           <span>{t('diagnostics.capture_active', { time: clock })}</span>
-          <button className="btn btn-sm btn-outline" onClick={() => void stopCapture()} disabled={busy}>
+          <button className="btn btn-sm btn-outline" onClick={() => void close()} disabled={busy}>
             {t('diagnostics.capture_stop')}
           </button>
         </div>
@@ -166,14 +105,16 @@ export default function DiagnosticsCard() {
                 </option>
               ))}
             </select>
-            <button className="btn btn-sm btn-outline" onClick={() => void startCapture()} disabled={busy}>
+            <button className="btn btn-sm btn-outline" onClick={() => void open(minutes)} disabled={busy}>
               {t('diagnostics.capture_start')}
             </button>
           </div>
         </div>
       )}
 
-      {error && <p className="text-sm text-error">{error}</p>}
+      {(error || captureError) && (
+        <p className="text-sm text-error">{error ?? t('diagnostics.capture_failed')}</p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button className="btn btn-sm btn-primary" onClick={() => void download()} disabled={downloading}>

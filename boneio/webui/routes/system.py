@@ -138,7 +138,11 @@ def _scrub_log_entries(entries: list) -> list:
     can be taken out on the way to the client.
 
     Never raises: an unreadable configuration must not cost the operator their
-    logs, which are often what they came for.
+    logs, which are often what they came for. That tolerance hid a defect for
+    a release — the helper was called by a name that does not exist here, so
+    every call raised NameError, was swallowed, and the logs went out
+    unscrubbed. The failure is logged at warning level now: silence is what
+    let it pass.
 
     Args:
         entries: Log entries as returned by the log services.
@@ -147,10 +151,10 @@ def _scrub_log_entries(entries: list) -> list:
         The same entries with secret values replaced.
     """
     try:
-        config = _get_app_state().manager.config_helper.get_config()
+        config = get_config_helper().get_config()
         secrets = collect_secrets(config)
     except Exception as err:  # noqa: BLE001
-        _LOGGER.debug("Could not collect secrets for log scrubbing: %s", err)
+        _LOGGER.warning("Could not collect secrets for log scrubbing: %s", err)
         return entries
 
     if not secrets:

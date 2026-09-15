@@ -13,7 +13,8 @@
     "help": "Help",
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
-    "irrigation": "Irrigation"
+    "irrigation": "Irrigation",
+    "diagnostics": "Diagnostics"
   },
   "outputs": {
     "title": "Outputs",
@@ -2716,6 +2717,9 @@
     "download": "Download diagnostics",
     "building": "Collecting...",
     "build_time": "Collecting takes a few seconds.",
-    "download_failed": "Could not collect the bundle."
+    "download_failed": "Could not collect the bundle.",
+    "page_title": "Diagnostics",
+    "page_intro": "What this device is doing, and why. The live log, a window with more detail, and a bundle to send when you need to ask someone for help.",
+    "persistent_levels": "Set logging levels permanently in"
   }
 }
