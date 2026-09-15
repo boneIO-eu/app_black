@@ -2719,6 +2719,7 @@
     "download_failed": "Nie udało się zebrać paczki.",
     "page_title": "Diagnostyka",
     "page_intro": "Co robi to urządzenie i dlaczego. Log na żywo, okno ze szczegółami, i paczka do wysłania, gdy trzeba kogoś poprosić o pomoc.",
-    "persistent_levels": "Na stałe poziomy logowania ustawisz w"
+    "persistent_levels": "Na stałe poziomy logowania ustawisz w",
+    "menu": "Wsparcie"
   }
 }

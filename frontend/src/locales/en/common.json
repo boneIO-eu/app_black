@@ -2720,6 +2720,7 @@
     "download_failed": "Could not collect the bundle.",
     "page_title": "Diagnostics",
     "page_intro": "What this device is doing, and why. The live log, a window with more detail, and a bundle to send when you need to ask someone for help.",
-    "persistent_levels": "Set logging levels permanently in"
+    "persistent_levels": "Set logging levels permanently in",
+    "menu": "Support"
   }
 }

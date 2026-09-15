@@ -640,6 +640,46 @@ export default function LogViewer() {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100 overflow-hidden">
+      {/* Search gets its own full-width row above everything else. It was a
+          36px-wide box in the middle of a crowded toolbar, which is the one
+          control people reach for first on a page of thousands of lines. */}
+      <div className="bg-base-200 px-2 sm:px-4 pt-2 sm:pt-4">
+        <div className="relative flex items-center w-full">
+          <FaSearch className="absolute left-3 w-4 h-4 text-base-content/40 pointer-events-none" />
+          <input
+            type="text"
+            className="input input-bordered pl-9 w-full font-mono text-sm"
+            placeholder={t('log_viewer.search_placeholder')}
+            value={searchQuery}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchQuery(val);
+              if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+              searchDebounceRef.current = setTimeout(() => {
+                setDebouncedGrep(val.trim());
+              }, 600);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                setDebouncedGrep(searchQuery.trim());
+              }
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                setDebouncedGrep('');
+              }}
+              className="absolute right-2 btn btn-ghost btn-sm px-2 text-base-content/40 hover:text-base-content"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
       <div className="bg-base-200 p-2 sm:p-4 border-b border-base-content/10 flex flex-wrap items-center gap-2 sm:gap-4">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -684,42 +724,6 @@ export default function LogViewer() {
               </button>
             );
           })}
-        </div>
-
-        <div className="relative flex items-center">
-          <FaSearch className="absolute left-2 w-3 h-3 text-base-content/40 pointer-events-none" />
-          <input
-            type="text"
-            className="input input-sm input-bordered pl-7 w-36 sm:w-48 font-mono text-xs"
-            placeholder={t('log_viewer.search_placeholder')}
-            value={searchQuery}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSearchQuery(val);
-              if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-              searchDebounceRef.current = setTimeout(() => {
-                setDebouncedGrep(val.trim());
-              }, 600);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-                setDebouncedGrep(searchQuery.trim());
-              }
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-                setDebouncedGrep('');
-              }}
-              className="absolute right-1 btn btn-ghost btn-xs px-1 text-base-content/40 hover:text-base-content"
-            >
-              ✕
-            </button>
-          )}
         </div>
 
         <div className="relative" ref={dateFilterRef}>
