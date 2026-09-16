@@ -200,26 +200,58 @@ async def restart_service(background_tasks: BackgroundTasks):
     return {"status": "success"}
 
 
-@router.get("/version")
-async def get_version(config_helper: ConfigHelper = Depends(get_config_helper)):
-    """
-    Get application version and serial number.
-    
+def _may_see_serial(request: Request) -> bool:
+    """Whether this caller should be told the device's serial number.
+
+    /api/version and /api/init answer without a token — the UI needs them to
+    decide whether to show a login form at all — but the serial identifies the
+    unit, feeds its cloud subdomain and its MQTT topics, so it does not belong
+    in an unauthenticated reply.
+
+    Authenticated callers see it. So do callers on a device running with
+    anonymous access allowed, where the whole API is open and withholding this
+    one field would protect nothing.
+
     Args:
-        config_helper: ConfigHelper instance.
-    
+        request: Incoming request; the middleware notes the caller on exempt
+            routes without gating them.
+
     Returns:
-        Dictionary with version, serial_no, and serial_override strings.
+        True if the serial may be included.
     """
-    return {
-        "version": __version__,
-        "serial_no": config_helper.real_serial,
-        "serial_override": config_helper.serial_override,
-    }
+    if getattr(request.state, "user", ""):
+        return True
+    return is_anonymous_allowed() and not is_auth_required()
+
+
+@router.get("/version")
+async def get_version(
+    request: Request,
+    config_helper: ConfigHelper = Depends(get_config_helper),
+):
+    """
+    Get application version and, for authenticated callers, the serial number.
+
+    Args:
+        request: Incoming request, used to decide on the serial.
+        config_helper: ConfigHelper instance.
+
+    Returns:
+        Dictionary with the version, plus serial_no and serial_override when
+        the caller is entitled to them.
+    """
+    payload = {"version": __version__}
+    if _may_see_serial(request):
+        payload["serial_no"] = config_helper.real_serial
+        payload["serial_override"] = config_helper.serial_override
+    return payload
 
 
 @router.get("/init")
-async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
+async def get_init(
+    request: Request,
+    config_helper: ConfigHelper = Depends(get_config_helper),
+):
     """
     Combined initialization endpoint returning all data needed for initial page load.
 
@@ -295,11 +327,19 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
     except Exception:
         pass
 
+    serial_fields = (
+        {
+            "serial_no": config_helper.real_serial,
+            "serial_override": config_helper.serial_override,
+        }
+        if _may_see_serial(request)
+        else {}
+    )
+
     return {
         "version": __version__,
         "name": config_helper.name,
-        "serial_no": config_helper.real_serial,
-        "serial_override": config_helper.serial_override,
+        **serial_fields,
         "auth_required": auth_required,
         "needs_onboarding": needs_onboarding,
         # Effective state, not the setting. The opt-out only applies while the

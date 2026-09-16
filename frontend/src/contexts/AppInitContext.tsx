@@ -23,7 +23,8 @@ interface CloudStatus {
 interface AppInitData {
   version: string;
   name: string;
-  serial_no: string;
+  /** Withheld from unauthenticated callers — see _may_see_serial in routes/system.py. */
+  serial_no?: string;
   serial_override?: string | null;
   auth_required: boolean;
   /** True when the device has no administrator yet and the wizard must run. */

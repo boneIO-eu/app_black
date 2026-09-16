@@ -219,6 +219,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         if not policy.is_api_path(path) or policy.is_exempt(path):
+            # Exempt does not mean anonymous. These routes answer without a
+            # token, but when one is presented the handler should be able to
+            # tell who is calling — /api/init and /api/version withhold the
+            # serial number from strangers on that basis. Best effort on
+            # purpose: a stale or malformed token must not turn a login attempt
+            # into an error, so anything unparseable simply leaves the request
+            # anonymous.
+            _attach_identity_if_present(request)
             return await call_next(request)
 
         if not is_auth_required():
@@ -327,6 +335,29 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.state.role = role
 
         return await call_next(request)
+
+
+def _attach_identity_if_present(request: Request) -> None:
+    """Note who is calling, if they said, without ever refusing the request.
+
+    Args:
+        request: Incoming request on an exempt route.
+    """
+    header = request.headers.get("Authorization") or ""
+    try:
+        scheme, _, token = header.partition(" ")
+        if scheme.lower() != "bearer" or not token.strip():
+            return
+        payload = verify_token(token.strip())
+        if payload is None:
+            return
+        role = _resolve_role(payload)
+        if role is None:
+            return
+        request.state.user = payload.get("sub")
+        request.state.role = role
+    except Exception:  # noqa: BLE001 - identity here is a nicety, never a gate
+        return
 
 
 def _resolve_role(payload: dict) -> Role | None:

@@ -142,10 +142,22 @@ class BoneIOApp(FastAPI):
 
 
 # Create FastAPI application
+#
+# The interactive docs are off. AuthMiddleware only gates paths under /api, so
+# /docs, /redoc and /openapi.json sat outside it entirely and answered without
+# a token on a device that otherwise requires one — handing anyone on the
+# network a 150KB map of every route, parameter and schema. Nothing in the
+# product needs them at runtime; a developer can set BONEIO_DEV to get them
+# back.
+_DEV_MODE = bool(os.environ.get("BONEIO_DEV"))
+
 app = BoneIOApp(
     title="BoneIO API",
     description="BoneIO API for managing inputs, outputs, and sensors",
     version=__version__,
+    docs_url="/docs" if _DEV_MODE else None,
+    redoc_url="/redoc" if _DEV_MODE else None,
+    openapi_url="/openapi.json" if _DEV_MODE else None,
 )
 
 
