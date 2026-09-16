@@ -52,49 +52,48 @@ function SectionButton({
   isActive,
   status,
   hasUnsavedChanges,
+  countBadge,
   onClick,
 }: {
   sectionConfig: SectionConfig | undefined;
   isActive: boolean;
   status: 'idle' | 'saving' | 'success' | 'error' | undefined;
   hasUnsavedChanges: boolean;
+  /** Findings waiting in this section, shown on the row as well as the group. */
+  countBadge?: number;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors duration-150 flex items-center justify-between group ${
+      className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors duration-150 flex items-start justify-between gap-2 group ${
         isActive
           ? 'bg-primary text-primary-content shadow-sm'
           : 'text-base-content hover:bg-base-content/6'
       }`}
     >
-      <div className="flex items-center space-x-3 min-w-0 flex-1">
-        <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <span className="text-lg leading-6 shrink-0">{sectionConfig?.icon || '⚙️'}</span>
         <div className="min-w-0 flex-1">
-          {/* The full name on hover, but only when it is actually cut off.
-              Measured on mouse enter rather than watched: the browser waits
-              before showing a title anyway, so the one moment it matters is
-              the one moment it costs anything — and a tooltip that repeats a
-              label you can already read in full is just noise. */}
-          <div
-            className="font-medium truncate"
-            onMouseEnter={event => {
-              const el = event.currentTarget;
-              const cut = el.scrollWidth > el.clientWidth;
-              if (cut) {
-                el.title = sectionConfig?.title ?? '';
-              } else {
-                el.removeAttribute('title');
-              }
-            }}
-          >
+          {/* Wrapped, not truncated. These names used to end in an ellipsis —
+              "Czujniki sterowni…", "Aktualizacja oprogramo…" — which tells you
+              there is more without telling you what, on the one list in the
+              app you pick from without having seen the names anywhere else.
+              A second line costs less than a name you cannot read. */}
+          <div className="font-medium wrap-break-word leading-6">
             {sectionConfig?.title}
           </div>
         </div>
       </div>
-      <div className="flex items-center space-x-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 mt-0.5">
+        {/* The same count the group header carries. On the header alone it
+            only says "something in here", and with the group open there are
+            three rows it could mean. Repeating it is how a folder and the
+            item inside it both show a count. */}
+        {countBadge !== undefined && countBadge > 0 && (
+          <span className="badge badge-error badge-sm">{countBadge}</span>
+        )}
         {/* Against the right edge, where the badges line up with each other
             instead of sitting wherever each title happens to end. */}
         {sectionConfig?.badge && (
@@ -132,6 +131,7 @@ function SectionList({
   activeSection,
   saveStatus,
   unsavedChanges,
+  outstanding,
   onNavigate,
 }: {
   sections: ConfigSection[];
@@ -140,6 +140,8 @@ function SectionList({
   activeSection: string;
   saveStatus: Record<string, 'idle' | 'saving' | 'success' | 'error'>;
   unsavedChanges: Record<string, boolean>;
+  /** Security findings still to act on, shown on the security row. */
+  outstanding?: number;
   onNavigate: (sectionName: string) => void;
 }) {
   return (
@@ -155,6 +157,7 @@ function SectionList({
               isActive={activeSection === section.name}
               status={saveStatus[section.name]}
               hasUnsavedChanges={unsavedChanges[section.name] || false}
+              countBadge={section.name === 'security' ? outstanding : undefined}
               onClick={() => onNavigate(section.name)}
             />
           );
@@ -280,6 +283,7 @@ function SidebarContent({
             activeSection={activeSection}
             saveStatus={saveStatus}
             unsavedChanges={unsavedChanges}
+            outstanding={outstanding}
             onNavigate={onNavigate}
           />
         )}
@@ -342,6 +346,7 @@ function SidebarContent({
           activeSection={activeSection}
           saveStatus={saveStatus}
           unsavedChanges={unsavedChanges}
+          outstanding={outstanding}
           onNavigate={onNavigate}
         />
       </>
@@ -385,6 +390,7 @@ function SidebarContent({
                   activeSection={activeSection}
                   saveStatus={saveStatus}
                   unsavedChanges={unsavedChanges}
+                  outstanding={outstanding}
                   onNavigate={onNavigate}
                 />
               </div>
