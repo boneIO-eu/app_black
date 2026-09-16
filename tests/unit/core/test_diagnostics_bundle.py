@@ -119,6 +119,31 @@ def test_the_summary_says_how_much_is_configured(device):
     assert "boneio" in summary
 
 
+def test_the_summary_names_the_unit(device):
+    """A bundle detached from whoever sent it still says which device it is."""
+    payload, _ = build(config_of(device), device / "config.yaml", serial="blk265f49")
+    summary = members(payload)["summary.txt"]
+    assert "blk265f49" in summary
+
+
+def test_an_overridden_serial_reports_the_real_one_too(device):
+    """Support needs to know the unit answers to a serial it was not born with."""
+    payload, _ = build(
+        config_of(device),
+        device / "config.yaml",
+        serial="blk000000",
+        real_serial="blk265f49",
+    )
+    summary = members(payload)["summary.txt"]
+    assert "blk000000" in summary
+    assert "blk265f49" in summary
+
+
+def test_an_unknown_serial_is_said_rather_than_left_blank(device):
+    payload, _ = build(config_of(device), device / "config.yaml")
+    assert "(unknown)" in members(payload)["summary.txt"]
+
+
 def test_a_local_broker_is_reported_on(device):
     payload, _ = build(config_of(device), device / "config.yaml")
     assert "systemctl status mosquitto" in members(payload)["status/mosquitto.txt"]

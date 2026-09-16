@@ -223,6 +223,25 @@ async def async_run(
         serial_override=main_config.get("serial_override"),
     )
 
+    # Which unit this log came from.
+    #
+    # The only identity in the log was "BoneIO <version> starting", which says
+    # nothing about the device. A log reaches support detached from whoever
+    # sent it — pasted into a ticket, dropped in a forum thread — and the
+    # serial is what ties it to a unit, its MQTT topics and its cloud
+    # subdomain. Naming it once at startup costs a line.
+    #
+    # Safe to write here: the log and the bundle are admin-only. The serial is
+    # withheld from unauthenticated API responses because those answer to
+    # anyone on the network, which this does not.
+    _LOGGER.info(
+        "Device %s (%s, hardware %s), serial %s",
+        _config_helper.name,
+        _config_helper.device_type,
+        _config_helper.version,
+        _config_helper.serial_number,
+    )
+
     # Load areas configuration
     _config_helper.set_areas(areas_config=config.get("areas", []))
 

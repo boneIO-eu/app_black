@@ -100,13 +100,21 @@ def _run(command: list[str], *, timeout: int = COMMAND_TIMEOUT) -> str:
     return output.strip() or f"[{' '.join(command)} produced no output]"
 
 
-def _summary(config: dict, config_file: Path, capture_started: float | None) -> str:
+def _summary(
+    config: dict,
+    config_file: Path,
+    capture_started: float | None,
+    serial: str | None = None,
+    real_serial: str | None = None,
+) -> str:
     """The first thing a support engineer reads.
 
     Args:
         config: Parsed configuration.
         config_file: Path to config.yaml.
         capture_started: Epoch seconds when a debug capture began, if any.
+        serial: Effective serial of the device the bundle came from.
+        real_serial: Serial derived from the MAC, when an override is in use.
 
     Returns:
         The summary text.
@@ -124,6 +132,16 @@ def _summary(config: dict, config_file: Path, capture_started: float | None) -> 
         f"collected       {datetime.now(UTC).isoformat()}",
         f"boneIO version  {__version__}",
         f"device name     {boneio.get('name', '?')}",
+        # Which unit this is. The name is whatever the owner typed and two
+        # devices commonly share it; the serial is what the MQTT topics and
+        # the cloud subdomain are built from, so it is the one that lets a
+        # bundle be matched to a device.
+        f"serial          {serial or '(unknown)'}",
+        *(
+            [f"  real serial   {real_serial} (overridden above)"]
+            if real_serial and serial and real_serial != serial
+            else []
+        ),
         f"config file     {config_file}",
         "",
         f"MQTT broker     {mqtt.get('host', '(not configured)')}:{mqtt.get('port', 1883)}",
@@ -383,6 +401,8 @@ def build(
     *,
     mqtt_status: str = "",
     capture_started: float | None = None,
+    serial: str | None = None,
+    real_serial: str | None = None,
 ) -> tuple[bytes, str]:
     """Assemble the diagnostic bundle.
 
@@ -391,6 +411,8 @@ def build(
         config_file: Path to config.yaml.
         mqtt_status: Connection state as the running process sees it.
         capture_started: Epoch seconds when a debug capture began, if any.
+        serial: Effective serial of the device, for the summary.
+        real_serial: MAC-derived serial, when an override is in use.
 
     Returns:
         Tuple of ``(gzipped tar bytes, suggested filename)``.
@@ -401,7 +423,10 @@ def build(
 
     sections: list[Section] = [
         Section("README.txt", _readme(len(secrets), capture_started)),
-        Section("summary.txt", _summary(config, path, capture_started)),
+        Section(
+            "summary.txt",
+            _summary(config, path, capture_started, serial, real_serial),
+        ),
         Section("status/mqtt.txt", mqtt_status or "[no MQTT state available]"),
         _log_section(capture_started),
     ]

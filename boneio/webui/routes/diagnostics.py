@@ -235,6 +235,12 @@ async def get_bundle():
     if not isinstance(config, dict):
         config = {}
 
+    # The serial comes from the running helper rather than the file: without an
+    # override it is derived from the MAC, so config.yaml does not have it.
+    helper = getattr(_app_state, "config_helper", None)
+    serial = getattr(helper, "serial_number", None) if helper else None
+    real_serial = getattr(helper, "real_serial", None) if helper else None
+
     # Building shells out to journalctl, docker and systemctl, which block.
     payload, filename = await asyncio.to_thread(
         build,
@@ -242,6 +248,8 @@ async def get_bundle():
         config_file,
         mqtt_status=_mqtt_status(),
         capture_started=_capture_started,
+        serial=serial,
+        real_serial=real_serial,
     )
 
     return Response(
