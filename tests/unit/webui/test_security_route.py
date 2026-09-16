@@ -113,11 +113,10 @@ def test_cloud_certificate_is_reflected(monkeypatch, config_file):
     assert "certificate" in {c.id for c in security_route.current_posture().failed}
 
 
-@pytest.mark.asyncio
-async def test_endpoint_shape(monkeypatch, config_file):
+def test_endpoint_shape(monkeypatch, config_file):
     """The response carries the checks and a summary."""
     _install(monkeypatch, config_file)
-    body = await security_route.get_posture()
+    body = security_route.get_posture()
     assert body["summary"]["worst"] == "critical"
     assert any(c["id"] == "mqtt_password" for c in body["checks"])
     assert all("remedy" in c for c in body["checks"])
@@ -162,9 +161,8 @@ def _stored(path):
     return load_yaml_file(str(path))["web"]["security"]["frame_ancestors"]
 
 
-@pytest.mark.asyncio
-async def test_unconfigured_device_reports_the_default(framing_device):
-    body = await security_route.get_frame_ancestors()
+def test_unconfigured_device_reports_the_default(framing_device):
+    body = security_route.get_frame_ancestors()
     assert body["restrict"] is True
     assert body["configured"] is False
     assert body["tokens"] == ["self"]
@@ -282,7 +280,7 @@ async def test_a_hand_written_string_is_read_and_replaced(tmp_path, monkeypatch)
     )
     _install(monkeypatch, str(path))
 
-    body = await security_route.get_frame_ancestors()
+    body = security_route.get_frame_ancestors()
     assert body["extra_origins"] == ["https://old.local"]
 
     await security_route.set_frame_ancestors(

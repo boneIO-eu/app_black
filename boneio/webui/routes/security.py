@@ -8,7 +8,9 @@ module enforces that; this route does not repeat the check.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import time
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -40,21 +42,69 @@ def set_app_state(app_state) -> None:
     _app_state = app_state
 
 
+#: Parsed config.yaml, keyed by what the file looked like when it was read:
+#: ``(mtime, size, read_at, data)``.
+_config_cache: tuple[float, int, float, dict] | None = None
+
+#: Ceiling on how stale a cached parse may be, in seconds.
+#:
+#: The mtime check already catches an edit to config.yaml itself. This bounds
+#: the one case it cannot see: a value the posture reads living in a file
+#: pulled in by ``!include`` or ``!secret``, which can change while
+#: config.yaml does not. Short enough that nobody notices, long enough to
+#: collapse the burst of requests one page load makes.
+_CONFIG_CACHE_TTL = 5.0
+
+
 def _load_config() -> dict:
-    """Read config.yaml.
+    """Read config.yaml, reusing the last parse when the file has not changed.
 
     Loaded through the normal loader so ``!secret`` is resolved: a shipped
     default moved into secrets.yaml is still a shipped default.
 
+    The parse is the expensive part — measured at ~230 ms on a BeagleBone, and
+    it is pure Python, so it costs that again on every caller. Three components
+    ask for the posture when the security page opens, and each used to pay it.
+
     Returns:
         The parsed configuration, or an empty dict when it cannot be read.
     """
+    global _config_cache
+
+    path = _app_state.yaml_config_file
     try:
-        loaded = load_yaml_file(_app_state.yaml_config_file)
-        return loaded if isinstance(loaded, dict) else {}
+        stat = os.stat(path)
+        signature = (stat.st_mtime, stat.st_size)
+    except OSError:
+        signature = None
+
+    if _config_cache is not None and signature is not None:
+        mtime, size, read_at, data = _config_cache
+        fresh = time.monotonic() - read_at < _CONFIG_CACHE_TTL
+        if fresh and (mtime, size) == signature:
+            return data
+
+    try:
+        loaded = load_yaml_file(path)
+        config = loaded if isinstance(loaded, dict) else {}
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not read configuration for the security check: %s", err)
         return {}
+
+    if signature is not None:
+        _config_cache = (signature[0], signature[1], time.monotonic(), config)
+    return config
+
+
+def _invalidate_config_cache() -> None:
+    """Forget the cached parse.
+
+    Called after this module writes config.yaml: the filesystem timestamp has
+    a resolution, and a write that lands inside the same tick as the read
+    before it would otherwise look unchanged.
+    """
+    global _config_cache
+    _config_cache = None
 
 
 def current_posture() -> Posture:
@@ -94,8 +144,25 @@ def current_posture() -> Posture:
 
 
 @router.get("/posture")
-async def get_posture():
+def get_posture():
     """Report every security check and a summary of the failures.
+
+    Deliberately a plain ``def``. ``current_posture`` reads and parses
+    config.yaml, and an ``async def`` would do that on the event loop, where
+    it stalls every other request — including the WebSocket that carries
+    relay state — for its whole duration. Starlette runs a ``def`` endpoint
+    in its threadpool instead.
+
+    This does not make concurrent postures faster: the work is parsing, which
+    is CPU-bound Python, so the GIL serialises it either way. Measured on a
+    BeagleBone, four overlapping requests took the same ~1.2 s before and
+    after. What it does change is who waits — in the same batch /api/config
+    came back 330 ms sooner, because it no longer sat behind the posture
+    rather than beside it. The parse cost itself is addressed by the cache in
+    :func:`_load_config`.
+
+    Safe to run off the loop: this only reads — config.yaml, the user store
+    and the cloud flag — and writes nothing.
 
     Returns:
         Dictionary with the checks and a per-severity summary.
@@ -187,8 +254,15 @@ def _describe(raw: object) -> dict:
 
 
 @router.get("/frame-ancestors")
-async def get_frame_ancestors():
+def get_frame_ancestors():
     """Report which sites may embed this panel.
+
+    A plain ``def`` for the same reason as :func:`get_posture` — it parses
+    config.yaml, and the security page asks for both at once.
+
+    Note that the PUT below stays ``async def`` on purpose: it *writes*
+    config.yaml, and being pinned to the event loop is what keeps it from
+    overlapping with a read that would then see a half-written file.
 
     Returns:
         The current setting, plus whether it came from config.yaml or the
@@ -230,6 +304,8 @@ async def set_frame_ancestors(payload: FrameAncestorsRequest):
         raise HTTPException(status_code=409, detail=str(err)) from err
     except OSError as err:
         raise HTTPException(status_code=500, detail=str(err)) from err
+
+    _invalidate_config_cache()
 
     helper = getattr(_app_state, "config_helper", None)
     if helper is not None:

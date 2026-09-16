@@ -11,7 +11,10 @@
  * the console.
  */
 import { useCallback, useEffect, useState } from 'react';
-import api from '../api/axios';
+import {
+  fetchSecurityPosture,
+  invalidateSecurityPosture,
+} from '../api/securityPostureCache';
 import { useAuth } from './useAuth';
 
 export type Severity = 'critical' | 'warning' | 'info';
@@ -59,10 +62,18 @@ export function useSecurityPosture() {
   const posture = isAdmin ? fetched : null;
   const loading = isAdmin && !settled;
 
-  const refresh = useCallback(async () => {
+  /**
+   * Read the posture. Goes through the shared cache, so the three components
+   * that want it on the same screen cost one request rather than three.
+   *
+   * `force` is what the "check again" button passes: after fixing something,
+   * a cached answer is exactly the wrong one to show.
+   */
+  const load = useCallback(async (force: boolean) => {
     if (!isAdmin) return;
+    if (force) invalidateSecurityPosture();
     try {
-      const { data } = await api.get<SecurityPosture>('/api/security/posture');
+      const data = await fetchSecurityPosture();
       setFetched(data);
       setError(null);
     } catch {
@@ -75,14 +86,16 @@ export function useSecurityPosture() {
     }
   }, [isAdmin]);
 
+  const refresh = useCallback(() => load(true), [load]);
+
   useEffect(() => {
     // Fetching on mount is the external-system synchronisation this rule is
     // meant to permit. It fires anyway because it cannot see that every
     // setState in `refresh` happens after an await, so there is no cascade to
     // avoid. Same false positive as in useMigrations.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh();
-  }, [refresh]);
+    void load(false);
+  }, [load]);
 
   return { posture, loading, error, refresh };
 }
