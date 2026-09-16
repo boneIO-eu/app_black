@@ -1,11 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
-  FaCheck,
-  FaExclamationTriangle,
-  FaSpinner,
-} from 'react-icons/fa';
+import { FaCheck, FaSpinner, FaGlobe } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import { SettingsCard, StatusTile, FormField, NoticeCallout } from '../ui';
 
 /**
  * Section for viewing and changing the device hostname.
@@ -15,7 +12,7 @@ export default function HostnameSection() {
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [newHostname, setNewHostname] = useState<string>('');
   const [isChangingHostname, setIsChangingHostname] = useState(false);
-  const [hostnameResult, setHostnameResult] = useState<{ status: string; message: string } | null>(null);
+  const [hostnameResult, setHostnameResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
   const fetchHostname = useCallback(async () => {
     try {
@@ -57,64 +54,67 @@ export default function HostnameSection() {
   };
 
   return (
-    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-      <div className="card-body p-4 sm:p-6 space-y-4">
-        <div className="space-y-4 max-w-lg">
-          <div>
-            <label className="label">
-              <span className="label-text font-medium">{t('settings.current_hostname')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered input-sm sm:input-md w-full font-mono bg-base-200"
-              value={currentHostname}
-              disabled
-            />
-          </div>
+    <div className="max-w-2xl space-y-6">
+      <SettingsCard>
+        <div className="space-y-5">
+          {/* Current hostname displayed as a clean status tile */}
+          <StatusTile
+            icon={<FaGlobe />}
+            label={t('settings.current_hostname')}
+            value={currentHostname || '—'}
+            suffix={currentHostname ? '.local' : undefined}
+            badge={
+              currentHostname ? (
+                <span className="badge badge-success badge-sm font-normal gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+                  mDNS
+                </span>
+              ) : undefined
+            }
+          />
 
-          <div>
-            <label className="label">
-              <span className="label-text font-medium">{t('settings.new_hostname')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered input-sm sm:input-md w-full font-mono"
-              value={newHostname}
-              onChange={e => setNewHostname(e.target.value)}
-              placeholder={t('settings.hostname_placeholder')}
-              disabled={isChangingHostname}
-            />
-            <label className="label whitespace-normal">
-              <span className="label-text-alt text-base-content/70">{t('settings.hostname_hint')}</span>
-            </label>
-          </div>
+          {/* New hostname input */}
+          <FormField
+            label={t('settings.new_hostname')}
+            help={t('settings.hostname_hint')}
+          >
+            <div className="flex flex-col sm:flex-row gap-2 mt-1">
+              <input
+                type="text"
+                className="input input-bordered input-sm sm:input-md flex-1 font-mono"
+                value={newHostname}
+                onChange={e => setNewHostname(e.target.value)}
+                placeholder={t('settings.hostname_placeholder')}
+                disabled={isChangingHostname}
+              />
+              <button
+                className="btn btn-primary btn-sm sm:btn-md gap-2 shrink-0 font-medium"
+                onClick={changeHostname}
+                disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
+              >
+                {isChangingHostname ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    {t('settings.changing_hostname')}
+                  </>
+                ) : (
+                  <>
+                    <FaCheck />
+                    {t('settings.change_hostname')}
+                  </>
+                )}
+              </button>
+            </div>
+          </FormField>
 
           {hostnameResult && (
-            <div className={`alert ${hostnameResult.status === 'success' ? 'alert-success' : 'alert-error'} text-sm`}>
-              {hostnameResult.status === 'success' ? <FaCheck className="shrink-0" /> : <FaExclamationTriangle className="shrink-0" />}
-              <span>{hostnameResult.message}</span>
-            </div>
+            <NoticeCallout
+              variant={hostnameResult.status}
+              message={hostnameResult.message}
+            />
           )}
-
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={changeHostname}
-            disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
-          >
-            {isChangingHostname ? (
-              <>
-                <FaSpinner className="animate-spin" />
-                {t('settings.changing_hostname')}
-              </>
-            ) : (
-              <>
-                <FaCheck />
-                {t('settings.change_hostname')}
-              </>
-            )}
-          </button>
         </div>
-      </div>
+      </SettingsCard>
     </div>
   );
 }

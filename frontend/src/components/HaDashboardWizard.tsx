@@ -4,8 +4,9 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   FaArrowLeft, FaArrowRight, FaCopy, FaCheck,
-  FaRedo, FaChevronDown, FaChevronRight,
+  FaRedo,
 } from 'react-icons/fa';
+import { SettingsCard, SelectableCard, NoticeCallout } from './UISettings/ui';
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
@@ -327,35 +328,35 @@ export default function HaDashboardWizard() {
 
   if (error) {
     return (
-      <div className="alert alert-error">
-        <span>{error}</span>
+      <div className="max-w-3xl">
+        <NoticeCallout variant="error" message={error} />
       </div>
     );
   }
 
   return (
-    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-      <div className="card-body p-4 sm:p-6">
+    <div className="max-w-3xl space-y-6">
+      <SettingsCard>
         {/* Steps indicator */}
-        <ul className="steps steps-horizontal w-full mb-6">
-          <li className={`step ${currentStepIndex >= 0 ? 'step-primary' : ''}`}>
+        <ul className="steps steps-horizontal w-full mb-8">
+          <li className={`step ${currentStepIndex >= 0 ? 'step-primary font-medium' : 'step-neutral text-base-content/50'}`}>
             {t('dashboard_wizard.step_types')}
           </li>
-          <li className={`step ${currentStepIndex >= 1 ? 'step-primary' : ''}`}>
+          <li className={`step ${currentStepIndex >= 1 ? 'step-primary font-medium' : 'step-neutral text-base-content/50'}`}>
             {t('dashboard_wizard.step_area')}
           </li>
-          <li className={`step ${currentStepIndex >= 2 ? 'step-primary' : ''}`}>
+          <li className={`step ${currentStepIndex >= 2 ? 'step-primary font-medium' : 'step-neutral text-base-content/50'}`}>
             {t('dashboard_wizard.step_export')}
           </li>
         </ul>
 
         {/* ──── Step 1: Select types + entity exclusion ──── */}
         {step === 'types' && meta && (
-          <div>
-            <p className="text-sm text-base-content/70 mb-4">
+          <div className="space-y-4">
+            <p className="text-sm text-base-content/70">
               {t('dashboard_wizard.select_types')}
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {Object.entries(TYPE_CONFIG).map(([typeKey, config]) => {
                 const typeInfo = meta.types[typeKey];
                 if (!typeInfo) return null;
@@ -366,66 +367,48 @@ export default function HaDashboardWizard() {
                 const excludedCount = typeInfo.entities.filter(e => excludedEntities.has(e.id)).length;
 
                 return (
-                  <div key={typeKey}>
-                    {/* Type header row */}
-                    <div
-                      className={`
-                        flex items-center gap-3 p-4 rounded-lg border-2 transition-all
-                        ${isSelected ? 'border-primary bg-primary/10' : 'border-base-300'}
-                        ${isDisabled ? 'opacity-40' : 'cursor-pointer hover:border-base-content/30'}
-                      `}
-                    >
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-primary checkbox-sm"
-                        checked={isSelected}
-                        disabled={isDisabled}
-                        onChange={() => !isDisabled && toggleType(typeKey)}
-                      />
-                      <span className="text-2xl">{config.icon}</span>
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => !isDisabled && toggleExpanded(typeKey)}
-                      >
-                        <div className="font-medium">
-                          {t(config.labelKey)}
-                          {excludedCount > 0 && (
-                            <span className="text-xs text-warning ml-2">
-                              (-{excludedCount})
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-base-content/50">
+                  <SelectableCard
+                    key={typeKey}
+                    selected={isSelected}
+                    onToggle={() => !isDisabled && toggleType(typeKey)}
+                    icon={config.icon}
+                    title={t(config.labelKey)}
+                    badge={
+                      <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                        {excludedCount > 0 && (
+                          <span className="badge badge-warning badge-xs font-mono">
+                            -{excludedCount}
+                          </span>
+                        )}
+                        <span className="badge badge-ghost badge-sm font-mono text-xs">
                           {effectiveCount} / {typeInfo.count}
-                        </div>
+                        </span>
                       </div>
-                      {!isDisabled && typeInfo.entities.length > 0 && (
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          onClick={(e) => { e.stopPropagation(); toggleExpanded(typeKey); }}
-                        >
-                          {isExpanded ? <FaChevronDown /> : <FaChevronRight />}
-                        </button>
-                      )}
-                    </div>
-
+                    }
+                    disabled={isDisabled}
+                    expandable={!isDisabled && typeInfo.entities.length > 0}
+                    isExpanded={isExpanded}
+                    onExpandToggle={() => !isDisabled && toggleExpanded(typeKey)}
+                  >
                     {/* Expanded entity list */}
                     {isExpanded && typeInfo.entities.length > 0 && (
-                      <div className="ml-10 mt-1 mb-2 space-y-0.5 max-h-60 overflow-y-auto border border-base-300 rounded-lg p-2">
+                      <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
                         {typeInfo.entities.map(entity => {
                           const isExcluded = excludedEntities.has(entity.id);
                           return (
                             <label
                               key={entity.id}
-                              className={`flex items-center gap-2 p-1.5 rounded hover:bg-base-300/50 cursor-pointer text-sm ${isExcluded ? 'opacity-50 line-through' : ''}`}
+                              className={`flex items-center gap-2.5 p-2 rounded-lg hover:bg-base-200/60 cursor-pointer text-sm transition-all ${
+                                isExcluded ? 'opacity-40 line-through' : ''
+                              }`}
                             >
                               <input
                                 type="checkbox"
-                                className="checkbox checkbox-xs"
+                                className="checkbox checkbox-primary checkbox-xs rounded"
                                 checked={!isExcluded}
                                 onChange={() => toggleEntity(entity.id)}
                               />
-                              <span className="flex-1 truncate">
+                              <span className="flex-1 truncate font-medium">
                                 {entity.name}
                               </span>
                               {entity.sub_type && (
@@ -443,18 +426,18 @@ export default function HaDashboardWizard() {
                         })}
                       </div>
                     )}
-                  </div>
+                  </SelectableCard>
                 );
               })}
             </div>
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-end pt-4 border-t border-base-200/80">
               <button
-                className="btn btn-primary gap-2"
+                className="btn btn-primary btn-sm gap-2"
                 disabled={selectedTypes.size === 0}
                 onClick={() => setStep('area')}
               >
                 {t('dashboard_wizard.next')}
-                <FaArrowRight />
+                <FaArrowRight className="text-xs" />
               </button>
             </div>
           </div>
@@ -462,37 +445,29 @@ export default function HaDashboardWizard() {
 
         {/* ──── Step 2: Select areas ──── */}
         {step === 'area' && meta && (
-          <div>
-            <p className="text-sm text-base-content/70 mb-4">
+          <div className="space-y-4">
+            <p className="text-sm text-base-content/70">
               {t('dashboard_wizard.select_area')}
             </p>
             {filteredAreas.length === 0 ? (
-              <div className="alert alert-warning">
-                <span>{t('dashboard_wizard.no_entities')}</span>
-              </div>
+              <NoticeCallout
+                variant="warning"
+                message={t('dashboard_wizard.no_entities')}
+              />
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {/* All areas toggle */}
-                <label
-                  className={`
-                    flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all
-                    ${allAreasSelected ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-base-content/30'}
-                  `}
-                >
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-primary checkbox-sm"
-                    checked={allAreasSelected}
-                    onChange={toggleAllAreas}
-                  />
-                  <span className="text-xl">🌍</span>
-                  <div className="flex-1">
-                    <div className="font-medium">{t('dashboard_wizard.all_areas')}</div>
-                    <div className="text-xs text-base-content/50">
+                <SelectableCard
+                  selected={allAreasSelected}
+                  onToggle={toggleAllAreas}
+                  icon="🌍"
+                  title={t('dashboard_wizard.all_areas')}
+                  badge={
+                    <span className="badge badge-ghost badge-sm font-mono text-xs ml-auto sm:ml-0">
                       {t('dashboard_wizard.count', { count: totalEntityCount })}
-                    </div>
-                  </div>
-                </label>
+                    </span>
+                  }
+                />
 
                 {filteredAreas.map(area => {
                   const isSelected = selectedAreas.has(area.id);
@@ -501,47 +476,38 @@ export default function HaDashboardWizard() {
                     : area.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
                   return (
-                    <label
+                    <SelectableCard
                       key={area.id}
-                      className={`
-                        flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all
-                        ${isSelected ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-base-content/30'}
-                      `}
-                    >
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-primary checkbox-sm"
-                        checked={isSelected}
-                        onChange={() => toggleArea(area.id)}
-                      />
-                      <span className="text-xl">🏠</span>
-                      <div className="flex-1">
-                        <div className="font-medium">{displayName}</div>
-                        <div className="text-xs text-base-content/50">
+                      selected={isSelected}
+                      onToggle={() => toggleArea(area.id)}
+                      icon="🏠"
+                      title={displayName}
+                      badge={
+                        <span className="badge badge-ghost badge-sm font-mono text-xs ml-auto sm:ml-0">
                           {t('dashboard_wizard.count', { count: area.effectiveCount })}
-                        </div>
-                      </div>
-                    </label>
+                        </span>
+                      }
+                    />
                   );
                 })}
               </div>
             )}
-            <div className="flex justify-between mt-6">
+            <div className="flex justify-between pt-4 border-t border-base-200/80">
               <button
-                className="btn btn-ghost gap-2"
+                className="btn btn-ghost btn-sm gap-2"
                 onClick={() => setStep('types')}
               >
-                <FaArrowLeft />
+                <FaArrowLeft className="text-xs" />
                 {t('dashboard_wizard.back')}
               </button>
               <button
-                className="btn btn-primary gap-2"
+                className="btn btn-primary btn-sm gap-2"
                 disabled={selectedAreas.size === 0 || generating}
                 onClick={handleGenerate}
               >
                 {generating && <span className="loading loading-spinner loading-xs" />}
                 {t('dashboard_wizard.next')}
-                <FaArrowRight />
+                <FaArrowRight className="text-xs" />
               </button>
             </div>
           </div>
@@ -549,26 +515,27 @@ export default function HaDashboardWizard() {
 
         {/* ──── Step 3: Export — per-area cards ──── */}
         {step === 'export' && (
-          <div>
-            <p className="text-sm text-base-content/70 mb-4">
+          <div className="space-y-4">
+            <p className="text-sm text-base-content/70">
               {t('dashboard_wizard.ready_desc')}
             </p>
 
             {sections.length === 0 ? (
-              <div className="alert alert-warning">
-                <span>{t('dashboard_wizard.no_entities')}</span>
-              </div>
+              <NoticeCallout
+                variant="warning"
+                message={t('dashboard_wizard.no_entities')}
+              />
             ) : (
               <div className="space-y-3">
                 {sections.map((section, idx) => {
                   const isCopied = copiedIdx === idx;
                   return (
-                    <div key={idx} className="bg-base-300 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
+                    <div key={idx} className="bg-base-200/50 border border-base-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h3 className="font-bold text-sm">{section.area}</h3>
+                          <h3 className="font-bold text-sm text-base-content">{section.area}</h3>
                           {section.breakdown && Object.keys(section.breakdown).length > 0 ? (
-                            <p className="text-xs text-base-content/50">
+                            <p className="text-xs text-base-content/60 mt-0.5">
                               {Object.entries(section.breakdown).map(([label, count], i) => (
                                 <span key={label}>
                                   {i > 0 && ' · '}
@@ -577,13 +544,13 @@ export default function HaDashboardWizard() {
                               ))}
                             </p>
                           ) : (
-                            <p className="text-xs text-base-content/50">
+                            <p className="text-xs text-base-content/60 mt-0.5">
                               {t('dashboard_wizard.count', { count: section.entity_count })}
                             </p>
                           )}
                         </div>
                         <button
-                          className={`btn btn-sm gap-2 ${isCopied ? 'btn-success' : 'btn-primary'}`}
+                          className={`btn btn-sm gap-2 shrink-0 ${isCopied ? 'btn-success' : 'btn-primary'}`}
                           onClick={() => handleCopy(idx)}
                         >
                           {isCopied ? <FaCheck /> : <FaCopy />}
@@ -591,7 +558,7 @@ export default function HaDashboardWizard() {
                         </button>
                       </div>
                       {isCopied && (
-                        <div className="mt-2 text-xs text-success">
+                        <div className="mt-2 text-xs text-success font-medium">
                           {t('dashboard_wizard.paste_hint')}
                         </div>
                       )}
@@ -603,38 +570,39 @@ export default function HaDashboardWizard() {
 
             {/* Summary */}
             {Object.keys(summary).length > 0 && (
-              <div className="mt-4 text-sm text-base-content/60">
+              <div className="mt-4 p-3 bg-base-200/40 rounded-xl text-xs text-base-content/70 flex flex-wrap gap-4">
                 {Object.entries(summary).map(([typeKey, count]) => {
                   const config = TYPE_CONFIG[typeKey];
                   if (!config || count === 0) return null;
                   return (
-                    <span key={typeKey} className="mr-4">
-                      {config.icon} {count}× {t(config.labelKey)}
+                    <span key={typeKey} className="flex items-center gap-1.5">
+                      <span>{config.icon}</span>
+                      <span className="font-medium">{count}× {t(config.labelKey)}</span>
                     </span>
                   );
                 })}
               </div>
             )}
 
-            <div className="flex justify-between mt-6">
+            <div className="flex justify-between pt-4 border-t border-base-200/80">
               <button
-                className="btn btn-ghost gap-2"
+                className="btn btn-ghost btn-sm gap-2"
                 onClick={() => setStep('area')}
               >
-                <FaArrowLeft />
+                <FaArrowLeft className="text-xs" />
                 {t('dashboard_wizard.back')}
               </button>
               <button
-                className="btn btn-outline btn-primary gap-2"
+                className="btn btn-outline btn-sm gap-2"
                 onClick={handleReset}
               >
-                <FaRedo />
+                <FaRedo className="text-xs" />
                 {t('dashboard_wizard.new_export')}
               </button>
             </div>
           </div>
         )}
-      </div>
+      </SettingsCard>
     </div>
   );
 }

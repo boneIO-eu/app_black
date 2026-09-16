@@ -12,9 +12,11 @@ import {
   FaShieldAlt,
   FaTimes,
   FaExternalLinkAlt,
+  FaServer,
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useNodeRedManagement, NodeRedBackup } from '../hooks/useNodeRedManagement';
+import { SettingsCard, StatusTile, NoticeCallout } from '../ui';
 
 /**
  * Compute SHA256 hash of a File using the Web Crypto API.
@@ -186,99 +188,109 @@ export default function NodeRedManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Service Status Card */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-        <div className="card-body p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <span className="text-xs opacity-60 font-medium uppercase tracking-wider block">
-                {t('nodered_management.service_status') || 'Status usługi'}
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`badge ${status?.running ? 'badge-success' : 'badge-error'} badge-sm font-semibold`}>
-                  {status?.running ? t('nodered_management.status_running') : t('nodered_management.status_stopped')}
-                </span>
-                {status?.version && (
-                  <span className="text-sm font-mono opacity-80">v{status.version}</span>
-                )}
-              </div>
-            </div>
-            {status?.running && (
-              <a
-                href="/nodered"
-                className="btn btn-sm btn-primary gap-2"
-              >
-                <FaExternalLinkAlt className="w-3.5 h-3.5" />
-                {t('nodered_management.open_nodered') || 'Otwórz Node-RED'}
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Service Status Tile */}
+      <StatusTile
+        icon={<FaServer />}
+        label={t('nodered_management.service_status') || 'Status usługi'}
+        value={status?.running ? t('nodered_management.status_running') : t('nodered_management.status_stopped')}
+        badge={
+          <span
+            className={`badge ${
+              status?.running ? 'badge-success' : 'badge-error'
+            } badge-sm font-semibold`}
+          >
+            {status?.version ? `v${status.version}` : (status?.running ? 'Online' : 'Offline')}
+          </span>
+        }
+        action={
+          status?.running ? (
+            <a
+              href="/nodered"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-sm btn-primary gap-2 font-medium"
+            >
+              <FaExternalLinkAlt className="w-3 h-3" />
+              {t('nodered_management.open_nodered') || 'Otwórz Node-RED'}
+            </a>
+          ) : undefined
+        }
+      />
 
       {error && (
-        <div className="alert alert-error my-2">
-          <FaExclamationTriangle className="shrink-0" />
-          <span>{error}</span>
-          <button className="btn btn-outline btn-sm btn-circle" onClick={() => setError(null)}>
-            ×
-          </button>
-        </div>
+        <NoticeCallout
+          variant="error"
+          message={error}
+          action={
+            <button className="btn btn-ghost btn-xs btn-circle" onClick={() => setError(null)}>
+              ×
+            </button>
+          }
+        />
       )}
 
       {/* ── UPDATE SECTION ── */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-        <div className="card-body p-4 sm:p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold flex items-center gap-2">
-              <FaDownload className="text-primary" />
-              <span>{t('nodered_management.update_title')}</span>
-              {updateInfo?.update_available && (
-                <span className="badge badge-success badge-sm">{t('nodered_management.update_available')}</span>
+      <SettingsCard
+        icon={<FaDownload />}
+        title={t('nodered_management.update_title')}
+        action={
+          updateInfo?.update_available ? (
+            <span className="badge badge-success badge-sm font-semibold">
+              {t('nodered_management.update_available')}
+            </span>
+          ) : undefined
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <span className="text-xs text-base-content/60 block">
+                  {t('nodered_management.current_version')}
+                </span>
+                <span className="font-mono text-sm font-bold text-base-content">
+                  {updateInfo?.current_version || status?.version || '—'}
+                </span>
+              </div>
+              {updateInfo?.latest_version && (
+                <div>
+                  <span className="text-xs text-base-content/60 block">
+                    {t('nodered_management.latest_version')}
+                  </span>
+                  <span className="font-mono text-sm font-bold text-success">
+                    {updateInfo.latest_version}
+                  </span>
+                </div>
               )}
-            </h3>
-          </div>
-
-          {updateInfo && (
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mt-2">
-              <div className="flex gap-6">
-                <div>
-                  <span className="text-xs opacity-60 block">{t('nodered_management.current_version')}</span>
-                  <span className="font-mono">{updateInfo.current_version}</span>
-                </div>
-                <div>
-                  <span className="text-xs opacity-60 block">{t('nodered_management.latest_version')}</span>
-                  <span className="font-mono font-bold text-success">{updateInfo.latest_version}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  className="btn btn-outline btn-sm"
-                  onClick={checkUpdates}
-                  disabled={isCheckingUpdate || isUpdating}
-                >
-                  {isCheckingUpdate ? <FaSpinner className="animate-spin" /> : t('nodered_management.check_for_updates')}
-                </button>
-                
-                {updateInfo.update_available && (
-                  <button
-                    className="btn btn-success btn-sm gap-2"
-                    onClick={handleUpdate}
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? <FaSpinner className="animate-spin" /> : <FaDownload />}
-                    {t('nodered_management.update_now')}
-                  </button>
-                )}
-              </div>
             </div>
-          )}
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                className="btn btn-outline btn-sm gap-2"
+                onClick={checkUpdates}
+                disabled={isCheckingUpdate || isUpdating}
+              >
+                {isCheckingUpdate ? <FaSpinner className="animate-spin" /> : <FaDownload className="text-xs" />}
+                {t('nodered_management.check_for_updates')}
+              </button>
+
+              {updateInfo?.update_available && (
+                <button
+                  className="btn btn-primary btn-sm gap-2"
+                  onClick={handleUpdate}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? <FaSpinner className="animate-spin" /> : <FaDownload className="text-xs" />}
+                  {t('nodered_management.update_now')}
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Update Progress Indicator */}
           {isUpdating && updateProgress && (
-            <div className="mt-4 p-3 bg-base-300/50 rounded-lg">
-              <div className="flex justify-between text-sm mb-1 font-medium">
+            <div className="p-3.5 bg-base-200/60 border border-base-200 rounded-xl space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-base-content">
                 <span>{updateProgress.step}</span>
                 <span>{updateProgress.progress}%</span>
               </div>
@@ -288,7 +300,7 @@ export default function NodeRedManagement() {
                 max="100"
               />
               {updateProgress.log.length > 0 && (
-                <div className="mt-2 bg-black/30 p-2 rounded text-xs font-mono max-h-24 overflow-y-auto">
+                <div className="mt-2 bg-black/40 text-white p-2.5 rounded-lg text-xs font-mono max-h-24 overflow-y-auto">
                   {updateProgress.log.map((logStr, i) => (
                     <div key={i}>{logStr}</div>
                   ))}
@@ -297,43 +309,40 @@ export default function NodeRedManagement() {
             </div>
           )}
         </div>
-      </div>
+      </SettingsCard>
 
       {/* ── BACKUP SECTION ── */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm relative">
-        {/* Restoring overlay */}
-        {(isRestoringBackup || isUploadingRestore) && (
-          <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm rounded-2xl z-10 flex flex-col items-center justify-center gap-1 pt-8">
-            <FaSpinner className="animate-spin text-warning h-8 w-8" />
-            <p className="text-sm font-semibold text-warning">{t('nodered_management.restoring_backup')}</p>
-            <p className="text-xs opacity-60">{t('nodered_management.restoring_hint')}</p>
-          </div>
-        )}
-        <div className="card-body p-4 sm:p-5 space-y-4">
-          <h3 className="text-base font-semibold flex items-center gap-2">
-            <FaFileArchive className="text-primary" />
-            <span>{t('nodered_management.backup_title')}</span>
-          </h3>
-          <p className="text-sm opacity-70">
-            {t('nodered_management.backup_description')}
-          </p>
+      <SettingsCard
+        icon={<FaFileArchive />}
+        title={t('nodered_management.backup_title')}
+        description={t('nodered_management.backup_description')}
+      >
+        <div className="relative space-y-4">
+          {/* Restoring overlay */}
+          {(isRestoringBackup || isUploadingRestore) && (
+            <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm rounded-xl z-10 flex flex-col items-center justify-center gap-1.5 p-6">
+              <FaSpinner className="animate-spin text-warning h-8 w-8" />
+              <p className="text-sm font-semibold text-warning">{t('nodered_management.restoring_backup')}</p>
+              <p className="text-xs text-base-content/60">{t('nodered_management.restoring_hint')}</p>
+            </div>
+          )}
 
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               className="btn btn-primary btn-sm gap-2"
               onClick={handleCreateBackup}
               disabled={isCreatingBackup || isRestoringBackup || isUploadingRestore || isUpdating}
             >
-              {isCreatingBackup ? <FaSpinner className="animate-spin" /> : <FaFileArchive />}
+              {isCreatingBackup ? <FaSpinner className="animate-spin" /> : <FaFileArchive className="text-xs" />}
               {t('nodered_management.create_backup')}
             </button>
 
             <button
-              className="btn btn-warning btn-sm gap-2"
+              className="btn btn-outline btn-sm gap-2"
               onClick={() => setShowUploadDialog(true)}
               disabled={isRestoringBackup || isUploadingRestore || isUpdating}
             >
-              <FaUpload />
+              <FaUpload className="text-xs" />
               {t('nodered_management.upload_restore')}
             </button>
 
@@ -342,7 +351,7 @@ export default function NodeRedManagement() {
                 className="btn btn-ghost btn-sm"
                 onClick={() => setShowBackupsList(!showBackupsList)}
               >
-                {showBackupsList 
+                {showBackupsList
                   ? t('device_management.hide_backups', { count: backups.length })
                   : t('device_management.show_backups', { count: backups.length })}
               </button>
@@ -355,29 +364,17 @@ export default function NodeRedManagement() {
             )}
           </div>
 
-          <div className="alert alert-info text-xs py-2 mb-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              className="stroke-current shrink-0 w-4 h-4"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              ></path>
-            </svg>
-            <span>{t('nodered_management.backup_limit_info')}</span>
-          </div>
+          <NoticeCallout
+            variant="info"
+            message={t('nodered_management.backup_limit_info')}
+          />
 
           {/* List of Node-RED backups */}
           {showBackupsList && backups.length > 0 && (
-            <div className="overflow-x-auto mt-2">
+            <div className="overflow-x-auto mt-2 border border-base-200 rounded-xl">
               <table className="table table-sm w-full">
                 <thead>
-                  <tr>
+                  <tr className="bg-base-200/50">
                     <th>{t('nodered_management.version')}</th>
                     <th>{t('nodered_management.date')}</th>
                     <th>{t('nodered_management.size')}</th>
@@ -387,10 +384,10 @@ export default function NodeRedManagement() {
                 </thead>
                 <tbody>
                   {backups.map((backup) => (
-                    <tr key={backup.path} className="hover:bg-base-200/50">
-                      <td className="font-mono text-xs">{backup.version}</td>
-                      <td className="text-xs">{backup.timestamp}</td>
-                      <td className="text-xs">{formatSize(backup.size)}</td>
+                    <tr key={backup.path} className="hover:bg-base-200/40">
+                      <td className="font-mono text-xs font-semibold">{backup.version}</td>
+                      <td className="text-xs text-base-content/70">{backup.timestamp}</td>
+                      <td className="text-xs text-base-content/70">{formatSize(backup.size)}</td>
                       <td className="text-xs">
                         {backup.sha256 ? (
                           <button
@@ -415,22 +412,22 @@ export default function NodeRedManagement() {
                             disabled={isRestoringBackup || isUploadingRestore || isUpdating}
                             title={t('nodered_management.restore_backup')}
                           >
-                            <FaUndo />
+                            <FaUndo className="text-xs" />
                             {t('nodered_management.restore_backup')}
                           </button>
                           <button
-                            className="btn btn-info btn-xs"
+                            className="btn btn-ghost btn-xs"
                             onClick={() => downloadBackup(backup.path, backup.filename)}
                             title={t('nodered_management.download_backup')}
                           >
-                            <FaDownload />
+                            <FaDownload className="text-xs" />
                           </button>
                           <button
-                            className="btn btn-error btn-xs"
+                            className="btn btn-ghost btn-xs text-error hover:bg-error/10"
                             onClick={() => handleDeleteBackup(backup)}
                             title={t('nodered_management.delete_backup')}
                           >
-                            <FaTrash />
+                            <FaTrash className="text-xs" />
                           </button>
                         </div>
                       </td>
@@ -445,7 +442,7 @@ export default function NodeRedManagement() {
             <p className="text-sm opacity-60 mt-2 italic">{t('nodered_management.no_backups')}</p>
           )}
         </div>
-      </div>
+      </SettingsCard>
 
       {/* ── UPLOAD RESTORE DIALOG ── */}
       {showUploadDialog && (

@@ -1,12 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
-  FaCheck,
-  FaExclamationTriangle,
-  FaInfoCircle,
   FaSpinner,
+  FaKey,
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import { SettingsCard, FormField, NoticeCallout } from '../ui';
 
 /**
  * Section for managing MQTT user passwords.
@@ -15,11 +14,6 @@ export default function MqttPasswordsSection() {
   const { t } = useTranslation();
   /**
    * Which of these accounts, if any, the application itself connects with.
-   *
-   * Null until the answer is known, and null is not "boneio": the warning on a
-   * row is a claim about this device, and claiming it from a default was the
-   * bug this replaced. When boneIO talks to a broker somewhere else — Home
-   * Assistant's, usually — no row here belongs to it and none is marked.
    */
   const [appAccount, setAppAccount] = useState<{
     username: string;
@@ -35,7 +29,7 @@ export default function MqttPasswordsSection() {
   });
   const [changingPassword, setChangingPassword] = useState<string | null>(null);
   const [passwordResults, setPasswordResults] = useState<{
-    [key: string]: { status: string; message: string };
+    [key: string]: { status: 'success' | 'error' | ''; message: string };
   }>({});
 
   const fetchMqttUsername = useCallback(async () => {
@@ -53,10 +47,7 @@ export default function MqttPasswordsSection() {
     }
   }, []);
 
-  // Fetched on mount now. It used to be fetched when the panel was expanded,
-  // which no longer happens because the panel no longer folds.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMqttUsername();
   }, [fetchMqttUsername]);
 
@@ -113,145 +104,131 @@ export default function MqttPasswordsSection() {
     }
   };
 
+  const getUserBadge = (username: string) => {
+    switch (username) {
+      case 'boneio':
+        return <span className="badge badge-primary badge-sm font-semibold">boneIO</span>;
+      case 'homeassistant':
+        return <span className="badge badge-info badge-sm font-semibold">Home Assistant</span>;
+      default:
+        return <span className="badge badge-ghost badge-sm font-semibold">MQTT</span>;
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      {/* boneIO is pointed at a broker somewhere else — Home Assistant's,
-          usually. None of these accounts is the one it signs in with, and
-          saying so is the difference between this panel being useful and
-          being a trap. */}
+    <div className="max-w-3xl space-y-6">
+      {/* Remote broker notice */}
       {appAccount && !appAccount.usesLocalBroker && (
-        <div className="alert alert-info text-sm">
-          <FaInfoCircle className="shrink-0" />
-          <span>
-            {t('mqtt_passwords.remote_broker_notice', { host: appAccount.host })}
-          </span>
-        </div>
+        <NoticeCallout
+          variant="info"
+          message={t('mqtt_passwords.remote_broker_notice', { host: appAccount.host })}
+        />
       )}
 
       {/* Security warning */}
-      <div
-        className={`alert ${window.location.protocol === 'https:' ? 'alert-success' : 'alert-warning'} text-sm`}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="stroke-current shrink-0 h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        </svg>
-        <span>
-          {window.location.protocol === 'https:'
+      <NoticeCallout
+        variant={window.location.protocol === 'https:' ? 'success' : 'warning'}
+        message={
+          window.location.protocol === 'https:'
             ? t('mqtt_passwords.https_secure')
-            : t('mqtt_passwords.http_warning')}
-        </span>
-      </div>
+            : t('mqtt_passwords.http_warning')
+        }
+      />
 
+      {/* Account Cards */}
       <div className="space-y-4">
-        {['boneio', 'homeassistant', 'mqtt'].map(username => (
-          <div key={username} className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-            <div className="card-body p-4 sm:p-5">
-              <h4 className="font-semibold text-base mb-3 font-mono">
-                {t('mqtt_passwords.username')}: <span className="text-primary">{username}</span>
-              </h4>
+        {['boneio', 'homeassistant', 'mqtt'].map(username => {
+          const isCurrentAppUser = appAccount?.usesLocalBroker && username === appAccount.username;
+          const result = passwordResults[username];
 
-              {/* Only on the row boneIO actually signs in with, and only
-                  when it signs in here at all. */}
-              {appAccount?.usesLocalBroker && username === appAccount.username && (
-                <div className="alert alert-warning text-xs mb-4">
-                  <FaExclamationTriangle className="shrink-0" />
-                  <span>{t('mqtt_passwords.boneio_user_warning')}</span>
+          return (
+            <SettingsCard
+              key={username}
+              icon={<FaKey />}
+              title={
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-bold text-base">{username}</span>
+                  {getUserBadge(username)}
                 </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
-                <div>
-                  <label className="label p-0 pb-1">
-                    <span className="label-text font-medium text-xs">
-                      {t('mqtt_passwords.new_password')}
-                    </span>
-                  </label>
-                  <input
-                    type="password"
-                    className="input input-bordered input-sm w-full font-mono"
-                    value={mqttPasswords[username].password}
-                    onChange={e =>
-                      setMqttPasswords({
-                        ...mqttPasswords,
-                        [username]: {
-                          ...mqttPasswords[username],
-                          password: e.target.value,
-                        },
-                      })
-                    }
-                    disabled={changingPassword === username}
+              }
+            >
+              <div className="space-y-4">
+                {isCurrentAppUser && (
+                  <NoticeCallout
+                    variant="warning"
+                    message={t('mqtt_passwords.boneio_user_warning')}
                   />
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                  <FormField label={t('mqtt_passwords.new_password')}>
+                    <input
+                      type="password"
+                      className="input input-bordered input-sm w-full font-mono"
+                      value={mqttPasswords[username].password}
+                      onChange={e =>
+                        setMqttPasswords({
+                          ...mqttPasswords,
+                          [username]: {
+                            ...mqttPasswords[username],
+                            password: e.target.value,
+                          },
+                        })
+                      }
+                      disabled={changingPassword === username}
+                    />
+                  </FormField>
+
+                  <FormField label={t('mqtt_passwords.confirm_password')}>
+                    <input
+                      type="password"
+                      className="input input-bordered input-sm w-full font-mono"
+                      value={mqttPasswords[username].confirm}
+                      onChange={e =>
+                        setMqttPasswords({
+                          ...mqttPasswords,
+                          [username]: {
+                            ...mqttPasswords[username],
+                            confirm: e.target.value,
+                          },
+                        })
+                      }
+                      disabled={changingPassword === username}
+                    />
+                  </FormField>
                 </div>
-                <div>
-                  <label className="label p-0 pb-1">
-                    <span className="label-text font-medium text-xs">
-                      {t('mqtt_passwords.confirm_password')}
-                    </span>
-                  </label>
-                  <input
-                    type="password"
-                    className="input input-bordered input-sm w-full font-mono"
-                    value={mqttPasswords[username].confirm}
-                    onChange={e =>
-                      setMqttPasswords({
-                        ...mqttPasswords,
-                        [username]: {
-                          ...mqttPasswords[username],
-                          confirm: e.target.value,
-                        },
-                      })
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    className="btn btn-primary btn-sm gap-2"
+                    onClick={() => changeMqttPassword(username)}
+                    disabled={
+                      changingPassword === username ||
+                      !mqttPasswords[username].password ||
+                      !mqttPasswords[username].confirm
                     }
-                    disabled={changingPassword === username}
+                  >
+                    {changingPassword === username ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('mqtt_passwords.changing')}
+                      </>
+                    ) : (
+                      t('mqtt_passwords.change_password')
+                    )}
+                  </button>
+                </div>
+
+                {result?.message && (
+                  <NoticeCallout
+                    variant={result.status === 'success' ? 'success' : 'error'}
+                    message={result.message}
                   />
-                </div>
+                )}
               </div>
-
-              <div className="pt-3">
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => changeMqttPassword(username)}
-                  disabled={
-                    changingPassword === username ||
-                    !mqttPasswords[username].password ||
-                    !mqttPasswords[username].confirm
-                  }
-                >
-                  {changingPassword === username ? (
-                    <>
-                      <FaSpinner className="animate-spin mr-2" />
-                      {t('mqtt_passwords.changing')}
-                    </>
-                  ) : (
-                    t('mqtt_passwords.change_password')
-                  )}
-                </button>
-              </div>
-
-              {passwordResults[username]?.message && (
-                <div
-                  className={`alert ${passwordResults[username].status === 'success' ? 'alert-success' : 'alert-error'} text-sm mt-3`}
-                >
-                  {passwordResults[username].status === 'success' ? (
-                    <FaCheck className="shrink-0" />
-                  ) : (
-                    <FaExclamationTriangle className="shrink-0" />
-                  )}
-                  <span>{passwordResults[username].message}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+            </SettingsCard>
+          );
+        })}
       </div>
     </div>
   );

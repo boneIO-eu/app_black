@@ -1,89 +1,78 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { AxiosError } from 'axios';
-import api from '@/api/axios';
+import { useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
+import axios from '../api/axios';
+import { SettingsCard, FormField } from './UISettings/ui';
 
-/**
- * Who may embed this panel in a frame.
- *
- * The CSP directive behind this is a trap to type by hand: `self` without its
- * quotes is a host name, a trailing slash makes an origin invalid, and either
- * mistake fails silently in a way only a browser console reveals. So the card
- * asks the two questions that matter and lets the backend assemble the value.
- *
- * The default, `'self'`, is what the boneIO Black Home Assistant add-on needs:
- * it proxies each device, so the framed page is served on Home Assistant's own
- * origin and is same-origin with the dashboard framing it. The setup that
- * needs more is a dashboard pointing an iframe card straight at the device —
- * that one names its Home Assistant address here.
- */
-
-interface FrameAncestorsState {
-  /** The plain tokens config.yaml holds, e.g. ["self", "https://ha.local:8123"]. */
-  tokens: string[];
+interface FramingState {
   restrict: boolean;
   extra_origins: string[];
-  /** The directive as the browser receives it, keywords quoted. */
   value: string;
-  configured: boolean;
-  default: string[];
 }
 
-function errorMessage(err: unknown, fallback: string): string {
-  return (err as AxiosError<{ detail?: string }>)?.response?.data?.detail || fallback;
+interface FrameAncestorsCardProps {
+  onSaved?: () => void;
 }
 
-export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }) {
+/**
+ * Control who may embed this panel in an iframe.
+ */
+export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps) {
   const { t } = useTranslation();
-
-  const [state, setState] = useState<FrameAncestorsState | null>(null);
-  const [restrict, setRestrict] = useState(true);
-  // A list, not one field: config.yaml holds a list, and a card that edited
-  // only the first entry would silently drop the rest on save.
-  const [origins, setOrigins] = useState<string[]>(['']);
+  const [state, setState] = useState<FramingState | null>(null);
+  const [restrict, setRestrict] = useState(false);
+  const [origins, setOrigins] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const { data } = await api.get<FrameAncestorsState>('/api/security/frame-ancestors');
-      setState(data);
-      setRestrict(data.restrict);
-      setOrigins(data.extra_origins.length ? data.extra_origins : ['']);
-    } catch (err) {
-      setError(errorMessage(err, t('security.framing.load_failed')));
-    }
-  }, [t]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get<FramingState>('/api/security/framing');
+        if (cancelled) return;
+        setState(res.data);
+        setRestrict(res.data.restrict);
+        setOrigins(res.data.extra_origins);
+      } catch (err: any) {
+        if (cancelled) return;
+        setError(err.message || 'Failed to load framing settings');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const cleanOrigins = origins.map(o => o.trim()).filter(Boolean);
+  const setOriginAt = (idx: number, value: string) => {
+    setOrigins(prev => {
+      const next = [...prev];
+      next[idx] = value;
+      return next;
+    });
+  };
 
-  const setOriginAt = (index: number, value: string) =>
-    setOrigins(prev => prev.map((o, i) => (i === index ? value : o)));
+  const removeOriginAt = (idx: number) => {
+    setOrigins(prev => prev.filter((_, i) => i !== idx));
+  };
 
-  const removeOriginAt = (index: number) =>
-    setOrigins(prev => (prev.length > 1 ? prev.filter((_, i) => i !== index) : ['']));
+  const cleanOrigins = origins.map(s => s.trim()).filter(Boolean);
 
   const save = async () => {
     setSaving(true);
     setError(null);
-    setSaved(false);
     try {
-      const { data } = await api.put<FrameAncestorsState>('/api/security/frame-ancestors', {
+      const res = await axios.post<FramingState>('/api/security/framing', {
         restrict,
-        extra_origins: restrict ? cleanOrigins : [],
+        extra_origins: cleanOrigins,
       });
-      setState(data);
-      setOrigins(data.extra_origins.length ? data.extra_origins : ['']);
+      setState(res.data);
+      setRestrict(res.data.restrict);
+      setOrigins(res.data.extra_origins);
       setSaved(true);
       onSaved?.();
-    } catch (err) {
-      setError(errorMessage(err, t('security.framing.save_failed')));
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || 'Failed to save');
     } finally {
       setSaving(false);
     }
@@ -91,13 +80,11 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
 
   if (!state) {
     return (
-      <div className="border border-base-300 rounded-xl p-4">
-        {error ? (
-          <p className="text-sm text-error">{error}</p>
-        ) : (
-          <span className="loading loading-spinner loading-sm" />
-        )}
-      </div>
+      <SettingsCard title={t('security.framing.title')}>
+        <div className="flex justify-center p-4">
+          <span className="loading loading-spinner loading-md text-primary" />
+        </div>
+      </SettingsCard>
     );
   }
 
@@ -106,14 +93,12 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
     cleanOrigins.join('\u0000') !== state.extra_origins.join('\u0000');
 
   return (
-    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-      <div className="card-body p-4 sm:p-5 space-y-3">
-        <div>
-          <h3 className="font-semibold text-base">{t('security.framing.title')}</h3>
-          <p className="text-sm opacity-70 mt-1 max-w-3xl">{t('security.framing.intro')}</p>
-        </div>
-
-        <label className="flex items-start gap-3 cursor-pointer">
+    <SettingsCard
+      title={t('security.framing.title')}
+      description={t('security.framing.intro')}
+    >
+      <div className="space-y-4">
+        <label className="flex items-start gap-3 cursor-pointer select-none">
           <input
             type="checkbox"
             className="toggle toggle-primary toggle-sm mt-0.5"
@@ -121,26 +106,27 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
             onChange={e => setRestrict(e.target.checked)}
           />
           <span className="text-sm">
-            <span className="font-medium">{t('security.framing.restrict')}</span>
-            <span className="block opacity-70 text-xs mt-0.5">{t('security.framing.restrict_help')}</span>
+            <span className="font-medium text-base-content block">
+              {t('security.framing.restrict')}
+            </span>
+            <span className="block text-xs text-base-content/60 mt-0.5">
+              {t('security.framing.restrict_help')}
+            </span>
           </span>
         </label>
 
         {restrict && (
-          <div>
-            <label htmlFor="frame-extra-origin-0" className="block text-sm font-medium">
-              {t('security.framing.extra_origin')}
-            </label>
-            <p className="text-xs opacity-70 mt-1 max-w-3xl">
-              {t('security.framing.extra_origin_help')}
-            </p>
-            <div className="mt-2 space-y-2">
+          <FormField
+            label={t('security.framing.extra_origin')}
+            help={t('security.framing.extra_origin_help')}
+          >
+            <div className="space-y-2 mt-1">
               {origins.map((value, index) => (
                 <div key={index} className="flex items-center gap-2 max-w-xl">
                   <input
                     id={`frame-extra-origin-${index}`}
                     type="url"
-                    className="input input-bordered input-sm flex-1 font-mono"
+                    className="input input-bordered input-sm flex-1 font-mono text-sm"
                     placeholder="https://homeassistant.local:8123"
                     value={value}
                     onChange={e => setOriginAt(index, e.target.value)}
@@ -148,7 +134,7 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
                   {origins.length > 1 && (
                     <button
                       type="button"
-                      className="btn btn-ghost btn-sm btn-square"
+                      className="btn btn-ghost btn-sm btn-square text-base-content/60"
                       aria-label={t('security.framing.remove_origin')}
                       onClick={() => removeOriginAt(index)}
                     >
@@ -159,31 +145,37 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
               ))}
               <button
                 type="button"
-                className="btn btn-ghost btn-xs"
+                className="btn btn-ghost btn-xs text-primary gap-1"
                 onClick={() => setOrigins(prev => [...prev, ''])}
               >
                 + {t('security.framing.add_origin')}
               </button>
             </div>
-          </div>
+          </FormField>
         )}
 
-        {error && <p className="text-sm text-error">{error}</p>}
+        {error && <p className="text-sm text-error font-medium">{error}</p>}
 
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            className="btn btn-sm btn-primary"
-            onClick={() => void save()}
-            disabled={saving || !dirty}
-          >
-            {saving ? t('security.framing.saving') : t('security.framing.save')}
-          </button>
-          {saved && (
-            <span className="text-sm text-warning">{t('security.framing.restart_needed')}</span>
-          )}
-          <code className="text-xs opacity-60 break-all">frame-ancestors {state.value}</code>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-base-200/80">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => void save()}
+              disabled={saving || !dirty}
+            >
+              {saving ? t('security.framing.saving') : t('security.framing.save')}
+            </button>
+            {saved && (
+              <span className="badge badge-warning badge-sm font-medium">
+                {t('security.framing.restart_needed')}
+              </span>
+            )}
+          </div>
+          <code className="text-xs font-mono text-base-content/50 bg-base-200/50 px-2 py-1 rounded">
+            frame-ancestors {state.value}
+          </code>
         </div>
       </div>
-    </div>
+    </SettingsCard>
   );
 }
