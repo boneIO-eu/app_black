@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   FaCheck,
   FaExclamationTriangle,
+  FaInfoCircle,
   FaSpinner,
 } from 'react-icons/fa';
 import SettingsCard from '../components/SettingsCard';
@@ -13,7 +14,19 @@ import axios from '@/api/axios';
  */
 export default function MqttPasswordsSection() {
   const { t } = useTranslation();
-  const [mqttAppUsername, setMqttAppUsername] = useState<string>('boneio');
+  /**
+   * Which of these accounts, if any, the application itself connects with.
+   *
+   * Null until the answer is known, and null is not "boneio": the warning on a
+   * row is a claim about this device, and claiming it from a default was the
+   * bug this replaced. When boneIO talks to a broker somewhere else — Home
+   * Assistant's, usually — no row here belongs to it and none is marked.
+   */
+  const [appAccount, setAppAccount] = useState<{
+    username: string;
+    host: string;
+    usesLocalBroker: boolean;
+  } | null>(null);
   const [mqttPasswords, setMqttPasswords] = useState<{
     [key: string]: { password: string; confirm: string };
   }>({
@@ -29,8 +42,12 @@ export default function MqttPasswordsSection() {
   const fetchMqttUsername = useCallback(async () => {
     try {
       const { data } = await axios.get('/api/mqtt/username');
-      if (data.status === 'success' && data.username) {
-        setMqttAppUsername(data.username);
+      if (data.status === 'success' && data.known) {
+        setAppAccount({
+          username: data.username,
+          host: data.host,
+          usesLocalBroker: Boolean(data.uses_local_broker),
+        });
       }
     } catch (err) {
       console.error('Failed to fetch MQTT username:', err);
@@ -120,6 +137,19 @@ export default function MqttPasswordsSection() {
       // Always open — see HostnameSection for why the fold went away.
       children={
         <>
+          {/* boneIO is pointed at a broker somewhere else — Home Assistant's,
+              usually. None of these accounts is the one it signs in with, and
+              saying so is the difference between this panel being useful and
+              being a trap. */}
+          {appAccount && !appAccount.usesLocalBroker && (
+            <div className="alert alert-info">
+              <FaInfoCircle className="shrink-0" />
+              <span className="text-sm">
+                {t('mqtt_passwords.remote_broker_notice', { host: appAccount.host })}
+              </span>
+            </div>
+          )}
+
           {/* Security warning */}
           <div
             className={`alert ${window.location.protocol === 'https:' ? 'alert-success' : 'alert-warning'}`}
@@ -152,8 +182,9 @@ export default function MqttPasswordsSection() {
                     {t('mqtt_passwords.username')}: {username}
                   </h4>
 
-                  {/* Warning for app's MQTT user */}
-                  {username === mqttAppUsername && (
+                  {/* Only on the row boneIO actually signs in with, and only
+                      when it signs in here at all. */}
+                  {appAccount?.usesLocalBroker && username === appAccount.username && (
                     <div className="alert alert-warning mb-4">
                       <FaExclamationTriangle />
                       <span className="text-sm">{t('mqtt_passwords.boneio_user_warning')}</span>

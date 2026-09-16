@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from boneio.core.config.yaml_util import load_config_from_file, load_yaml_file, normalize_board_name
 from boneio.version import __version__
+from boneio.webui.routes.system import get_config_helper
 from boneio.webui.services.logs import is_running_as_service
 
 if TYPE_CHECKING:
@@ -1154,42 +1155,57 @@ async def restore_config_backup(request: RestoreConfigBackupRequest):
 
 @router.get("/mqtt/username")
 async def get_mqtt_username():
-    """
-    Get the MQTT username from configuration.
-    
-    Returns the username that the application uses to connect to MQTT broker.
-    This is used to warn users when changing this password.
-    
+    """Report which broker account the application actually connects with.
+
+    The panel shows the accounts of the broker installed on this controller,
+    and warns on the row belonging to boneIO itself — change that password
+    without updating the configuration and the device stops reporting.
+
+    Getting that row right means reading the running configuration, which this
+    did not do. It opened ``~/.boneio/mqtt.yaml``, a path that does not exist
+    on a real device, looked for a ``mqtt:`` key inside a file whose contents
+    *are* the mqtt section, and fell through both failures to a hard-coded
+    "boneio". The warning was therefore fixed to that row, and wrong for
+    anyone who had changed the username.
+
+    The answer also says whether the broker is the local one at all. Point
+    boneIO at the broker in Home Assistant and none of these accounts is the
+    one it uses, so the warning belongs on no row.
+
     Returns:
-        Username from mqtt.username config or 'boneio' as default
+        The configured username, the broker host, and whether that host is
+        this device.
     """
+    #: Hosts that mean "the broker installed here". An empty host is the
+    #: client library's own default, which is loopback.
+    local_hosts = {"localhost", "127.0.0.1", "::1", ""}
+
+    username = "boneio"
+    host = ""
+    known = False
+
     try:
-        # Try to read from config directory
-        config_dir = os.path.expanduser("~/.boneio")
-        mqtt_config_path = os.path.join(config_dir, "mqtt.yaml")
-        
-        if os.path.exists(mqtt_config_path):
-            config = load_config_from_file(mqtt_config_path)
-            if config:
-                mqtt_config = config.get("mqtt", {})
-                username = mqtt_config.get("username", "boneio")
-            else:
-                username = "boneio"
-        else:
-            # Fallback to default
-            username = "boneio"
-        
-        return {
-            "status": "success",
-            "username": username
-        }
-    except Exception as e:
-        _LOGGER.exception(f"Failed to get MQTT username: {e}")
-        # Return default if config reading fails
-        return {
-            "status": "success",
-            "username": "boneio"
-        }
+        config = get_config_helper().get_config()
+        mqtt = config.get("mqtt") if isinstance(config, dict) else None
+        if isinstance(mqtt, dict):
+            username = str(mqtt.get("username") or "boneio")
+            host = str(mqtt.get("host") or "")
+            known = True
+    except Exception as err:  # noqa: BLE001
+        # Never fail the panel over this: without it the passwords still
+        # change, only the warning is missing. But say so — silence here is
+        # what let the broken version survive.
+        _LOGGER.warning("Could not read the MQTT configuration: %s", err)
+
+    return {
+        "status": "success",
+        "username": username,
+        "host": host,
+        "uses_local_broker": known and host.lower() in local_hosts,
+        # False means the fields above are a guess, and the panel should not
+        # claim anything about which account belongs to the application.
+        "known": known,
+    }
 
 
 class MqttPasswordChangeRequest(BaseModel):

@@ -482,7 +482,8 @@
     "password_too_short": "Hasło musi mieć co najmniej 8 znaków",
     "http_warning": "⚠️ Uwaga: Połączenie nie jest szyfrowane (HTTP). Używaj tylko w zaufanej sieci lokalnej.",
     "https_secure": "✓ Bezpieczne połączenie (HTTPS)",
-    "boneio_user_warning": "⚠️ Ważne: 'boneio' to użytkownik, którego aplikacja używa do połączenia z MQTT. Po zmianie tego hasła musisz zaktualizować je w konfiguracji MQTT i zrestartować aplikację."
+    "boneio_user_warning": "⚠️ Ważne: 'boneio' to użytkownik, którego aplikacja używa do połączenia z MQTT. Po zmianie tego hasła musisz zaktualizować je w konfiguracji MQTT i zrestartować aplikację.",
+    "remote_broker_notice": "boneIO łączy się z brokerem pod adresem {{host}}, a nie z brokerem na tym sterowniku. Zmiana poniższych haseł nie wpłynie na boneIO — dotyczy tylko tego, co korzysta z lokalnego brokera."
   },
   "ssl_certificates": {
     "title": "Certyfikaty SSL/TLS",

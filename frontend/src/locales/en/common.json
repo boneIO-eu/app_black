@@ -482,7 +482,8 @@
     "http_warning": "⚠️ You are using HTTP. Passwords will be sent unencrypted. Use HTTPS for secure password changes.",
     "https_secure": "✓ Secure HTTPS connection",
     "boneio_user_warning": "⚠️ This is the user that the application uses to connect to MQTT. After changing this password, you must update the password in the application configuration and restart the application.",
-    "changing": "Changing..."
+    "changing": "Changing...",
+    "remote_broker_notice": "boneIO connects to the broker at {{host}}, not to the one on this controller. Changing the passwords below will not affect boneIO — only whatever else uses the local broker."
   },
   "ssl_certificates": {
     "title": "SSL/TLS Certificates",
