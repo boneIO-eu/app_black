@@ -346,18 +346,21 @@ export default function UISettings() {
               : sectionConfig.name;
             let sectionSchema = mainSchema.properties?.[schemaKey];
 
-            // Debug for cover section
-            if (sectionConfig.name === 'cover') {
-              console.log('🔍 Cover section lookup:', {
-                name: sectionConfig.name,
-                found: !!sectionSchema,
-                schema: sectionSchema,
-              });
-            }
+            // Three kinds of section legitimately have no top-level schema:
+            // the ones that bring their own component, the binding matrix, and
+            // composite sections built from several YAML keys. Warning about
+            // each of them on every load — fifteen of them now — buries the
+            // warning that means something.
+            const schemaless =
+              sectionConfig.name in STANDALONE_SECTIONS ||
+              sectionConfig.name === 'binding_matrix' ||
+              sectionConfig.name in COMPOSITE_SECTIONS;
 
             // Safe fallback if schema is missing
             if (!sectionSchema) {
-              console.warn(`⚠️ Missing schema for section: ${sectionConfig.name}`);
+              if (!schemaless) {
+                console.warn(`⚠️ Missing schema for section: ${sectionConfig.name}`);
+              }
               if (
                 [
                   'cover',

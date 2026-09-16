@@ -410,7 +410,8 @@
     "filter_placeholder": "Search settings...",
     "filter_clear": "Clear filter",
     "filter_empty": "Nothing matches.",
-    "all_groups": "All groups"
+    "all_groups": "All groups",
+    "badge_restart_title": "Changing this requires an application restart"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",
@@ -689,7 +690,9 @@
     "restart_app": "Restart Application",
     "restart_app_description": "Restart the boneIO application. All connections will be briefly interrupted.",
     "restart_app_confirm": "Are you sure you want to restart the application? All connections will be briefly interrupted.",
-    "restart_app_warning": "MQTT and Home Assistant connections will be temporarily lost during restart."
+    "restart_app_warning": "MQTT and Home Assistant connections will be temporarily lost during restart.",
+    "hardware_errors_title": "Hardware errors",
+    "no_hardware_errors": "No hardware problems detected."
   },
   "system_update": {
     "title": "System Update",

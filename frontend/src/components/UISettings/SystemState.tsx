@@ -705,8 +705,20 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
   }
 
   if (section === 'hardware_errors') {
+    // HardwareErrors renders nothing when the list is empty, which was right
+    // as a banner at the top of a page and is a blank screen as a section of
+    // its own. A controller with no faults should say so.
+    const faults = hardwareErrors.filter((e: { type?: string }) => e.type !== 'can_sudoers');
     return (
       <div className="p-4 sm:p-6 space-y-6">
+        {faults.length === 0 && (
+          <div className="card bg-base-200">
+            <div className="card-body">
+              <h3 className="card-title">{t('device_management.hardware_errors_title')}</h3>
+              <p className="text-sm opacity-70">{t('device_management.no_hardware_errors')}</p>
+            </div>
+          </div>
+        )}
       {/* Hardware Errors - Separate Container */}
       <HardwareErrors errors={hardwareErrors} />
 

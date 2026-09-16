@@ -5,7 +5,7 @@
  * Desktop: Always-visible sidebar with section list.
  */
 import { useState } from 'react';
-import { FaCheck, FaExclamationTriangle, FaUndo, FaSave, FaSearch } from 'react-icons/fa';
+import { FaCheck, FaExclamationTriangle, FaUndo, FaSave, FaSearch, FaTimes } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
 import { useSecurityPosture } from '@/hooks/useSecurityPosture';
@@ -76,20 +76,23 @@ function SectionButton({
           : 'bg-base-100 hover:bg-base-300 text-base-content'
       }`}
     >
-      <div className="flex items-center space-x-3 min-w-0">
+      <div className="flex items-center space-x-3 min-w-0 flex-1">
         <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-        <div className="min-w-0">
-          <div className="font-medium flex items-center gap-2">
-            <span className="truncate">{sectionConfig?.title}</span>
-            {sectionConfig?.badge && (
-              <span className="badge badge-xs badge-warning font-bold uppercase whitespace-nowrap">
-                {t(`settings.badge_${sectionConfig.badge}`)}
-              </span>
-            )}
-          </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium truncate">{sectionConfig?.title}</div>
         </div>
       </div>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 shrink-0">
+        {/* Against the right edge, where the badges line up with each other
+            instead of sitting wherever each title happens to end. */}
+        {sectionConfig?.badge && (
+          <span
+            className="badge badge-xs badge-warning font-bold uppercase whitespace-nowrap"
+            title={t(`settings.badge_${sectionConfig.badge}_title`)}
+          >
+            {t(`settings.badge_${sectionConfig.badge}`)}
+          </span>
+        )}
         {hasUnsavedChanges && (
           <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
         )}
@@ -229,11 +232,11 @@ function SidebarContent({
   }
 
   const searchBox = (
-    <div className="relative mb-3">
-      <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-40 pointer-events-none" />
+    <label className="input input-sm input-ghost bg-base-100 flex items-center gap-2 mb-3 rounded-lg focus-within:outline-none focus-within:ring-1 focus-within:ring-primary/40">
+      <FaSearch className="w-3.5 h-3.5 opacity-40 shrink-0" />
       <input
         type="text"
-        className="input input-sm input-bordered w-full pl-9"
+        className="grow border-0 bg-transparent focus:outline-none min-w-0"
         placeholder={t('settings.filter_placeholder')}
         value={filter}
         onChange={e => setFilter(e.target.value)}
@@ -241,14 +244,14 @@ function SidebarContent({
       />
       {filter && (
         <button
-          className="absolute right-1 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs"
+          className="opacity-40 hover:opacity-100 shrink-0"
           onClick={() => setFilter('')}
           aria-label={t('settings.filter_clear')}
         >
-          ✕
+          <FaTimes className="w-3 h-3" />
         </button>
       )}
-    </div>
+    </label>
   );
 
   if (query) {

@@ -191,6 +191,12 @@ export default function TimezoneSection() {
     'UTC',
   ];
 
+  // What the second group actually lists, and therefore what the count below
+  // it should say.
+  const listedTimezones = searchQuery
+    ? filteredTimezones
+    : filteredTimezones.filter((tz) => !popularTimezones.includes(tz));
+
   return (
     <SettingsCard
       icon={<FaClock />}
@@ -249,11 +255,17 @@ export default function TimezoneSection() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {/* A plain dropdown, not a list box.
+                `size={8}` asked for eight visible rows, but daisyUI's .select
+                fixes the height at 40px, so the browser rendered a list box
+                squashed to a single row — whose first row is the "Popular"
+                group label. Scrolling 610 entries through a 40px window is
+                how you end up able to pick two timezones and no others.
+                The search field above is what makes the long list usable. */}
             <select
               className="select select-bordered w-full"
               value={selectedTimezone}
               onChange={(e) => setSelectedTimezone(e.target.value)}
-              size={8}
             >
               {/* Popular timezones group */}
               {!searchQuery && (
@@ -267,9 +279,12 @@ export default function TimezoneSection() {
                     ))}
                 </optgroup>
               )}
-              {/* All / filtered timezones */}
+              {/* All / filtered timezones.
+                  The popular ones are left out here when they are shown above:
+                  the same entry twice in one dropdown is a way to wonder
+                  whether the two are different. */}
               <optgroup label={searchQuery ? t('timezone.search_results') : t('timezone.all_timezones')}>
-                {filteredTimezones.map((tz) => (
+                {listedTimezones.map((tz) => (
                   <option key={tz} value={tz}>
                     {tz} {tz === info?.timezone ? '✓' : ''}
                   </option>
@@ -278,7 +293,7 @@ export default function TimezoneSection() {
             </select>
             <label className="label">
               <span className="label-text-alt">
-                {filteredTimezones.length} {t('timezone.timezones_available')}
+                {timezones.length} {t('timezone.timezones_available')}
               </span>
             </label>
           </div>
