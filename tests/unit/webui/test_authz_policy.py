@@ -54,7 +54,6 @@ def test_only_api_paths_are_gated():
         "/api/sensors",
         "/api/dashboard",
         "/api/config",
-        "/api/logs",
         "/api/covers",
     ],
 )
@@ -77,6 +76,28 @@ def test_viewer_may_read(path):
 )
 def test_viewer_may_not_read_credential_carriers(path):
     """Config archives bundle secrets.yaml, so downloading one is a secret read."""
+    assert required_role("GET", path) is Role.ADMIN
+    assert role_allows(Role.VIEWER, "GET", path) is False
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/diagnostics/bundle",
+        "/api/diagnostics/capture",
+        "/api/logs",
+        "/api/i2c/scan",
+        "/api/can/status",
+        "/api/can/nodes",
+    ],
+)
+def test_viewer_may_not_read_diagnostics(path):
+    """Diagnostics is admin-only even though every route in it is a GET.
+
+    The bus scans reach into the hardware — the Modbus helper pauses the
+    polling loop to take the bus — and the device log carries the serial
+    number that /api/version withholds from a non-admin.
+    """
     assert required_role("GET", path) is Role.ADMIN
     assert role_allows(Role.VIEWER, "GET", path) is False
 

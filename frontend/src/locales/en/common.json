@@ -2785,6 +2785,7 @@
     "logger_dialog_intro": "Changes are written to the configuration and take effect at once — no restart needed.",
     "sections": "Sections",
     "group_buses": "Buses",
+    "admin_only": "Diagnostics is available to administrators only. The bus scans stop Modbus polling, so this is more than looking.",
     "section_log": "Device log",
     "section_log_desc": "The controller's live log. Filter by level, module and date range.",
     "section_modbus": "Modbus",

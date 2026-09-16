@@ -187,6 +187,18 @@ def rbac_client(store):
     async def list_outputs():
         return {"outputs": []}
 
+    @app.get("/api/logs")
+    async def logs():
+        return {"logs": []}
+
+    @app.get("/api/i2c/scan")
+    async def i2c_scan():
+        return {"devices": []}
+
+    @app.post("/api/modbus/pause")
+    async def modbus_pause():
+        return {"paused": True}
+
     app.add_middleware(AuthMiddleware)
     store.add_user("pawel", "dobre-haslo", Role.ADMIN)
     store.add_user("gosc", "poufne-haslo", Role.VIEWER)
@@ -220,6 +232,27 @@ def test_viewer_may_not_read_raw_files(rbac_client):
     assert rbac_client.get(
         "/api/files/config.yaml", headers=_auth("viewer", "gosc")
     ).status_code == 403
+
+
+def test_viewer_may_not_open_diagnostics(rbac_client):
+    """Diagnostics is a GET surface that reaches into the hardware.
+
+    The Modbus helper on that page pauses the polling loop to take the bus, so
+    a viewer who wandered in to look could leave Modbus stopped. The log is
+    withheld with it: it carries the serial number that /api/version keeps from
+    a non-admin.
+    """
+    viewer = _auth("viewer", "gosc")
+    assert rbac_client.get("/api/logs", headers=viewer).status_code == 403
+    assert rbac_client.get("/api/i2c/scan", headers=viewer).status_code == 403
+    assert rbac_client.post("/api/modbus/pause", headers=viewer).status_code == 403
+
+
+def test_admin_may_open_diagnostics(rbac_client):
+    admin = _auth("admin", "pawel")
+    assert rbac_client.get("/api/logs", headers=admin).status_code == 200
+    assert rbac_client.get("/api/i2c/scan", headers=admin).status_code == 200
+    assert rbac_client.post("/api/modbus/pause", headers=admin).status_code == 200
 
 
 def test_admin_may_do_both(rbac_client):

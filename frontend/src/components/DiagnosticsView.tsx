@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../hooks/useAuth';
 import { useConfig } from '@/contexts/ConfigContext';
+import { SettingsPage, NoticeCallout } from './UISettings/ui';
 import DiagnosticsSidebar from './DiagnosticsSidebar';
 import {
   DIAGNOSTICS_SECTIONS,
@@ -38,10 +40,15 @@ import { useState } from 'react';
  * — they survive a restart, unlike the capture window beside them — but the
  * moment you want to change them is while you are staring at a log that is
  * not saying enough, and that is here.
-
+ *
+ * Admin only, which the name does not suggest: "diagnostics" sounds like
+ * looking, and the bus scans are not. The Modbus helper pauses the polling
+ * loop to take the bus, so a viewer who came here to look could leave Modbus
+ * stopped behind them.
  */
 export default function DiagnosticsView() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const { canSupported, boardVersion } = useConfig();
   const { section } = useParams<{ section?: string }>();
   const navigate = useNavigate();
@@ -57,6 +64,20 @@ export default function DiagnosticsView() {
   );
 
   const canBlocked = Boolean(active.requiresCan) && !canSupported;
+
+  // The sidebar entry is gone for a viewer and every API behind these sections
+  // answers 403, but the page is still reachable: by a bookmark, and by the
+  // /logs and /tools redirects that land here. Say so rather than drawing a
+  // workspace where nothing loads.
+  if (!isAdmin) {
+    return (
+      <div className="settings-scope stg-canvas h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <SettingsPage width="wide">
+          <NoticeCallout variant="warning" message={t('diagnostics.admin_only')} />
+        </SettingsPage>
+      </div>
+    );
+  }
 
   return (
     <div className="settings-scope flex h-full flex-col lg:flex-row overflow-hidden">

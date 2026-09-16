@@ -2784,6 +2784,7 @@
     "logger_dialog_intro": "Zmiany trafiają do konfiguracji i działają od razu — restart nie jest potrzebny.",
     "sections": "Sekcje",
     "group_buses": "Magistrale",
+    "admin_only": "Diagnostyka jest dostępna tylko dla administratora. Skanowanie magistral zatrzymuje odpytywanie Modbus, więc nie jest to samo podglądanie.",
     "section_log": "Log urządzenia",
     "section_log_desc": "Log na żywo ze sterownika. Filtruj po poziomie, module i zakresie dat.",
     "section_modbus": "Modbus",

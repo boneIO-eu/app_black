@@ -141,14 +141,15 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors') },
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
     { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
-    { path: '/diagnostics', icon: FaStethoscope, label: t('navigation.diagnostics'), right: true },
     // Everything below configures the device, so a viewer is not offered it.
     // The backend refuses these routes for a viewer regardless; hiding them
     // just avoids dead ends. See boneio/webui/middleware/policy.py.
+    // Diagnostics is admin-only for a reason the name hides: its bus scans
+    // are not passive. The Modbus helper pauses the polling loop to take the
+    // bus, so someone who opened the page to look can leave Modbus stopped.
+    ...(isAdmin ? [{ path: '/diagnostics', icon: FaStethoscope, label: t('navigation.diagnostics'), right: true }] : []),
     // Settings (experimental) - only show if boneio section exists in config
     ...(isAdmin && hasBoneioSection ? [{ path: '/settings', icon: FaCog, label: t('navigation.settings'), right: true }] : []),
-    ...(isAdmin ? [
-    ] : []),
     // Node-RED - only show if available via nginx proxy
     ...(isAdmin && isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED', right: true }] : []),
   ];

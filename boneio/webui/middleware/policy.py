@@ -14,7 +14,9 @@ right axis on a controller:
   a button is just a dashboard.
 * Reads are allowed for a viewer except where the response is a credential
   carrier (config archives bundle ``secrets.yaml``; the raw file editor and the
-  account routes speak for themselves).
+  account routes speak for themselves), or where the "read" reaches into the
+  hardware — the diagnostics bus scans take buses away from the running
+  integrations, whatever the HTTP verb says.
 
 Anything not named here needs admin, so a new route is locked down by default
 and opening it up is a deliberate edit to this file.
@@ -55,6 +57,16 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/security",
     # The bundle is the whole configuration and the device log in one file.
     "/api/diagnostics",
+    # The rest of the Diagnostics page. Its bus scans are not passive reads:
+    # the Modbus helper pauses the polling loop to take the bus, so a viewer
+    # who opens the page to look around can leave Modbus stopped behind them.
+    # The device log is withheld for a second reason — it carries the serial
+    # number, which /api/version and /api/init keep from a caller who is not
+    # an admin, and the scrubber on the way out only removes values it can
+    # read out of secrets.yaml.
+    "/api/logs",
+    "/api/i2c",
+    "/api/can",
 )
 
 # Writes a viewer may perform: operating the device, never configuring it.
