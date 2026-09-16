@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 export interface FormFieldProps {
   /** Field label */
@@ -16,8 +17,12 @@ export interface FormFieldProps {
 }
 
 /**
- * Standard wrapper for form controls in Settings.
- * Provides uniform label, required asterisk, help text and error handling.
+ * Label, control, help text — in that order, with the same spacing on every
+ * settings page.
+ *
+ * Deliberately not a daisyUI `label`: those add their own vertical padding
+ * and the pages that used them ended up with fields spaced differently from
+ * the pages that hand-rolled a `<span>` above the input.
  */
 export const FormField: React.FC<FormFieldProps> = ({
   label,
@@ -28,24 +33,18 @@ export const FormField: React.FC<FormFieldProps> = ({
   children,
 }) => {
   return (
-    <div className={`form-control w-full ${className}`}>
+    <div className={cn('form-control w-full', className)}>
       {label && (
-        <label className="label py-1.5 px-0">
-          <span className="label-text font-medium text-sm text-base-content flex items-center gap-1">
-            {label}
-            {required && <span className="text-error font-bold">*</span>}
-          </span>
-        </label>
+        <div className="mb-1.5 flex items-center gap-1 text-[13px] font-medium text-base-content/85">
+          {label}
+          {required && <span className="text-error font-bold leading-none">*</span>}
+        </div>
       )}
       {children}
       {error ? (
-        <label className="label py-1 px-0 whitespace-normal">
-          <span className="label-text-alt text-error text-xs font-medium">{error}</span>
-        </label>
+        <p className="mt-1.5 text-xs font-medium text-error leading-relaxed">{error}</p>
       ) : help ? (
-        <label className="label py-1 px-0 whitespace-normal">
-          <span className="label-text-alt text-base-content/60 text-xs">{help}</span>
-        </label>
+        <p className="mt-1.5 text-xs text-base-content/55 leading-relaxed">{help}</p>
       ) : null}
     </div>
   );

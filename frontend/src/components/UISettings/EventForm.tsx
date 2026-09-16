@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -237,16 +238,18 @@ const EventForm: React.FC<EventFormProps> = ({
     <div className="space-y-4 py-2">
       {/* Validation Errors - sticky at top */}
       {validationErrors.length > 0 && (
-        <div className="alert alert-warning sticky top-0 z-10 shadow-lg">
-          <div>
-            <h3 className="font-bold">{t('validation.errors')} ({validationErrors.length}):</h3>
+        <NoticeCallout
+          variant="warning"
+          className="sticky top-0 z-10 shadow-sm bg-base-100"
+          title={`${t('validation.errors')} (${validationErrors.length}):`}
+          message={
             <ul className="list-disc list-inside max-h-24 overflow-y-auto">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
               ))}
             </ul>
-          </div>
-        </div>
+          }
+        />
       )}
 
       <AiConfigAssistant
@@ -419,10 +422,10 @@ const EventForm: React.FC<EventFormProps> = ({
           
           {/* Warning if triple actions exist but enable_triple_click is off */}
           {data.actions?.triple && data.actions.triple.length > 0 && !data.enable_triple_click && (
-            <div className="alert alert-warning">
-              <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              <span>{t('event_form.triple_click_disabled_warning')}</span>
-            </div>
+            <NoticeCallout
+              variant="warning"
+              message={t('event_form.triple_click_disabled_warning')}
+            />
           )}
           
           {data.actions?.triple && data.actions.triple.length > 0 ? (
@@ -474,13 +477,11 @@ const EventForm: React.FC<EventFormProps> = ({
             badge: ((data.actions?.double_then_long?.length || 0) + (data.actions?.single_then_long?.length || 0) + (data.actions?.double_then_single?.length || 0)) || undefined,
             content: (
         <div className="space-y-6">
-          <div className="alert alert-info">
-            <span>{t('event_form.sequences_hint')}</span>
-          </div>
+          <NoticeCallout variant="info" message={t('event_form.sequences_hint')} />
 
           {/* Double then Long */}
-          <div className="card bg-base-200">
-            <div className="card-body">
+          <div className="stg-inset">
+            <div className="card-body p-4">
               <div className="flex justify-between items-center">
                 <h4 className="card-title text-base">{t('event_form.double_then_long')}</h4>
                 <div className="flex items-center gap-2">
@@ -517,8 +518,8 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
 
           {/* Single then Long */}
-          <div className="card bg-base-200">
-            <div className="card-body">
+          <div className="stg-inset">
+            <div className="card-body p-4">
               <div className="flex justify-between items-center">
                 <h4 className="card-title text-base">{t('event_form.single_then_long')}</h4>
                 <div className="flex items-center gap-2">
@@ -555,8 +556,8 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
 
           {/* Double then Single */}
-          <div className="card bg-base-200">
-            <div className="card-body">
+          <div className="stg-inset">
+            <div className="card-body p-4">
               <div className="flex justify-between items-center">
                 <h4 className="card-title text-base">{t('event_form.double_then_single')}</h4>
                 <div className="flex items-center gap-2">
@@ -738,9 +739,11 @@ const EventForm: React.FC<EventFormProps> = ({
             const longMs = convertTimeperiodToMilliseconds(data.long_press_duration);
             if (doubleMs > 0 && longMs > 0 && doubleMs >= longMs) {
               return (
-                <div className="alert alert-warning mt-2">
-                  <span>{t('event_form.timing_validation_error')}</span>
-                </div>
+                <NoticeCallout
+                  variant="warning"
+                  className="mt-2"
+                  message={t('event_form.timing_validation_error')}
+                />
               );
             }
             return null;

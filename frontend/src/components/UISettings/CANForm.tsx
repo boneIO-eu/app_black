@@ -29,7 +29,7 @@ const CANForm: React.FC<CANFormProps> = ({ data, onChange }) => {
   const enabled = data?.enabled ?? false;
 
   return (
-    <div className="space-y-4">
+    <div className="stg-cols">
       {/* Enabled */}
       <FormInputToggle
         label={t('can_config.enabled')}

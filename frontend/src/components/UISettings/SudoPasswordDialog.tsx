@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { FaShieldAlt, FaSpinner } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -106,15 +107,11 @@ export default function SudoPasswordDialog({
           </div>
 
           {error && (
-            <div className="alert alert-error py-2">
-              <span className="text-sm">{error}</span>
-            </div>
+            <NoticeCallout variant="error" message={error} />
           )}
 
           {success && (
-            <div className="alert alert-success py-2">
-              <span className="text-sm">{success}</span>
-            </div>
+            <NoticeCallout variant="success" message={success} />
           )}
         </div>
 

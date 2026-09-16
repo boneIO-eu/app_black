@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from 'axios';
 import { FormInputToggle } from './widgets/FormInputToggle';
+import { NoticeCallout } from './ui';
 
 interface Mcp23017Data {
   id: string;
@@ -155,8 +156,8 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
     const showDetectedBadge = runtime && !configHasInverted;
 
     return (
-      <div className="bg-base-200 shadow-sm card">
-        <div className="card-body">
+      <div className="stg-card">
+        <div className="card-body p-4 sm:p-6">
           <h3 className="text-lg card-title">
             <span className={`badge badge-${variant}`}>{entry.id}</span>
             {runtime && runtimeInverted && (
@@ -222,15 +223,11 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
 
   return (
     <div className="space-y-6">
-      <div className="alert alert-info">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current w-6 h-6 shrink-0">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <div>
-          <p className="font-medium">{t('mcp.info_title')}</p>
-          <p className="text-sm">{t('mcp.info_description')}</p>
-        </div>
-      </div>
+      <NoticeCallout
+        variant="info"
+        title={t('mcp.info_title')}
+        message={t('mcp.info_description')}
+      />
 
       <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
         {renderMcpCard(leftEntry, 'primary')}

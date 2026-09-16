@@ -24,7 +24,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
   const uartValue = typeof rawUart === 'string' ? rawUart.toLowerCase() : '';
 
   return (
-    <div className="space-y-4">
+    <div className="stg-cols">
       {/* UART */}
       <div className="form-control">
         <label className="label">

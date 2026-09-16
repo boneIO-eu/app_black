@@ -224,8 +224,8 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
       {data?.enabled !== false && (
         <>
           {/* Screens Section */}
-          <div className="bg-base-200/50 shadow-sm card">
-            <div className="p-4 card-body">
+          <div className="stg-card">
+            <div className="p-4 sm:p-5 card-body">
               <h3 className="gap-2 text-base card-title">
                 <Monitor size={18} />
                 {t('oled.screens_title')}
@@ -247,7 +247,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                       onDragEnd={handleDragEnd}
                       className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${draggedIndex === index
                           ? 'border-primary bg-primary/10 opacity-70'
-                          : 'border-base-300 bg-base-100 hover:border-base-content/20'
+                          : 'border-base-content/10 bg-base-100 hover:border-base-content/25'
                         }`}
                     >
                       <GripVertical
@@ -296,8 +296,8 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
 
           {/* Extra Screen Sensors */}
           {screens.includes('extra_sensors') && (
-            <div className="bg-base-200/50 shadow-sm card">
-              <div className="p-4 card-body">
+            <div className="stg-card">
+              <div className="p-4 sm:p-5 card-body">
                 <h3 className="gap-2 text-base card-title">
                   <Thermometer size={18} />
                   {t('oled.extra_sensors_title')}
@@ -315,7 +315,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                   {extraSensors.map((sensor, index) => (
                     <div
                       key={index}
-                      className="flex flex-wrap items-end gap-2 bg-base-100 p-3 border border-base-300 rounded-lg"
+                      className="stg-inset flex flex-wrap items-end gap-2 p-3"
                     >
                       {/* Sensor Type */}
                       <div className="flex-1 min-w-30 form-control">
@@ -452,8 +452,8 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
           )}
 
           {/* Screensaver Timeout */}
-          <div className="bg-base-200/50 shadow-sm card">
-            <div className="p-4 card-body">
+          <div className="stg-card">
+            <div className="p-4 sm:p-5 card-body">
               <h3 className="gap-2 text-base card-title">
                 <Moon size={18} />
                 {t('oled.screensaver_title')}

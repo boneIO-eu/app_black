@@ -7,7 +7,7 @@ import {
 } from '../hooks/useSecurityPosture';
 import { checkText as checkTextOf, fixRoute } from '../utils/securityPosture';
 import FrameAncestorsCard from './FrameAncestorsCard';
-import { SecurityFindingCard, NoticeCallout } from './UISettings/ui';
+import { SettingsPage, SecurityFindingCard, NoticeCallout } from './UISettings/ui';
 
 /** This view's own route, so a check fixed here offers no button back to it. */
 const SELF_ROUTE = '/settings/security';
@@ -28,23 +28,27 @@ export default function SecurityView() {
 
   if (loading && !posture) {
     return (
-      <div className="flex justify-center py-12">
-        <span className="loading loading-ring loading-lg text-primary" />
-      </div>
+      <SettingsPage width="wide">
+        <div className="flex justify-center py-12">
+          <span className="loading loading-ring loading-lg text-primary" />
+        </div>
+      </SettingsPage>
     );
   }
 
   if (error || !posture) {
     return (
-      <NoticeCallout
-        variant="warning"
-        message={t('security.unavailable')}
-        action={
-          <button className="btn btn-sm btn-outline" onClick={() => void refresh()}>
-            {t('security.retry')}
-          </button>
-        }
-      />
+      <SettingsPage width="wide">
+        <NoticeCallout
+          variant="warning"
+          message={t('security.unavailable')}
+          action={
+            <button className="btn btn-sm btn-outline" onClick={() => void refresh()}>
+              {t('security.retry')}
+            </button>
+          }
+        />
+      </SettingsPage>
     );
   }
 
@@ -53,9 +57,9 @@ export default function SecurityView() {
   const passed = posture.checks.filter(c => c.state !== 'failed');
 
   return (
-    <div className="space-y-6">
+    <SettingsPage width="wide">
       {/* Top summary and refresh toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-base-100 border border-base-200 rounded-2xl shadow-xs">
+      <div className="stg-card flex flex-wrap items-center justify-between gap-3 p-3.5">
         <div className="flex items-center gap-2 flex-wrap text-sm">
           {failed.length === 0 ? (
             <span className="font-semibold text-success flex items-center gap-1.5">
@@ -135,14 +139,14 @@ export default function SecurityView() {
 
       {/* Passed checks folded away */}
       {passed.length > 0 && (
-        <div className="collapse collapse-arrow bg-base-100 border border-base-200 rounded-2xl shadow-xs">
+        <div className="stg-card collapse collapse-arrow">
           <input type="checkbox" />
           <div className="collapse-title text-sm font-semibold flex items-center gap-2">
             <span>✅</span>
             <span>{t('security.passed', { count: passed.length })}</span>
           </div>
           <div className="collapse-content">
-            <ul className="space-y-2 pt-2 border-t border-base-200/80">
+            <ul className="space-y-2 pt-2 border-t border-base-content/8">
               {passed.map(check => (
                 <li key={check.id} className="flex items-start gap-2.5 text-sm">
                   <span className="text-success mt-0.5 text-xs">●</span>
@@ -161,6 +165,6 @@ export default function SecurityView() {
           </div>
         </div>
       )}
-    </div>
+    </SettingsPage>
   );
 }

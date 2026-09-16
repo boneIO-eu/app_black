@@ -2,7 +2,14 @@ import { useState, useCallback, useEffect } from 'react';
 import { FaCheck, FaSpinner, FaGlobe } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
-import { SettingsCard, StatusTile, FormField, NoticeCallout } from '../ui';
+import {
+  SettingsPage,
+  SettingsCard,
+  StatusTile,
+  FormField,
+  FormActions,
+  NoticeCallout,
+} from '../ui';
 
 /**
  * Section for viewing and changing the device hostname.
@@ -54,9 +61,33 @@ export default function HostnameSection() {
   };
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <SettingsCard>
-        <div className="space-y-5">
+    <SettingsPage>
+      {/* No card header: the page header above already names this page, and
+          repeating it inside the only card on it is noise. */}
+      <SettingsCard
+        footer={
+          <FormActions hint={t('settings.hostname_hint')}>
+            <button
+              className="btn btn-primary btn-sm gap-2"
+              onClick={changeHostname}
+              disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
+            >
+              {isChangingHostname ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  {t('settings.changing_hostname')}
+                </>
+              ) : (
+                <>
+                  <FaCheck />
+                  {t('settings.change_hostname')}
+                </>
+              )}
+            </button>
+          </FormActions>
+        }
+      >
+        <div className="space-y-4">
           {/* Current hostname displayed as a clean status tile */}
           <StatusTile
             icon={<FaGlobe />}
@@ -66,45 +97,26 @@ export default function HostnameSection() {
             badge={
               currentHostname ? (
                 <span className="badge badge-success badge-sm font-normal gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-success-content/70"></span>
                   mDNS
                 </span>
               ) : undefined
             }
           />
 
-          {/* New hostname input */}
-          <FormField
-            label={t('settings.new_hostname')}
-            help={t('settings.hostname_hint')}
-          >
-            <div className="flex flex-col sm:flex-row gap-2 mt-1">
-              <input
-                type="text"
-                className="input input-bordered input-sm sm:input-md flex-1 font-mono"
-                value={newHostname}
-                onChange={e => setNewHostname(e.target.value)}
-                placeholder={t('settings.hostname_placeholder')}
-                disabled={isChangingHostname}
-              />
-              <button
-                className="btn btn-primary btn-sm sm:btn-md gap-2 shrink-0 font-medium"
-                onClick={changeHostname}
-                disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
-              >
-                {isChangingHostname ? (
-                  <>
-                    <FaSpinner className="animate-spin" />
-                    {t('settings.changing_hostname')}
-                  </>
-                ) : (
-                  <>
-                    <FaCheck />
-                    {t('settings.change_hostname')}
-                  </>
-                )}
-              </button>
-            </div>
+          {/* New hostname input. Capped: the page is wide enough for two
+              columns of fields and a 63-character name does not need all of
+              it — a text box the width of the window reads as "paste an essay
+              here". */}
+          <FormField label={t('settings.new_hostname')} className="max-w-md">
+            <input
+              type="text"
+              className="input input-bordered w-full font-mono"
+              value={newHostname}
+              onChange={e => setNewHostname(e.target.value)}
+              placeholder={t('settings.hostname_placeholder')}
+              disabled={isChangingHostname}
+            />
           </FormField>
 
           {hostnameResult && (
@@ -115,6 +127,6 @@ export default function HostnameSection() {
           )}
         </div>
       </SettingsCard>
-    </div>
+    </SettingsPage>
   );
 }

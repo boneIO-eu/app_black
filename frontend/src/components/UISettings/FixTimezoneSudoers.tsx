@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { FaSpinner, FaExclamationTriangle, FaCheck, FaShieldAlt, FaSync } from 'react-icons/fa';
+import { FaCheck, FaSpinner, FaShieldAlt, FaSync } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import SudoPasswordDialog from './SudoPasswordDialog';
+import { SettingsCard, NoticeCallout } from './ui';
 
 /**
  * Component for checking and fixing timedatectl sudoers configuration.
@@ -74,93 +75,119 @@ export default function FixTimezoneSudoers() {
   const needsFix = checkResult?.needs_password === true;
   const isOk = checkResult !== null && !checkResult.needs_password;
 
-  return (
-    <div className="card bg-base-200 shadow-xl">
-      <div className="card-body">
-        <h3 className="card-title">
-          <FaShieldAlt />
-          {t('timezone_sudoers.title')}
-        </h3>
-        <p className="text-sm opacity-70">
-          {t('timezone_sudoers.description')}
-        </p>
+  /**
+   * When the rules are already in place there is nothing to do, and a full
+   * card saying so pushed the actual timezone controls below the fold. A
+   * single line is enough to confirm it, with the re-check still reachable.
+   */
+  if (isOk && !loading && !fixResult) {
+    return (
+      <div className="stg-inset flex items-center gap-2.5 px-3.5 py-2.5 text-[13px]">
+        <FaCheck className="text-success shrink-0" />
+        <span className="text-base-content/70 min-w-0 flex-1">
+          {t('timezone_sudoers.status_ok')}
+        </span>
+        <button
+          className="btn btn-ghost btn-xs gap-1.5 shrink-0"
+          onClick={checkSudoers}
+          disabled={loading}
+        >
+          <FaSync className="w-3 h-3" />
+          <span className="hidden sm:inline">{t('timezone_sudoers.check_now')}</span>
+        </button>
+      </div>
+    );
+  }
 
-        {/* Manual check button */}
-        <div className="card-actions mt-1">
+  return (
+    <>
+      <SettingsCard
+        icon={<FaShieldAlt />}
+        title={t('timezone_sudoers.title')}
+        description={t('timezone_sudoers.description')}
+        action={
           <button
-            className="btn btn-outline btn-sm"
+            className="btn btn-ghost btn-sm gap-2"
             onClick={checkSudoers}
             disabled={loading}
           >
             {loading ? <FaSpinner className="animate-spin" /> : <FaSync />}
             {t('timezone_sudoers.check_now')}
           </button>
+        }
+      >
+        <div className="space-y-3">
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center gap-2.5 text-[13px] text-base-content/60">
+              <FaSpinner className="animate-spin" />
+              {t('timezone_sudoers.checking')}
+            </div>
+          )}
+
+          {/* Status OK */}
+          {isOk && !loading && (
+            <NoticeCallout
+              variant="success"
+              title={t('timezone_sudoers.status_ok')}
+              message={t('timezone_sudoers.status_ok_hint')}
+            />
+          )}
+
+          {/* Needs fix */}
+          {needsFix && !loading && (
+            <>
+              <NoticeCallout
+                variant="warning"
+                title={t('timezone_sudoers.password_required')}
+                message={
+                  <>
+                    {t('timezone_sudoers.password_required_hint')}
+                    {checkResult?.error && (
+                      <span className="block font-mono text-xs opacity-60 mt-1">
+                        {checkResult.error}
+                      </span>
+                    )}
+                  </>
+                }
+                action={
+                  <button
+                    className="btn btn-primary btn-sm gap-2"
+                    onClick={() => {
+                      setSudoError(null);
+                      setShowSudoDialog(true);
+                    }}
+                  >
+                    <FaShieldAlt />
+                    {t('timezone_sudoers.create_sudoers')}
+                  </button>
+                }
+              />
+
+              <NoticeCallout
+                variant="neutral"
+                message={
+                  <>
+                    <span className="block">{t('timezone_sudoers.info_1')}</span>
+                    <code className="block font-mono text-xs mt-1 text-base-content/70">
+                      /etc/sudoers.d/boneio-timedatectl
+                    </code>
+                    <span className="block mt-1">{t('timezone_sudoers.info_2')}</span>
+                  </>
+                }
+              />
+            </>
+          )}
+
+          {/* Fix result */}
+          {fixResult && (
+            <NoticeCallout
+              variant={fixResult.status === 'success' ? 'success' : 'error'}
+              message={fixResult.message}
+            />
+          )}
         </div>
-
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center gap-2 text-sm mt-2">
-            <FaSpinner className="animate-spin" />
-            {t('timezone_sudoers.checking')}
-          </div>
-        )}
-
-        {/* Status OK */}
-        {isOk && !loading && (
-          <div className="alert alert-success mt-2">
-            <FaCheck />
-            <div>
-              <p className="font-semibold">{t('timezone_sudoers.status_ok')}</p>
-              <p className="text-sm opacity-80">{t('timezone_sudoers.status_ok_hint')}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Needs fix */}
-        {needsFix && !loading && (
-          <>
-            <div className="alert alert-warning mt-2">
-              <FaExclamationTriangle />
-              <div>
-                <p className="font-semibold">{t('timezone_sudoers.password_required')}</p>
-                <p className="text-sm opacity-80">{t('timezone_sudoers.password_required_hint')}</p>
-                {checkResult?.error && (
-                  <p className="text-xs font-mono mt-1 opacity-60">{checkResult.error}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="card-actions mt-2">
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  setSudoError(null);
-                  setShowSudoDialog(true);
-                }}
-              >
-                <FaShieldAlt />
-                {t('timezone_sudoers.create_sudoers')}
-              </button>
-            </div>
-
-            <div className="alert alert-info mt-2">
-              <div className="text-xs">
-                <p>{t('timezone_sudoers.info_1')}</p>
-                <p className="font-mono mt-1">/etc/sudoers.d/boneio-timedatectl</p>
-                <p className="mt-1">{t('timezone_sudoers.info_2')}</p>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Fix result */}
-        {fixResult && (
-          <div className={`alert ${fixResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-2`}>
-            {fixResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
-            <span className="text-sm">{fixResult.message}</span>
-          </div>
-        )}
-      </div>
+      </SettingsCard>
 
       <SudoPasswordDialog
         open={showSudoDialog}
@@ -172,6 +199,6 @@ export default function FixTimezoneSudoers() {
         error={sudoError}
         onSubmit={fixSudoers}
       />
-    </div>
+    </>
   );
 }

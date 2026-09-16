@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
@@ -200,17 +201,16 @@ const OutputForm: React.FC<OutputFormProps> = ({
     <div className="space-y-4">
       {/* Warning alert when output is used in a cover */}
       {isUsedInCover && (
-        <div className="alert alert-warning">
-          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div>
-            <h3 className="font-bold">{t('outputs.used_in_cover_title')}</h3>
-            <div className="text-sm">
-              {t('outputs.used_in_cover_message')} <strong>{usedInCover?.name || usedInCover?.id || usedInCover?.pin || usedInCover?.open_relay || 'unknown'}</strong>
-            </div>
-          </div>
-        </div>
+        <NoticeCallout
+          variant="warning"
+          title={t('outputs.used_in_cover_title')}
+          message={
+            <>
+              {t('outputs.used_in_cover_message')}{' '}
+              <strong>{usedInCover?.name || usedInCover?.id || usedInCover?.pin || usedInCover?.open_relay || 'unknown'}</strong>
+            </>
+          }
+        />
       )}
 
       {/* Tabs - show only basic for cover type, both for others */}
@@ -488,17 +488,17 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     />
                   </div>
 
-                  <div className="alert alert-info">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <div>
-                      <h3 className="font-bold">{t('outputs.momentary_actions_title')}</h3>
-                      <div className="text-sm">
-                        <p>{t('outputs.momentary_actions_desc1')}</p>
+                  <NoticeCallout
+                    variant="info"
+                    title={t('outputs.momentary_actions_title')}
+                    message={
+                      <>
+                      <p>{t('outputs.momentary_actions_desc1')}</p>
                         <p>{t('outputs.momentary_actions_desc2')}</p>
                         <p>{t('outputs.momentary_actions_desc3')}</p>
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    }
+                  />
 
                   {/* Adjustable Duration */}
                   <div className="divider">{t('outputs.divider_adjustable_duration')}</div>
@@ -578,16 +578,16 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     </div>
                   )}
 
-                  <div className="alert alert-info">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <div>
-                      <h3 className="font-bold">{t('outputs.adjustable_duration_info_title')}</h3>
-                      <div className="text-sm">
-                        <p>{t('outputs.adjustable_duration_info_desc1')}</p>
+                  <NoticeCallout
+                    variant="info"
+                    title={t('outputs.adjustable_duration_info_title')}
+                    message={
+                      <>
+                      <p>{t('outputs.adjustable_duration_info_desc1')}</p>
                         <p>{t('outputs.adjustable_duration_info_desc2')}</p>
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    }
+                  />
 
                   <div className="divider">{t('outputs.divider_interlock')}</div>
 
@@ -671,16 +671,16 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     </div>
                   </div>
 
-                  <div className="alert alert-info">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <div>
-                      <h3 className="font-bold">{t('outputs.software_interlock_title')}</h3>
-                      <div className="text-sm">
-                        <p>{t('outputs.software_interlock_desc1')}</p>
+                  <NoticeCallout
+                    variant="info"
+                    title={t('outputs.software_interlock_title')}
+                    message={
+                      <>
+                      <p>{t('outputs.software_interlock_desc1')}</p>
                         <p>{t('outputs.software_interlock_desc2')}</p>
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    }
+                  />
                 </div>
               ),
             },

@@ -3,6 +3,7 @@ import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import HelpLabel from './components/HelpLabel';
+import { NoticeCallout, ToggleRow, FormField } from './ui';
 
 interface ExampleFile {
   filename: string;
@@ -124,7 +125,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
   const nameError = hasOtherFields && !hasName;
 
   return (
-    <div className="space-y-4">
+    <div className="stg-cols">
       {/* Name */}
       <div className="form-control">
         <label className="label">
@@ -197,41 +198,6 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         <HelpLabel>{t('boneio_config.device_type_help')}</HelpLabel>
       </div>
 
-      {/* HA Child Devices (experimental) */}
-      <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-3">
-          <input
-            type="checkbox"
-            className="toggle toggle-warning"
-            checked={data?.ha_child_devices || false}
-            onChange={(e) => handleChange('ha_child_devices', e.target.checked)}
-          />
-          <span className="label-text font-medium">
-            {t('boneio_config.ha_child_devices')}
-          </span>
-        </label>
-        <HelpLabel>{t('boneio_config.ha_child_devices_help')}</HelpLabel>
-      </div>
-
-      {/* HA Child Devices Naming Style (shown only when ha_child_devices is enabled) */}
-      {data?.ha_child_devices && (
-        <div className="form-control ml-4">
-          <label className="label">
-            <span className="label-text font-medium">{t('boneio_config.ha_child_devices_naming')}</span>
-          </label>
-          <select
-            className="select select-bordered w-full"
-            value={data?.ha_child_devices_naming || 'default'}
-            onChange={(e) => handleChange('ha_child_devices_naming', e.target.value)}
-          >
-            <option value="default">{t('boneio_config.ha_child_devices_naming_default')}</option>
-            <option value="device_name">{t('boneio_config.ha_child_devices_naming_device_name')}</option>
-            <option value="device_name_area">{t('boneio_config.ha_child_devices_naming_device_name_area')}</option>
-          </select>
-          <HelpLabel>{t('boneio_config.ha_child_devices_naming_help')}</HelpLabel>
-        </div>
-      )}
-
       {/* Serial Override */}
       <div className="form-control">
         <label className="label">
@@ -251,6 +217,40 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         )}
       </div>
 
+      {/* Home Assistant child devices, and the naming style that depends on it.
+          Kept out of the two-column field flow on purpose: the switch and the
+          select below it are one decision, and splitting them across columns
+          hid the fact that the second only exists because of the first. */}
+      <div>
+        <ToggleRow
+          checked={data?.ha_child_devices || false}
+          onChange={(checked) => handleChange('ha_child_devices', checked)}
+          tone="warning"
+          label={t('boneio_config.ha_child_devices')}
+          description={t('boneio_config.ha_child_devices_help')}
+        />
+
+        {data?.ha_child_devices && (
+          <div className="mt-3 ml-5 border-l-2 border-base-content/10 pl-4">
+            <FormField
+              label={t('boneio_config.ha_child_devices_naming')}
+              help={t('boneio_config.ha_child_devices_naming_help')}
+              className="max-w-md"
+            >
+              <select
+                className="select select-bordered w-full"
+                value={data?.ha_child_devices_naming || 'default'}
+                onChange={(e) => handleChange('ha_child_devices_naming', e.target.value)}
+              >
+                <option value="default">{t('boneio_config.ha_child_devices_naming_default')}</option>
+                <option value="device_name">{t('boneio_config.ha_child_devices_naming_device_name')}</option>
+                <option value="device_name_area">{t('boneio_config.ha_child_devices_naming_device_name_area')}</option>
+              </select>
+            </FormField>
+          </div>
+        )}
+      </div>
+
       {/* Device Type Change Warning Modal */}
       {showWarningModal && validationResult && (
         <div className="modal modal-open">
@@ -267,34 +267,36 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
 
               {/* Incompatible outputs */}
               {validationResult.incompatible_outputs.length > 0 && (
-                <div className="alert alert-warning">
-                  <div>
-                    <p className="font-semibold">{t('boneio_config.incompatible_outputs')}:</p>
-                    <ul className="list-disc list-inside text-sm mt-1">
+                <NoticeCallout
+                  variant="warning"
+                  title={`${t('boneio_config.incompatible_outputs')}:`}
+                  message={
+                    <ul className="list-disc list-inside">
                       {validationResult.incompatible_outputs.map((out, idx) => (
                         <li key={idx}>
                           <code>{out.boneio_output}</code> ({out.name})
                         </li>
                       ))}
                     </ul>
-                  </div>
-                </div>
+                  }
+                />
               )}
 
               {/* Incompatible inputs */}
               {validationResult.incompatible_inputs.length > 0 && (
-                <div className="alert alert-warning">
-                  <div>
-                    <p className="font-semibold">{t('boneio_config.incompatible_inputs')}:</p>
-                    <ul className="list-disc list-inside text-sm mt-1">
+                <NoticeCallout
+                  variant="warning"
+                  title={`${t('boneio_config.incompatible_inputs')}:`}
+                  message={
+                    <ul className="list-disc list-inside">
                       {validationResult.incompatible_inputs.map((inp, idx) => (
                         <li key={idx}>
                           <code>{inp.boneio_input}</code> ({inp.section})
                         </li>
                       ))}
                     </ul>
-                  </div>
-                </div>
+                  }
+                />
               )}
 
               {/* Example config option */}

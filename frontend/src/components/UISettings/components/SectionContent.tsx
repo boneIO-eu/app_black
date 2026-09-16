@@ -13,6 +13,7 @@ import LoggerForm from '../LoggerForm';
 import Mcp23017Form from '../Mcp23017Form';
 import OledForm from '../OledForm';
 import { ARRAY_SECTIONS, type ArraySectionType } from '../constants/sectionDefinitions';
+import { SettingsPage, SettingsCard, NoticeCallout } from '../ui';
 import { normalizeCovers } from '../helpers/coverUtils';
 
 interface ConfigSection {
@@ -42,6 +43,15 @@ interface SectionContentProps {
 function isArraySection(sectionName: string): sectionName is ArraySectionType {
   return ARRAY_SECTIONS.includes(sectionName as ArraySectionType);
 }
+
+/**
+ * Sections whose form already draws its own cards.
+ *
+ * Everything else is a flat list of fields and gets wrapped in one card here,
+ * so a schema-driven page looks like the hand-written pages next to it in the
+ * sidebar instead of like naked controls on the page background.
+ */
+const SELF_CARDED_SECTIONS = new Set(['logger', 'mcp23017', 'oled']);
 
 /**
  * Renders a loading spinner while schema is loading.
@@ -181,9 +191,10 @@ function CustomFormContent({
       );
     default:
       return (
-        <div className="alert alert-warning">
-          <span>No form available for section: {activeSection}</span>
-        </div>
+        <NoticeCallout
+          variant="warning"
+          message={`No form available for section: ${activeSection}`}
+        />
       );
   }
 }
@@ -213,26 +224,36 @@ export default function SectionContent({
     }
 
     return (
-      <ArraySectionContent
-        activeSection={activeSection}
-        activeSectionData={activeSectionData}
-        formData={formData}
-        originalData={originalData}
-        editItemName={editItemName}
-        onEditItemOpened={onEditItemOpened}
-        onSectionChange={onSectionChange}
-        onSaveSection={onSaveSection}
-      />
+      <SettingsPage width="full">
+        <SettingsCard>
+          <ArraySectionContent
+            activeSection={activeSection}
+            activeSectionData={activeSectionData}
+            formData={formData}
+            originalData={originalData}
+            editItemName={editItemName}
+            onEditItemOpened={onEditItemOpened}
+            onSectionChange={onSectionChange}
+            onSaveSection={onSaveSection}
+          />
+        </SettingsCard>
+      </SettingsPage>
     );
   }
 
   // Custom form sections
-  return (
+  const form = (
     <CustomFormContent
       activeSection={activeSection}
       formData={formData}
       onSectionChange={onSectionChange}
       onLoxValidationChange={onLoxValidationChange}
     />
+  );
+
+  return (
+    <SettingsPage>
+      {SELF_CARDED_SECTIONS.has(activeSection) ? form : <SettingsCard>{form}</SettingsCard>}
+    </SettingsPage>
   );
 }

@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import axios from '@/api/axios';
 import { FaPlay, FaCheck, FaForward, FaTimes, FaSpinner, FaLightbulb, FaToggleOn, FaHandPointer } from 'react-icons/fa';
@@ -363,7 +364,7 @@ const SelfTest: React.FC<SelfTestProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Current Output */}
-            <div className="card bg-base-200 mb-6">
+            <div className="stg-inset mb-6">
               <div className="card-body text-center">
                 <FaToggleOn className="text-5xl text-primary mx-auto mb-2" />
                 <h4 className="text-2xl font-bold">{currentItem.name}</h4>
@@ -372,13 +373,13 @@ const SelfTest: React.FC<SelfTestProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Instructions */}
-            <div className="alert alert-success mb-6">
-              <FaToggleOn className="text-2xl" />
-              <div>
-                <p className="font-semibold">Output is ON - check if it's working correctly.</p>
-                <p className="text-sm">Press SPACE or click "Confirm" to turn off and go to next.</p>
-              </div>
-            </div>
+            <NoticeCallout
+              variant="success"
+              className="mb-6"
+              icon={<FaToggleOn />}
+              title="Output is ON - check if it's working correctly."
+              message={'Press SPACE or click "Confirm" to turn off and go to next.'}
+            />
 
             {/* Actions */}
             <div className="flex flex-wrap gap-2 justify-center">
@@ -422,13 +423,13 @@ const SelfTest: React.FC<SelfTestProps> = ({ isOpen, onClose }) => {
             })()}
 
             {/* Instructions */}
-            <div className="alert alert-info mb-4">
-              <FaHandPointer />
-              <div>
-                <p className="font-semibold">Press each physical button to test it.</p>
-                <p className="text-sm">Inputs will turn green when detected. All green = test passed!</p>
-              </div>
-            </div>
+            <NoticeCallout
+              variant="info"
+              className="mb-4"
+              icon={<FaHandPointer />}
+              title="Press each physical button to test it."
+              message="Inputs will turn green when detected. All green = test passed!"
+            />
 
             {/* Input List */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-6 max-h-64 overflow-y-auto">

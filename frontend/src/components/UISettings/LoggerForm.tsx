@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { NoticeCallout } from './ui';
 
 interface LoggerFormProps {
   data: any;
@@ -87,7 +88,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
       </div>
 
       {/* Common Modules - Quick Add */}
-      <div className="collapse collapse-arrow bg-base-200 rounded-box">
+      <div className="stg-card collapse collapse-arrow">
         <input 
           type="checkbox" 
           checked={showExamples}
@@ -100,12 +101,11 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
           </p>
         </div>
         <div className="collapse-content">
-          <div className="alert alert-warning mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span className="text-sm" dangerouslySetInnerHTML={{ __html: t('logger.debug_warning') }} />
-          </div>
+          <NoticeCallout
+            variant="warning"
+            className="mb-3"
+            message={<span dangerouslySetInnerHTML={{ __html: t('logger.debug_warning') }} />}
+          />
 
           <div className="space-y-2">
             {COMMON_MODULES.map(({ module, level, description }) => {
@@ -113,7 +113,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
               return (
                 <div 
                   key={module}
-                  className={`card bg-base-100 border ${isAdded ? 'border-success' : 'border-base-300'} hover:shadow-md transition-shadow`}
+                  className={`stg-inset card ${isAdded ? 'border-success/50' : ''}`}
                 >
                   <div className="card-body p-3">
                     <div className="flex items-center justify-between gap-3">

@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React from 'react';
 import { FaCopy, FaMagic } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -154,16 +155,17 @@ export default function AiAssistantShell({
             />
 
             {errors.length > 0 && (
-              <div className="alert alert-error">
-                <div>
-                  <div className="font-medium">{t('event_form.ai_validation_failed')}</div>
-                  <ul className="mt-2 list-disc list-inside text-sm space-y-1">
+              <NoticeCallout
+                variant="error"
+                title={t('event_form.ai_validation_failed')}
+                message={
+                  <ul className="mt-1 list-disc list-inside space-y-1">
                     {errors.map((error, index) => (
                       <li key={`${error}-${index}`}>{error}</li>
                     ))}
                   </ul>
-                </div>
-              </div>
+                }
+              />
             )}
           </div>
 

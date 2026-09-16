@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React, { useState, useMemo, useEffect } from 'react';
 import axios from '@/api/axios';
 import { FaPlus, FaTrash } from 'react-icons/fa';
@@ -386,9 +387,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
       {/* Sensor Filters Tab - only for CWT model */}
       {activeTab === 'filters' && showSensorsFilters && (
         <div className="space-y-4">
-          <div className="alert alert-info text-sm">
-            <span>{t('modbus.filters.info')}</span>
-          </div>
+          <NoticeCallout variant="info" message={t('modbus.filters.info')} />
 
           {/* Temperature Filters */}
           <FilterSection
@@ -411,9 +410,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
       {/* Data Tab - only for liquid-sensor model */}
       {activeTab === 'data' && showDataFields && (
         <div className="space-y-4">
-          <div className="alert alert-info">
-            <span>{t('modbus.data.info')}</span>
-          </div>
+          <NoticeCallout variant="info" message={t('modbus.data.info')} />
 
           <div className="grid grid-cols-2 gap-4">
             {/* Width */}
@@ -452,9 +449,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
       {/* Entity Labels Tab */}
       {activeTab === 'labels' && (
         <div className="space-y-4">
-          <div className="alert alert-info text-sm">
-            <span>{t('modbus.labels.info')}</span>
-          </div>
+          <NoticeCallout variant="info" message={t('modbus.labels.info')} />
 
           {labelsLoading && (
             <div className="flex justify-center py-4">
@@ -463,9 +458,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
           )}
 
           {labelsError && (
-            <div className="alert alert-warning text-sm">
-              <span>{labelsError}</span>
-            </div>
+            <NoticeCallout variant="warning" message={labelsError} />
           )}
 
           {!labelsLoading && entities.filter(e => !e.entity_type?.includes('discrete')).length > 0 && (

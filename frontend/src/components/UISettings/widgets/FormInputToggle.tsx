@@ -36,7 +36,7 @@ export const FormInputToggle: React.FC<FormInputToggleProps> = ({
 }) => {
   if (variant === 'card') {
     return (
-      <label className="flex items-center gap-3 cursor-pointer bg-base-200/30 border border-base-200 rounded-xl p-3">
+      <label className="stg-inset flex items-center gap-3 cursor-pointer p-3">
         <input
           type="checkbox"
           className={cn('toggle', toggleSize, toggleColor)}
@@ -44,9 +44,9 @@ export const FormInputToggle: React.FC<FormInputToggleProps> = ({
           onChange={(e) => onChange(e.target.checked)}
         />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-base-content/80">{label}</p>
+          <p className="text-sm font-medium text-base-content">{label}</p>
           {description && (
-            <p className="text-xs text-base-content/40">{description}</p>
+            <p className="text-xs text-base-content/55 mt-0.5 leading-relaxed">{description}</p>
           )}
         </div>
       </label>
@@ -55,14 +55,14 @@ export const FormInputToggle: React.FC<FormInputToggleProps> = ({
 
   return (
     <div className="form-control flex flex-col">
-      <label className="label cursor-pointer justify-start gap-3">
+      <label className="flex cursor-pointer items-center gap-3">
         <input
           type="checkbox"
           className={cn('toggle', toggleSize, toggleColor)}
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
         />
-        <span className="label-text font-medium">{label}</span>
+        <span className="text-[13px] font-medium text-base-content/85">{label}</span>
       </label>
       {help && <HelpLabel>{help}</HelpLabel>}
     </div>

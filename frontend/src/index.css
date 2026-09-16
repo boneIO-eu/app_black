@@ -418,3 +418,255 @@ body {
     transform: scale(0.97);
   }
 }
+
+/* ===================================================================
+   Settings design system
+   ===================================================================
+
+   One surface language for every settings page. Before this, each panel
+   invented its own: `bg-base-200/50`, `bg-base-200 shadow-xl`, plain
+   `bg-base-100` — which in the light theme (base-200 is 98% lightness,
+   base-100 is pure white) meant most cards were invisible and the pages
+   looked washed out.
+
+   The rule is: the page is a tinted canvas, cards are the lightest thing
+   on it, insets inside a card are tinted again. The tints are derived
+   from `--color-base-content` with color-mix, so the same declarations
+   give a light-grey canvas under white cards in the light theme and a
+   dark canvas under lighter cards in the dark one — no per-theme
+   overrides, no `dark:` variants in the components.
+
+   `.settings-scope` also raises daisyUI's radius variables for its
+   subtree. daisyUI 5 draws every button, input, select, toggle and badge
+   from these, so one declaration rounds the whole surface consistently
+   instead of 0.25rem fields sitting inside 1rem cards.
+   =================================================================== */
+
+/* The tokens live on :root, not on .settings-scope, so the surface classes
+   also work inside dialogs — those render through a portal on <body> and
+   would otherwise resolve every var to nothing. */
+:root {
+  --stg-line: color-mix(in oklab, var(--color-base-content) 9%, transparent);
+  --stg-line-strong: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  --stg-tint: color-mix(in oklab, var(--color-base-content) 3.5%, transparent);
+  --stg-tint-strong: color-mix(in oklab, var(--color-base-content) 6%, transparent);
+  --stg-shadow: 0 1px 2px -1px rgb(0 0 0 / 0.06), 0 12px 28px -20px rgb(0 0 0 / 0.35);
+  --stg-shadow-lift: 0 1px 2px -1px rgb(0 0 0 / 0.08), 0 20px 40px -24px rgb(0 0 0 / 0.45);
+}
+
+.settings-scope {
+  /* daisyUI control geometry, scoped to settings. */
+  --radius-field: 0.625rem;
+  --radius-selector: 0.5rem;
+  --radius-box: 1rem;
+}
+
+/* `.stg-card` reads --radius-box, which is 0.5rem outside the settings
+   subtree. Pin the card radius so a card dropped into a dialog still looks
+   like a card. */
+.stg-card,
+.stg-canvas {
+  --radius-box: 1rem;
+}
+
+/* Hand-rolled daisyUI labels, pulled into line with FormField.
+   Plenty of forms still spell a field label as
+   `<label class="label"><span class="label-text">`, and daisyUI draws that at
+   14px with its own vertical padding — noticeably larger and looser than the
+   FormField label next to it. Rather than rewrite every one of them, the two
+   spellings are made to agree here. Dialogs are included: they portal out of
+   .settings-scope but hold the same forms. */
+.settings-scope .label-text,
+[data-dialog-popup] .label-text {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--color-base-content) 85%, transparent);
+}
+.settings-scope .label-text-alt,
+[data-dialog-popup] .label-text-alt {
+  font-size: 0.75rem;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+}
+.settings-scope .label,
+[data-dialog-popup] .label {
+  padding-block: 0.25rem;
+}
+
+/* Two-column field flow for wide screens.
+   A settings form is a stack of fields, and on a 1920px display that stack
+   was a narrow ribbon with half the window empty beside it — and tall enough
+   to scroll for something that fits on one screen. From `lg` up the fields
+   pair off.
+
+   The span rule is what keeps this to one class per form instead of a class
+   per child: every field wrapper in this codebase is a `.form-control`, so
+   anything that is not one — a divider, a callout, a heading, a row of
+   buttons — is by definition not a field and takes the full width. */
+.stg-cols > * + * {
+  margin-top: 1rem;
+}
+@media (min-width: 1024px) {
+  .stg-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    row-gap: 1rem;
+    align-items: start;
+  }
+  .stg-cols > * + * {
+    margin-top: 0;
+  }
+  .stg-cols > *:not(.form-control) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The page behind the cards, painted once on the settings root.
+   The glow is deliberately faint — it reads as depth behind the cards, not
+   as a coloured panel.
+
+   Painted here rather than on the sidebar and the content pane separately,
+   which is what it used to do. Two elements each drew the gradient from
+   their own top-left corner, so there were two glows meeting at a hard edge
+   down the sidebar's border — visible as the sidebar being distinctly more
+   tinted than the content one pixel to its right. And because both panes
+   scroll, `background-attachment: local` slid the tint off the top on any
+   long page, so short pages had depth and long ones went flat halfway down.
+
+   One field behind both panes fixes both: the panes are transparent, so the
+   gradient is continuous across the seam and stays put while they scroll. */
+.settings-scope {
+  background-color: color-mix(in oklab, var(--color-base-content) 3%, var(--color-base-100));
+  background-image:
+    radial-gradient(64rem 26rem at 6% -6%, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 70%),
+    radial-gradient(44rem 20rem at 100% 0%, color-mix(in oklab, var(--color-accent) 7%, transparent), transparent 70%);
+}
+
+/* The scrolling panes sit on that field rather than repeating it. */
+.stg-canvas {
+  background: transparent;
+}
+
+/* Sticky page header: glass over the scrolling canvas, with a primary
+   hairline so the boundary is visible without a heavy border. */
+.stg-header {
+  background-color: color-mix(in oklab, var(--color-base-100) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-bottom: 1px solid var(--stg-line);
+  position: relative;
+}
+.stg-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-primary) 30%, transparent),
+    color-mix(in oklab, var(--color-primary) 10%, transparent) 22%,
+    transparent 45%
+  );
+  pointer-events: none;
+}
+
+/* The bar a section is committed from — pinned under the content, mirroring
+   the header above it. Same glass, hairline on the other side. */
+.stg-actionbar {
+  background-color: color-mix(in oklab, var(--color-base-100) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-top: 1px solid var(--stg-line);
+}
+
+/* The one card surface. */
+.stg-card {
+  background-color: var(--color-base-100);
+  border: 1px solid var(--stg-line);
+  border-radius: var(--radius-box);
+  box-shadow: var(--stg-shadow);
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+.stg-card-interactive:hover {
+  border-color: var(--stg-line-strong);
+  box-shadow: var(--stg-shadow-lift);
+}
+.stg-card-danger {
+  border-color: color-mix(in oklab, var(--color-error) 30%, transparent);
+}
+/* Danger cards carry a coloured cap rather than a tinted body, so the
+   destructive page still reads as the same surface as every other one. */
+.stg-card-danger::before,
+.stg-card-accent::before {
+  content: '';
+  display: block;
+  height: 3px;
+  border-radius: var(--radius-box) var(--radius-box) 0 0;
+}
+.stg-card-danger::before {
+  background: linear-gradient(90deg, var(--color-error), color-mix(in oklab, var(--color-error) 25%, transparent));
+}
+.stg-card-accent::before {
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in oklab, var(--color-accent) 60%, transparent));
+}
+
+/* A recessed block inside a card: status strips, code output, sub-lists. */
+.stg-inset {
+  background-color: var(--stg-tint);
+  border: 1px solid var(--stg-line);
+  border-radius: 0.75rem;
+}
+.stg-inset-strong {
+  background-color: var(--stg-tint-strong);
+}
+
+/* Icon chip used in card headers and status tiles. */
+.stg-chip {
+  background-image: linear-gradient(
+    140deg,
+    color-mix(in oklab, var(--color-primary) 20%, transparent),
+    color-mix(in oklab, var(--color-primary) 6%, transparent)
+  );
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-primary) 20%, transparent);
+}
+.stg-chip-danger {
+  background-image: linear-gradient(
+    140deg,
+    color-mix(in oklab, var(--color-error) 20%, transparent),
+    color-mix(in oklab, var(--color-error) 6%, transparent)
+  );
+  color: var(--color-error);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-error) 20%, transparent);
+}
+.stg-chip-neutral {
+  background-color: var(--stg-tint-strong);
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+}
+
+/* Cards appear as the section loads, staggered down the page. Deliberately
+   short and small — it is there to make a section change feel like one
+   movement, not to be noticed as an animation. */
+@keyframes stg-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.stg-page > * {
+  animation: stg-rise 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stg-page > *:nth-child(2) { animation-delay: 40ms; }
+.stg-page > *:nth-child(3) { animation-delay: 80ms; }
+.stg-page > *:nth-child(4) { animation-delay: 120ms; }
+.stg-page > *:nth-child(n + 5) { animation-delay: 150ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stg-page > * {
+    animation: none;
+  }
+  .stg-card {
+    transition: none;
+  }
+}

@@ -1,96 +1,104 @@
 /**
- * SectionHeader - Header component for configuration section with action buttons.
+ * SectionHeader - the page header shared by every settings section.
  */
-import { FaSave, FaEye, FaEyeSlash, FaUndo } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaQuestion } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { ALL_SECTIONS } from '../constants/sectionDefinitions';
 
 interface SectionHeaderProps {
   sectionName: string;
   sectionTitle: string;
   sectionDescription?: string;
-  showYamlPreview?: boolean;
-  hasUnsavedChanges?: boolean;
-  saveDisabled?: boolean;
-  saveStatus?: 'idle' | 'saving' | 'success' | 'error';
-  onToggleYamlPreview?: () => void;
-  onRestore?: () => void;
-  onSave?: () => void;
-  hideYamlPreview?: boolean;
   children?: React.ReactNode;
 }
 
 /**
- * Header component with section title and action buttons.
+ * Header component with section title and description.
+ *
+ * It used to carry Save and Restore in its top right. They moved to
+ * SettingsActionBar at the bottom of the content column, which is the one
+ * place every section is now committed from — see the note there.
+ *
+ * Glass over the scrolling canvas rather than a flat `bg-base-200` bar: in
+ * the light theme base-200 is 98% lightness, so the old header was a slightly
+ * grey rectangle that read as nothing at all. The section's own icon comes
+ * from the same list the sidebar draws from, so the page you land on is
+ * visibly the row you clicked.
  */
 export default function SectionHeader({
   sectionName,
   sectionTitle,
   sectionDescription,
-  showYamlPreview = false,
-  hasUnsavedChanges = false,
-  saveDisabled = false,
-  saveStatus = 'idle',
-  onToggleYamlPreview,
-  onRestore,
-  onSave,
-  hideYamlPreview = false,
   children,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
-  
+  const [helpOpen, setHelpOpen] = useState(false);
+  const icon = ALL_SECTIONS.find(s => s.name === sectionName)?.icon;
+  const description =
+    sectionDescription
+    || t(`sections.descriptions.${sectionName}`)
+    || t('settings.configure_settings').replace('{section}', sectionTitle);
+
   return (
-    <div className="bg-base-200 border-b border-base-content/10 p-3 lg:p-4">
+    <div className="stg-header px-4 py-3.5 lg:px-6 lg:py-4 shrink-0 z-20">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-base-content flex items-center gap-2">
-            {sectionTitle}
-            {(sectionName === 'remote_devices' || sectionName === 'remote_inputs' || sectionName === 'remote_outputs') && (
-              <span className="badge badge-warning badge-sm">{t('navigation.experimental')}</span>
-            )}
-          </h1>
-          <p className="text-sm text-base-content/70 mt-1">
-            {sectionDescription || t(`sections.descriptions.${sectionName}`) || t('settings.configure_settings').replace('{section}', sectionTitle)}
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          {children}
-          {!hideYamlPreview && onToggleYamlPreview && (
-            <button
-              onClick={onToggleYamlPreview}
-              className="btn btn-ghost btn-sm"
-              title={showYamlPreview ? t('settings.hide_yaml') : t('settings.show_yaml')}
-            >
-              {showYamlPreview ? <FaEyeSlash /> : <FaEye />}
-              YAML
-            </button>
+        <div className="flex items-start gap-3.5 min-w-0">
+          {icon && (
+            <div className="stg-chip w-11 h-11 rounded-xl hidden sm:flex items-center justify-center text-xl shrink-0">
+              <span aria-hidden="true">{icon}</span>
+            </div>
           )}
-          {/* Save/Restore — hidden on mobile, shown in bottom bar instead */}
-          {hasUnsavedChanges && onRestore && (
-            <button
-              onClick={onRestore}
-              className="btn btn-warning btn-sm hidden lg:inline-flex"
-              title="Restore to last saved state"
-            >
-              <FaUndo />
-              {t('settings.restore')}
-            </button>
-          )}
-          {onSave && (
-            <button
-              onClick={onSave}
-              disabled={!hasUnsavedChanges || saveDisabled}
-              className="btn btn-primary btn-sm hidden lg:inline-flex"
-            >
-              {saveStatus === 'saving' ? (
-                <div className="loading loading-spinner loading-xs"></div>
-              ) : (
-                <FaSave />
+          <div className="min-w-0">
+            <h1 className="text-xl lg:text-[26px] font-bold tracking-tight text-base-content flex items-center gap-2 leading-tight">
+              {sectionTitle}
+              {(sectionName === 'remote_devices' || sectionName === 'remote_inputs' || sectionName === 'remote_outputs') && (
+                <span className="badge badge-warning badge-sm">{t('navigation.experimental')}</span>
               )}
-              {t('settings.save')} {sectionTitle}
-            </button>
-          )}
+              {/* The description moved in here. Several of them run to three
+                  or four lines, which on a phone pushed the actual settings
+                  below the fold before anything had been read. It is
+                  orientation, not instruction — worth a tap, not a permanent
+                  quarter of the screen. */}
+              {description && (
+                <button
+                  type="button"
+                  className="btn btn-circle btn-ghost btn-sm lg:btn-md shrink-0 bg-base-content/5 hover:bg-primary/10 text-base-content/50 hover:text-primary"
+                  onClick={() => setHelpOpen(true)}
+                  aria-label={t('common.help')}
+                  title={description}
+                >
+                  <FaQuestion className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+                </button>
+              )}
+            </h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {children}
         </div>
       </div>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {icon && <span aria-hidden="true">{icon}</span>}
+              {sectionTitle}
+            </DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed whitespace-pre-line">
+              {description}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

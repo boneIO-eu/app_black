@@ -4,5 +4,4 @@
 
 export * from './configDataUtils';
 export * from './configSchemaUtils';
-export * from './yamlConverter';
 export * from './sectionValidators';

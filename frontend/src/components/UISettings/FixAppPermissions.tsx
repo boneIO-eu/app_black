@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { FaSpinner } from 'react-icons/fa';
+import { FaSpinner, FaSync, FaUserShield } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import SudoPasswordDialog from './SudoPasswordDialog';
+import { SettingsCard, FormActions, NoticeCallout, StatGrid } from './ui';
 
 /**
  * Component for diagnosing and fixing app file permissions via sudo.
@@ -51,45 +52,89 @@ export default function FixAppPermissions() {
   };
 
   return (
-    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-      <div className="card-body p-4 sm:p-6 space-y-4">
-        <h3 className="text-base font-semibold">{t('sudo_dialog.fix_app_permissions')}</h3>
-
-        <div>
-          <button
-            className={`btn btn-sm btn-outline w-fit ${loading ? 'loading' : ''}`}
-            onClick={testPermissions}
-            disabled={loading}
-          >
-            {loading ? <FaSpinner className="animate-spin mr-1" /> : null}
-            {t('sudo_dialog.check_file_permissions')}
-          </button>
-        </div>
-
-        {permInfo && (
-          <pre className="bg-base-300 p-3 rounded text-xs overflow-x-auto mt-2 whitespace-pre-wrap">
-            {JSON.stringify(permInfo, null, 2)}
-          </pre>
-        )}
-
-        {permInfo && !permInfo.writable && permInfo.file_exists && (
-          <button
-            className="btn btn-sm btn-primary mt-2"
-            onClick={() => {
-              setSudoError(null);
-              setShowSudoDialog(true);
-            }}
-          >
-            {t('sudo_dialog.fix_permissions')}
-          </button>
-        )}
-
-        {fixResult && (
-          <pre className={`p-3 rounded text-xs overflow-x-auto mt-2 whitespace-pre-wrap ${fixResult.status === 'success' ? 'bg-success/20' : 'bg-error/20'}`}>
-            {JSON.stringify(fixResult, null, 2)}
-          </pre>
-        )}
-      </div>
+    <>
+      <SettingsCard
+        icon={<FaUserShield />}
+        title={t('sudo_dialog.fix_app_permissions')}
+        description={t('sudo_dialog.app_permissions_description')}
+        footer={
+          <FormActions>
+            {permInfo?.file_exists && !permInfo.writable && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setSudoError(null);
+                  setShowSudoDialog(true);
+                }}
+              >
+                {t('sudo_dialog.fix_permissions')}
+              </button>
+            )}
+            <button
+              className="btn btn-outline btn-sm gap-2"
+              onClick={testPermissions}
+              disabled={loading}
+            >
+              {loading ? <FaSpinner className="animate-spin" /> : <FaSync />}
+              {t('sudo_dialog.check_file_permissions')}
+            </button>
+          </FormActions>
+        }
+      >
+        {permInfo || fixResult ? (
+          <div className="space-y-3">
+            {permInfo && (
+              <>
+                {/* The raw JSON this used to dump was a diagnostic, not an
+                    answer. The question is "can the app write the file", so
+                    say that, and show the three facts that explain a no. */}
+                <NoticeCallout
+                  variant={
+                    !permInfo.file_exists
+                      ? 'error'
+                      : permInfo.writable
+                        ? 'success'
+                        : 'warning'
+                  }
+                  message={
+                    !permInfo.file_exists
+                      ? t('sudo_dialog.file_missing')
+                      : permInfo.writable
+                        ? t('sudo_dialog.permissions_ok')
+                        : t('sudo_dialog.permissions_missing')
+                  }
+                />
+                <StatGrid
+                  columns={3}
+                  items={[
+                    {
+                      label: t('sudo_dialog.file_path'),
+                      value: permInfo.compose_path || '—',
+                      mono: true,
+                    },
+                    {
+                      label: t('sudo_dialog.file_owner'),
+                      value: permInfo.file_owner || '—',
+                      mono: true,
+                    },
+                    {
+                      label: t('sudo_dialog.file_mode'),
+                      value: permInfo.file_mode || '—',
+                      mono: true,
+                    },
+                  ]}
+                />
+              </>
+            )}
+            {fixResult && (
+              <NoticeCallout
+                variant={fixResult.status === 'success' ? 'success' : 'error'}
+                message={fixResult.message}
+              />
+            )}
+          </div>
+        ) : null}
+      </SettingsCard>
 
       <SudoPasswordDialog
         open={showSudoDialog}
@@ -101,6 +146,6 @@ export default function FixAppPermissions() {
         error={sudoError}
         onSubmit={fixPermissions}
       />
-    </div>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '@/api/axios';
 import { copyToClipboard } from '@/utils/clipboard';
-import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
+import { FaPlus, FaDownload, FaUpload, FaCheck, FaWandMagicSparkles } from 'react-icons/fa6';
 import { useTranslation } from '../../hooks/useTranslation';
 
 // Extracted components & hooks
@@ -478,10 +478,21 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             </button>
           </div>
 
+          {/* Same shape as the two beside it: an icon always, the label only
+              where there is room. As a full-width outline button it was the
+              one text control in a row of icons, and on a phone it squeezed
+              "Add new" until its label wrapped. The icon carries the copied
+              confirmation so the feedback survives without the label. */}
           {isInputSection(sectionType) && (
             <div className="tooltip tooltip-bottom" data-tip={t('event_form.ai_wizard_description')}>
-              <button onClick={handleAiWizard} className="btn btn-outline btn-sm">
-                {wizardCopied ? t('event_form.ai_prompt_copied_short') : t('event_form.ai_copy_wizard')}
+              <button
+                onClick={handleAiWizard}
+                className="btn btn-ghost btn-sm gap-2 max-sm:btn-square"
+              >
+                {wizardCopied ? <FaCheck className="text-success" /> : <FaWandMagicSparkles />}
+                <span className="hidden sm:inline">
+                  {wizardCopied ? t('event_form.ai_prompt_copied_short') : t('event_form.ai_copy_wizard')}
+                </span>
               </button>
             </div>
           )}

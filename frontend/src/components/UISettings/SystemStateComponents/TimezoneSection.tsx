@@ -2,12 +2,22 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   FaCheck,
   FaExclamationTriangle,
+  FaSearch,
   FaSpinner,
   FaSync,
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import FixTimezoneSudoers from '../FixTimezoneSudoers';
+import {
+  SettingsPage,
+  SettingsCard,
+  StatGrid,
+  FormField,
+  FormActions,
+  ToggleRow,
+  NoticeCallout,
+} from '../ui';
 
 interface TimezoneInfo {
   timezone: string;
@@ -196,131 +206,134 @@ export default function TimezoneSection() {
     : filteredTimezones.filter((tz) => !popularTimezones.includes(tz));
 
   return (
-    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-      <div className="card-body p-4 sm:p-6 space-y-5">
-        {/* Sudoers Check */}
-        <FixTimezoneSudoers />
+    <SettingsPage>
+      {/* Sudoers check — its own card, because it is a precondition for the
+          controls below rather than one of them. */}
+      <FixTimezoneSudoers />
 
-        {/* Current Status */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-base-100/60 p-4 rounded-lg border border-base-content/5">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs opacity-60 font-medium">{t('timezone.current_timezone')}</span>
-            <span className="font-mono font-bold text-base-content">{info?.timezone || '...'}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs opacity-60 font-medium">{t('timezone.local_time')}</span>
-            <span className="font-mono text-base-content">{tickingTime || '...'}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs opacity-60 font-medium">{t('timezone.ntp_status')}</span>
-            <div>
-              {info?.ntp_synchronized ? (
-                <span className="badge badge-success badge-sm gap-1">
-                  <FaSync className="w-2.5 h-2.5" />
-                  {t('timezone.synchronized')}
-                </span>
-              ) : (
-                <span className="badge badge-warning badge-sm gap-1">
-                  <FaExclamationTriangle className="w-2.5 h-2.5" />
-                  {t('timezone.not_synchronized')}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Timezone Selection */}
-        <div className="space-y-2 max-w-lg">
-          <label className="label p-0">
-            <span className="label-text font-medium">{t('timezone.select_timezone')}</span>
-          </label>
-          {/* Search filter */}
-          <input
-            type="text"
-            className="input input-bordered input-sm w-full"
-            placeholder={t('timezone.search_placeholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <select
-            className="select select-bordered select-sm w-full"
-            value={selectedTimezone}
-            onChange={(e) => setSelectedTimezone(e.target.value)}
+      <SettingsCard
+        footer={
+          <FormActions
+            hint={`${timezones.length} ${t('timezone.timezones_available')}`}
           >
-            {/* Popular timezones group */}
-            {!searchQuery && (
-              <optgroup label={t('timezone.popular')}>
-                {popularTimezones
-                  .filter((tz) => timezones.includes(tz))
-                  .map((tz) => (
-                    <option key={`popular-${tz}`} value={tz}>
-                      {tz} {tz === info?.timezone ? '✓' : ''}
+            <button
+              className="btn btn-primary btn-sm gap-2"
+              onClick={changeTimezone}
+              disabled={isSaving || !selectedTimezone.trim() || selectedTimezone === info?.timezone}
+            >
+              {isSaving ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  {t('timezone.saving')}
+                </>
+              ) : (
+                <>
+                  <FaCheck />
+                  {t('timezone.save_timezone')}
+                </>
+              )}
+            </button>
+          </FormActions>
+        }
+      >
+        <div className="space-y-4">
+          {/* Current status */}
+          <StatGrid
+            columns={3}
+            items={[
+              {
+                label: t('timezone.current_timezone'),
+                value: info?.timezone || '…',
+                mono: true,
+              },
+              {
+                label: t('timezone.local_time'),
+                value: tickingTime || '…',
+                mono: true,
+              },
+              {
+                label: t('timezone.ntp_status'),
+                value: info?.ntp_synchronized ? (
+                  <span className="badge badge-success badge-sm gap-1.5">
+                    <FaSync className="w-2.5 h-2.5" />
+                    {t('timezone.synchronized')}
+                  </span>
+                ) : (
+                  <span className="badge badge-warning badge-sm gap-1.5">
+                    <FaExclamationTriangle className="w-2.5 h-2.5" />
+                    {t('timezone.not_synchronized')}
+                  </span>
+                ),
+              },
+            ]}
+          />
+
+          {/* Timezone selection */}
+          <FormField label={t('timezone.select_timezone')} className="max-w-xl">
+            <div className="space-y-2">
+              <label className="input input-bordered flex items-center gap-2 w-full">
+                <FaSearch className="w-3.5 h-3.5 text-base-content/40 shrink-0" />
+                <input
+                  type="text"
+                  className="grow min-w-0 bg-transparent outline-hidden"
+                  placeholder={t('timezone.search_placeholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </label>
+              <select
+                className="select select-bordered w-full font-mono"
+                value={selectedTimezone}
+                onChange={(e) => setSelectedTimezone(e.target.value)}
+              >
+                {/* Popular timezones group */}
+                {!searchQuery && (
+                  <optgroup label={t('timezone.popular')}>
+                    {popularTimezones
+                      .filter((tz) => timezones.includes(tz))
+                      .map((tz) => (
+                        <option key={`popular-${tz}`} value={tz}>
+                          {tz} {tz === info?.timezone ? '\u2713' : ''}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                <optgroup label={searchQuery ? t('timezone.search_results') : t('timezone.all_timezones')}>
+                  {listedTimezones.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz} {tz === info?.timezone ? '\u2713' : ''}
                     </option>
                   ))}
-              </optgroup>
-            )}
-            <optgroup label={searchQuery ? t('timezone.search_results') : t('timezone.all_timezones')}>
-              {listedTimezones.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz} {tz === info?.timezone ? '✓' : ''}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-          <label className="label p-0">
-            <span className="label-text-alt opacity-70">
-              {timezones.length} {t('timezone.timezones_available')}
-            </span>
-          </label>
-        </div>
-
-        {/* NTP Toggle */}
-        <div className="pt-1">
-          <label className="label cursor-pointer justify-start gap-4 p-0">
-            <input
-              type="checkbox"
-              className="toggle toggle-primary toggle-sm"
-              checked={ntpEnabled}
-              onChange={toggleNtp}
-              disabled={isTogglingNtp}
-            />
-            <div>
-              <span className="label-text font-medium block">{t('timezone.ntp_sync')}</span>
-              <p className="text-xs opacity-60">{t('timezone.ntp_hint')}</p>
+                </optgroup>
+              </select>
             </div>
-            {isTogglingNtp && <FaSpinner className="animate-spin ml-2" />}
-          </label>
-        </div>
+          </FormField>
 
-        {/* Result */}
-        {result && (
-          <div className={`alert ${result.status === 'success' ? 'alert-success' : result.status === 'info' ? 'alert-info' : 'alert-error'} text-sm`}>
-            {result.status === 'success' ? <FaCheck className="shrink-0" /> : <FaExclamationTriangle className="shrink-0" />}
-            <span>{result.message}</span>
-          </div>
-        )}
+          {/* NTP */}
+          <ToggleRow
+            checked={ntpEnabled}
+            onChange={toggleNtp}
+            busy={isTogglingNtp}
+            icon={<FaSync className="w-3.5 h-3.5" />}
+            label={t('timezone.ntp_sync')}
+            description={t('timezone.ntp_hint')}
+          />
 
-        {/* Save Button */}
-        <div>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={changeTimezone}
-            disabled={isSaving || !selectedTimezone.trim() || selectedTimezone === info?.timezone}
-          >
-            {isSaving ? (
-              <>
-                <FaSpinner className="animate-spin" />
-                {t('timezone.saving')}
-              </>
-            ) : (
-              <>
-                <FaCheck />
-                {t('timezone.save_timezone')}
-              </>
-            )}
-          </button>
+          {/* Result */}
+          {result && (
+            <NoticeCallout
+              variant={
+                result.status === 'success'
+                  ? 'success'
+                  : result.status === 'info'
+                    ? 'info'
+                    : 'error'
+              }
+              message={result.message}
+            />
+          )}
         </div>
-      </div>
-    </div>
+      </SettingsCard>
+    </SettingsPage>
   );
 }

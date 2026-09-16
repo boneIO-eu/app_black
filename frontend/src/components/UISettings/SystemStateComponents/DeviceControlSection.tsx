@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import {
-  FaCheck,
-  FaExclamationTriangle,
   FaSpinner,
   FaPowerOff,
   FaRedo,
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import { SettingsPage, SettingsCard, FormActions, NoticeCallout } from '../ui';
 
 /**
  * Section for rebooting and shutting down the device.
@@ -46,20 +45,16 @@ export default function DeviceControlSection() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      {/* Reboot Device Section */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-        <div className="card-body p-4 sm:p-6">
-          <h3 className="card-title text-base gap-2">
-            <FaRedo className="text-warning" />
-            {t('settings.reboot_device')}
-          </h3>
-          <p className="text-sm opacity-70 mb-4">
-            {t('settings.reboot_description')}
-          </p>
-          <div className="card-actions">
+    <SettingsPage>
+      {/* Reboot */}
+      <SettingsCard
+        icon={<FaRedo />}
+        title={t('settings.reboot_device')}
+        description={t('settings.reboot_description')}
+        footer={
+          <FormActions>
             <button
-              className="btn btn-warning btn-sm"
+              className="btn btn-warning btn-sm gap-2"
               onClick={rebootDevice}
               disabled={isRebooting}
             >
@@ -75,37 +70,30 @@ export default function DeviceControlSection() {
                 </>
               )}
             </button>
-          </div>
+          </FormActions>
+        }
+      >
+        <div className="space-y-3">
+          <NoticeCallout variant="warning" message={t('settings.reboot_warning')} />
           {rebootResult && (
-            <div
-              className={`alert ${rebootResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4 text-sm`}
-            >
-              {rebootResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
-              <span>{rebootResult.message}</span>
-            </div>
+            <NoticeCallout
+              variant={rebootResult.status === 'success' ? 'success' : 'error'}
+              message={rebootResult.message}
+            />
           )}
-          <div className="alert alert-error mt-4 text-sm">
-            <FaExclamationTriangle />
-            <div>
-              <p>{t('settings.reboot_warning')}</p>
-            </div>
-          </div>
         </div>
-      </div>
+      </SettingsCard>
 
-      {/* Shutdown Device Section */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-        <div className="card-body p-4 sm:p-6">
-          <h3 className="card-title text-base gap-2">
-            <FaPowerOff className="text-error" />
-            {t('settings.shutdown_device')}
-          </h3>
-          <p className="text-sm opacity-70 mb-4">
-            {t('settings.shutdown_description')}
-          </p>
-          <div className="card-actions">
+      {/* Shutdown */}
+      <SettingsCard
+        variant="danger"
+        icon={<FaPowerOff />}
+        title={t('settings.shutdown_device')}
+        description={t('settings.shutdown_description')}
+        footer={
+          <FormActions>
             <button
-              className="btn btn-error btn-sm"
+              className="btn btn-error btn-sm gap-2"
               onClick={shutdownDevice}
               disabled={isShuttingDown}
             >
@@ -121,23 +109,19 @@ export default function DeviceControlSection() {
                 </>
               )}
             </button>
-          </div>
+          </FormActions>
+        }
+      >
+        <div className="space-y-3">
+          <NoticeCallout variant="error" message={t('settings.shutdown_warning')} />
           {shutdownResult && (
-            <div
-              className={`alert ${shutdownResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4 text-sm`}
-            >
-              {shutdownResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
-              <span>{shutdownResult.message}</span>
-            </div>
+            <NoticeCallout
+              variant={shutdownResult.status === 'success' ? 'success' : 'error'}
+              message={shutdownResult.message}
+            />
           )}
-          <div className="alert alert-warning mt-4 text-sm">
-            <FaExclamationTriangle />
-            <div>
-              <p>{t('settings.shutdown_warning')}</p>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
+      </SettingsCard>
+    </SettingsPage>
   );
 }

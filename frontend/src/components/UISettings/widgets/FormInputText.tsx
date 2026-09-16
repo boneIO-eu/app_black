@@ -1,5 +1,5 @@
 import React from 'react';
-import HelpLabel from '../components/HelpLabel';
+import { FormField } from '../ui';
 
 interface FormInputTextProps {
   label: string;
@@ -30,13 +30,7 @@ export const FormInputText: React.FC<FormInputTextProps> = ({
   error,
 }) => {
   return (
-    <div className="form-control">
-      <label className="label">
-        <span className="label-text font-medium">
-          {label}
-          {required && <span className="text-error">*</span>}
-        </span>
-      </label>
+    <FormField label={label} required={required} help={help} error={error}>
       <input
         type={type}
         className={`input input-bordered w-full ${error ? 'input-error' : ''}`}
@@ -46,12 +40,6 @@ export const FormInputText: React.FC<FormInputTextProps> = ({
         maxLength={maxLength}
         disabled={disabled}
       />
-      {error && (
-        <label className="label">
-          <span className="label-text-alt text-error">{error}</span>
-        </label>
-      )}
-      {help && <HelpLabel>{help}</HelpLabel>}
-    </div>
+    </FormField>
   );
 };

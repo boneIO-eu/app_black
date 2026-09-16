@@ -1,5 +1,5 @@
 import React from 'react';
-import HelpLabel from '../components/HelpLabel';
+import { FormField } from '../ui';
 import { NumericInput } from '@/components/ui/NumericInput';
 
 interface FormInputNumberProps {
@@ -32,13 +32,7 @@ export const FormInputNumber: React.FC<FormInputNumberProps> = ({
   required,
 }) => {
   return (
-    <div className="form-control">
-      <label className="label">
-        <span className="label-text font-medium">
-          {label}
-          {required && <span className="text-error">*</span>}
-        </span>
-      </label>
+    <FormField label={label} required={required} help={help}>
       <NumericInput
         value={value}
         onChange={onChange}
@@ -48,8 +42,7 @@ export const FormInputNumber: React.FC<FormInputNumberProps> = ({
         step={step}
         decimal={decimal}
       />
-      {help && <HelpLabel>{help}</HelpLabel>}
-    </div>
+    </FormField>
   );
 };
 

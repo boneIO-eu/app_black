@@ -8,6 +8,14 @@ import {
   PASSWORD_PROBLEM_KEYS,
   checkPassword,
 } from '@/utils/passwordPolicy';
+import { FaUsers, FaUserPlus } from 'react-icons/fa';
+import {
+  SettingsPage,
+  SettingsCard,
+  FormField,
+  FormActions,
+  NoticeCallout,
+} from './UISettings/ui';
 
 interface Account {
   username: string;
@@ -150,107 +158,120 @@ export default function AccountsView() {
 
   if (!isAdmin) {
     return (
-      <div className="alert alert-warning text-sm">
-        <span>{t('accounts.admin_only')}</span>
-      </div>
+      <SettingsPage width="wide">
+        <NoticeCallout variant="warning" message={t('accounts.admin_only')} />
+      </SettingsPage>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {error && <div className="alert alert-error text-sm"><span>{error}</span></div>}
-      {notice && <div className="alert alert-success text-sm"><span>{notice}</span></div>}
+    <SettingsPage width="wide">
+      {error && <NoticeCallout variant="error" message={error} />}
+      {notice && <NoticeCallout variant="success" message={notice} />}
 
-      {/* Accounts List Card */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-        <div className="card-body p-4 sm:p-6 space-y-4">
-          <h3 className="text-base font-semibold">{t('accounts.title')}</h3>
+      {/* Accounts list */}
+      <SettingsCard icon={<FaUsers />} title={t('accounts.title')}>
+        {isLoading ? (
+          <div className="flex justify-center py-6">
+            <span className="loading loading-spinner loading-md text-primary" />
+          </div>
+        ) : (
+          <div className="stg-inset overflow-x-auto">
+            <table className="table table-sm">
+              <thead>
+                <tr>
+                  <th>{t('accounts.username')}</th>
+                  <th>{t('accounts.role')}</th>
+                  <th className="text-right">{t('accounts.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((account) => {
+                  const isMe = account.username.toLowerCase() === (me ?? '').toLowerCase();
+                  return (
+                    <tr key={account.username}>
+                      <td>
+                        <span className="font-medium font-mono">{account.username}</span>
+                        {isMe && (
+                          <span className="ml-2 badge badge-ghost badge-xs">
+                            {t('accounts.you')}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <select
+                          className="select select-xs select-bordered"
+                          value={account.role}
+                          disabled={isMe}
+                          onChange={(e) => handleRoleChange(account, e.target.value as Role)}
+                        >
+                          <option value="admin">{t('accounts.role_admin')}</option>
+                          <option value="viewer">{t('accounts.role_viewer')}</option>
+                        </select>
+                      </td>
+                      <td className="text-right whitespace-nowrap">
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => handleReset(account)}
+                        >
+                          {t('accounts.reset_password')}
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-xs text-error ml-1"
+                          disabled={isMe}
+                          onClick={() => handleDelete(account)}
+                        >
+                          {t('accounts.delete')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SettingsCard>
 
-          {isLoading ? (
-            <div className="flex justify-center py-6">
-              <span className="loading loading-spinner loading-md text-primary" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-sm">
-                <thead>
-                  <tr>
-                    <th>{t('accounts.username')}</th>
-                    <th>{t('accounts.role')}</th>
-                    <th className="text-right">{t('accounts.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((account) => {
-                    const isMe = account.username.toLowerCase() === (me ?? '').toLowerCase();
-                    return (
-                      <tr key={account.username}>
-                        <td>
-                          <span className="font-medium font-mono">{account.username}</span>
-                          {isMe && (
-                            <span className="ml-2 badge badge-ghost badge-xs">
-                              {t('accounts.you')}
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          <select
-                            className="select select-xs select-bordered"
-                            value={account.role}
-                            disabled={isMe}
-                            onChange={(e) => handleRoleChange(account, e.target.value as Role)}
-                          >
-                            <option value="admin">{t('accounts.role_admin')}</option>
-                            <option value="viewer">{t('accounts.role_viewer')}</option>
-                          </select>
-                        </td>
-                        <td className="text-right whitespace-nowrap">
-                          <button
-                            className="btn btn-outline btn-xs"
-                            onClick={() => handleReset(account)}
-                          >
-                            {t('accounts.reset_password')}
-                          </button>
-                          <button
-                            className="btn btn-outline btn-error btn-xs ml-2"
-                            disabled={isMe}
-                            onClick={() => handleDelete(account)}
-                          >
-                            {t('accounts.delete')}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Account Card */}
-      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
-        <div className="card-body p-4 sm:p-6 space-y-4">
-          <form className="space-y-4" onSubmit={handleCreate}>
-            <div>
-              <h3 className="text-base font-semibold">{t('accounts.add_title')}</h3>
-              <p className="text-sm opacity-70 mt-1">{t('accounts.add_intro')}</p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
+      {/* Add account */}
+      <form onSubmit={handleCreate}>
+        <SettingsCard
+          icon={<FaUserPlus />}
+          title={t('accounts.add_title')}
+          description={t('accounts.add_intro')}
+          footer={
+            <FormActions>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm gap-2"
+                disabled={isCreating || !newUsername || !newPassword || !!newPasswordProblem}
+              >
+                {isCreating && <span className="loading loading-spinner loading-xs" />}
+                {t('accounts.add_button')}
+              </button>
+            </FormActions>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
+            <FormField label={t('accounts.username')}>
               <input
                 type="text"
-                className="input input-bordered input-sm flex-1 font-mono"
+                className="input input-bordered w-full font-mono"
                 placeholder={t('accounts.username')}
                 autoComplete="off"
                 required
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
               />
+            </FormField>
+
+            <FormField
+              label={t('accounts.password')}
+              error={newPasswordProblem || undefined}
+            >
               <input
                 type="password"
-                className={`input input-bordered input-sm flex-1 font-mono ${newPasswordProblem ? 'input-error' : ''}`}
+                className={`input input-bordered w-full font-mono ${newPasswordProblem ? 'input-error' : ''}`}
                 placeholder={t('accounts.password')}
                 autoComplete="new-password"
                 required
@@ -260,35 +281,21 @@ export default function AccountsView() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
+            </FormField>
+
+            <FormField label={t('accounts.role')} className="sm:w-40">
               <select
-                className="select select-bordered select-sm"
+                className="select select-bordered w-full"
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value as Role)}
               >
                 <option value="viewer">{t('accounts.role_viewer')}</option>
                 <option value="admin">{t('accounts.role_admin')}</option>
               </select>
-            </div>
-
-            {newPasswordProblem && (
-              <p id="accounts-password-error" className="text-error text-xs">
-                {newPasswordProblem}
-              </p>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={isCreating || !newUsername || !newPassword || !!newPasswordProblem}
-              >
-                {isCreating && <span className="loading loading-spinner loading-xs" />}
-                {t('accounts.add_button')}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+            </FormField>
+          </div>
+        </SettingsCard>
+      </form>
+    </SettingsPage>
   );
 }

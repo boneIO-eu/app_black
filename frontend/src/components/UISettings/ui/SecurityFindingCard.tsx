@@ -56,7 +56,7 @@ export const SecurityFindingCard: React.FC<SecurityFindingCardProps> = ({
 
   return (
     <div
-      className={`card bg-base-100 border border-base-200 shadow-xs rounded-xl p-4 transition-all hover:border-base-300 ${config.borderAccent} ${className}`}
+      className={`stg-card stg-card-interactive p-4 ${config.borderAccent} ${className}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -80,9 +80,9 @@ export const SecurityFindingCard: React.FC<SecurityFindingCardProps> = ({
       </div>
 
       {(onFix || remedy) && (
-        <div className="mt-3 pt-3 border-t border-base-200/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-3 pt-3 border-t border-base-content/8 flex flex-wrap items-center justify-between gap-3">
           {remedy && (
-            <code className="text-xs font-mono text-base-content/70 bg-base-200/60 px-2 py-1 rounded max-w-xl truncate">
+            <code className="text-xs font-mono text-base-content/70 bg-base-content/5 px-2 py-1 rounded max-w-xl truncate">
               {remedy}
             </code>
           )}

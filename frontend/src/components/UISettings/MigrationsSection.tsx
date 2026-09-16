@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   FaCheck,
-  FaExclamationTriangle,
   FaLock,
   FaPlay,
   FaSpinner,
@@ -12,6 +11,15 @@ import {
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useMigrations, type AppliedMigration } from '@/hooks/useMigrations';
+import {
+  SettingsPage,
+  SettingsCard,
+  FormField,
+  FormActions,
+  CardSection,
+  NoticeCallout,
+  EmptyState,
+} from './ui';
 
 const GITHUB_BASE = 'https://github.com/boneIO-eu/app_black/blob/dev-debian13';
 
@@ -85,14 +93,14 @@ const MigrationsSection: React.FC = () => {
 
   if (loading && !status) {
     return (
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <div className="flex items-center gap-2">
+      <SettingsPage>
+        <SettingsCard>
+          <div className="flex items-center gap-2.5 text-sm text-base-content/60">
             <FaSpinner className="animate-spin" />
-            <span className="text-sm opacity-70">{t('migrations.title')}...</span>
+            <span>{t('migrations.title')}…</span>
           </div>
-        </div>
-      </div>
+        </SettingsCard>
+      </SettingsPage>
     );
   }
 
@@ -108,70 +116,68 @@ const MigrationsSection: React.FC = () => {
   // now, and an entry that opens onto a blank page reads as a broken page.
   if (!status || (nothingToDo && status.applied.length === 0)) {
     return (
-      <div className="card bg-base-200">
-        <div className="card-body">
-          <h3 className="card-title">{t('migrations.title')}</h3>
-          <p className="text-sm opacity-70">{t('migrations.nothing_to_do')}</p>
-        </div>
-      </div>
+      <SettingsPage>
+        <SettingsCard>
+          <EmptyState
+            icon={<FaCheck className="text-success" />}
+            title={t('migrations.nothing_to_do')}
+          />
+        </SettingsCard>
+      </SettingsPage>
     );
   }
 
   return (
-    <div
-      id="migrations"
-      className={`card ${
-        status.bootstrap_required
-          ? 'bg-warning/10 border border-warning/40 shadow-sm'
-          : status.pending_count > 0
-            ? 'bg-info/10 border border-info/40 shadow-sm'
-            : 'bg-base-200/50 border border-base-content/10 shadow-sm'
-      }`}
-    >
-      <div className="card-body p-4 sm:p-6 space-y-4">
-        {/* Header */}
-        <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
-          <h3 className="text-base font-semibold flex items-center gap-2">
-            {status.bootstrap_required ? (
-              <FaLock className="text-warning" />
-            ) : status.pending_count > 0 ? (
-              <FaPlay className="text-info" />
-            ) : (
-              <FaCheck className="text-success" />
-            )}
-            {t('migrations.title')}
-          </h3>
-
-          {/* Applied count badge */}
-          {nothingToDo && status.applied.length > 0 && (
+    <SettingsPage width="wide">
+      <SettingsCard
+        variant={status.bootstrap_required || status.pending_count > 0 ? 'accent' : 'default'}
+        className="scroll-mt-4"
+        icon={
+          status.bootstrap_required ? (
+            <FaLock />
+          ) : status.pending_count > 0 ? (
+            <FaPlay />
+          ) : (
+            <FaCheck />
+          )
+        }
+        title={t('migrations.title')}
+        description={
+          status.bootstrap_required
+            ? t('migrations.explain_bootstrap')
+            : status.pending_count > 0
+              ? t('migrations.explain_pending', { count: status.pending_count })
+              : status.applied.length > 0
+                ? t('migrations.all_applied')
+                : undefined
+        }
+        action={
+          nothingToDo && status.applied.length > 0 ? (
             <button
-              className="btn btn-outline btn-sm w-fit"
+              className="btn btn-ghost btn-sm gap-2"
               onClick={() => setShowApplied(!showApplied)}
             >
               {showApplied ? <FaChevronDown /> : <FaChevronRight />}
               {t('migrations.applied_count', { count: status.applied.length })}
             </button>
-          )}
-        </div>
-
-        {/* Status summary */}
-        {status.bootstrap_required && (
-          <p className="text-sm opacity-80">{t('migrations.explain_bootstrap')}</p>
-        )}
-        {!status.bootstrap_required && status.pending_count > 0 && (
-          <p className="text-sm opacity-80">
-            {t('migrations.explain_pending', { count: status.pending_count })}
-          </p>
-        )}
-        {nothingToDo && status.applied.length > 0 && (
-          <p className="text-sm opacity-70">{t('migrations.all_applied')}</p>
-        )}
-
+          ) : undefined
+        }
+        footer={
+          !status.bootstrap_required && status.pending_count > 0 ? (
+            <FormActions>
+              <button className="btn btn-primary btn-sm gap-2" onClick={handleApply} disabled={busy}>
+                {busy ? <FaSpinner className="animate-spin" /> : <FaPlay />}
+                {t('migrations.apply_button')}
+              </button>
+            </FormActions>
+          ) : undefined
+        }
+      >
+      <div id="migrations" className="space-y-4">
         {/* Pending list */}
         {status.pending.length > 0 && (
-          <div className="mt-2">
-            <p className="text-sm font-medium mb-2">{t('migrations.pending_list')}:</p>
-            <div className="overflow-x-auto">
+          <CardSection title={t('migrations.pending_list')}>
+            <div className="stg-inset overflow-x-auto">
               <table className="table table-sm">
                 <thead>
                   <tr>
@@ -189,13 +195,13 @@ const MigrationsSection: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
+          </CardSection>
         )}
 
         {/* Applied list (collapsible) */}
         {showApplied && status.applied.length > 0 && (
-          <div className="mt-2">
-            <div className="overflow-x-auto">
+          <CardSection title={t('migrations.applied_count', { count: status.applied.length })}>
+            <div className="stg-inset overflow-x-auto">
               <table className="table table-sm">
                 <thead>
                   <tr>
@@ -230,27 +236,25 @@ const MigrationsSection: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
+          </CardSection>
         )}
 
         {/* Last error */}
         {status.last_error && (
-          <div className="alert alert-error mt-2">
-            <FaExclamationTriangle />
-            <span className="font-mono text-xs">{status.last_error}</span>
-          </div>
+          <NoticeCallout
+            variant="error"
+            message={<span className="font-mono text-xs break-all">{status.last_error}</span>}
+          />
         )}
 
         {/* Bootstrap form */}
         {status.bootstrap_required && (
-          <div className="mt-5 space-y-3 pl-1">
-            <div className="flex items-start gap-2 text-sm text-warning-content/80 bg-warning/10 border border-warning/30 rounded-lg p-3">
-              <FaExclamationTriangle className="mt-0.5 shrink-0" />
-              <div>
-                <p className="font-medium">{t('migrations.bootstrap_title')}</p>
-                <p className="opacity-80">{t('migrations.bootstrap_description')}</p>
-              </div>
-            </div>
+          <div className="space-y-3">
+            <NoticeCallout
+              variant="warning"
+              title={t('migrations.bootstrap_title')}
+              message={t('migrations.bootstrap_description')}
+            />
 
             <form
               autoComplete="off"
@@ -258,7 +262,7 @@ const MigrationsSection: React.FC = () => {
                 e.preventDefault();
                 if (!busy && password) handleBootstrap();
               }}
-              className="flex flex-col gap-4 mt-2"
+              className="space-y-4"
             >
               {/* Honeypot fields to discourage password manager autofill */}
               <input
@@ -278,16 +282,15 @@ const MigrationsSection: React.FC = () => {
                 aria-hidden="true"
               />
 
-              <div className="form-control min-w-0 max-w-lg">
-                <label className="label pt-0 mr-2">
-                  <span className="label-text font-medium">
-                    {t('migrations.sudo_password_label')}
-                  </span>
-                </label>
-                <div className="join">
+              <FormField
+                label={t('migrations.sudo_password_label')}
+                help={t('migrations.password_hint')}
+                className="max-w-lg"
+              >
+                <div className="join w-full">
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="input input-bordered input-sm join-item flex-1 min-w-0 font-mono"
+                    className="input input-bordered join-item flex-1 min-w-0 font-mono"
                     placeholder={t('migrations.sudo_password_placeholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -303,59 +306,36 @@ const MigrationsSection: React.FC = () => {
                   />
                   <button
                     type="button"
-                    className="btn btn-sm join-item"
+                    className="btn btn-neutral join-item"
                     onClick={() => setShowPassword((v) => !v)}
                     disabled={busy}
                   >
                     {showPassword ? t('migrations.hide') : t('migrations.show')}
                   </button>
                 </div>
-                <label className="label pt-2">
-                  <span className="label-text-alt opacity-70">
-                    {t('migrations.password_hint')}
-                  </span>
-                </label>
-              </div>
+              </FormField>
 
-              <div className="card-actions justify-end mt-2">
+              <FormActions>
                 <button
                   type="submit"
-                  className="btn btn-warning btn-sm"
+                  className="btn btn-warning btn-sm gap-2"
                   disabled={busy || !password}
                 >
-                  {busy ? <FaSpinner className="animate-spin mr-1" /> : <FaLock className="mr-1" />}
+                  {busy ? <FaSpinner className="animate-spin" /> : <FaLock />}
                   {t('migrations.bootstrap_button')}
                 </button>
-              </div>
+              </FormActions>
             </form>
-          </div>
-        )}
-
-        {/* Apply button when helper installed and pending */}
-        {!status.bootstrap_required && status.pending_count > 0 && (
-          <div className="card-actions justify-end mt-4">
-            <button
-              className="btn btn-info btn-sm"
-              onClick={handleApply}
-              disabled={busy}
-            >
-              {busy ? <FaSpinner className="animate-spin mr-1" /> : <FaPlay className="mr-1" />}
-              {t('migrations.apply_button')}
-            </button>
           </div>
         )}
 
         {/* Feedback */}
         {message && (
-          <div
-            className={`alert ${isError ? 'alert-error' : 'alert-success'} mt-3`}
-          >
-            {isError ? <FaExclamationTriangle /> : <FaCheck />}
-            <span>{message}</span>
-          </div>
+          <NoticeCallout variant={isError ? 'error' : 'success'} message={message} />
         )}
       </div>
-    </div>
+      </SettingsCard>
+    </SettingsPage>
   );
 };
 

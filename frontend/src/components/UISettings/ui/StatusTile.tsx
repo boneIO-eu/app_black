@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 export interface StatusTileProps {
   /** Optional icon */
@@ -18,8 +19,9 @@ export interface StatusTileProps {
 }
 
 /**
- * Clean status tile for displaying read-only device properties.
- * Eliminates the anti-pattern of using disabled text inputs.
+ * A read-only device property, shown as a value rather than as a disabled
+ * input. Sits on the recessed `.stg-inset` surface so it reads as "this is
+ * the current state", distinct from the fields below it that change it.
  */
 export const StatusTile: React.FC<StatusTileProps> = ({
   icon,
@@ -32,26 +34,27 @@ export const StatusTile: React.FC<StatusTileProps> = ({
 }) => {
   return (
     <div
-      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-base-200/50 border border-base-200/90 transition-all ${className}`}
+      className={cn(
+        'stg-inset flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 sm:p-4',
+        className,
+      )}
     >
       <div className="flex items-center gap-3.5 min-w-0">
         {icon && (
-          <div className="w-10 h-10 rounded-xl bg-base-100 text-primary border border-base-200/80 shadow-xs flex items-center justify-center text-lg shrink-0">
+          <div className="stg-chip w-10 h-10 rounded-xl flex items-center justify-center text-[17px] shrink-0">
             {icon}
           </div>
         )}
         <div className="min-w-0">
-          <span className="text-xs font-semibold text-base-content/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-semibold text-base-content/50 uppercase tracking-[0.08em] block">
             {label}
           </span>
-          <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
+          <div className="flex items-baseline gap-2 mt-1 flex-wrap">
             <span className="font-mono text-base sm:text-lg font-bold text-base-content truncate">
               {value}
             </span>
             {suffix && (
-              <span className="text-xs font-mono text-base-content/50">
-                {suffix}
-              </span>
+              <span className="text-xs font-mono text-base-content/45">{suffix}</span>
             )}
             {badge}
           </div>

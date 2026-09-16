@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import axios from '../api/axios';
-import { SettingsCard, FormField } from './UISettings/ui';
+import { FaObjectGroup } from 'react-icons/fa';
+import { SettingsCard, FormField, FormActions, ToggleRow } from './UISettings/ui';
 
 interface FramingState {
   restrict: boolean;
@@ -11,6 +12,24 @@ interface FramingState {
 
 interface FrameAncestorsCardProps {
   onSaved?: () => void;
+}
+
+/**
+ * Accept only a payload that actually looks like a framing state.
+ *
+ * The endpoint used to be addressed by a name the backend does not serve, and
+ * the dev server answers an unknown /api path with index.html at status 200 —
+ * so `extra_origins` arrived as undefined, `origins.map` threw during render,
+ * and the whole security page went blank. The URL is fixed above; this keeps a
+ * surprising answer from taking the page down again.
+ */
+function normalize(raw: unknown): FramingState {
+  const data = (raw ?? {}) as Partial<FramingState>;
+  return {
+    restrict: typeof data.restrict === 'boolean' ? data.restrict : true,
+    extra_origins: Array.isArray(data.extra_origins) ? data.extra_origins : [],
+    value: typeof data.value === 'string' ? data.value : '',
+  };
 }
 
 /**
@@ -29,11 +48,12 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get<FramingState>('/api/security/framing');
+        const res = await axios.get<FramingState>('/api/security/frame-ancestors');
         if (cancelled) return;
-        setState(res.data);
-        setRestrict(res.data.restrict);
-        setOrigins(res.data.extra_origins);
+        const data = normalize(res.data);
+        setState(data);
+        setRestrict(data.restrict);
+        setOrigins(data.extra_origins);
       } catch (err: any) {
         if (cancelled) return;
         setError(err.message || 'Failed to load framing settings');
@@ -62,13 +82,14 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
     setSaving(true);
     setError(null);
     try {
-      const res = await axios.post<FramingState>('/api/security/framing', {
+      const res = await axios.put<FramingState>('/api/security/frame-ancestors', {
         restrict,
         extra_origins: cleanOrigins,
       });
-      setState(res.data);
-      setRestrict(res.data.restrict);
-      setOrigins(res.data.extra_origins);
+      const data = normalize(res.data);
+      setState(data);
+      setRestrict(data.restrict);
+      setOrigins(data.extra_origins);
       setSaved(true);
       onSaved?.();
     } catch (err: any) {
@@ -94,26 +115,39 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
 
   return (
     <SettingsCard
+      icon={<FaObjectGroup />}
       title={t('security.framing.title')}
       description={t('security.framing.intro')}
+      footer={
+        <FormActions
+          hint={
+            <code className="font-mono text-xs bg-base-content/5 px-2 py-1 rounded">
+              frame-ancestors {state.value}
+            </code>
+          }
+        >
+          {saved && (
+            <span className="badge badge-warning badge-sm font-medium">
+              {t('security.framing.restart_needed')}
+            </span>
+          )}
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={() => void save()}
+            disabled={saving || !dirty}
+          >
+            {saving ? t('security.framing.saving') : t('security.framing.save')}
+          </button>
+        </FormActions>
+      }
     >
       <div className="space-y-4">
-        <label className="flex items-start gap-3 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            className="toggle toggle-primary toggle-sm mt-0.5"
-            checked={restrict}
-            onChange={e => setRestrict(e.target.checked)}
-          />
-          <span className="text-sm">
-            <span className="font-medium text-base-content block">
-              {t('security.framing.restrict')}
-            </span>
-            <span className="block text-xs text-base-content/60 mt-0.5">
-              {t('security.framing.restrict_help')}
-            </span>
-          </span>
-        </label>
+        <ToggleRow
+          checked={restrict}
+          onChange={setRestrict}
+          label={t('security.framing.restrict')}
+          description={t('security.framing.restrict_help')}
+        />
 
         {restrict && (
           <FormField
@@ -126,7 +160,7 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
                   <input
                     id={`frame-extra-origin-${index}`}
                     type="url"
-                    className="input input-bordered input-sm flex-1 font-mono text-sm"
+                    className="input input-bordered flex-1 font-mono text-sm"
                     placeholder="https://homeassistant.local:8123"
                     value={value}
                     onChange={e => setOriginAt(index, e.target.value)}
@@ -155,26 +189,6 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
         )}
 
         {error && <p className="text-sm text-error font-medium">{error}</p>}
-
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-base-200/80">
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={() => void save()}
-              disabled={saving || !dirty}
-            >
-              {saving ? t('security.framing.saving') : t('security.framing.save')}
-            </button>
-            {saved && (
-              <span className="badge badge-warning badge-sm font-medium">
-                {t('security.framing.restart_needed')}
-              </span>
-            )}
-          </div>
-          <code className="text-xs font-mono text-base-content/50 bg-base-200/50 px-2 py-1 rounded">
-            frame-ancestors {state.value}
-          </code>
-        </div>
       </div>
     </SettingsCard>
   );

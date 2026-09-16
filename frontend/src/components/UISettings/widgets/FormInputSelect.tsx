@@ -1,5 +1,5 @@
 import React from 'react';
-import HelpLabel from '../components/HelpLabel';
+import { FormField } from '../ui';
 
 interface SelectOption {
   value: string | number;
@@ -39,13 +39,7 @@ export const FormInputSelect: React.FC<FormInputSelectProps> = ({
   const stringValue = String(value);
   
   return (
-    <div className="form-control">
-      <label className="label">
-        <span className="label-text font-medium">
-          {label}
-          {required && <span className="text-error">*</span>}
-        </span>
-      </label>
+    <FormField label={label} required={required} help={help} error={error}>
       <div className={actionButton ? "flex gap-2" : ""}>
         <select
           className={`select select-bordered ${actionButton ? "flex-1" : "w-full"} ${error ? 'select-error' : ''}`}
@@ -69,13 +63,7 @@ export const FormInputSelect: React.FC<FormInputSelectProps> = ({
         </select>
         {actionButton}
       </div>
-      {error && (
-        <label className="label">
-          <span className="label-text-alt text-error">{error}</span>
-        </label>
-      )}
       {footerNode}
-      {help && <HelpLabel>{help}</HelpLabel>}
-    </div>
+    </FormField>
   );
 };

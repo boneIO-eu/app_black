@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -243,16 +244,18 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     <div className="space-y-4">
       {/* Validation Errors - sticky at top - pokazuj tylko gdy użytkownik próbował zapisać */}
       {attemptedSubmit && validationErrors.length > 0 && (
-        <div className="alert alert-error sticky top-0 z-10 shadow-lg">
-          <div>
-            <h3 className="font-bold">{t('validation.errors')} ({validationErrors.length}):</h3>
+        <NoticeCallout
+          variant="error"
+          className="sticky top-0 z-10 bg-base-100 shadow-sm"
+          title={`${t('validation.errors')} (${validationErrors.length}):`}
+          message={
             <ul className="list-disc list-inside max-h-24 overflow-y-auto">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
               ))}
             </ul>
-          </div>
-        </div>
+          }
+        />
       )}
 
       <AiConfigAssistant

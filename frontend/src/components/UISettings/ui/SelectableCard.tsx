@@ -53,7 +53,7 @@ export const SelectableCard: React.FC<SelectableCardProps> = ({
           flex items-center gap-3.5 p-3 sm:p-3.5 rounded-xl border transition-all select-none
           ${selected
             ? 'border-primary/50 bg-primary/5 shadow-xs ring-1 ring-primary/20'
-            : 'border-base-200 bg-base-100 hover:border-base-300 hover:bg-base-200/30'}
+            : 'border-base-content/10 bg-base-100 hover:border-base-content/20 hover:bg-base-content/3'}
           ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
         `}
         onClick={() => !disabled && onToggle()}
@@ -66,7 +66,7 @@ export const SelectableCard: React.FC<SelectableCardProps> = ({
           readOnly
         />
         {icon && (
-          <div className="w-9 h-9 rounded-lg bg-base-200/70 border border-base-200/80 flex items-center justify-center text-lg shrink-0">
+          <div className="stg-chip-neutral w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0">
             {icon}
           </div>
         )}
@@ -97,7 +97,7 @@ export const SelectableCard: React.FC<SelectableCardProps> = ({
         )}
       </div>
       {isExpanded && children && (
-        <div className="ml-6 sm:ml-10 mt-1.5 p-2 rounded-xl bg-base-200/40 border border-base-200">
+        <div className="stg-inset ml-6 sm:ml-10 mt-1.5 p-2">
           {children}
         </div>
       )}

@@ -6,6 +6,7 @@ import { FaExclamationTriangle, FaInfoCircle, FaCheck, FaSpinner } from 'react-i
 import { FormInputNumber, FormInputText } from './widgets';
 import HelpLabel from './components/HelpLabel';
 import SudoPasswordDialog from './SudoPasswordDialog';
+import { NoticeCallout } from './ui';
 
 interface WebServerFormProps {
   data: any;
@@ -113,7 +114,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="stg-cols">
       {/* Port */}
       <FormInputNumber
         label={t('webserver.port')}
@@ -143,14 +144,17 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       {/* Where the username/password fields used to be, so nobody hunts for
           the web password that moved to hashed accounts in 1.6. */}
       <div className="divider">{t('webserver.auth')}</div>
-      <div className="alert alert-info text-sm">
-        <span>
-          {t('webserver.accounts_moved')}{' '}
-          <Link to="/settings/accounts" className="link font-semibold">
-            {t('sections.accounts')}
-          </Link>
-        </span>
-      </div>
+      <NoticeCallout
+        variant="info"
+        message={
+          <>
+            {t('webserver.accounts_moved')}{' '}
+            <Link to="/settings/accounts" className="link font-semibold">
+              {t('sections.accounts')}
+            </Link>
+          </>
+        }
+      />
 
       {/* Cloud Registration (PWA) */}
       <div className="divider"></div>
@@ -190,49 +194,53 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       {data?.cloud?.enabled && (
         <div className="space-y-3 ml-2">
           {/* DNS Rebinding Warning */}
-          <div className="alert alert-warning text-sm">
-            <FaExclamationTriangle className="shrink-0" />
-            <div>
-              <p className="font-semibold">{t('boneio_config.cloud_registration_warning_title')}</p>
-              <p className="mt-1">{t('boneio_config.cloud_registration_warning')}</p>
-            </div>
-          </div>
+          <NoticeCallout
+            variant="warning"
+            title={t('boneio_config.cloud_registration_warning_title')}
+            message={t('boneio_config.cloud_registration_warning')}
+          />
 
           {/* Permission error */}
           {!composeWritable && !isHttps && (
-            <div className="alert alert-error text-sm">
-              <FaExclamationTriangle className="shrink-0" />
-              <div>
-                <p className="font-semibold">{t('boneio_config.cloud_permission_error_title') || 'Permission error'}</p>
-                <p className="mt-1 font-mono text-xs">{t('boneio_config.cloud_permission_error') || 'docker-compose.yaml is not writable. Run via SSH: sudo chown $USER ~/docker/nodered/docker-compose.yaml'}</p>
-              </div>
-            </div>
+            <NoticeCallout
+              variant="error"
+              title={t('boneio_config.cloud_permission_error_title') || 'Permission error'}
+              message={
+                <span className="font-mono text-xs break-all">
+                  {t('boneio_config.cloud_permission_error') || 'docker-compose.yaml is not writable. Run via SSH: sudo chown $USER ~/docker/nodered/docker-compose.yaml'}
+                </span>
+              }
+            />
           )}
 
           {/* Permission error with sudo fix (HTTPS only) */}
           {!composeWritable && isHttps && (
-            <div className="alert alert-error text-sm">
-              <FaExclamationTriangle className="shrink-0" />
-              <div className="w-full">
-                <p className="font-semibold">{t('boneio_config.cloud_permission_error_title') || 'Permission error'}</p>
-                <p className="mt-1">{t('boneio_config.cloud_permission_fix_hint') || 'Enter your system password to fix file permissions automatically:'}</p>
-                <button
-                  className="btn btn-sm btn-primary mt-2"
-                  onClick={() => {
-                    setSudoError(null);
-                    setShowSudoDialog(true);
-                  }}
-                >
-                  {t('boneio_config.cloud_fix_btn') || 'Fix'}
-                </button>
-                {fixResult && (
-                  <p className={`mt-2 text-xs ${fixResult.status === 'success' ? 'text-success' : 'text-error'}`}>
-                    {fixResult.status === 'success' ? <FaCheck className="inline mr-1" /> : <FaExclamationTriangle className="inline mr-1" />}
-                    {fixResult.message}
-                  </p>
-                )}
-              </div>
-            </div>
+            <NoticeCallout
+              variant="error"
+              title={t('boneio_config.cloud_permission_error_title') || 'Permission error'}
+              message={
+                <>
+                  <span className="block">
+                    {t('boneio_config.cloud_permission_fix_hint') || 'Enter your system password to fix file permissions automatically:'}
+                  </span>
+                  <button
+                    className="btn btn-sm btn-primary mt-2"
+                    onClick={() => {
+                      setSudoError(null);
+                      setShowSudoDialog(true);
+                    }}
+                  >
+                    {t('boneio_config.cloud_fix_btn') || 'Fix'}
+                  </button>
+                  {fixResult && (
+                    <span className={`block mt-2 text-xs ${fixResult.status === 'success' ? 'text-success' : 'text-error'}`}>
+                      {fixResult.status === 'success' ? <FaCheck className="inline mr-1" /> : <FaExclamationTriangle className="inline mr-1" />}
+                      {fixResult.message}
+                    </span>
+                  )}
+                </>
+              }
+            />
           )}
 
           <SudoPasswordDialog
@@ -249,23 +257,28 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
 
           {/* Cloud error */}
           {cloudError && composeWritable && (
-            <div className="alert alert-error text-sm">
-              <FaExclamationTriangle className="shrink-0" />
-              <div>
-                <p className="font-semibold">{t('boneio_config.cloud_error_title') || 'Cloud configuration error'}</p>
-                <p className="mt-1 whitespace-normal wrap-break-word">{cloudError}</p>
-              </div>
-            </div>
+            <NoticeCallout
+              variant="error"
+              title={t('boneio_config.cloud_error_title') || 'Cloud configuration error'}
+              message={<span className="wrap-break-word">{cloudError}</span>}
+            />
           )}
 
           {/* Domain info */}
-          <div className="alert alert-info text-sm">
-            <div>
-              <p>{t('boneio_config.cloud_registration_domain')}</p>
-              <p className="font-mono font-bold mt-1">https://{'<serial>'}.black.boneio.app:8443</p>
-              <p className="mt-1 opacity-70">{t('boneio_config.cloud_registration_lan_only')}</p>
-            </div>
-          </div>
+          <NoticeCallout
+            variant="info"
+            message={
+              <>
+                <span className="block">{t('boneio_config.cloud_registration_domain')}</span>
+                <span className="block font-mono font-bold mt-1">
+                  https://{'<serial>'}.black.boneio.app:8443
+                </span>
+                <span className="block mt-1 opacity-70">
+                  {t('boneio_config.cloud_registration_lan_only')}
+                </span>
+              </>
+            }
+          />
 
           {/* PWA App Name */}
           <div className="divider text-xs opacity-60">{t('settings.pwa_name_title')}</div>

@@ -5,7 +5,7 @@
  * Desktop: Always-visible sidebar with section list.
  */
 import { useState } from 'react';
-import { FaCheck, FaExclamationTriangle, FaUndo, FaSave, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaCheck, FaExclamationTriangle, FaSearch, FaTimes } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
 import { useSecurityPosture } from '@/hooks/useSecurityPosture';
@@ -42,12 +42,6 @@ interface SettingsSidebarProps {
   isSidebarOpen: boolean;
   onSidebarToggle: (open: boolean) => void;
   onNavigate: (sectionName: string) => void;
-  /** Called when Save button is pressed in mobile bottom bar */
-  onSave?: () => void;
-  /** Called when Restore button is pressed in mobile bottom bar */
-  onRestore?: () => void;
-  /** Whether the save button should be disabled */
-  saveDisabled?: boolean;
 }
 
 /**
@@ -70,10 +64,10 @@ function SectionButton({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+      className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors duration-150 flex items-center justify-between group ${
         isActive
-          ? 'bg-primary text-primary-content shadow-md'
-          : 'bg-base-100 hover:bg-base-300 text-base-content'
+          ? 'bg-primary text-primary-content shadow-sm'
+          : 'text-base-content hover:bg-base-content/6'
       }`}
     >
       <div className="flex items-center space-x-3 min-w-0 flex-1">
@@ -250,7 +244,7 @@ function SidebarContent({
   }
 
   const searchBox = (
-    <label className="input input-sm input-ghost bg-base-100 flex items-center gap-2 mb-3 rounded-lg focus-within:outline-none focus-within:ring-1 focus-within:ring-primary/40">
+    <label className="input input-sm bg-base-100 border-base-content/10 flex items-center gap-2 mb-3 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/30">
       <FaSearch className="w-3.5 h-3.5 opacity-40 shrink-0" />
       <input
         type="text"
@@ -364,7 +358,7 @@ function SidebarContent({
         return (
           <div
             key={group.name}
-            className={`mb-2 border rounded-xl ${holdsActive ? 'border-primary/30 bg-primary/5' : 'border-base-content/10 bg-base-200/40'}`}
+            className={`mb-2 rounded-xl border ${holdsActive ? 'border-primary/30 bg-primary/5' : 'border-base-content/8 bg-base-100/70'}`}
           >
             <button
               className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
@@ -417,16 +411,12 @@ export default function SettingsSidebar({
   isSidebarOpen,
   onSidebarToggle,
   onNavigate,
-  onSave,
-  onRestore,
-  saveDisabled,
 }: SettingsSidebarProps) {
   const { t } = useTranslation();
   const activeSectionConfig = configSections.find(s => s.name === activeSection);
   const hasActiveUnsaved = activeSection === 'mqtt'
     ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
     : (unsavedChanges[activeSection] || false);
-  const isSaving = saveStatus[activeSection] === 'saving';
 
   /** Navigate to section and close mobile bottom sheet. */
   const handleMobileNavigate = (sectionName: string) => {
@@ -434,32 +424,10 @@ export default function SettingsSidebar({
     onSidebarToggle(false);
   };
 
-  /** Action buttons for bottom bar — only when active section has unsaved changes. */
-  const actionButtons = hasActiveUnsaved ? (
-    <>
-      <button
-        type="button"
-        className="btn btn-sm btn-ghost flex-1"
-        onClick={onRestore}
-      >
-        <FaUndo className="text-xs" />
-        {t('settings.restore')}
-      </button>
-      <button
-        type="button"
-        className="btn btn-sm btn-primary flex-1 animate-subtle-glow"
-        onClick={onSave}
-        disabled={saveDisabled || isSaving}
-      >
-        {isSaving ? (
-          <span className="loading loading-spinner loading-xs" />
-        ) : (
-          <FaSave className="text-xs" />
-        )}
-        {t('settings.save')}
-      </button>
-    </>
-  ) : undefined;
+  // Save and Restore used to live here too, which is how the same button
+  // ended up in three different places depending on the section and the
+  // window width. They are in SettingsActionBar now, at the bottom of the
+  // content column at every size — this bar is navigation.
   
   return (
     <>
@@ -474,7 +442,6 @@ export default function SettingsSidebar({
             ? <span className="flex-shrink-0 w-2 h-2 bg-warning rounded-full" />
             : undefined
         }
-        actions={actionButtons}
         sheetTitle={t('settings.configuration_sections')}
       >
         <SidebarContent
@@ -489,9 +456,11 @@ export default function SettingsSidebar({
       </BottomPeekBar>
 
       {/* Desktop version - always visible sidebar */}
-      <div className="hidden lg:block w-80 bg-base-200 border-r border-base-content/10 overflow-y-auto">
+      <div className="hidden lg:block w-80 shrink-0 stg-canvas border-r border-base-content/8 overflow-y-auto">
         <div className="p-4">
-          <h2 className="text-xl font-bold text-base-content mb-4">{t('settings.configuration_sections')}</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-base-content/45 mb-3 px-1">
+            {t('settings.configuration_sections')}
+          </h2>
           <SidebarContent
             sections={sections}
             configSections={configSections}

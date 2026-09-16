@@ -5,7 +5,13 @@ import {
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
-import { SettingsCard, FormField, NoticeCallout } from '../ui';
+import {
+  SettingsPage,
+  SettingsCard,
+  FormField,
+  FormActions,
+  NoticeCallout,
+} from '../ui';
 
 /**
  * Section for managing MQTT user passwords.
@@ -116,7 +122,7 @@ export default function MqttPasswordsSection() {
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <SettingsPage>
       {/* Remote broker notice */}
       {appAccount && !appAccount.usesLocalBroker && (
         <NoticeCallout
@@ -136,100 +142,101 @@ export default function MqttPasswordsSection() {
       />
 
       {/* Account Cards */}
-      <div className="space-y-4">
-        {['boneio', 'homeassistant', 'mqtt'].map(username => {
-          const isCurrentAppUser = appAccount?.usesLocalBroker && username === appAccount.username;
-          const result = passwordResults[username];
+      {['boneio', 'homeassistant', 'mqtt'].map(username => {
+        const isCurrentAppUser = appAccount?.usesLocalBroker && username === appAccount.username;
+        const result = passwordResults[username];
+        const entry = mqttPasswords[username];
+        const canSubmit = Boolean(entry.password && entry.confirm);
 
-          return (
-            <SettingsCard
-              key={username}
-              icon={<FaKey />}
-              title={
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono font-bold text-base">{username}</span>
-                  {getUserBadge(username)}
-                </div>
-              }
-            >
-              <div className="space-y-4">
-                {isCurrentAppUser && (
-                  <NoticeCallout
-                    variant="warning"
-                    message={t('mqtt_passwords.boneio_user_warning')}
-                  />
-                )}
+        return (
+          <SettingsCard
+            key={username}
+            icon={<FaKey />}
+            title={<span className="font-mono">{username}</span>}
+            action={getUserBadge(username)}
+            footer={
+              <FormActions
+                hint={
+                  entry.password && entry.password.length < 8
+                    ? t('mqtt_passwords.password_too_short')
+                    : undefined
+                }
+              >
+                <button
+                  className="btn btn-primary btn-sm gap-2"
+                  onClick={() => changeMqttPassword(username)}
+                  disabled={changingPassword === username || !canSubmit}
+                >
+                  {changingPassword === username ? (
+                    <>
+                      <FaSpinner className="animate-spin" />
+                      {t('mqtt_passwords.changing')}
+                    </>
+                  ) : (
+                    t('mqtt_passwords.change_password')
+                  )}
+                </button>
+              </FormActions>
+            }
+          >
+            <div className="space-y-4">
+              {isCurrentAppUser && (
+                <NoticeCallout
+                  variant="warning"
+                  message={t('mqtt_passwords.boneio_user_warning')}
+                />
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
-                  <FormField label={t('mqtt_passwords.new_password')}>
-                    <input
-                      type="password"
-                      className="input input-bordered input-sm w-full font-mono"
-                      value={mqttPasswords[username].password}
-                      onChange={e =>
-                        setMqttPasswords({
-                          ...mqttPasswords,
-                          [username]: {
-                            ...mqttPasswords[username],
-                            password: e.target.value,
-                          },
-                        })
-                      }
-                      disabled={changingPassword === username}
-                    />
-                  </FormField>
-
-                  <FormField label={t('mqtt_passwords.confirm_password')}>
-                    <input
-                      type="password"
-                      className="input input-bordered input-sm w-full font-mono"
-                      value={mqttPasswords[username].confirm}
-                      onChange={e =>
-                        setMqttPasswords({
-                          ...mqttPasswords,
-                          [username]: {
-                            ...mqttPasswords[username],
-                            confirm: e.target.value,
-                          },
-                        })
-                      }
-                      disabled={changingPassword === username}
-                    />
-                  </FormField>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <button
-                    className="btn btn-primary btn-sm gap-2"
-                    onClick={() => changeMqttPassword(username)}
-                    disabled={
-                      changingPassword === username ||
-                      !mqttPasswords[username].password ||
-                      !mqttPasswords[username].confirm
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField label={t('mqtt_passwords.new_password')}>
+                  <input
+                    type="password"
+                    className="input input-bordered w-full font-mono"
+                    autoComplete="new-password"
+                    value={entry.password}
+                    onChange={e =>
+                      setMqttPasswords({
+                        ...mqttPasswords,
+                        [username]: {
+                          ...mqttPasswords[username],
+                          password: e.target.value,
+                        },
+                      })
                     }
-                  >
-                    {changingPassword === username ? (
-                      <>
-                        <FaSpinner className="animate-spin" />
-                        {t('mqtt_passwords.changing')}
-                      </>
-                    ) : (
-                      t('mqtt_passwords.change_password')
-                    )}
-                  </button>
-                </div>
-
-                {result?.message && (
-                  <NoticeCallout
-                    variant={result.status === 'success' ? 'success' : 'error'}
-                    message={result.message}
+                    disabled={changingPassword === username}
                   />
-                )}
+                </FormField>
+
+                <FormField label={t('mqtt_passwords.confirm_password')}>
+                  <input
+                    type="password"
+                    className="input input-bordered w-full font-mono"
+                    autoComplete="new-password"
+                    value={entry.confirm}
+                    onChange={e =>
+                      setMqttPasswords({
+                        ...mqttPasswords,
+                        [username]: {
+                          ...mqttPasswords[username],
+                          confirm: e.target.value,
+                        },
+                      })
+                    }
+                    disabled={changingPassword === username}
+                  />
+                </FormField>
               </div>
-            </SettingsCard>
-          );
-        })}
-      </div>
-    </div>
+
+              {result?.message && (
+                <NoticeCallout
+                  variant={result.status === 'success' ? 'success' : 'error'}
+                  message={result.message}
+                />
+              )}
+            </div>
+          </SettingsCard>
+        );
+      })}
+    </SettingsPage>
   );
 }

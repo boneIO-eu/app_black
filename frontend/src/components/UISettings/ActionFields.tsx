@@ -1,3 +1,4 @@
+import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
 import { NumericInput } from '@/components/ui/NumericInput';
 import {
@@ -205,9 +206,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
       </div>
 
       {validationError && (
-        <div className="alert alert-error mb-3 py-2">
-          <span className="text-sm">{validationError}</span>
-        </div>
+        <NoticeCallout variant="error" className="mb-3" message={validationError} />
       )}
 
       {/* Action Type Selection */}

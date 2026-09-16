@@ -70,7 +70,7 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange, onValidationChange })
   };
 
   return (
-    <div className="space-y-4">
+    <div className="stg-cols">
       {/* Host */}
       <div className="form-control">
         <label className="label">

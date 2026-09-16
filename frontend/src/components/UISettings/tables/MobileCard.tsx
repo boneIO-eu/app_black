@@ -46,7 +46,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
   children,
 }) => {
   return (
-    <div className={`card card-compact bg-base-200 shadow-sm ${onClick ? 'cursor-pointer' : ''}`}>
+    <div className={`stg-inset card card-compact ${onClick ? 'cursor-pointer' : ''}`}>
       <div className="card-body p-3">
         {/* Header: title + actions */}
         <div className="flex items-start justify-between gap-2">

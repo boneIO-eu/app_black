@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
+import { SettingsCard } from './ui';
 
 interface HardwareError {
   type: string;
@@ -28,41 +29,41 @@ const HardwareErrors: React.FC<HardwareErrorsProps> = ({ errors }) => {
   }
 
   return (
-    <>
-      {/* Hardware Errors */}
-      <div className="alert alert-error">
-        <FaExclamationTriangle />
-        <div className="flex-1">
-          <h3 className="font-bold">{t('system_update.hardware_errors_title')}</h3>
-          <div className="text-sm mt-2 space-y-1">
-            {hwErrors.map((err, idx) => (
-              <div key={idx} className="font-mono">
-                {err.type === 'expander' ? (
-                  <span>
-                    {err.expander_type} {err.id} (0x{err.address?.toString(16)}): {err.error}
-                  </span>
-                ) : err.type === 'output' ? (
-                  <span>
-                    Output {err.id} ({err.name}): {err.error}
-                  </span>
-                ) : err.type === 'sensor' ? (
-                  <span>
-                    {err.sensor_type?.toUpperCase()} {err.name} (0x{err.address?.toString(16)}): {err.error}
-                  </span>
-                ) : err.type === 'display' ? (
-                  <span>
-                    {err.name} (0x{err.address?.toString(16)}): {err.error}
-                  </span>
-                ) : (
-                  <span>{err.message}</span>
-                )}
-              </div>
-            ))}
+    <SettingsCard
+      variant="danger"
+      icon={<FaExclamationTriangle />}
+      title={t('system_update.hardware_errors_title')}
+      description={t('system_update.hardware_errors_hint')}
+    >
+      <div className="stg-inset divide-y divide-base-content/8">
+        {hwErrors.map((err, idx) => (
+          <div key={idx} className="flex items-start gap-2.5 p-3 font-mono text-xs">
+            <span className="text-error shrink-0 mt-px">•</span>
+            <span className="min-w-0 break-words text-base-content/80">
+              {err.type === 'expander' ? (
+                <>
+                  {err.expander_type} {err.id} (0x{err.address?.toString(16)}): {err.error}
+                </>
+              ) : err.type === 'output' ? (
+                <>
+                  Output {err.id} ({err.name}): {err.error}
+                </>
+              ) : err.type === 'sensor' ? (
+                <>
+                  {err.sensor_type?.toUpperCase()} {err.name} (0x{err.address?.toString(16)}): {err.error}
+                </>
+              ) : err.type === 'display' ? (
+                <>
+                  {err.name} (0x{err.address?.toString(16)}): {err.error}
+                </>
+              ) : (
+                err.message
+              )}
+            </span>
           </div>
-          <div className="text-sm mt-2">{t('system_update.hardware_errors_hint')}</div>
-        </div>
+        ))}
       </div>
-    </>
+    </SettingsCard>
   );
 };
 

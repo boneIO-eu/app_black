@@ -16,7 +16,7 @@ import {
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useNodeRedManagement, NodeRedBackup } from '../hooks/useNodeRedManagement';
-import { SettingsCard, StatusTile, NoticeCallout } from '../ui';
+import { SettingsPage, SettingsCard, StatusTile, NoticeCallout } from '../ui';
 
 /**
  * Compute SHA256 hash of a File using the Web Crypto API.
@@ -178,16 +178,16 @@ export default function NodeRedManagement() {
 
   if (isLoadingStatus && !status) {
     return (
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body items-center justify-center p-8">
+      <SettingsPage>
+        <SettingsCard bodyClassName="flex items-center justify-center py-12">
           <FaSpinner className="animate-spin text-primary h-8 w-8" />
-        </div>
-      </div>
+        </SettingsCard>
+      </SettingsPage>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <SettingsPage width="wide">
       {/* Service Status Tile */}
       <StatusTile
         icon={<FaServer />}
@@ -289,7 +289,7 @@ export default function NodeRedManagement() {
 
           {/* Update Progress Indicator */}
           {isUpdating && updateProgress && (
-            <div className="p-3.5 bg-base-200/60 border border-base-200 rounded-xl space-y-2">
+            <div className="stg-inset p-3.5 space-y-2">
               <div className="flex justify-between text-xs font-semibold text-base-content">
                 <span>{updateProgress.step}</span>
                 <span>{updateProgress.progress}%</span>
@@ -374,7 +374,7 @@ export default function NodeRedManagement() {
             <div className="overflow-x-auto mt-2 border border-base-200 rounded-xl">
               <table className="table table-sm w-full">
                 <thead>
-                  <tr className="bg-base-200/50">
+                  <tr className="bg-base-content/4">
                     <th>{t('nodered_management.version')}</th>
                     <th>{t('nodered_management.date')}</th>
                     <th>{t('nodered_management.size')}</th>
@@ -384,7 +384,7 @@ export default function NodeRedManagement() {
                 </thead>
                 <tbody>
                   {backups.map((backup) => (
-                    <tr key={backup.path} className="hover:bg-base-200/40">
+                    <tr key={backup.path} className="hover:bg-base-content/4">
                       <td className="font-mono text-xs font-semibold">{backup.version}</td>
                       <td className="text-xs text-base-content/70">{backup.timestamp}</td>
                       <td className="text-xs text-base-content/70">{formatSize(backup.size)}</td>
@@ -488,7 +488,7 @@ export default function NodeRedManagement() {
 
                   {/* Computed SHA256 */}
                   {(isComputingHash || computedSha256) && (
-                    <div className="bg-base-200/60 rounded-lg p-3">
+                    <div className="stg-inset p-3">
                       <div className="flex items-center gap-2 text-xs font-semibold mb-1">
                         <FaShieldAlt className="text-info" />
                         SHA256
@@ -551,10 +551,10 @@ export default function NodeRedManagement() {
                   </div>
 
                   {/* Warning */}
-                  <div className="alert alert-warning text-xs">
-                    <FaExclamationTriangle className="shrink-0" />
-                    <span>{t('nodered_management.upload_restore_warning')}</span>
-                  </div>
+                  <NoticeCallout
+                    variant="warning"
+                    message={t('nodered_management.upload_restore_warning')}
+                  />
                 </div>
 
                 {/* Footer */}
@@ -580,6 +580,6 @@ export default function NodeRedManagement() {
             </div>
           </>
         )}
-    </div>
+    </SettingsPage>
   );
 }
