@@ -7,22 +7,30 @@ import clsx from 'clsx';
 
 interface LayoutProps {
   children: ReactNode;
-  configEditor?: boolean;
+  /**
+   * The page manages its own height and scrolling.
+   *
+   * Used by the screens that are a viewport-filling workspace rather than a
+   * document: the settings editor, the YAML editor, and diagnostics. Without
+   * it the shell scrolls as well as the pane inside, which puts two
+   * scrollbars side by side against the same right edge.
+   */
+  fullHeight?: boolean;
 }
 
 
-export default function Layout({ children, configEditor = false }: LayoutProps) {
+export default function Layout({ children, fullHeight = false }: LayoutProps) {
 
   return (
     <div className="w-full max-w-screen h-screen drawer">
       <input id="my-drawer" type="checkbox" className="drawer-toggle" />
       
-      <div className={clsx("flex flex-col drawer-content", { "max-h-screen": configEditor})}>
+      <div className={clsx("flex flex-col drawer-content", { "max-h-screen": fullHeight })}>
         <Navigation />
         <AnonymousAccessBanner />
         <StartupBanner />
         <MigrationBanner />
-        <main className={clsx("flex-1 bg-base-100", configEditor ? "overflow-hidden" : "overflow-y-auto")}>
+        <main className={clsx("flex-1 bg-base-100", fullHeight ? "overflow-hidden" : "overflow-y-auto")}>
           {children}
         </main>
       </div>

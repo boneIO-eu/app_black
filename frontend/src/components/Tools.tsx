@@ -1,13 +1,23 @@
+/**
+ * Bus scans: what is actually wired to this controller.
+ *
+ * These were the Tools page, which was neither settings nor a page of its
+ * own: nothing here is saved. You click and you find out. That is diagnosis,
+ * so they live on the Diagnostics page now, beside the log.
+ *
+ * The file used to own a tab strip that chose between the scans. The
+ * Diagnostics sidebar chooses now, the same way Settings picks a section, so
+ * what is left here are the panels themselves.
+ *
+ * The Home Assistant dashboard export left with them — it generates a
+ * configuration for an integration rather than reading hardware, so it is a
+ * settings section under Connections.
+ */
 import { useState, useCallback } from 'react';
+import { FaCopy, FaSearch } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useConfig } from '@/contexts/ConfigContext';
-import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch } from 'react-icons/fa';
 import { copyToClipboard } from '@/utils/clipboard';
-import { GiElectric } from 'react-icons/gi';
 import { IoWarning } from 'react-icons/io5';
-import ModbusHelper from './ModbusHelper';
-import CANHelper from './CANHelper';
-import CANNetwork from './CANNetwork';
 import axios from '@/api/axios';
 
 interface I2CDevice {
@@ -24,71 +34,7 @@ interface I2CScanResult {
   error: string | null;
 }
 
-/**
- * Bus scans: what is actually wired to this controller.
- *
- * These were the Tools page, which was neither settings nor a page of its
- * own: nothing here is saved. You click and you find out. That is diagnosis,
- * so they live on the Diagnostics page now, beside the log.
- *
- * The Home Assistant dashboard export left with them — it generates a
- * configuration for an integration rather than reading hardware, so it is a
- * settings section under Connections.
- */
-export default function Tools() {
-  const { t } = useTranslation();
-  const { canSupported, boardVersion } = useConfig();
-  const [activeSection, setActiveSection] = useState<'modbus' | 'i2c' | 'can' | 'can_network'>('i2c');
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          🔎 {t('tools.scans_title')}
-        </h2>
-        <p className="text-sm opacity-70 mt-1 max-w-3xl">{t('tools.scans_intro')}</p>
-      </div>
-
-      {/* Section tabs */}
-      <div className="tabs tabs-boxed mb-6 flex-wrap">
-        <button
-          className={`tab tab-lg gap-2 ${activeSection === 'modbus' ? 'tab-active' : ''}`}
-          onClick={() => setActiveSection('modbus')}
-        >
-          <FaNetworkWired /> Modbus
-        </button>
-        <button
-          className={`tab tab-lg gap-2 ${activeSection === 'i2c' ? 'tab-active' : ''}`}
-          onClick={() => setActiveSection('i2c')}
-        >
-          <FaMicrochip /> I2C
-        </button>
-        <button
-          className={`tab tab-lg gap-2 ${activeSection === 'can_network' ? 'tab-active' : ''}`}
-          onClick={() => setActiveSection('can_network')}
-          disabled={!canSupported}
-        >
-          <GiElectric /> CAN Network
-        </button>
-        <button
-          className={`tab tab-lg gap-2 ${activeSection === 'can' ? 'tab-active' : ''}`}
-          onClick={() => setActiveSection('can')}
-          disabled={!canSupported}
-        >
-          <GiElectric /> CAN Sniffer
-        </button>
-      </div>
-
-      {activeSection === 'modbus' && <ModbusHelper />}
-      {activeSection === 'i2c' && <I2CSection />}
-      {activeSection === 'can' && (canSupported ? <CANHelper /> : <CANNotSupported boardVersion={boardVersion} />)}
-      {activeSection === 'can_network' && (canSupported ? <CANNetwork /> : <CANNotSupported boardVersion={boardVersion} />)}
-    </div>
-  );
-}
-
-/** Alert shown when CAN is not supported on the current board version. */
-function CANNotSupported({ boardVersion }: { boardVersion: string | null }) {
+export function CANNotSupported({ boardVersion }: { boardVersion: string | null }) {
   const { t } = useTranslation();
 
   return (
@@ -104,7 +50,7 @@ function CANNotSupported({ boardVersion }: { boardVersion: string | null }) {
   );
 }
 
-function I2CSection() {
+export function I2CSection() {
   const { t } = useTranslation();
   const [bus, setBus] = useState(2);
   const [scanning, setScanning] = useState(false);
@@ -139,12 +85,10 @@ function I2CSection() {
 
   return (
     <div>
-      <div className="card bg-base-200 mb-6">
-        <div className="card-body">
-          <h2 className="card-title text-lg">{t('tools.i2c_scan')}</h2>
-          <p className="text-sm text-base-content/70 mb-4">
-            {t('tools.i2c_scan_hint')}
-          </p>
+      {/* No heading: the page header names the section and says what it is
+          for. The bus picker is the whole content. */}
+      <div className="stg-card mb-4">
+        <div className="card-body p-4 sm:p-5">
 
           <div className="flex items-end gap-4">
             <div className="form-control">
@@ -179,16 +123,16 @@ function I2CSection() {
         <>
           {/* Error */}
           {result.error && (
-            <div className="alert alert-error mb-6">
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-l-[3px] border-error/25 border-l-error bg-error/8 p-3.5 text-[13px]">
               <span>{result.error}</span>
             </div>
           )}
 
           {/* Detected devices */}
           {result.devices.length > 0 && (
-            <div className="card bg-base-200 mb-6">
-              <div className="card-body">
-                <h2 className="card-title text-lg">
+            <div className="stg-card mb-4">
+              <div className="card-body p-4 sm:p-5">
+                <h2 className="font-semibold text-[15px] tracking-tight mb-2">
                   {t('tools.i2c_found', { count: result.devices.length })}
                 </h2>
                 <div className="overflow-x-auto">
@@ -239,10 +183,10 @@ function I2CSection() {
 
           {/* Raw output */}
           {result.raw_output && (
-            <div className="card bg-base-200 mb-6">
-              <div className="card-body">
+            <div className="stg-card mb-4">
+              <div className="card-body p-4 sm:p-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="card-title text-lg">{t('tools.i2c_raw_output')}</h2>
+                  <h2 className="font-semibold text-[15px] tracking-tight">{t('tools.i2c_raw_output')}</h2>
                   <button
                     className="btn btn-sm btn-ghost gap-1"
                     onClick={handleCopyRaw}
@@ -251,7 +195,7 @@ function I2CSection() {
                     {copied ? t('tools.copied') : t('tools.copy')}
                   </button>
                 </div>
-                <pre className="bg-base-300 rounded-lg p-4 font-mono text-sm overflow-x-auto whitespace-pre select-all">
+                <pre className="stg-inset stg-inset-strong p-3 font-mono text-xs overflow-x-auto whitespace-pre select-all">
                   {result.raw_output}
                 </pre>
               </div>

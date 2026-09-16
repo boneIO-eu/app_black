@@ -433,21 +433,30 @@ function AppContent() {
         {/* TODO: Re-enable when JSON Schema validation problems are resolved */}
         <Route path="/settings" element={
           <ProtectedRoute>
-            <Layout configEditor>
+            <Layout fullHeight>
               <UISettings />
             </Layout>
           </ProtectedRoute>
         } />
         <Route path="/settings/:section" element={
           <ProtectedRoute>
-            <Layout configEditor>
+            <Layout fullHeight>
               <UISettings />
             </Layout>
           </ProtectedRoute>
         } />
+        {/* The section is in the path, as it is for settings, so a bus scan
+            can be linked to and the back button steps through the rail. */}
         <Route path="/diagnostics" element={
           <ProtectedRoute>
-            <Layout>
+            <Layout fullHeight>
+              <DiagnosticsView />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/diagnostics/:section" element={
+          <ProtectedRoute>
+            <Layout fullHeight>
               <DiagnosticsView />
             </Layout>
           </ProtectedRoute>
@@ -477,7 +486,7 @@ function AppContent() {
           </ProtectedRoute>
         } />
         {/* The Tools page was four bus scans and an export; the scans are on Diagnostics and the export is a settings section. Kept as a redirect for bookmarks. */}
-        <Route path="/tools" element={<Navigate to="/diagnostics" replace />} />
+        <Route path="/tools" element={<Navigate to="/diagnostics/i2c" replace />} />
         <Route path="/help" element={
           <ProtectedRoute>
             <Layout>

@@ -1,40 +1,115 @@
+import { useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
-import DiagnosticsMenu from './DiagnosticsMenu';
+import { useConfig } from '@/contexts/ConfigContext';
+import DiagnosticsSidebar from './DiagnosticsSidebar';
+import {
+  DIAGNOSTICS_SECTIONS,
+  DEFAULT_DIAGNOSTICS_SECTION,
+} from './diagnosticsSections';
 import LogViewer from './LogViewer';
-import Tools from './Tools';
+import ModbusHelper from './ModbusHelper';
+import CANHelper from './CANHelper';
+import CANNetwork from './CANNetwork';
+import { I2CSection, CANNotSupported } from './Tools';
+import SupportSection from './SupportSection';
+import { useState } from 'react';
 
 /**
  * Why is this device behaving like this — in one place.
  *
- * The log is the page. The support actions that used to sit above it as a card
- * are in a menu beside the title: reading the log is what people come here to
- * do, and collecting a bundle is what they do once, on the day it does not
- * help. A screen of explanation between the reader and the log served neither.
+ * Built like Settings, because it answers the same kind of question: a rail
+ * of places on the left, one of them open on the right, a header naming what
+ * you are looking at. It used to be a log with a strip of bus scans stapled
+ * underneath, and those scans had a tab strip of their own — tabs inside a
+ * strip inside a page that also scrolled behind a log that scrolled.
  *
- * The persistent `logger:` configuration stays in Settings, linked from the
- * menu. That is a choice about how this device behaves from now on; the
- * capture window is about the next ten minutes, and putting the durable and
- * the temporary behind one control is how a device ends up permanently at
- * debug.
+ * The shell does not scroll (Layout's `fullHeight`). Each section fills the
+ * space and scrolls inside itself, so there is one scrollbar and it always
+ * belongs to what you are reading.
+ *
+ * The support actions are a section of their own rather than a dropdown by
+ * the title. They were three unrelated things in one 22rem panel that shut
+ * when you clicked past it; as cards they have room to explain themselves,
+ * which matters most for the bundle someone is about to email.
+ *
+ * The persistent `logger:` configuration is reachable from there through a
+ * dialog rather than a link into Settings. The levels are a settings concern
+ * — they survive a restart, unlike the capture window beside them — but the
+ * moment you want to change them is while you are staring at a log that is
+ * not saying enough, and that is here.
+
  */
 export default function DiagnosticsView() {
   const { t } = useTranslation();
+  const { canSupported, boardVersion } = useConfig();
+  const { section } = useParams<{ section?: string }>();
+  const navigate = useNavigate();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  const known = DIAGNOSTICS_SECTIONS.some(s => s.name === section);
+  const activeSection = known ? section! : DEFAULT_DIAGNOSTICS_SECTION;
+  const active = DIAGNOSTICS_SECTIONS.find(s => s.name === activeSection)!;
+
+  const onNavigate = useCallback(
+    (next: string) => navigate(`/diagnostics/${next}`),
+    [navigate],
+  );
+
+  const canBlocked = Boolean(active.requiresCan) && !canSupported;
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center gap-3 px-4 pt-4 sm:px-6">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          🩺 {t('diagnostics.page_title')}
-        </h1>
-        <DiagnosticsMenu />
-      </div>
-      <LogViewer />
+    <div className="settings-scope flex h-full flex-col lg:flex-row overflow-hidden">
+      <DiagnosticsSidebar
+        activeSection={activeSection}
+        onNavigate={onNavigate}
+        isSheetOpen={isSheetOpen}
+        onSheetOpenChange={setIsSheetOpen}
+      />
 
-      {/* Bus scans — what is wired to the controller. They were their own
-          top-level page; nothing in them is saved, so they belong with the
-          other ways of finding out what is going on. */}
-      <div className="px-4 pb-6 sm:px-6">
-        <Tools />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 pb-14 lg:pb-0">
+        <div className="stg-header shrink-0 px-4 py-3.5 lg:px-6 lg:py-4 z-20">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="stg-chip w-11 h-11 rounded-xl hidden sm:flex items-center justify-center text-xl shrink-0">
+              <span aria-hidden="true">{active.icon}</span>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl lg:text-[26px] font-bold tracking-tight text-base-content leading-tight">
+                {t(active.titleKey)}
+              </h1>
+              <p className="text-[13px] text-base-content/60 mt-1 leading-relaxed max-w-2xl">
+                {t(active.descriptionKey)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* The log brings its own chrome and fills the pane; the scans are
+            ordinary content on the canvas. */}
+        {activeSection === 'log' ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <LogViewer />
+          </div>
+        ) : activeSection === 'support' ? (
+          <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <SupportSection />
+          </div>
+        ) : (
+          <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div className="w-full max-w-5xl 2xl:max-w-6xl">
+              {canBlocked ? (
+                <CANNotSupported boardVersion={boardVersion} />
+              ) : (
+                <>
+                  {activeSection === 'modbus' && <ModbusHelper />}
+                  {activeSection === 'i2c' && <I2CSection />}
+                  {activeSection === 'can_network' && <CANNetwork />}
+                  {activeSection === 'can_sniffer' && <CANHelper />}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

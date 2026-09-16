@@ -530,7 +530,7 @@ export default function LogViewer() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100 overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col bg-base-100 overflow-hidden">
       {/* Search gets its own full-width row above everything else. It was a
           36px-wide box in the middle of a crowded toolbar, which is the one
           control people reach for first on a page of thousands of lines. */}
