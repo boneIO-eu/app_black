@@ -59,9 +59,6 @@ export const STANDALONE_SECTIONS: Record<string, StandaloneSection> = {
   nodered_service: {
     component: lazySection(() => import('../SystemStateComponents/NodeRedManagement') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
   },
-  certificate: {
-    component: lazySection(() => import('../SystemStateComponents/SslSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
-  },
   update: {
     component: lazySection(
       () => import('../SystemState').then(m => ({

@@ -2078,7 +2078,8 @@
     "bootstrap_failed": "Bootstrap nie powiódł się: {{error}}",
     "apply_button": "Zastosuj oczekujące migracje",
     "apply_started": "Stosowanie migracji rozpoczęte. Odśwież za chwilę.",
-    "apply_failed": "Stosowanie nie powiodło się: {{error}}"
+    "apply_failed": "Stosowanie nie powiodło się: {{error}}",
+    "nothing_to_do": "Wszystkie migracje systemowe są zastosowane. Nie ma nic do zrobienia."
   },
   "actions": {
     "delay_execution": "Opóźnione wykonanie",

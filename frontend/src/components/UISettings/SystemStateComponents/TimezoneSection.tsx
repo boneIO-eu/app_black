@@ -81,7 +81,6 @@ function useTickingTime(serverTime: string | undefined) {
  */
 export default function TimezoneSection() {
   const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useState(false);
   const [info, setInfo] = useState<TimezoneInfo | null>(null);
   const [timezones, setTimezones] = useState<string[]>([]);
   const [selectedTimezone, setSelectedTimezone] = useState('');
@@ -117,12 +116,15 @@ export default function TimezoneSection() {
     fetchTimezoneInfo();
   }, [fetchTimezoneInfo]);
 
-  // Load timezone list only when section is expanded
+  // The list is ~600 entries, which is why it used to wait for the panel to be
+  // expanded. The panel does not fold any more — it has its own entry in the
+  // settings tree — so it loads on mount, but still only once.
   useEffect(() => {
-    if (isExpanded && timezones.length === 0) {
-      fetchTimezones();
+    if (timezones.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void fetchTimezones();
     }
-  }, [isExpanded, timezones.length, fetchTimezones]);
+  }, [timezones.length, fetchTimezones]);
 
   const changeTimezone = async () => {
     if (!selectedTimezone.trim()) return;
@@ -198,11 +200,8 @@ export default function TimezoneSection() {
           ? `${info.timezone} — ${tickingTime}`
           : t('timezone.description')
       }
-      toggleButtonText={t('timezone.show_section')}
-      toggleButtonTextExpanded={t('common.close')}
-      isExpanded={isExpanded}
-      onToggle={() => setIsExpanded(!isExpanded)}
-      expandableContent={
+      // Always open — see HostnameSection for why the fold went away.
+      children={
         <div className="space-y-4">
           {/* Sudoers Check */}
           <FixTimezoneSudoers />

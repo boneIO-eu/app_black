@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   FaCheck,
   FaExclamationTriangle,
@@ -13,7 +13,6 @@ import axios from '@/api/axios';
  */
 export default function MqttPasswordsSection() {
   const { t } = useTranslation();
-  const [showMqttPasswords, setShowMqttPasswords] = useState(false);
   const [mqttAppUsername, setMqttAppUsername] = useState<string>('boneio');
   const [mqttPasswords, setMqttPasswords] = useState<{
     [key: string]: { password: string; confirm: string };
@@ -37,6 +36,13 @@ export default function MqttPasswordsSection() {
       console.error('Failed to fetch MQTT username:', err);
     }
   }, []);
+
+  // Fetched on mount now. It used to be fetched when the panel was expanded,
+  // which no longer happens because the panel no longer folds.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchMqttUsername();
+  }, [fetchMqttUsername]);
 
   const changeMqttPassword = async (username: string) => {
     const passwords = mqttPasswords[username];
@@ -111,16 +117,8 @@ export default function MqttPasswordsSection() {
       }
       title={t('mqtt_passwords.title')}
       description={t('mqtt_passwords.description')}
-      toggleButtonText={t('mqtt_passwords.show_section')}
-      toggleButtonTextExpanded={t('common.close')}
-      isExpanded={showMqttPasswords}
-      onToggle={() => {
-        if (!showMqttPasswords) {
-          fetchMqttUsername();
-        }
-        setShowMqttPasswords(!showMqttPasswords);
-      }}
-      expandableContent={
+      // Always open — see HostnameSection for why the fold went away.
+      children={
         <>
           {/* Security warning */}
           <div

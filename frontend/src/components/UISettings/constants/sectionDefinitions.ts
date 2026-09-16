@@ -114,7 +114,12 @@ export const SYSTEM_SECTIONS: SectionDefinition[] = [
   // MQTT connection under Connections. See SETTINGS_IA.md.
   { name: 'mosquitto', icon: '📨', translationKey: 'sections.mosquitto', group: 'services' },
   { name: 'nodered_service', icon: '🔀', translationKey: 'sections.nodered_service', group: 'services' },
-  { name: 'certificate', icon: '🔒', translationKey: 'sections.certificate', group: 'services' },
+  // Deliberately absent: the certificate panel (SslSection) is marked `hidden`
+  // in its own markup and has been since a February refactor, so it never
+  // rendered on the System page either. Its /api/caddy endpoints still work,
+  // so this is a UI decision someone made, not dead code — and cloud
+  // registration under Access is the supported path to a trusted certificate.
+  // Listing it here would ship a panel that was taken out of sight on purpose.
 
   { name: 'update', icon: '⬆️', translationKey: 'sections.update', group: 'maintenance' },
   { name: 'backup', icon: '💾', translationKey: 'sections.backup', group: 'maintenance' },

@@ -2079,7 +2079,8 @@
     "bootstrap_failed": "Bootstrap failed: {{error}}",
     "apply_button": "Apply pending migrations",
     "apply_started": "Migration apply started. Refresh in a moment.",
-    "apply_failed": "Apply failed: {{error}}"
+    "apply_failed": "Apply failed: {{error}}",
+    "nothing_to_do": "Every system migration has been applied. Nothing to do."
   },
   "actions": {
     "delay_execution": "Delay execution",

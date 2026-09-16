@@ -96,13 +96,26 @@ const MigrationsSection: React.FC = () => {
     );
   }
 
-  if (!status) return null;
-
-  // Hide entirely when nothing to do and no history
   const nothingToDo =
-    status.pending_count === 0 && !status.bootstrap_required && status.status === 'ok';
+    status !== null &&
+    status.pending_count === 0 &&
+    !status.bootstrap_required &&
+    status.status === 'ok';
 
-  if (nothingToDo && status.applied.length === 0) return null;
+  // This used to render nothing at all in these cases, which was right when it
+  // was one card among ten on the System page: a device with nothing to
+  // migrate simply did not show it. It has its own entry in the settings tree
+  // now, and an entry that opens onto a blank page reads as a broken page.
+  if (!status || (nothingToDo && status.applied.length === 0)) {
+    return (
+      <div className="card bg-base-200">
+        <div className="card-body">
+          <h3 className="card-title">{t('migrations.title')}</h3>
+          <p className="text-sm opacity-70">{t('migrations.nothing_to_do')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

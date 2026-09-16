@@ -13,7 +13,6 @@ import axios from '@/api/axios';
  */
 export default function HostnameSection() {
   const { t } = useTranslation();
-  const [showHostnameSection, setShowHostnameSection] = useState(false);
   const [currentHostname, setCurrentHostname] = useState<string>('');
   const [newHostname, setNewHostname] = useState<string>('');
   const [isChangingHostname, setIsChangingHostname] = useState(false);
@@ -78,11 +77,10 @@ export default function HostnameSection() {
       }
       title={t('settings.hostname_title')}
       description={t('settings.hostname_description')}
-      toggleButtonText={t('settings.show_hostname_section')}
-      toggleButtonTextExpanded={t('common.close')}
-      isExpanded={showHostnameSection}
-      onToggle={() => setShowHostnameSection(!showHostnameSection)}
-      expandableContent={
+      // Always open. This folded away when it was one of ten panels stacked
+      // on the System page; it has its own entry in the settings tree now, so
+      // a click to reveal the only thing on the page is a click for nothing.
+      children={
         <div className="space-y-4">
           <div>
             <label className="label">
