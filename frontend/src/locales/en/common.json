@@ -778,7 +778,9 @@
     "factory_reset": "Factory reset",
     "update": "Software update",
     "device_tools": "Device tools",
-    "hardware_errors": "Hardware errors"
+    "hardware_errors": "Hardware errors",
+    "ha_dashboard": "Home Assistant dashboard",
+    "yaml_editor": "YAML editor"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",
@@ -1707,7 +1709,9 @@
     "copied": "Copied!",
     "modbus_paused": "Modbus device polling paused while tools are active",
     "can_not_supported_title": "CAN Bus Not Supported",
-    "can_not_supported_desc": "CAN bus is not available on hardware version {{version}}. CAN support requires board version 0.5 or newer. On this board, CAN pins (P8_7, P8_8, P8_9) are available as additional GPIO inputs (IN_50–IN_52)."
+    "can_not_supported_desc": "CAN bus is not available on hardware version {{version}}. CAN support requires board version 0.5 or newer. On this board, CAN pins (P8_7, P8_8, P8_9) are available as additional GPIO inputs (IN_50–IN_52).",
+    "scans_title": "Bus scans",
+    "scans_intro": "Find out what is actually wired to the controller. Nothing here is saved."
   },
   "template": {
     "entity_id": "Entity ID",

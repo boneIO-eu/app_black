@@ -742,7 +742,9 @@
     "factory_reset": "Reset fabryczny",
     "update": "Aktualizacja oprogramowania",
     "device_tools": "Narzędzia urządzenia",
-    "hardware_errors": "Błędy sprzętowe"
+    "hardware_errors": "Błędy sprzętowe",
+    "ha_dashboard": "Dashboard do Home Assistant",
+    "yaml_editor": "Edytor YAML"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
@@ -1706,7 +1708,9 @@
     "copied": "Skopiowano!",
     "modbus_paused": "Odpytywanie urządzeń Modbus wstrzymane na czas pracy z narzędziami",
     "can_not_supported_title": "Magistrala CAN niedostępna",
-    "can_not_supported_desc": "Magistrala CAN nie jest dostępna na płycie w wersji {{version}}. Obsługa CAN wymaga wersji 0.5 lub nowszej. Na tej płycie piny CAN (P8_7, P8_8, P8_9) są dostępne jako dodatkowe wejścia GPIO (IN_50–IN_52)."
+    "can_not_supported_desc": "Magistrala CAN nie jest dostępna na płycie w wersji {{version}}. Obsługa CAN wymaga wersji 0.5 lub nowszej. Na tej płycie piny CAN (P8_7, P8_8, P8_9) są dostępne jako dodatkowe wejścia GPIO (IN_50–IN_52).",
+    "scans_title": "Skanowanie magistrali",
+    "scans_intro": "Sprawdź, co jest faktycznie podłączone do sterownika. Nic tu nie jest zapisywane."
   },
   "template": {
     "entity_id": "ID Encji",

@@ -80,6 +80,10 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'accounts', icon: '👥', translationKey: 'sections.accounts', group: 'access' },
 
   { name: 'logger', icon: '📝', translationKey: 'sections.logger', group: 'advanced' },
+  // Generates a Home Assistant dashboard from the configured entities. It was
+  // a tab on the Tools page; it is about an integration, not about hardware.
+  { name: 'ha_dashboard', icon: '📤', translationKey: 'sections.ha_dashboard', group: 'connections' },
+  { name: 'yaml_editor', icon: '📄', translationKey: 'sections.yaml_editor', group: 'advanced' },
 ];
 
 /**
@@ -89,7 +93,6 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
 export const RESTART_SECTIONS: SectionDefinition[] = [
   { name: 'boneio', icon: '🔧', translationKey: 'sections.boneio', group: 'device', badge: 'restart' },
   { name: 'board_sensors', icon: '🔌', translationKey: 'sections.board_sensors', group: 'device', badge: 'restart' },
-  { name: 'mcp23017', icon: '🔗', translationKey: 'sections.mcp23017', group: 'device', badge: 'restart' },
 
   // MQTT and Loxone UDP together — the section is about protocols, not one broker.
   { name: 'mqtt', icon: '📡', translationKey: 'sections.mqtt', group: 'connections', badge: 'restart' },
@@ -97,6 +100,10 @@ export const RESTART_SECTIONS: SectionDefinition[] = [
   { name: 'can', icon: '🔗', translationKey: 'sections.can', group: 'connections', badge: 'restart' },
 
   { name: 'web', icon: '🌐', translationKey: 'sections.web', group: 'access', badge: 'restart' },
+
+  // Expander wiring: correct to configure, easy to break, and irrelevant to
+  // anyone who has not added one. Advanced rather than Device.
+  { name: 'mcp23017', icon: '🔗', translationKey: 'sections.mcp23017', group: 'advanced', badge: 'restart' },
 ];
 
 /**

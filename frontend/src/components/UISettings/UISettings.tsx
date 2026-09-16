@@ -43,6 +43,9 @@ interface ConfigSection {
   data: Record<string, any>;
 }
 
+/** Where this browser last was in settings. Per-browser, like a scroll position. */
+const LAST_SECTION_KEY = 'boneio.settings.lastSection';
+
 export default function UISettings() {
   const { section } = useParams<{ section?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -93,8 +96,34 @@ export default function UISettings() {
     dismissDialog,
   } = useOverlayCheck();
 
-  // Get active section from URL parameter or default to first section
-  const activeSection = section || 'mqtt';
+  // The section in the URL wins. With none — /settings on its own, from the
+  // top menu — resume where this browser last was, so that returning to
+  // settings does not mean finding your way back every time.
+  //
+  // Read once, at mount: a value that changed under the component would move
+  // the user mid-edit. localStorage is wrapped because it throws outright in
+  // a private window or with site data blocked.
+  const [remembered] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LAST_SECTION_KEY);
+      // Only if it still exists — a section can be renamed or removed between
+      // releases, and a stale name would open a blank page.
+      return saved && ALL_SECTIONS.some(s => s.name === saved) ? saved : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const activeSection = section || remembered || 'mqtt';
+
+  useEffect(() => {
+    if (!section) return;
+    try {
+      localStorage.setItem(LAST_SECTION_KEY, section);
+    } catch {
+      // Nothing to do — settings simply open at the default next time.
+    }
+  }, [section]);
 
   /**
    * Handle application restart
@@ -1244,17 +1273,25 @@ export default function UISettings() {
     };
   }, []);
 
-  // Effect to handle URL parameter changes
+  // Put a section in the URL once the list is known.
   useEffect(() => {
-    // If no section in URL and we have sections loaded, navigate to first section
-    if (!section && sections.length > 0) {
+    if (sections.length === 0) return;
+    const exists = (name: string) => sections.some(s => s.name === name);
+
+    // Arriving at /settings with nothing else to go on: resume where this
+    // browser last was. Falling straight to sections[0] is what made every
+    // visit start at Areas regardless of where the last one ended.
+    if (!section) {
+      navigateToSection(exists(activeSection) ? activeSection : sections[0].name);
+      return;
+    }
+
+    // A section that is not in the list — renamed, removed, or hidden because
+    // the hardware does not have it. The first one is a safe landing.
+    if (!exists(section)) {
       navigateToSection(sections[0].name);
     }
-    // If section in URL doesn't exist in loaded sections, navigate to first section
-    else if (section && sections.length > 0 && !sections.find(s => s.name === section)) {
-      navigateToSection(sections[0].name);
-    }
-  }, [section, sections, navigateToSection]);
+  }, [section, sections, activeSection, navigateToSection]);
 
   // Auto-hide YAML preview when switching to a composite section
   useEffect(() => {

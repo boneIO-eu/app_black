@@ -1,6 +1,7 @@
 import { useTranslation } from '../hooks/useTranslation';
 import DiagnosticsMenu from './DiagnosticsMenu';
 import LogViewer from './LogViewer';
+import Tools from './Tools';
 
 /**
  * Why is this device behaving like this — in one place.
@@ -28,6 +29,13 @@ export default function DiagnosticsView() {
         <DiagnosticsMenu />
       </div>
       <LogViewer />
+
+      {/* Bus scans — what is wired to the controller. They were their own
+          top-level page; nothing in them is saved, so they belong with the
+          other ways of finding out what is going on. */}
+      <div className="px-4 pb-6 sm:px-6">
+        <Tools />
+      </div>
     </div>
   );
 }

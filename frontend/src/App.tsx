@@ -6,26 +6,22 @@ import { getRouterBasename } from './api/basePath';
 // Only Layout, auth, and context providers are eagerly loaded since they're
 // needed on every page. Everything else loads on-demand when the route is visited.
 const lazyImports = {
-  ConfigEditor: () => import('./components/ConfigEditor'),
   DiagnosticsView: () => import('./components/DiagnosticsView'),
   OutputsView: () => import('./components/OutputsView'),
   InputsView: () => import('./components/InputsView'),
   SensorView: () => import('./components/SensorView'),
   ModbusView: () => import('./components/ModbusView'),
-  Tools: () => import('./components/Tools'),
   HelpView: () => import('./components/HelpView'),
   UISettings: () => import('./components/UISettings/UISettings'),
   NodeRedView: () => import('./components/NodeRedView'),
   TemplatesView: () => import('./components/TemplatesView'),
 } as const;
 
-const ConfigEditor = lazy(lazyImports.ConfigEditor);
 const DiagnosticsView = lazy(lazyImports.DiagnosticsView);
 const OutputsView = lazy(lazyImports.OutputsView);
 const InputsView = lazy(lazyImports.InputsView);
 const SensorView = lazy(lazyImports.SensorView);
 const ModbusView = lazy(lazyImports.ModbusView);
-const Tools = lazy(lazyImports.Tools);
 const HelpView = lazy(lazyImports.HelpView);
 const UISettings = lazy(lazyImports.UISettings);
 const NodeRedView = lazy(lazyImports.NodeRedView);
@@ -46,7 +42,6 @@ function prefetchRouteChunks() {
     lazyImports.ModbusView,
     lazyImports.UISettings,
     lazyImports.DiagnosticsView,
-    lazyImports.Tools,
     lazyImports.TemplatesView,
     lazyImports.HelpView,
     lazyImports.NodeRedView,
@@ -400,13 +395,8 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/config" element={
-          <ProtectedRoute>
-            <Layout configEditor={true}>
-              <ConfigEditor />
-            </Layout>
-          </ProtectedRoute>
-        } />
+        {/* The YAML editor is a settings section under Advanced. Kept as a redirect for bookmarks. */}
+        <Route path="/config" element={<Navigate to="/settings/yaml_editor" replace />} />
         {/* ConfigEditor2 (UISettings) - Temporarily disabled due to JSON Schema issues */}
         {/* TODO: Re-enable when JSON Schema validation problems are resolved */}
         <Route path="/settings" element={
@@ -454,13 +444,8 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/tools" element={
-          <ProtectedRoute>
-            <Layout>
-              <Tools />
-            </Layout>
-          </ProtectedRoute>
-        } />
+        {/* The Tools page was four bus scans and an export; the scans are on Diagnostics and the export is a settings section. Kept as a redirect for bookmarks. */}
+        <Route path="/tools" element={<Navigate to="/diagnostics" replace />} />
         <Route path="/help" element={
           <ProtectedRoute>
             <Layout>

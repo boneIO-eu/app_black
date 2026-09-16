@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece } from 'react-icons/fa';
+import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect } from 'react';
@@ -141,7 +141,6 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors') },
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
     { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
-    { path: '/tools', icon: FaToolbox, label: t('navigation.tools'), right: true },
     { path: '/diagnostics', icon: FaStethoscope, label: t('navigation.diagnostics'), right: true },
     // Everything below configures the device, so a viewer is not offered it.
     // The backend refuses these routes for a viewer regardless; hiding them
@@ -149,7 +148,6 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     // Settings (experimental) - only show if boneio section exists in config
     ...(isAdmin && hasBoneioSection ? [{ path: '/settings', icon: FaCog, label: t('navigation.settings'), right: true }] : []),
     ...(isAdmin ? [
-      { path: '/config', icon: FaCode, label: t('navigation.config'), right: true },
     ] : []),
     // Node-RED - only show if available via nginx proxy
     ...(isAdmin && isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED', right: true }] : []),

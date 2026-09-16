@@ -1,6 +1,6 @@
 # Układ ustawień boneIO Black — plan przebudowy
 
-Stan: punkty 1–3 wdrożone, 4–7 przed nami. Szczegóły na końcu dokumentu.
+Stan: punkty 1–6 wdrożone, zostaje 7 (obraz). Szczegóły na końcu dokumentu.
 Powiązane: [SECURITY_ROADMAP_1.6.md](SECURITY_ROADMAP_1.6.md) (F-05 jest tu domykane inaczej, niż zakładała roadmapa).
 
 ## Problem
@@ -282,10 +282,18 @@ Punkty 1–6 są w `app_black` i można je wypuścić niezależnie od 7.
   ten sam spis → 922 px w kolumnie 602 px. Desktop dostał akordeon z otwartą grupą aktywnej
   sekcji, telefon dwa kroki — kafelki grup, potem sekcje. Filtr działa na obu i ignoruje grupy.
 
+- **Narzędzia rozwiązane.** Skany I2C, Modbus i CAN są na stronie Diagnostyka, eksport dashboardu
+  HA jest sekcją w Połączeniach. `/tools` przekierowuje.
+- **Edytor YAML w Zaawansowanych**, `/config` przekierowuje. Górne menu ma cztery pozycje
+  administracyjne: Diagnostyka, Ustawienia, Node-RED, Pomoc.
+- **MCP23017 przeniesione do Zaawansowanych** — poprawne do skonfigurowania, łatwe do zepsucia
+  i nieistotne dla kogoś, kto nie dołożył ekspandera.
+- **Ostatnia zakładka zapamiętywana.** Wejście na `/settings` wraca tam, gdzie ostatnio byłeś,
+  zamiast zawsze do Obszarów. Per przeglądarka, jak pozycja przewinięcia.
+
 ### Zostaje
 
-- **Narzędzia do Diagnostyki** (skany I2C, Modbus, CAN), eksport dashboardu HA do Połączeń.
-- **Edytor YAML do Zaawansowanych**, `/config` przekierowuje. Dziś nadal jest osobną pozycją
-  w górnym menu, więc „jedno wejście" jest prawdziwe tylko prawie.
 - **Hasło per urządzenie** w obrazie — osobna gałąź, osobny cykl wydawniczy.
+- **Certyfikat i proxy** (`SslSection`) — wyjęty z drzewa, bo jest oznaczony `hidden` od lutowego
+  refaktoru i nigdy się nie renderował. Decyzja produktowa: odsłonić czy zostawić schowany.
 - **Liczniki przy pozycjach** („Wyjścia 32", „Rolety 2") — rozważane, nieuzgodnione.

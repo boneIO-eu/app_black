@@ -46,6 +46,13 @@ export const STANDALONE_SECTIONS: Record<string, StandaloneSection> = {
   security: { component: lazySection(() => import('../../SecurityView') as Promise<{ default: ComponentType<StandaloneSectionProps> }>) },
   accounts: { component: lazySection(() => import('../../AccountsView') as Promise<{ default: ComponentType<StandaloneSectionProps> }>) },
 
+  ha_dashboard: {
+    component: lazySection(() => import('../../HaDashboardWizard') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
+  },
+  yaml_editor: {
+    component: lazySection(() => import('../../ConfigEditor') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
+  },
+
   // Moved in from the System page.
   hostname: {
     component: lazySection(() => import('../SystemStateComponents/HostnameSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
