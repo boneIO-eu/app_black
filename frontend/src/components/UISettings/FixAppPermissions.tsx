@@ -51,18 +51,20 @@ export default function FixAppPermissions() {
   };
 
   return (
-    <div className="card bg-base-200 shadow-xl">
-      <div className="card-body">
-        <h3 className="card-title">{t('sudo_dialog.fix_app_permissions')}</h3>
+    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+      <div className="card-body p-4 sm:p-6 space-y-4">
+        <h3 className="text-base font-semibold">{t('sudo_dialog.fix_app_permissions')}</h3>
 
-        <button
-          className={`btn btn-sm btn-outline w-fit ${loading ? 'loading' : ''}`}
-          onClick={testPermissions}
-          disabled={loading}
-        >
-          {loading ? <FaSpinner className="animate-spin" /> : null}
-          {t('sudo_dialog.check_file_permissions')}
-        </button>
+        <div>
+          <button
+            className={`btn btn-sm btn-outline w-fit ${loading ? 'loading' : ''}`}
+            onClick={testPermissions}
+            disabled={loading}
+          >
+            {loading ? <FaSpinner className="animate-spin mr-1" /> : null}
+            {t('sudo_dialog.check_file_permissions')}
+          </button>
+        </div>
 
         {permInfo && (
           <pre className="bg-base-300 p-3 rounded text-xs overflow-x-auto mt-2 whitespace-pre-wrap">

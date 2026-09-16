@@ -120,18 +120,18 @@ const MigrationsSection: React.FC = () => {
   return (
     <div
       id="migrations"
-      className={`card shadow-xl ${
+      className={`card ${
         status.bootstrap_required
-          ? 'bg-warning/10 border border-warning'
+          ? 'bg-warning/10 border border-warning/40 shadow-sm'
           : status.pending_count > 0
-            ? 'bg-info/10 border border-info'
-            : 'bg-base-200'
+            ? 'bg-info/10 border border-info/40 shadow-sm'
+            : 'bg-base-200/50 border border-base-content/10 shadow-sm'
       }`}
     >
-      <div className="card-body">
+      <div className="card-body p-4 sm:p-6 space-y-4">
         {/* Header */}
         <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
-          <h3 className="card-title">
+          <h3 className="text-base font-semibold flex items-center gap-2">
             {status.bootstrap_required ? (
               <FaLock className="text-warning" />
             ) : status.pending_count > 0 ? (
@@ -287,7 +287,7 @@ const MigrationsSection: React.FC = () => {
                 <div className="join">
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="input input-bordered join-item flex-1 min-w-0"
+                    className="input input-bordered input-sm join-item flex-1 min-w-0 font-mono"
                     placeholder={t('migrations.sudo_password_placeholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -303,7 +303,7 @@ const MigrationsSection: React.FC = () => {
                   />
                   <button
                     type="button"
-                    className="btn join-item"
+                    className="btn btn-sm join-item"
                     onClick={() => setShowPassword((v) => !v)}
                     disabled={busy}
                   >
@@ -320,10 +320,10 @@ const MigrationsSection: React.FC = () => {
               <div className="card-actions justify-end mt-2">
                 <button
                   type="submit"
-                  className="btn btn-warning"
+                  className="btn btn-warning btn-sm"
                   disabled={busy || !password}
                 >
-                  {busy ? <FaSpinner className="animate-spin" /> : <FaLock />}
+                  {busy ? <FaSpinner className="animate-spin mr-1" /> : <FaLock className="mr-1" />}
                   {t('migrations.bootstrap_button')}
                 </button>
               </div>
@@ -335,11 +335,11 @@ const MigrationsSection: React.FC = () => {
         {!status.bootstrap_required && status.pending_count > 0 && (
           <div className="card-actions justify-end mt-4">
             <button
-              className="btn btn-info"
+              className="btn btn-info btn-sm"
               onClick={handleApply}
               disabled={busy}
             >
-              {busy ? <FaSpinner className="animate-spin" /> : <FaPlay />}
+              {busy ? <FaSpinner className="animate-spin mr-1" /> : <FaPlay className="mr-1" />}
               {t('migrations.apply_button')}
             </button>
           </div>

@@ -3,7 +3,7 @@ import axios from '@/api/axios';
 import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
-  FaFileExport, FaArrowLeft, FaArrowRight, FaCopy, FaCheck,
+  FaArrowLeft, FaArrowRight, FaCopy, FaCheck,
   FaRedo, FaChevronDown, FaChevronRight,
 } from 'react-icons/fa';
 
@@ -334,13 +334,8 @@ export default function HaDashboardWizard() {
   }
 
   return (
-    <div className="card bg-base-200">
-      <div className="card-body">
-        <h2 className="card-title text-lg gap-2 mb-4">
-          <FaFileExport className="text-primary" />
-          {t('dashboard_wizard.heading')}
-        </h2>
-
+    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+      <div className="card-body p-4 sm:p-6">
         {/* Steps indicator */}
         <ul className="steps steps-horizontal w-full mb-6">
           <li className={`step ${currentStepIndex >= 0 ? 'step-primary' : ''}`}>

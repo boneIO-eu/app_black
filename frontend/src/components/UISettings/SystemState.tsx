@@ -356,63 +356,62 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
   // end to end on a spare controller.
   if (section === 'update') {
     return (
-      <div className="p-4 sm:p-6 space-y-6">
-      {/* Software Update Card */}
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
-              <h2 className="text-2xl font-bold">{t('software_update.title')}</h2>
+      <div className="space-y-6">
+        {/* Error Alert */}
+        {error && (
+          <div className="alert alert-error text-sm">
+            <FaExclamationTriangle className="shrink-0" />
+            <span>{error}</span>
+            <button className="btn btn-outline btn-sm btn-circle ml-auto" onClick={() => setError(null)}>
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Software Update Status Card */}
+        <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+          <div className="card-body p-4 sm:p-6 space-y-5">
+            {/* Current Version & Check */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <button
-                  className="btn btn-sm"
-                  onClick={checkForUpdates}
-                  disabled={isChecking || isUpdating}
-                >
-                  {isChecking ? (
-                    <FaSpinner className="animate-spin" />
-                  ) : (
-                    t('software_update.check_for_updates')
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Error Alert */}
-            {error && (
-              <div className="alert alert-error">
-                <FaExclamationTriangle />
-                <span>{error}</span>
-                <button className="btn btn-outline btn-sm" onClick={() => setError(null)}>
-                  ×
-                </button>
-              </div>
-            )}
-
-            {/* Current Version */}
-            <div>
-              <h3 className="text-sm font-medium opacity-70 mb-1">{t('software_update.current_version')}</h3>
-              <div className="flex lg:items-center gap-4 flex-col lg:flex-row">
-                <span className="text-3xl font-mono font-bold text-primary">
-                  {updateInfo?.current_version || '...'}
+                <span className="text-xs opacity-60 font-medium uppercase tracking-wider block">
+                  {t('software_update.current_version')}
                 </span>
-                {updateInfo?.update_available && (
-                  <span className="badge badge-success badge-lg">
-                    {t('software_update.update_available')}
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-2xl sm:text-3xl font-mono font-bold text-primary">
+                    {updateInfo?.current_version || '...'}
                   </span>
-                )}
-                {updateInfo?.status === 'success' && !updateInfo?.update_available && (
-                  <span className="badge badge-info">{t('software_update.up_to_date')}</span>
-                )}
+                  {updateInfo?.update_available && (
+                    <span className="badge badge-success badge-sm font-semibold">
+                      {t('software_update.update_available')}
+                    </span>
+                  )}
+                  {updateInfo?.status === 'success' && !updateInfo?.update_available && (
+                    <span className="badge badge-info badge-sm">{t('software_update.up_to_date')}</span>
+                  )}
+                </div>
               </div>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={checkForUpdates}
+                disabled={isChecking || isUpdating}
+              >
+                {isChecking ? (
+                  <>
+                    <FaSpinner className="animate-spin mr-1" />
+                    {t('software_update.checking') || 'Checking...'}
+                  </>
+                ) : (
+                  t('software_update.check_for_updates')
+                )}
+              </button>
             </div>
 
             {/* Prerelease Available Card (for stable users) */}
             {updateInfo?.prerelease_update_available && !updateInfo?.update_available && (
-              <div className="card bg-warning/10 border border-warning">
-                <div className="card-body">
-                  <h3 className="card-title text-warning">
+              <div className="card bg-warning/10 border border-warning/30">
+                <div className="card-body p-4 sm:p-5">
+                  <h3 className="card-title text-warning text-base">
                     <FaExclamationTriangle /> {t('software_update.prerelease_available')}
                   </h3>
                   <p className="text-sm opacity-70">
@@ -420,23 +419,23 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div>
-                      <p className="text-sm opacity-70">{t('software_update.prerelease_version')}</p>
-                      <p className="text-2xl font-mono font-bold">
+                      <p className="text-xs opacity-60">{t('software_update.prerelease_version')}</p>
+                      <p className="text-xl font-mono font-bold">
                         {updateInfo.latest_prerelease}
-                        <span className="badge badge-warning ml-2">dev</span>
+                        <span className="badge badge-warning badge-xs ml-2">dev</span>
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm opacity-70">{t('software_update.your_stable_version')}</p>
-                      <p className="text-lg font-mono">
+                      <p className="text-xs opacity-60">{t('software_update.your_stable_version')}</p>
+                      <p className="text-base font-mono">
                         {updateInfo.current_version}
-                        <span className="badge badge-success ml-2">stable</span>
+                        <span className="badge badge-success badge-xs ml-2">stable</span>
                       </p>
                     </div>
                   </div>
-                  <div className="alert alert-warning mt-4">
-                    <FaExclamationTriangle />
-                    <span className="text-sm">{t('software_update.prerelease_warning')}</span>
+                  <div className="alert alert-warning text-xs mt-3">
+                    <FaExclamationTriangle className="shrink-0" />
+                    <span>{t('software_update.prerelease_warning')}</span>
                   </div>
                   <div className="card-actions justify-end mt-4">
                     <a
@@ -447,23 +446,23 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn btn-outline"
+                      className="btn btn-outline btn-sm"
                     >
                       {t('software_update.view_release_notes')}
                     </a>
                     <button
-                      className="btn btn-warning"
+                      className="btn btn-warning btn-sm"
                       onClick={() => startUpdate(updateInfo.latest_prerelease)}
                       disabled={isUpdating}
                     >
                       {isUpdating ? (
                         <>
-                          <FaSpinner className="animate-spin" />
+                          <FaSpinner className="animate-spin mr-1" />
                           {t('software_update.updating')}
                         </>
                       ) : (
                         <>
-                          <FaDownload />
+                          <FaDownload className="mr-1" />
                           {t('software_update.install_prerelease')}
                         </>
                       )}
@@ -475,19 +474,19 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
 
             {/* Update Available Card */}
             {updateInfo?.update_available && (
-              <div className="card bg-success/10 border border-success">
-                <div className="card-body">
-                  <h3 className="card-title text-success">
+              <div className="card bg-success/10 border border-success/30">
+                <div className="card-body p-4 sm:p-5">
+                  <h3 className="card-title text-success text-base">
                     <FaDownload /> {t('software_update.new_version_available')}
                   </h3>
 
                   {/* Version selector */}
                   <div className="form-control w-full max-w-xs">
-                    <label className="label">
-                      <span className="label-text">{t('software_update.select_version')}</span>
+                    <label className="label p-0 pb-1">
+                      <span className="label-text text-xs font-medium">{t('software_update.select_version')}</span>
                     </label>
                     <select
-                      className="select select-bordered"
+                      className="select select-bordered select-sm"
                       value={selectedVersion || updateInfo.latest_version || ''}
                       onChange={e => setSelectedVersion(e.target.value)}
                     >
@@ -498,8 +497,8 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
                         </option>
                       ))}
                     </select>
-                    <label className="label">
-                      <span className="label-text-alt">
+                    <label className="label p-0 pt-1">
+                      <span className="label-text-alt text-xs">
                         {updateInfo.latest_stable && (
                           <span className="text-success">
                             ⭐ {t('software_update.recommended')}: {updateInfo.latest_stable}
@@ -511,17 +510,17 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div>
-                      <p className="text-sm opacity-70">{t('software_update.selected_version')}</p>
-                      <p className="text-2xl font-mono font-bold">
+                      <p className="text-xs opacity-60">{t('software_update.selected_version')}</p>
+                      <p className="text-xl font-mono font-bold">
                         {selectedVersion || updateInfo.latest_version}
                         {(selectedVersion || updateInfo.latest_version)
                           ?.toLowerCase()
-                          .includes('dev') && <span className="badge badge-warning ml-2">dev</span>}
+                          .includes('dev') && <span className="badge badge-warning badge-xs ml-2">dev</span>}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm opacity-70">{t('software_update.released')}</p>
-                      <p className="text-lg">
+                      <p className="text-xs opacity-60">{t('software_update.released')}</p>
+                      <p className="text-base">
                         {updateInfo.available_versions?.find(
                           v => v.version === (selectedVersion || updateInfo.latest_version)
                         )?.published_at
@@ -544,23 +543,23 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn btn-outline"
+                      className="btn btn-outline btn-sm"
                     >
                       {t('software_update.view_release_notes')}
                     </a>
                     <button
-                      className="btn btn-success"
+                      className="btn btn-success btn-sm"
                       onClick={() => startUpdate(selectedVersion || updateInfo.latest_version)}
                       disabled={isUpdating}
                     >
                       {isUpdating ? (
                         <>
-                          <FaSpinner className="animate-spin" />
+                          <FaSpinner className="animate-spin mr-1" />
                           {t('software_update.updating')}
                         </>
                       ) : (
                         <>
-                          <FaDownload />
+                          <FaDownload className="mr-1" />
                           {t('software_update.update_to')}{' '}
                           {selectedVersion || updateInfo.latest_version}
                         </>
@@ -573,9 +572,9 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
 
             {/* Update Progress */}
             {isUpdating && updateStatus && (
-              <div className="card bg-base-200">
-                <div className="card-body">
-                  <h3 className="card-title">
+              <div className="card bg-base-100 border border-base-content/10 shadow-sm">
+                <div className="card-body p-4 sm:p-5">
+                  <h3 className="card-title text-base">
                     <FaSpinner className="animate-spin" />
                     {t('software_update.update_in_progress')}
                   </h3>
@@ -626,80 +625,79 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
                 </div>
               </div>
             )}
-
-            {/* Available Versions Section */}
-            <div className="divider"></div>
-            <div>
-              <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
-                <h3 className="card-title">
-                  <FaHistory />
-                  {t('software_update.available_versions') || 'Available Versions'}
-                </h3>
-                <button
-                  className="btn btn-outline btn-sm w-fit"
-                  onClick={() => setShowVersions(!showVersions)}
-                >
-                  {showVersions
-                    ? t('software_update.hide_versions', { count: availableVersions.length })
-                    : t('software_update.show_versions', { count: availableVersions.length })}
-                </button>
-              </div>
-              <p className="text-sm opacity-70 mt-2">{t('software_update.version_info') || 'Select a version to install. You can rollback to any previous version.'}</p>
-              {showVersions && (
-                <div className="mt-4">
-                  {availableVersions.length === 0 ? (
-                    <p className="text-sm opacity-70">{t('software_update.no_versions') || 'No versions available'}</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="table table-sm">
-                        <thead>
-                          <tr>
-                            <th>{t('software_update.version')}</th>
-                            <th>{t('software_update.date')}</th>
-                            <th>{t('software_update.type') || 'Type'}</th>
-                            <th>{t('software_update.actions')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {availableVersions.map((ver: AvailableVersion) => (
-                            <tr key={ver.version} className={ver.is_current ? 'bg-base-200' : ''}>
-                              <td className="font-mono">
-                                {ver.version}
-                                {ver.is_current && <span className="badge badge-success badge-sm ml-2">{t('software_update.current') || 'Current'}</span>}
-                              </td>
-                              <td>{ver.published_at ? new Date(ver.published_at).toLocaleDateString() : '-'}</td>
-                              <td>
-                                {ver.prerelease ? (
-                                  <span className="badge badge-warning badge-sm">Pre-release</span>
-                                ) : (
-                                  <span className="badge badge-success badge-sm">Stable</span>
-                                )}
-                              </td>
-                              <td>
-                                {!ver.is_current && (
-                                  <button
-                                    className="btn btn-warning btn-xs"
-                                    onClick={() => performRollback(ver.version)}
-                                    disabled={isUpdating}
-                                  >
-                                    <FaUndo />
-                                    {t('software_update.install') || 'Install'}
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </div>
-      </div>
 
+        {/* Available Versions / Rollback Card */}
+        <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+          <div className="card-body p-4 sm:p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-base font-semibold flex items-center gap-2">
+                <FaHistory className="text-secondary" />
+                {t('software_update.available_versions') || 'Available Versions'}
+              </h3>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setShowVersions(!showVersions)}
+              >
+                {showVersions
+                  ? t('software_update.hide_versions', { count: availableVersions.length })
+                  : t('software_update.show_versions', { count: availableVersions.length })}
+              </button>
+            </div>
+            <p className="text-sm opacity-70">{t('software_update.version_info') || 'Select a version to install. You can rollback to any previous version.'}</p>
+            {showVersions && (
+              <div className="mt-2">
+                {availableVersions.length === 0 ? (
+                  <p className="text-sm opacity-70">{t('software_update.no_versions') || 'No versions available'}</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>{t('software_update.version')}</th>
+                          <th>{t('software_update.date')}</th>
+                          <th>{t('software_update.type') || 'Type'}</th>
+                          <th>{t('software_update.actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {availableVersions.map((ver: AvailableVersion) => (
+                          <tr key={ver.version} className={ver.is_current ? 'bg-base-200' : ''}>
+                            <td className="font-mono">
+                              {ver.version}
+                              {ver.is_current && <span className="badge badge-success badge-xs ml-2">{t('software_update.current') || 'Current'}</span>}
+                            </td>
+                            <td>{ver.published_at ? new Date(ver.published_at).toLocaleDateString() : '-'}</td>
+                            <td>
+                              {ver.prerelease ? (
+                                <span className="badge badge-warning badge-xs">Pre-release</span>
+                              ) : (
+                                <span className="badge badge-success badge-xs">Stable</span>
+                              )}
+                            </td>
+                            <td>
+                              {!ver.is_current && (
+                                <button
+                                  className="btn btn-warning btn-xs"
+                                  onClick={() => performRollback(ver.version)}
+                                  disabled={isUpdating}
+                                >
+                                  <FaUndo />
+                                  {t('software_update.install') || 'Install'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -710,200 +708,178 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
     // its own. A controller with no faults should say so.
     const faults = hardwareErrors.filter((e: { type?: string }) => e.type !== 'can_sudoers');
     return (
-      <div className="p-4 sm:p-6 space-y-6">
+      <div className="space-y-6">
         {faults.length === 0 && (
-          <div className="card bg-base-200">
-            <div className="card-body">
-              <h3 className="card-title">{t('device_management.hardware_errors_title')}</h3>
+          <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+            <div className="card-body p-4 sm:p-6">
+              <h3 className="card-title text-base">{t('device_management.hardware_errors_title')}</h3>
               <p className="text-sm opacity-70">{t('device_management.no_hardware_errors')}</p>
             </div>
           </div>
         )}
-      {/* Hardware Errors - Separate Container */}
-      <HardwareErrors errors={hardwareErrors} />
-
+        {/* Hardware Errors - Separate Container */}
+        <HardwareErrors errors={hardwareErrors} />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      {/* Device Management Card */}
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
-              <h2 className="text-2xl font-bold">{t('device_management.title')}</h2>
+    <div className="space-y-6">
+      {/* Self Test Section */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <FaClipboardCheck className="text-primary" />
+            {t('device_management.hardware_self_test')}
+          </h3>
+          <p className="text-sm opacity-70">
+            {t('device_management.self_test_description')}
+          </p>
+          <div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setShowSelfTest(true)}
+              disabled={isUpdating}
+            >
+              <FaClipboardCheck />
+              {t('device_management.start_self_test')}
+            </button>
+          </div>
+          <div className="alert alert-info text-xs">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              className="stroke-current shrink-0 w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+            <div className="space-y-1">
+              <p>{t('device_management.self_test_info_1')}</p>
+              <p>{t('device_management.self_test_info_2')}</p>
             </div>
-
-            {/* Self Test Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <h3 className="card-title">
-                  <FaClipboardCheck />
-                  {t('device_management.hardware_self_test')}
-                </h3>
-                <p className="text-sm opacity-70 mb-4">
-                  {t('device_management.self_test_description')}
-                </p>
-                <div className="card-actions">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => setShowSelfTest(true)}
-                    disabled={isUpdating}
-                  >
-                    <FaClipboardCheck />
-                    {t('device_management.start_self_test')}
-                  </button>
-                </div>
-                <div className="alert alert-info mt-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="stroke-current shrink-0 w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    ></path>
-                  </svg>
-                  <div className="text-sm">
-                    <p>{t('device_management.self_test_info_1')}</p>
-                    <p>{t('device_management.self_test_info_2')}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Turn Off All Outputs Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <h3 className="card-title">
-                  <FaPowerOff />
-                  {t('device_management.turn_off_all_outputs')}
-                </h3>
-                <p className="text-sm opacity-70 mb-4">
-                  {t('device_management.turn_off_all_description')}
-                </p>
-                <div className="card-actions">
-                  <button
-                    className="btn btn-error"
-                    onClick={turnOffAllOutputs}
-                    disabled={isUpdating || isTurningOffAll || outputs.length === 0}
-                  >
-                    {isTurningOffAll ? (
-                      <>
-                        <FaSpinner className="animate-spin" />
-                        {t('device_management.turning_off')}
-                      </>
-                    ) : (
-                      <>
-                        <FaPowerOff />
-                        {t('device_management.turn_off_all_outputs')} (
-                        {
-                          outputs.filter(
-                            (o: OutputEvent) =>
-                              o.state?.type !== 'cover' && o.state?.type !== 'none'
-                          ).length
-                        }
-                        )
-                      </>
-                    )}
-                  </button>
-                </div>
-                {/* Progress bar during turn off */}
-                {turnOffProgress && (
-                  <div className="mt-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">{t('device_management.turning_off_outputs')}</span>
-                      <span className="text-sm">
-                        {turnOffProgress.current} / {turnOffProgress.total}
-                      </span>
-                    </div>
-                    <progress
-                      className="progress progress-error w-full"
-                      value={turnOffProgress.current}
-                      max={turnOffProgress.total}
-                    />
-                  </div>
-                )}
-                {turnOffResult && (
-                  <div
-                    className={`alert ${turnOffResult.errors.length > 0 ? 'alert-warning' : 'alert-success'} mt-4`}
-                  >
-                    <FaCheck />
-                    <div className="text-sm">
-                      <p>{t('device_management.turned_off_outputs', { count: turnOffResult.count })}</p>
-                      {turnOffResult.errors.length > 0 && (
-                        <p>{t('device_management.errors')}: {turnOffResult.errors.join(', ')}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="alert alert-warning mt-4">
-                  <FaExclamationTriangle />
-                  <div className="text-sm">
-                    <p>{t('device_management.turn_off_warning_1')}</p>
-                    <p>{t('device_management.turn_off_warning_2')}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Restart Application Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <h3 className="card-title">
-                  <FaRedo />
-                  {t('device_management.restart_app')}
-                </h3>
-                <p className="text-sm opacity-70 mb-4">
-                  {t('device_management.restart_app_description')}
-                </p>
-                <div className="card-actions">
-                  <button
-                    className="btn btn-warning"
-                    onClick={handleRestart}
-                    disabled={isRestarting}
-                  >
-                    {isRestarting ? (
-                      <>
-                        <FaSpinner className="animate-spin" />
-                        {t('settings.restarting')}
-                      </>
-                    ) : (
-                      <>
-                        <FaRedo />
-                        {t('device_management.restart_app')}
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="alert alert-warning mt-4">
-                  <FaExclamationTriangle />
-                  <div className="text-sm">
-                    <p>{t('device_management.restart_app_warning')}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Device control, hostname, time zone, the broker's accounts,
-                the certificate and the factory reset have moved into Settings.
-                See SETTINGS_IA.md — they are settings, and the split that kept
-                them here was about where their data lives, not about what they
-                are. Software update, the self-test and hardware errors stay
-                until they are extracted from this file. */}
           </div>
         </div>
       </div>
+
+      {/* Turn Off All Outputs Section */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold flex items-center gap-2 text-error">
+            <FaPowerOff />
+            {t('device_management.turn_off_all_outputs')}
+          </h3>
+          <p className="text-sm opacity-70">
+            {t('device_management.turn_off_all_description')}
+          </p>
+          <div>
+            <button
+              className="btn btn-error btn-sm"
+              onClick={turnOffAllOutputs}
+              disabled={isUpdating || isTurningOffAll || outputs.length === 0}
+            >
+              {isTurningOffAll ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  {t('device_management.turning_off')}
+                </>
+              ) : (
+                <>
+                  <FaPowerOff />
+                  {t('device_management.turn_off_all_outputs')} (
+                  {
+                    outputs.filter(
+                      (o: OutputEvent) =>
+                        o.state?.type !== 'cover' && o.state?.type !== 'none'
+                    ).length
+                  }
+                  )
+                </>
+              )}
+            </button>
+          </div>
+          {/* Progress bar during turn off */}
+          {turnOffProgress && (
+            <div className="mt-2">
+              <div className="flex justify-between mb-1">
+                <span className="text-xs">{t('device_management.turning_off_outputs')}</span>
+                <span className="text-xs">
+                  {turnOffProgress.current} / {turnOffProgress.total}
+                </span>
+              </div>
+              <progress
+                className="progress progress-error w-full"
+                value={turnOffProgress.current}
+                max={turnOffProgress.total}
+              />
+            </div>
+          )}
+          {turnOffResult && (
+            <div
+              className={`alert ${turnOffResult.errors.length > 0 ? 'alert-warning' : 'alert-success'} text-sm mt-2`}
+            >
+              <FaCheck className="shrink-0" />
+              <div className="text-sm">
+                <p>{t('device_management.turned_off_outputs', { count: turnOffResult.count })}</p>
+                {turnOffResult.errors.length > 0 && (
+                  <p>{t('device_management.errors')}: {turnOffResult.errors.join(', ')}</p>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="alert alert-warning text-xs mt-2">
+            <FaExclamationTriangle className="shrink-0" />
+            <div className="space-y-0.5">
+              <p>{t('device_management.turn_off_warning_1')}</p>
+              <p>{t('device_management.turn_off_warning_2')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Fix App Permissions */}
       <FixAppPermissions />
 
+      {/* Restart Application Section */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold flex items-center gap-2 text-warning">
+            <FaRedo />
+            {t('device_management.restart_app')}
+          </h3>
+          <p className="text-sm opacity-70">
+            {t('device_management.restart_app_description')}
+          </p>
+          <div>
+            <button
+              className="btn btn-warning btn-sm"
+              onClick={handleRestart}
+              disabled={isRestarting}
+            >
+              {isRestarting ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  {t('settings.restarting')}
+                </>
+              ) : (
+                <>
+                  <FaRedo />
+                  {t('device_management.restart_app')}
+                </>
+              )}
+            </button>
+          </div>
+          <div className="alert alert-warning text-xs mt-2">
+            <FaExclamationTriangle className="shrink-0" />
+            <p>{t('device_management.restart_app_warning')}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Self Test Modal */}
       <SelfTest isOpen={showSelfTest} onClose={() => setShowSelfTest(false)} />

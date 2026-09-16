@@ -1,12 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   FaCheck,
-  FaClock,
   FaExclamationTriangle,
   FaSpinner,
   FaSync,
 } from 'react-icons/fa';
-import SettingsCard from '../components/SettingsCard';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import FixTimezoneSudoers from '../FixTimezoneSudoers';
@@ -198,135 +196,114 @@ export default function TimezoneSection() {
     : filteredTimezones.filter((tz) => !popularTimezones.includes(tz));
 
   return (
-    <SettingsCard
-      icon={<FaClock />}
-      title={t('timezone.title')}
-      description={
-        info
-          ? `${info.timezone} — ${tickingTime}`
-          : t('timezone.description')
-      }
-      // Always open — see HostnameSection for why the fold went away.
-      children={
-        <div className="space-y-4">
-          {/* Sudoers Check */}
-          <FixTimezoneSudoers />
+    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+      <div className="card-body p-4 sm:p-6 space-y-5">
+        {/* Sudoers Check */}
+        <FixTimezoneSudoers />
 
-          {/* Current Status */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">{t('timezone.current_timezone')}</span>
-              <span className="font-mono font-bold">{info?.timezone || '...'}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">{t('timezone.local_time')}</span>
-              <span className="font-mono">{tickingTime || '...'}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs opacity-70">{t('timezone.ntp_status')}</span>
-              <div>
-                {info?.ntp_synchronized ? (
-                  <span className="badge badge-success badge-sm gap-1">
-                    <FaSync className="w-2.5 h-2.5" />
-                    {t('timezone.synchronized')}
-                  </span>
-                ) : (
-                  <span className="badge badge-warning badge-sm gap-1">
-                    <FaExclamationTriangle className="w-2.5 h-2.5" />
-                    {t('timezone.not_synchronized')}
-                  </span>
-                )}
-              </div>
-            </div>
+        {/* Current Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-base-100/60 p-4 rounded-lg border border-base-content/5">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs opacity-60 font-medium">{t('timezone.current_timezone')}</span>
+            <span className="font-mono font-bold text-base-content">{info?.timezone || '...'}</span>
           </div>
-
-          <div className="divider my-1"></div>
-
-          {/* Timezone Selection */}
-          <div>
-            <label className="label">
-              <span className="label-text font-medium">{t('timezone.select_timezone')}</span>
-            </label>
-            {/* Search filter */}
-            <input
-              type="text"
-              className="input input-bordered input-sm w-full mb-2"
-              placeholder={t('timezone.search_placeholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {/* A plain dropdown, not a list box.
-                `size={8}` asked for eight visible rows, but daisyUI's .select
-                fixes the height at 40px, so the browser rendered a list box
-                squashed to a single row — whose first row is the "Popular"
-                group label. Scrolling 610 entries through a 40px window is
-                how you end up able to pick two timezones and no others.
-                The search field above is what makes the long list usable. */}
-            <select
-              className="select select-bordered w-full"
-              value={selectedTimezone}
-              onChange={(e) => setSelectedTimezone(e.target.value)}
-            >
-              {/* Popular timezones group */}
-              {!searchQuery && (
-                <optgroup label={t('timezone.popular')}>
-                  {popularTimezones
-                    .filter((tz) => timezones.includes(tz))
-                    .map((tz) => (
-                      <option key={`popular-${tz}`} value={tz}>
-                        {tz} {tz === info?.timezone ? '✓' : ''}
-                      </option>
-                    ))}
-                </optgroup>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs opacity-60 font-medium">{t('timezone.local_time')}</span>
+            <span className="font-mono text-base-content">{tickingTime || '...'}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs opacity-60 font-medium">{t('timezone.ntp_status')}</span>
+            <div>
+              {info?.ntp_synchronized ? (
+                <span className="badge badge-success badge-sm gap-1">
+                  <FaSync className="w-2.5 h-2.5" />
+                  {t('timezone.synchronized')}
+                </span>
+              ) : (
+                <span className="badge badge-warning badge-sm gap-1">
+                  <FaExclamationTriangle className="w-2.5 h-2.5" />
+                  {t('timezone.not_synchronized')}
+                </span>
               )}
-              {/* All / filtered timezones.
-                  The popular ones are left out here when they are shown above:
-                  the same entry twice in one dropdown is a way to wonder
-                  whether the two are different. */}
-              <optgroup label={searchQuery ? t('timezone.search_results') : t('timezone.all_timezones')}>
-                {listedTimezones.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz} {tz === info?.timezone ? '✓' : ''}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-            <label className="label">
-              <span className="label-text-alt">
-                {timezones.length} {t('timezone.timezones_available')}
-              </span>
-            </label>
-          </div>
-
-          {/* NTP Toggle */}
-          <div>
-            <label className="label cursor-pointer justify-start gap-4">
-              <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={ntpEnabled}
-                onChange={toggleNtp}
-                disabled={isTogglingNtp}
-              />
-              <div>
-                <span className="label-text font-medium">{t('timezone.ntp_sync')}</span>
-                <p className="text-xs opacity-60">{t('timezone.ntp_hint')}</p>
-              </div>
-              {isTogglingNtp && <FaSpinner className="animate-spin ml-2" />}
-            </label>
-          </div>
-
-          {/* Result */}
-          {result && (
-            <div className={`alert ${result.status === 'success' ? 'alert-success' : result.status === 'info' ? 'alert-info' : 'alert-error'}`}>
-              {result.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
-              <span>{result.message}</span>
             </div>
-          )}
+          </div>
+        </div>
 
-          {/* Save Button */}
+        {/* Timezone Selection */}
+        <div className="space-y-2 max-w-lg">
+          <label className="label p-0">
+            <span className="label-text font-medium">{t('timezone.select_timezone')}</span>
+          </label>
+          {/* Search filter */}
+          <input
+            type="text"
+            className="input input-bordered input-sm w-full"
+            placeholder={t('timezone.search_placeholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <select
+            className="select select-bordered select-sm w-full"
+            value={selectedTimezone}
+            onChange={(e) => setSelectedTimezone(e.target.value)}
+          >
+            {/* Popular timezones group */}
+            {!searchQuery && (
+              <optgroup label={t('timezone.popular')}>
+                {popularTimezones
+                  .filter((tz) => timezones.includes(tz))
+                  .map((tz) => (
+                    <option key={`popular-${tz}`} value={tz}>
+                      {tz} {tz === info?.timezone ? '✓' : ''}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            <optgroup label={searchQuery ? t('timezone.search_results') : t('timezone.all_timezones')}>
+              {listedTimezones.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz} {tz === info?.timezone ? '✓' : ''}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <label className="label p-0">
+            <span className="label-text-alt opacity-70">
+              {timezones.length} {t('timezone.timezones_available')}
+            </span>
+          </label>
+        </div>
+
+        {/* NTP Toggle */}
+        <div className="pt-1">
+          <label className="label cursor-pointer justify-start gap-4 p-0">
+            <input
+              type="checkbox"
+              className="toggle toggle-primary toggle-sm"
+              checked={ntpEnabled}
+              onChange={toggleNtp}
+              disabled={isTogglingNtp}
+            />
+            <div>
+              <span className="label-text font-medium block">{t('timezone.ntp_sync')}</span>
+              <p className="text-xs opacity-60">{t('timezone.ntp_hint')}</p>
+            </div>
+            {isTogglingNtp && <FaSpinner className="animate-spin ml-2" />}
+          </label>
+        </div>
+
+        {/* Result */}
+        {result && (
+          <div className={`alert ${result.status === 'success' ? 'alert-success' : result.status === 'info' ? 'alert-info' : 'alert-error'} text-sm`}>
+            {result.status === 'success' ? <FaCheck className="shrink-0" /> : <FaExclamationTriangle className="shrink-0" />}
+            <span>{result.message}</span>
+          </div>
+        )}
+
+        {/* Save Button */}
+        <div>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={changeTimezone}
             disabled={isSaving || !selectedTimezone.trim() || selectedTimezone === info?.timezone}
           >
@@ -343,7 +320,7 @@ export default function TimezoneSection() {
             )}
           </button>
         </div>
-      }
-    />
+      </div>
+    </div>
   );
 }

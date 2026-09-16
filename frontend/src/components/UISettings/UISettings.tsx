@@ -1314,6 +1314,11 @@ export default function UISettings() {
   }, [activeSection, sections, formData]);
 
   const activeSection_data = sections.find(s => s.name === activeSection);
+  const activeSectionDef = ALL_SECTIONS.find(s => s.name === activeSection);
+  const activeSectionTitle = activeSectionDef
+    ? t(activeSectionDef.translationKey)
+    : (t(`sections.${activeSection}`) || activeSection_data?.name || activeSection);
+  const activeSectionDescription = t(`sections.descriptions.${activeSection}`, { defaultValue: '' });
   return (
     <div className="flex flex-col lg:flex-row h-full bg-base-100 relative">
       {/* Global loading overlay - fixed to viewport */}
@@ -1461,18 +1466,61 @@ export default function UISettings() {
 
       {/* Main content area */}
       <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0 pb-14 lg:pb-0">
-        {/* Sections rendered by their own component rather than from the
-            schema — accounts, the security posture, and everything that moved
-            in from the System page. See constants/standaloneSections. */}
-        {StandaloneComponent ? (
+        {/* Render header for all sections except yaml_editor (which is a full-height code editor) */}
+        {activeSection !== 'yaml_editor' && (
+          <SectionHeader
+            sectionName={activeSection}
+            sectionTitle={activeSectionTitle}
+            sectionDescription={activeSectionDescription}
+            showYamlPreview={showYamlPreview}
+            hasUnsavedChanges={
+              activeSection === 'mqtt'
+                ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
+                : (unsavedChanges[activeSection] || false)
+            }
+            saveDisabled={
+              activeSection === 'mqtt' && unsavedChanges['lox_udp'] && !loxFormValid
+            }
+            saveStatus={saveStatus[activeSection] || 'idle'}
+            onToggleYamlPreview={() => setShowYamlPreview(!showYamlPreview)}
+            onRestore={() => {
+              restoreSection(activeSection);
+              if (activeSection === 'mqtt') restoreSection('lox_udp');
+            }}
+            onSave={
+              !StandaloneComponent && activeSection !== 'binding_matrix'
+                ? async () => {
+                    if (activeSection === 'mqtt') {
+                      if (unsavedChanges['mqtt']) await saveSection('mqtt');
+                      if (unsavedChanges['lox_udp']) await saveSection('lox_udp');
+                    } else {
+                      await saveSection(activeSection);
+                    }
+                  }
+                : undefined
+            }
+            hideYamlPreview={!!StandaloneComponent || activeSection === 'binding_matrix' || !!COMPOSITE_SECTIONS[activeSection]}
+          />
+        )}
+
+        {/* Content area */}
+        {activeSection === 'yaml_editor' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
-            <div className="flex-1 overflow-y-auto">
-              <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />
+            <div className="flex-1 overflow-hidden h-full">
+              {StandaloneComponent && <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />}
+            </div>
+          </Suspense>
+        ) : StandaloneComponent ? (
+          <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="max-w-4xl mx-auto xl:mx-0 space-y-6">
+                <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />
+              </div>
             </div>
           </Suspense>
         ) : activeSection === 'binding_matrix' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <BindingMatrix
                 formData={formData}
                 sections={sections}
@@ -1485,80 +1533,11 @@ export default function UISettings() {
             </div>
           </Suspense>
         ) : activeSection_data && (
-          <>
-            {/* Header */}
-            <SectionHeader
-              sectionName={activeSection}
-              sectionTitle={t(`sections.${activeSection}`) || activeSection_data.name}
-              showYamlPreview={showYamlPreview}
-              hasUnsavedChanges={
-                activeSection === 'mqtt'
-                  ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
-                  : (unsavedChanges[activeSection] || false)
-              }
-              saveDisabled={
-                activeSection === 'mqtt' && unsavedChanges['lox_udp'] && !loxFormValid
-              }
-              saveStatus={saveStatus[activeSection] || 'idle'}
-              onToggleYamlPreview={() => setShowYamlPreview(!showYamlPreview)}
-              onRestore={() => {
-                restoreSection(activeSection);
-                if (activeSection === 'mqtt') restoreSection('lox_udp');
-              }}
-              onSave={async () => {
-                if (activeSection === 'mqtt') {
-                  // Save both mqtt and lox_udp when in messaging protocols view
-                  if (unsavedChanges['mqtt']) await saveSection('mqtt');
-                  if (unsavedChanges['lox_udp']) await saveSection('lox_udp');
-                } else {
-                  await saveSection(activeSection);
-                }
-              }}
-              hideYamlPreview={!!COMPOSITE_SECTIONS[activeSection]}
-            />
-
-            {/* Content */}
-            <div className="flex-1 overflow-hidden">
-              {showYamlPreview ? (
-                <div className="h-full flex">
-                  {/* Form */}
-                  <div className="flex-1 overflow-y-auto p-6">
-                    <SectionContent
-                      activeSection={activeSection}
-                      activeSectionData={activeSection_data}
-                      formData={formData}
-                      originalData={originalData}
-                      schemaLoaded={schemaLoaded}
-                      editItemName={editItemName || undefined}
-                      onEditItemOpened={clearEditParam}
-                      onSectionChange={handleSectionChange}
-                      onSaveSection={saveSection}
-                      onLoxValidationChange={setLoxFormValid}
-                    />
-                  </div>
-
-                  {/* YAML Preview */}
-                  <div className="w-1/2 border-l border-base-content/10 bg-base-300">
-                    <div className="p-4 border-b border-base-content/10">
-                      <h3 className="font-semibold text-base-content">YAML Preview</h3>
-                    </div>
-                    <div className="p-4 h-full overflow-y-auto">
-                      <pre className="text-sm font-mono text-base-content bg-base-100 p-4 rounded-lg overflow-x-auto">
-                        {activeSection === 'mqtt'
-                          ? [
-                            `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
-                            formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
-                              ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
-                              : null,
-                          ].filter(Boolean).join('\n')
-                          : convertToYaml(formData[activeSection], activeSection)
-                        }
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full overflow-y-auto p-6">
+          <div className="flex-1 overflow-hidden">
+            {showYamlPreview ? (
+              <div className="h-full flex">
+                {/* Form */}
+                <div className="flex-1 overflow-y-auto p-6">
                   <SectionContent
                     activeSection={activeSection}
                     activeSectionData={activeSection_data}
@@ -1572,9 +1551,44 @@ export default function UISettings() {
                     onLoxValidationChange={setLoxFormValid}
                   />
                 </div>
-              )}
-            </div>
-          </>
+
+                {/* YAML Preview */}
+                <div className="w-1/2 border-l border-base-content/10 bg-base-300">
+                  <div className="p-4 border-b border-base-content/10">
+                    <h3 className="font-semibold text-base-content">YAML Preview</h3>
+                  </div>
+                  <div className="p-4 h-full overflow-y-auto">
+                    <pre className="text-sm font-mono text-base-content bg-base-100 p-4 rounded-lg overflow-x-auto">
+                      {activeSection === 'mqtt'
+                        ? [
+                          `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
+                          formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
+                            ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
+                            : null,
+                        ].filter(Boolean).join('\n')
+                        : convertToYaml(formData[activeSection], activeSection)
+                      }
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full overflow-y-auto p-6">
+                <SectionContent
+                  activeSection={activeSection}
+                  activeSectionData={activeSection_data}
+                  formData={formData}
+                  originalData={originalData}
+                  schemaLoaded={schemaLoaded}
+                  editItemName={editItemName || undefined}
+                  onEditItemOpened={clearEditParam}
+                  onSectionChange={handleSectionChange}
+                  onSaveSection={saveSection}
+                  onLoxValidationChange={setLoxFormValid}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

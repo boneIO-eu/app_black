@@ -106,82 +106,83 @@ export default function FrameAncestorsCard({ onSaved }: { onSaved?: () => void }
     cleanOrigins.join('\u0000') !== state.extra_origins.join('\u0000');
 
   return (
-    <div className="border border-base-300 rounded-xl p-4 space-y-3">
-      <div>
-        <h3 className="font-semibold">{t('security.framing.title')}</h3>
-        <p className="text-sm opacity-70 mt-1 max-w-3xl">{t('security.framing.intro')}</p>
-      </div>
-
-      <label className="flex items-start gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          className="toggle toggle-primary mt-0.5"
-          checked={restrict}
-          onChange={e => setRestrict(e.target.checked)}
-        />
-        <span className="text-sm">
-          <span className="font-medium">{t('security.framing.restrict')}</span>
-          <span className="block opacity-70">{t('security.framing.restrict_help')}</span>
-        </span>
-      </label>
-
-      {restrict && (
+    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+      <div className="card-body p-4 sm:p-5 space-y-3">
         <div>
-          <label htmlFor="frame-extra-origin-0" className="block text-sm font-medium">
-            {t('security.framing.extra_origin')}
-          </label>
-          <p className="text-xs opacity-70 mt-1 max-w-3xl">
-            {t('security.framing.extra_origin_help')}
-          </p>
-          <div className="mt-2 space-y-2">
-            {origins.map((value, index) => (
-              <div key={index} className="flex items-center gap-2 max-w-xl">
-                <input
-                  id={`frame-extra-origin-${index}`}
-                  type="url"
-                  className="input input-bordered flex-1"
-                  placeholder="https://homeassistant.local:8123"
-                  value={value}
-                  onChange={e => setOriginAt(index, e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => removeOriginAt(index)}
-                  aria-label={t('security.framing.remove_origin')}
-                  disabled={origins.length === 1 && !value}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline mt-2"
-            onClick={() => setOrigins(prev => [...prev, ''])}
-          >
-            {t('security.framing.add_origin')}
-          </button>
+          <h3 className="font-semibold text-base">{t('security.framing.title')}</h3>
+          <p className="text-sm opacity-70 mt-1 max-w-3xl">{t('security.framing.intro')}</p>
         </div>
-      )}
 
-      {error && <p className="text-sm text-error">{error}</p>}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            className="toggle toggle-primary toggle-sm mt-0.5"
+            checked={restrict}
+            onChange={e => setRestrict(e.target.checked)}
+          />
+          <span className="text-sm">
+            <span className="font-medium">{t('security.framing.restrict')}</span>
+            <span className="block opacity-70 text-xs mt-0.5">{t('security.framing.restrict_help')}</span>
+          </span>
+        </label>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          className="btn btn-sm btn-primary"
-          onClick={() => void save()}
-          disabled={saving || !dirty}
-        >
-          {saving ? t('security.framing.saving') : t('security.framing.save')}
-        </button>
-        {saved && (
-          <span className="text-sm text-warning">{t('security.framing.restart_needed')}</span>
+        {restrict && (
+          <div>
+            <label htmlFor="frame-extra-origin-0" className="block text-sm font-medium">
+              {t('security.framing.extra_origin')}
+            </label>
+            <p className="text-xs opacity-70 mt-1 max-w-3xl">
+              {t('security.framing.extra_origin_help')}
+            </p>
+            <div className="mt-2 space-y-2">
+              {origins.map((value, index) => (
+                <div key={index} className="flex items-center gap-2 max-w-xl">
+                  <input
+                    id={`frame-extra-origin-${index}`}
+                    type="url"
+                    className="input input-bordered input-sm flex-1 font-mono"
+                    placeholder="https://homeassistant.local:8123"
+                    value={value}
+                    onChange={e => setOriginAt(index, e.target.value)}
+                  />
+                  {origins.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm btn-square"
+                      aria-label={t('security.framing.remove_origin')}
+                      onClick={() => removeOriginAt(index)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setOrigins(prev => [...prev, ''])}
+              >
+                + {t('security.framing.add_origin')}
+              </button>
+            </div>
+          </div>
         )}
-        <code className="text-xs opacity-60 break-all">frame-ancestors {state.value}</code>
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={() => void save()}
+            disabled={saving || !dirty}
+          >
+            {saving ? t('security.framing.saving') : t('security.framing.save')}
+          </button>
+          {saved && (
+            <span className="text-sm text-warning">{t('security.framing.restart_needed')}</span>
+          )}
+          <code className="text-xs opacity-60 break-all">frame-ancestors {state.value}</code>
+        </div>
       </div>
     </div>
   );

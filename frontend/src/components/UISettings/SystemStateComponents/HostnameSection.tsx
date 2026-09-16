@@ -4,7 +4,6 @@ import {
   FaExclamationTriangle,
   FaSpinner,
 } from 'react-icons/fa';
-import SettingsCard from '../components/SettingsCard';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 
@@ -58,37 +57,16 @@ export default function HostnameSection() {
   };
 
   return (
-    <SettingsCard
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      }
-      title={t('settings.hostname_title')}
-      description={t('settings.hostname_description')}
-      // Always open. This folded away when it was one of ten panels stacked
-      // on the System page; it has its own entry in the settings tree now, so
-      // a click to reveal the only thing on the page is a click for nothing.
-      children={
-        <div className="space-y-4">
+    <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+      <div className="card-body p-4 sm:p-6 space-y-4">
+        <div className="space-y-4 max-w-lg">
           <div>
             <label className="label">
-              <span className="label-text">{t('settings.current_hostname')}</span>
+              <span className="label-text font-medium">{t('settings.current_hostname')}</span>
             </label>
             <input
               type="text"
-              className="input input-bordered w-full"
+              className="input input-bordered input-sm sm:input-md w-full font-mono bg-base-200"
               value={currentHostname}
               disabled
             />
@@ -96,30 +74,30 @@ export default function HostnameSection() {
 
           <div>
             <label className="label">
-              <span className="label-text">{t('settings.new_hostname')}</span>
+              <span className="label-text font-medium">{t('settings.new_hostname')}</span>
             </label>
             <input
               type="text"
-              className="input input-bordered w-full"
+              className="input input-bordered input-sm sm:input-md w-full font-mono"
               value={newHostname}
               onChange={e => setNewHostname(e.target.value)}
               placeholder={t('settings.hostname_placeholder')}
               disabled={isChangingHostname}
             />
             <label className="label whitespace-normal">
-              <span className="label-text-alt wrap-break-word">{t('settings.hostname_hint')}</span>
+              <span className="label-text-alt text-base-content/70">{t('settings.hostname_hint')}</span>
             </label>
           </div>
 
           {hostnameResult && (
-            <div className={`alert ${hostnameResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
-              {hostnameResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+            <div className={`alert ${hostnameResult.status === 'success' ? 'alert-success' : 'alert-error'} text-sm`}>
+              {hostnameResult.status === 'success' ? <FaCheck className="shrink-0" /> : <FaExclamationTriangle className="shrink-0" />}
               <span>{hostnameResult.message}</span>
             </div>
           )}
 
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={changeHostname}
             disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
           >
@@ -136,7 +114,7 @@ export default function HostnameSection() {
             )}
           </button>
         </div>
-      }
-    />
+      </div>
+    </div>
   );
 }

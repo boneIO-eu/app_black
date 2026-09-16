@@ -7,14 +7,16 @@ import { useTranslation } from '@/hooks/useTranslation';
 interface SectionHeaderProps {
   sectionName: string;
   sectionTitle: string;
-  showYamlPreview: boolean;
-  hasUnsavedChanges: boolean;
+  sectionDescription?: string;
+  showYamlPreview?: boolean;
+  hasUnsavedChanges?: boolean;
   saveDisabled?: boolean;
-  saveStatus: 'idle' | 'saving' | 'success' | 'error';
-  onToggleYamlPreview: () => void;
-  onRestore: () => void;
-  onSave: () => void;
+  saveStatus?: 'idle' | 'saving' | 'success' | 'error';
+  onToggleYamlPreview?: () => void;
+  onRestore?: () => void;
+  onSave?: () => void;
   hideYamlPreview?: boolean;
+  children?: React.ReactNode;
 }
 
 /**
@@ -23,14 +25,16 @@ interface SectionHeaderProps {
 export default function SectionHeader({
   sectionName,
   sectionTitle,
-  showYamlPreview,
-  hasUnsavedChanges,
-  saveDisabled,
-  saveStatus,
+  sectionDescription,
+  showYamlPreview = false,
+  hasUnsavedChanges = false,
+  saveDisabled = false,
+  saveStatus = 'idle',
   onToggleYamlPreview,
   onRestore,
   onSave,
-  hideYamlPreview,
+  hideYamlPreview = false,
+  children,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   
@@ -45,11 +49,12 @@ export default function SectionHeader({
             )}
           </h1>
           <p className="text-sm text-base-content/70 mt-1">
-            {t(`sections.descriptions.${sectionName}`) || t('settings.configure_settings').replace('{section}', sectionTitle)}
+            {sectionDescription || t(`sections.descriptions.${sectionName}`) || t('settings.configure_settings').replace('{section}', sectionTitle)}
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          {!hideYamlPreview && (
+          {children}
+          {!hideYamlPreview && onToggleYamlPreview && (
             <button
               onClick={onToggleYamlPreview}
               className="btn btn-ghost btn-sm"
@@ -60,7 +65,7 @@ export default function SectionHeader({
             </button>
           )}
           {/* Save/Restore — hidden on mobile, shown in bottom bar instead */}
-          {hasUnsavedChanges && (
+          {hasUnsavedChanges && onRestore && (
             <button
               onClick={onRestore}
               className="btn btn-warning btn-sm hidden lg:inline-flex"
@@ -70,18 +75,20 @@ export default function SectionHeader({
               {t('settings.restore')}
             </button>
           )}
-          <button
-            onClick={onSave}
-            disabled={!hasUnsavedChanges || saveDisabled}
-            className="btn btn-primary btn-sm hidden lg:inline-flex"
-          >
-            {saveStatus === 'saving' ? (
-              <div className="loading loading-spinner loading-xs"></div>
-            ) : (
-              <FaSave />
-            )}
-            {t('settings.save')} {sectionTitle}
-          </button>
+          {onSave && (
+            <button
+              onClick={onSave}
+              disabled={!hasUnsavedChanges || saveDisabled}
+              className="btn btn-primary btn-sm hidden lg:inline-flex"
+            >
+              {saveStatus === 'saving' ? (
+                <div className="loading loading-spinner loading-xs"></div>
+              ) : (
+                <FaSave />
+              )}
+              {t('settings.save')} {sectionTitle}
+            </button>
+          )}
         </div>
       </div>
     </div>

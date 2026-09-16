@@ -148,148 +148,146 @@ export default function AccountsView() {
     }
   };
 
-  // A viewer cannot reach this through the navigation, but can still type the
-  // URL, so the section says why it is empty rather than rendering nothing.
   if (!isAdmin) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h2 className="text-2xl font-bold">{t('accounts.title')}</h2>
-            <div className="alert alert-warning mt-2">
-              <span>{t('accounts.admin_only')}</span>
-            </div>
-          </div>
-        </div>
+      <div className="alert alert-warning text-sm">
+        <span>{t('accounts.admin_only')}</span>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-      <div className="card-body space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">{t('accounts.title')}</h2>
-        <p className="text-sm opacity-70 mt-1">{t('accounts.intro')}</p>
-      </div>
-
+    <div className="space-y-6">
       {error && <div className="alert alert-error text-sm"><span>{error}</span></div>}
       {notice && <div className="alert alert-success text-sm"><span>{notice}</span></div>}
 
-      {isLoading ? (
-        <span className="loading loading-spinner loading-lg text-primary" />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="table table-zebra bg-base-100 rounded-box">
-            <thead>
-              <tr>
-                <th>{t('accounts.username')}</th>
-                <th>{t('accounts.role')}</th>
-                <th className="text-right">{t('accounts.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((account) => {
-                const isMe = account.username.toLowerCase() === (me ?? '').toLowerCase();
-                return (
-                  <tr key={account.username}>
-                    <td>
-                      {account.username}
-                      {isMe && (
-                        <span className="ml-2 badge badge-ghost badge-sm">
-                          {t('accounts.you')}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <select
-                        className="select select-sm select-bordered"
-                        value={account.role}
-                        // Demoting yourself is refused by the backend; not
-                        // offering it here saves a confusing round-trip.
-                        disabled={isMe}
-                        onChange={(e) => handleRoleChange(account, e.target.value as Role)}
-                      >
-                        <option value="admin">{t('accounts.role_admin')}</option>
-                        <option value="viewer">{t('accounts.role_viewer')}</option>
-                      </select>
-                    </td>
-                    <td className="text-right whitespace-nowrap">
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => handleReset(account)}
-                      >
-                        {t('accounts.reset_password')}
-                      </button>
-                      <button
-                        className="btn btn-outline btn-error btn-xs ml-2"
-                        disabled={isMe}
-                        onClick={() => handleDelete(account)}
-                      >
-                        {t('accounts.delete')}
-                      </button>
-                    </td>
+      {/* Accounts List Card */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold">{t('accounts.title')}</h3>
+
+          {isLoading ? (
+            <div className="flex justify-center py-6">
+              <span className="loading loading-spinner loading-md text-primary" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>{t('accounts.username')}</th>
+                    <th>{t('accounts.role')}</th>
+                    <th className="text-right">{t('accounts.actions')}</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {accounts.map((account) => {
+                    const isMe = account.username.toLowerCase() === (me ?? '').toLowerCase();
+                    return (
+                      <tr key={account.username}>
+                        <td>
+                          <span className="font-medium font-mono">{account.username}</span>
+                          {isMe && (
+                            <span className="ml-2 badge badge-ghost badge-xs">
+                              {t('accounts.you')}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <select
+                            className="select select-xs select-bordered"
+                            value={account.role}
+                            disabled={isMe}
+                            onChange={(e) => handleRoleChange(account, e.target.value as Role)}
+                          >
+                            <option value="admin">{t('accounts.role_admin')}</option>
+                            <option value="viewer">{t('accounts.role_viewer')}</option>
+                          </select>
+                        </td>
+                        <td className="text-right whitespace-nowrap">
+                          <button
+                            className="btn btn-outline btn-xs"
+                            onClick={() => handleReset(account)}
+                          >
+                            {t('accounts.reset_password')}
+                          </button>
+                          <button
+                            className="btn btn-outline btn-error btn-xs ml-2"
+                            disabled={isMe}
+                            onClick={() => handleDelete(account)}
+                          >
+                            {t('accounts.delete')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
-
-      <form className="space-y-3 border-t border-base-300 pt-4" onSubmit={handleCreate}>
-        <h3 className="font-semibold">{t('accounts.add_title')}</h3>
-        <p className="text-sm opacity-70">{t('accounts.add_intro')}</p>
-
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            className="input input-bordered flex-1"
-            placeholder={t('accounts.username')}
-            autoComplete="off"
-            required
-            value={newUsername}
-            onChange={(e) => setNewUsername(e.target.value)}
-          />
-          <input
-            type="password"
-            className={`input input-bordered flex-1 ${newPasswordProblem ? 'input-error' : ''}`}
-            placeholder={t('accounts.password')}
-            autoComplete="new-password"
-            required
-            minLength={MIN_PASSWORD_LENGTH}
-            aria-invalid={newPasswordProblem ? true : undefined}
-            aria-describedby={newPasswordProblem ? 'accounts-password-error' : undefined}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <select
-            className="select select-bordered"
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value as Role)}
-          >
-            <option value="viewer">{t('accounts.role_viewer')}</option>
-            <option value="admin">{t('accounts.role_admin')}</option>
-          </select>
-        </div>
-
-        {newPasswordProblem && (
-          <p id="accounts-password-error" className="text-error text-sm">
-            {newPasswordProblem}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={isCreating || !newUsername || !newPassword || !!newPasswordProblem}
-        >
-          {isCreating && <span className="loading loading-spinner loading-sm" />}
-          {t('accounts.add_button')}
-        </button>
-      </form>
       </div>
+
+      {/* Add Account Card */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <form className="space-y-4" onSubmit={handleCreate}>
+            <div>
+              <h3 className="text-base font-semibold">{t('accounts.add_title')}</h3>
+              <p className="text-sm opacity-70 mt-1">{t('accounts.add_intro')}</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                className="input input-bordered input-sm flex-1 font-mono"
+                placeholder={t('accounts.username')}
+                autoComplete="off"
+                required
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+              />
+              <input
+                type="password"
+                className={`input input-bordered input-sm flex-1 font-mono ${newPasswordProblem ? 'input-error' : ''}`}
+                placeholder={t('accounts.password')}
+                autoComplete="new-password"
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                aria-invalid={newPasswordProblem ? true : undefined}
+                aria-describedby={newPasswordProblem ? 'accounts-password-error' : undefined}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <select
+                className="select select-bordered select-sm"
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value as Role)}
+              >
+                <option value="viewer">{t('accounts.role_viewer')}</option>
+                <option value="admin">{t('accounts.role_admin')}</option>
+              </select>
+            </div>
+
+            {newPasswordProblem && (
+              <p id="accounts-password-error" className="text-error text-xs">
+                {newPasswordProblem}
+              </p>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={isCreating || !newUsername || !newPassword || !!newPasswordProblem}
+              >
+                {isCreating && <span className="loading loading-spinner loading-xs" />}
+                {t('accounts.add_button')}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

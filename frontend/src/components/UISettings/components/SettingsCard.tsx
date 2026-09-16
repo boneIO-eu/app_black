@@ -40,10 +40,10 @@ const SettingsCard: React.FC<SettingsCardProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`card bg-base-200 ${className}`}>
-      <div className="card-body">
+    <div className={`card bg-base-200/50 border border-base-content/10 shadow-sm ${className}`}>
+      <div className="card-body p-4 sm:p-6">
         <div className='flex lg:items-center justify-between flex-col lg:flex-row gap-2'>
-        <h3 className="card-title">
+        <h3 className="card-title text-base gap-2">
           {icon}
           {title}
         </h3>

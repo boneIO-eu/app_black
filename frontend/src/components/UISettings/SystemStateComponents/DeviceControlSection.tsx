@@ -46,12 +46,12 @@ export default function DeviceControlSection() {
   };
 
   return (
-    <>
+    <div className="space-y-6 max-w-2xl">
       {/* Reboot Device Section */}
-      <div className="card bg-base-200">
-        <div className="card-body">
-          <h3 className="card-title">
-            <FaRedo />
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6">
+          <h3 className="card-title text-base gap-2">
+            <FaRedo className="text-warning" />
             {t('settings.reboot_device')}
           </h3>
           <p className="text-sm opacity-70 mb-4">
@@ -59,7 +59,7 @@ export default function DeviceControlSection() {
           </p>
           <div className="card-actions">
             <button
-              className="btn btn-warning"
+              className="btn btn-warning btn-sm"
               onClick={rebootDevice}
               disabled={isRebooting}
             >
@@ -78,15 +78,15 @@ export default function DeviceControlSection() {
           </div>
           {rebootResult && (
             <div
-              className={`alert ${rebootResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
+              className={`alert ${rebootResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4 text-sm`}
             >
               {rebootResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
               <span>{rebootResult.message}</span>
             </div>
           )}
-          <div className="alert alert-error mt-4">
+          <div className="alert alert-error mt-4 text-sm">
             <FaExclamationTriangle />
-            <div className="text-sm">
+            <div>
               <p>{t('settings.reboot_warning')}</p>
             </div>
           </div>
@@ -94,10 +94,10 @@ export default function DeviceControlSection() {
       </div>
 
       {/* Shutdown Device Section */}
-      <div className="card bg-base-200">
-        <div className="card-body">
-          <h3 className="card-title">
-            <FaPowerOff />
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6">
+          <h3 className="card-title text-base gap-2">
+            <FaPowerOff className="text-error" />
             {t('settings.shutdown_device')}
           </h3>
           <p className="text-sm opacity-70 mb-4">
@@ -105,7 +105,7 @@ export default function DeviceControlSection() {
           </p>
           <div className="card-actions">
             <button
-              className="btn btn-error"
+              className="btn btn-error btn-sm"
               onClick={shutdownDevice}
               disabled={isShuttingDown}
             >
@@ -124,20 +124,20 @@ export default function DeviceControlSection() {
           </div>
           {shutdownResult && (
             <div
-              className={`alert ${shutdownResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
+              className={`alert ${shutdownResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4 text-sm`}
             >
               {shutdownResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
               <span>{shutdownResult.message}</span>
             </div>
           )}
-          <div className="alert alert-warning mt-4">
+          <div className="alert alert-warning mt-4 text-sm">
             <FaExclamationTriangle />
-            <div className="text-sm">
+            <div>
               <p>{t('settings.shutdown_warning')}</p>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

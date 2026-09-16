@@ -57,13 +57,11 @@ export default function SecurityView() {
 
   if (error || !posture) {
     return (
-      <div className="p-4 sm:p-6">
-        <div className="alert alert-warning">
-          <span>{t('security.unavailable')}</span>
-          <button className="btn btn-sm btn-outline" onClick={() => void refresh()}>
-            {t('security.retry')}
-          </button>
-        </div>
+      <div className="alert alert-warning text-sm">
+        <span>{t('security.unavailable')}</span>
+        <button className="btn btn-sm btn-outline ml-auto" onClick={() => void refresh()}>
+          {t('security.retry')}
+        </button>
       </div>
     );
   }
@@ -112,16 +110,9 @@ export default function SecurityView() {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      <div>
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          🛡️ {t('security.title')}
-        </h2>
-        <p className="text-sm opacity-70 mt-1 max-w-3xl">{t('security.intro')}</p>
-      </div>
-
+    <div className="space-y-6">
       {failed.length === 0 ? (
-        <div className="alert alert-success">
+        <div className="alert alert-success text-sm">
           <span>
             {t('security.all_clear', { count: posture.checks.length })}
           </span>

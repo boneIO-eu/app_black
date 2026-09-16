@@ -261,118 +261,32 @@ export default function BackupSection() {
   };
 
   return (
-    <div className="card bg-base-200">
-      <div className="card-body">
-        <h3 className="card-title">
-          <FaFileArchive />
-          {t('device_management.configuration_backup')}
-        </h3>
-        <p className="text-sm opacity-70 mb-4">{t('device_management.backup_description')}</p>
-
-        {/* Error Alert */}
-        {error && (
-          <div className="alert alert-error">
-            <FaExclamationTriangle />
-            <span>{error}</span>
-            <button className="btn btn-outline btn-sm" onClick={() => setError(null)}>
-              ×
-            </button>
-          </div>
-        )}
-
-        {/* Backup/Restore buttons */}
-        <div className="card-actions gap-2">
-          <button
-            className="btn btn-primary"
-            onClick={downloadConfig}
-            disabled={isDownloading || isRestoring}
-          >
-            {isDownloading ? (
-              <>
-                <FaSpinner className="animate-spin" />
-                {t('device_management.preparing')}
-              </>
-            ) : (
-              <>
-                <FaDownload />
-                {t('device_management.download_config')}
-              </>
-            )}
+    <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="alert alert-error">
+          <FaExclamationTriangle className="shrink-0" />
+          <span>{error}</span>
+          <button className="btn btn-outline btn-sm btn-circle ml-auto" onClick={() => setError(null)}>
+            ×
           </button>
-
-          <button
-            className="btn btn-secondary"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isDownloading || isRestoring}
-          >
-            {isRestoring ? (
-              <>
-                <FaSpinner className="animate-spin" />
-                {t('device_management.restoring')}
-              </>
-            ) : (
-              <>
-                <FaUpload />
-                {t('device_management.restore_config')}
-              </>
-            )}
-          </button>
-
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".tar.gz,.tgz"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
         </div>
+      )}
 
-        {/* Restore result */}
-        {restoreResult && (
-          <div
-            className={`alert ${restoreResult.validation_status === 'success' ? 'alert-success' : 'alert-warning'} mt-4`}
-          >
-            <FaCheck />
-            <div className="text-sm">
-              <p>{restoreResult.message}</p>
-              <p className="text-xs opacity-70 mt-1">
-                {t('device_management.backup_created')}: {restoreResult.backup_path}
-              </p>
-              {restoreResult.validation_status === 'warning' && (
-                <p className="text-xs mt-1">{restoreResult.validation_message}</p>
-              )}
-            </div>
-          </div>
-        )}
+      {/* Download and Restore Card */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            <FaDownload className="text-primary" />
+            {t('device_management.configuration_backup')}
+          </h3>
+          <p className="text-sm opacity-70">{t('device_management.backup_description')}</p>
 
-        <div className="alert alert-info mt-4">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            className="stroke-current shrink-0 w-6 h-6"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            ></path>
-          </svg>
-          <div className="text-sm">
-            <p>{t('device_management.backup_info_1')}</p>
-            <p>{t('device_management.backup_info_2')}</p>
-            <p className="mt-2 font-semibold">{t('device_management.restore_info')}</p>
-          </div>
-        </div>
-
-        {/* Available Backups on Disk */}
-        <div className="mt-4">
-          <div className="flex gap-2 mb-2">
+          {/* Backup/Restore buttons */}
+          <div className="flex flex-wrap gap-2 pt-1">
             <button
               className="btn btn-primary btn-sm"
-              onClick={createBackupOnDisk}
+              onClick={downloadConfig}
               disabled={isDownloading || isRestoring}
             >
               {isDownloading ? (
@@ -382,28 +296,126 @@ export default function BackupSection() {
                 </>
               ) : (
                 <>
-                  <FaFileArchive />
-                  {t('device_management.create_backup') || 'Create Backup'}
+                  <FaDownload />
+                  {t('device_management.download_config')}
                 </>
               )}
             </button>
 
-            {availableBackups.length > 0 && (
-              <button
-                className="btn btn-sm"
-                onClick={() => {
-                  setShowAvailableBackups(!showAvailableBackups);
-                  if (!showAvailableBackups) fetchAvailableBackups();
-                }}
-              >
-                {showAvailableBackups
-                  ? t('device_management.hide_backups', { count: availableBackups.length })
-                  : t('device_management.show_backups', { count: availableBackups.length })}
-              </button>
-            )}
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isDownloading || isRestoring}
+            >
+              {isRestoring ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  {t('device_management.restoring')}
+                </>
+              ) : (
+                <>
+                  <FaUpload />
+                  {t('device_management.restore_config')}
+                </>
+              )}
+            </button>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".tar.gz,.tgz"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
           </div>
 
+          {/* Restore result */}
+          {restoreResult && (
+            <div
+              className={`alert ${restoreResult.validation_status === 'success' ? 'alert-success' : 'alert-warning'} mt-2`}
+            >
+              <FaCheck className="shrink-0" />
+              <div className="text-sm">
+                <p>{restoreResult.message}</p>
+                <p className="text-xs opacity-70 mt-1">
+                  {t('device_management.backup_created')}: {restoreResult.backup_path}
+                </p>
+                {restoreResult.validation_status === 'warning' && (
+                  <p className="text-xs mt-1">{restoreResult.validation_message}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="alert alert-info text-xs mt-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              className="stroke-current shrink-0 w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+            <div className="space-y-1">
+              <p>{t('device_management.backup_info_1')}</p>
+              <p>{t('device_management.backup_info_2')}</p>
+              <p className="font-semibold pt-1">{t('device_management.restore_info')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Available Backups on Disk Card */}
+      <div className="card bg-base-200/50 border border-base-content/10 shadow-sm">
+        <div className="card-body p-4 sm:p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold flex items-center gap-2">
+              <FaFileArchive className="text-secondary" />
+              {t('device_management.config_backups')}
+            </h3>
+
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={createBackupOnDisk}
+                disabled={isDownloading || isRestoring}
+              >
+                {isDownloading ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    {t('device_management.preparing')}
+                  </>
+                ) : (
+                  <>
+                    <FaFileArchive />
+                    {t('device_management.create_backup') || 'Create Backup'}
+                  </>
+                )}
+              </button>
+
+              {availableBackups.length > 0 && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => {
+                    setShowAvailableBackups(!showAvailableBackups);
+                    if (!showAvailableBackups) fetchAvailableBackups();
+                  }}
+                >
+                  {showAvailableBackups
+                    ? t('device_management.hide_backups', { count: availableBackups.length })
+                    : t('device_management.show_backups', { count: availableBackups.length })}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="alert alert-info text-xs">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -470,6 +482,8 @@ export default function BackupSection() {
               </table>
             </div>
           )}
+        </div>
+      </div>
       {mismatchData && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) mismatchData.onCancel(); }}>
           <DialogContent className="max-w-md">
@@ -541,8 +555,6 @@ export default function BackupSection() {
           </DialogContent>
         </Dialog>
       )}
-        </div>
-      </div>
     </div>
   );
 }
