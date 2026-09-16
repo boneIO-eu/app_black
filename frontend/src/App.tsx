@@ -347,10 +347,19 @@ function AppContent() {
           return [...prev, message];
         });
       } else if (isConfigReloadEvent(message)) {
-        // Config was reloaded - clear old states
-        // New states will be sent by backend after reload
+        // Config was reloaded — drop the old states.
+        //
+        // The device sends the new ones once the reload finishes, but ask as
+        // well, a moment later. This clearing used to rely on a push that
+        // nothing actually made: saving a section emptied Outputs and Inputs
+        // until the page was reloaded. The device sends them now, and the
+        // request below covers the two cases where it will not — a reload
+        // that failed part way, and a panel newer than the firmware it is
+        // talking to. A resync that arrives on top of the push costs one
+        // message and settles on the same state.
         console.log('🔄 Config reload event received, clearing states for sections:', message.sections);
         const sections = message.sections;
+        window.setTimeout(() => requestStateResync(), 4000);
         
         if (sections.includes('all') || sections.includes('output') || sections.includes('output_group')) {
           setOutputs([]);

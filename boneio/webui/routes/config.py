@@ -28,6 +28,7 @@ from boneio.webui.routes.config_core import (
     reload_configuration,
     router,
     set_app_state,
+    set_state_broadcaster,
     set_websocket_manager,
     update_section_content,
 )
@@ -73,6 +74,7 @@ from boneio.webui.routes.config_discovery import (
 __all__ = [
     "router",
     "set_app_state",
+    "set_state_broadcaster",
     "set_websocket_manager",
     "_get_app_state",
     "get_manager",

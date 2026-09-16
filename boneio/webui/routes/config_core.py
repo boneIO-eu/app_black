@@ -49,6 +49,24 @@ def set_app_state(app_state: State) -> None:
     _app_state = app_state
 
 
+#: Sends the current state of every entity to every connected panel.
+#:
+#: Injected from app.py rather than imported: the helper that builds those
+#: payloads lives beside the WebSocket endpoint, and importing it here would
+#: close a cycle (app.py imports these routers).
+_broadcast_states = None
+
+
+def set_state_broadcaster(broadcaster) -> None:
+    """Attach the callable that pushes entity states to connected panels.
+
+    Args:
+        broadcaster: Async callable taking the manager, or None.
+    """
+    global _broadcast_states
+    _broadcast_states = broadcaster
+
+
 def set_websocket_manager(ws_manager) -> None:
     """Set websocket manager reference."""
     global _websocket_manager
@@ -501,6 +519,23 @@ async def reload_configuration(
 
         if result.get("status") == "error":
             raise HTTPException(status_code=500, detail=result.get("message", "Failed to reload configuration"))
+
+        # Send the new state to the panels that just threw the old one away.
+        #
+        # The event above tells every client to clear the sections being
+        # reloaded, and the frontend has always done so on the promise that
+        # "new states will be sent by the backend after reload". Nothing sent
+        # them: republish_all_entity_states is MQTT-only and says so, and the
+        # only other source is the burst a socket gets when it connects. So
+        # saving a section emptied Outputs and Inputs until the page was
+        # reloaded — which is what made F5 look like part of saving.
+        if _broadcast_states is not None:
+            try:
+                await _broadcast_states(manager)
+            except Exception as err:  # noqa: BLE001
+                # The configuration is already reloaded. Failing the request
+                # here would report a save that actually succeeded as broken.
+                _LOGGER.warning("Could not push new states to the panel: %s", err)
 
         return result
 

@@ -312,6 +312,31 @@ def remove_all_websocket_listeners(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws_sensor_global")
 
 
+async def broadcast_initial_states(boneio_manager: Manager) -> None:
+    """Push the current state of every entity to every connected panel.
+
+    The same payloads a client receives when its socket opens, sent to the
+    clients that are already connected. Used after a configuration reload,
+    where the panels have just been told to clear the sections being reloaded
+    and have nothing to refill them with.
+
+    Never raises: a panel that has gone away must not turn a successful reload
+    into a failed request.
+
+    Args:
+        boneio_manager: Manager holding the entities to describe.
+    """
+    manager = getattr(app.state, "websocket_manager", None)
+    if manager is None:
+        return
+
+    for websocket in list(manager.active_connections):
+        try:
+            await send_initial_states(websocket, boneio_manager)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Could not send states to a panel: %s", err)
+
+
 # ============================================================================
 # WebSocket Endpoint
 # ============================================================================
@@ -792,6 +817,7 @@ def init_app(
     # Configure route modules with app state
     config_module.set_app_state(app.state)
     config_module.set_websocket_manager(app.state.websocket_manager)
+    config_module.set_state_broadcaster(broadcast_initial_states)
     system_module.set_app_state(app.state)
     security_module.set_app_state(app.state)
     diagnostics_module.set_app_state(app.state)
