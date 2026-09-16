@@ -58,7 +58,7 @@ import LoginView from './components/LoginView';
 import OnboardingWizard from './components/OnboardingWizard';
 import SecurityUpdatePrompt from './components/SecurityUpdatePrompt';
 import Layout from './components/Layout';
-import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, GroupEvent, isOutputEvent, isGroupEvent, isConfigReloadEvent } from './hooks/useWebSocket';
+import { useWebSocket, requestStateResync, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, GroupEvent, isOutputEvent, isGroupEvent, isConfigReloadEvent } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import NotAvailable from './components/NotAvailable';
@@ -182,21 +182,35 @@ function AppContent() {
     };
   }, []);
 
-  // Listen to WebSocket connection state changes and request state resync on reconnect
-  // Note: Initial state is sent automatically by backend on WebSocket connect
-  // This handles reconnection scenarios where we need to resync
+  // Ask for the full state every time the socket comes up.
+  //
+  // The backend does send it on connect, and this listener used to just log
+  // that fact — which is why signing in left every view empty until a reload.
+  // Entity state only ever arrives in that one burst: nothing polls, and the
+  // views read it straight out of WebSocketContext. Miss the burst and the
+  // app shows an empty controller with no way back except F5.
+  //
+  // There are several ways to miss it. Logging in is the reliable one: the
+  // socket is deliberately not opened while unauthenticated, so it connects
+  // on the transition, in the same commit that swaps the login screen for the
+  // app — and anything that delays this component's handler past the server's
+  // first messages loses them. A dropped Wi-Fi link and a service restart are
+  // the same shape.
+  //
+  // Asking again on every connect costs one message and makes the question
+  // moot: whatever the burst did or did not deliver, the client asks for the
+  // truth once it is listening. `request_state` is exactly what the backend
+  // offers for this (see send_initial_states in webui/app.py).
   useEffect(() => {
     if (!isAuthenticated && isAuthRequired) return;
     if (!isApiAvailable) return;
-    
+
     const unsubscribe = addConnectionStateListener((connected) => {
       if (connected) {
-        // Backend sends initial state on connect, but for reconnects we may need to request it
-        // The backend will send all states via WebSocket messages
-        console.log('WebSocket connected/reconnected');
+        requestStateResync();
       }
     });
-    
+
     return unsubscribe;
   }, [addConnectionStateListener, isAuthenticated, isAuthRequired, isApiAvailable]);
 
@@ -221,6 +235,15 @@ function AppContent() {
       setGroups([]);
       return;
     }
+
+    // Now that this component is listening again, ask for the whole picture.
+    //
+    // The socket may already have been open when this became true — signing
+    // in is exactly that case — in which case the burst the server sends on
+    // connect has been and gone while the handler was still null. Asking here
+    // means "I am listening now, send me everything", independent of which
+    // happened first, the connection or the sign-in.
+    requestStateResync();
 
     // Set the handler that the stable listener will delegate to
     messageHandlerRef.current = (message: StateUpdate) => {

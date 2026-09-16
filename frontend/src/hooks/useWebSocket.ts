@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { useAppInit } from '@/contexts/AppInitContext';
 import { getBasePath } from '../api/basePath';
@@ -185,6 +185,19 @@ const INITIAL_RECONNECT_DELAY = 1000; // Start with 1 second
 const MAX_RECONNECT_DELAY = 30000; // Max 30 seconds
 const PING_INTERVAL = 15000; // 15 seconds - shorter for mobile browsers
 let activeConnections = 0;
+
+/**
+ * Set while the socket is down because something asked for it to be down —
+ * signing out, or a 401 — as opposed to the link dropping.
+ *
+ * Without it the reconnect loop treats a deliberate close like a network
+ * blip and dials straight back. Two things then go wrong: after a real sign
+ * out it retries forever against a server that will refuse it, and after a
+ * 401 it re-opens while the app still considers itself signed out — so the
+ * state burst that arrives is dropped, and the socket is then already OPEN
+ * when the user signs in, which is the one case the connect effect skips.
+ */
+let globalSuspended = false;
 let globalIsConnected = false;
 
 /**
@@ -198,6 +211,25 @@ export const addGlobalMessageListener = (callback: (message: StateUpdate) => voi
   };
 };
 
+/**
+ * Tear down the socket and everything that belongs to it.
+ *
+ * Deliberately does NOT touch the listener registries or the consumer count.
+ * Those belong to the components that registered them, and this is called
+ * while they are still mounted — on sign-out, and from the axios interceptor
+ * on any 401.
+ *
+ * Clearing them here is what made signing in show an empty controller until
+ * the page was reloaded. The message listener is subscribed once on mount
+ * from an effect with stable dependencies, exactly so it can never miss a
+ * frame; wiping the set behind its back meant it never re-subscribed, so
+ * after the next connect all 232 state frames arrived and were dropped
+ * because nobody was listening. F5 "fixed" it by remounting the component.
+ *
+ * Nothing is lost by leaving them: a listener only forwards to a handler ref
+ * that the app nulls out while signed out, so an unwanted frame is already
+ * ignored a layer up — where the component, not this module, decides.
+ */
 export const closeWebSocket = () => {
   if (globalWs) {
     globalWs.close();
@@ -211,12 +243,10 @@ export const closeWebSocket = () => {
     clearTimeout(globalReconnectTimeout);
     globalReconnectTimeout = null;
   }
-  globalMessageListeners.clear();
-  globalConnectionStateListeners.clear();
   globalConnecting = false;
   globalReconnectAttempts = 0;
   globalIsConnected = false;
-  activeConnections = 0;
+  globalSuspended = true;
 };
 
 const notifyConnectionState = (connected: boolean) => {
@@ -253,6 +283,7 @@ const setupWebSocket = async (
     return;
   }
 
+  globalSuspended = false;
   globalConnecting = true;
   try {
     const baseUrl = getBasePath();
@@ -327,6 +358,11 @@ const setupWebSocket = async (
       globalConnecting = false;
       notifyConnectionState(false);
 
+      if (globalSuspended) {
+        // Closed on purpose. Whoever asked for it decides when to come back.
+        return;
+      }
+
       if (activeConnections > 0 && globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
         const delay = Math.min(
@@ -359,8 +395,6 @@ export function useWebSocket() {
   const { isAuthRequired, isAuthenticated } = useAuth();
   const { isApiAvailable } = useAppInit();
 
-  // Track if this is the first mount
-  const isFirstMount = useRef(true);
 
   // Sync connection state
   useEffect(() => {
@@ -379,12 +413,6 @@ export function useWebSocket() {
     if (isAuthRequired && !isAuthenticated) {
       console.log('WebSocket: Auth required but user not authenticated, skipping connection');
       return;
-    }
-
-    // Only increment on first mount to avoid multiple connections
-    if (isFirstMount.current) {
-      activeConnections++;
-      isFirstMount.current = false;
     }
 
     console.log('Setting up WebSocket connection, API available:', isApiAvailable);
@@ -408,8 +436,18 @@ export function useWebSocket() {
     };
   }, [isAuthRequired, isAuthenticated, isApiAvailable]);
 
-  // Separate cleanup effect that only runs on unmount
+  // Count mounted consumers — not successful connection attempts.
+  //
+  // The increment used to live in the effect below, after its guards, so a
+  // hook that mounted while unauthenticated never incremented while the
+  // unmount here always decremented. The count went negative, and
+  // `onclose` only reconnects while it is above zero: once that happened,
+  // a socket that dropped stayed dropped until the page was reloaded.
+  //
+  // Mount and unmount now move it symmetrically. Whether to open a socket is
+  // a separate question, answered by the effect above.
   useEffect(() => {
+    activeConnections++;
     return () => {
       activeConnections--;
       if (activeConnections === 0) {
