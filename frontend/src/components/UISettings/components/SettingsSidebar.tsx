@@ -79,7 +79,25 @@ function SectionButton({
       <div className="flex items-center space-x-3 min-w-0 flex-1">
         <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
         <div className="min-w-0 flex-1">
-          <div className="font-medium truncate">{sectionConfig?.title}</div>
+          {/* The full name on hover, but only when it is actually cut off.
+              Measured on mouse enter rather than watched: the browser waits
+              before showing a title anyway, so the one moment it matters is
+              the one moment it costs anything — and a tooltip that repeats a
+              label you can already read in full is just noise. */}
+          <div
+            className="font-medium truncate"
+            onMouseEnter={event => {
+              const el = event.currentTarget;
+              const cut = el.scrollWidth > el.clientWidth;
+              if (cut) {
+                el.title = sectionConfig?.title ?? '';
+              } else {
+                el.removeAttribute('title');
+              }
+            }}
+          >
+            {sectionConfig?.title}
+          </div>
         </div>
       </div>
       <div className="flex items-center space-x-2 shrink-0">
