@@ -34,7 +34,14 @@ def project(tmp_path, helper, monkeypatch):
     trusted.mkdir()
 
     compose = project_dir / "docker-compose.yaml"
-    compose.write_text("services:\n  node-red:\n    image: nodered\n")
+    compose.write_text(
+        "services:\n"
+        "  node-red:\n"
+        "    image: nodered/node-red:4.1.2-22-minimal\n"
+        "    restart: unless-stopped\n"
+        "  caddy:\n"
+        "    image: caddy:2-alpine\n"
+    )
     os.chmod(compose, 0o644)
     (trusted / "docker-compose.yaml").write_text("services:\n  plain: {}\n")
     (trusted / "docker-compose-cloud.yaml").write_text(
@@ -177,47 +184,31 @@ def test_a_bad_log_line_count_is_refused(helper, project, ran, argument):
     assert ran == []
 
 
-# ---------------------------------------------------------------- the domain
+# -------------------------------------------------------- the compose template
 
 
-@pytest.mark.parametrize("domain", [
-    "boneio.example.com",
-    "a.io",
-    "my-device.cloud.boneio.eu",
-])
-def test_a_plausible_domain_is_accepted(helper, project, domain):
-    assert helper.main(["apply-cloud-template", domain]) == 0
-    written = (project / "docker-compose.yaml").read_text()
-    assert domain in written
-    assert "${DOMAIN}" not in written
-
-
-@pytest.mark.parametrize("domain", [
-    "",
-    "no-dot",
-    "-leading.example.com",
-    "trailing-.example.com",
-    "with space.example.com",
-    "x.example.com\nservices:\n  evil:\n    privileged: true",
-    "$(id).example.com",
-    "../../etc/passwd",
-    "a" * 300 + ".com",
-])
-def test_an_implausible_domain_is_refused(helper, project, domain):
-    """Validated before it can reach the template, so no YAML can be smuggled."""
+def test_the_cloud_template_takes_no_argument(helper, project):
+    """The template needs no parameter, so accepting one would only open a path
+    for caller data to reach the file `docker compose up` executes."""
     before = (project / "docker-compose.yaml").read_text()
-    assert helper.main(["apply-cloud-template", domain]) == 1
+    assert helper.main(["apply-cloud-template", "boneio.example.com"]) == 1
     assert (project / "docker-compose.yaml").read_text() == before
 
 
-def test_applying_a_template_leaves_a_root_owned_file(helper, project):
-    helper.main(["apply-cloud-template", "boneio.example.com"])
+def test_applying_the_cloud_template_copies_the_trusted_file(helper, project):
+    assert helper.main(["apply-cloud-template"]) == 0
+    assert (project / "docker-compose.yaml").read_text() == \
+        helper.COMPOSE_CLOUD_TEMPLATE.read_text()
+
+
+def test_applying_a_template_leaves_a_file_others_cannot_write(helper, project):
+    helper.main(["apply-cloud-template"])
     mode = (project / "docker-compose.yaml").lstat().st_mode
     assert not mode & 0o022, "the installed compose file is writable by others"
 
 
 def test_removing_the_cloud_template_restores_the_plain_one(helper, project):
-    helper.main(["apply-cloud-template", "boneio.example.com"])
+    helper.main(["apply-cloud-template"])
     assert helper.main(["remove-cloud-template"]) == 0
     assert "plain" in (project / "docker-compose.yaml").read_text()
 
@@ -225,7 +216,7 @@ def test_removing_the_cloud_template_restores_the_plain_one(helper, project):
 def test_a_template_that_is_not_root_owned_is_refused(helper, project):
     os.chmod(helper.COMPOSE_CLOUD_TEMPLATE, 0o666)
     before = (project / "docker-compose.yaml").read_text()
-    assert helper.main(["apply-cloud-template", "boneio.example.com"]) == 1
+    assert helper.main(["apply-cloud-template"]) == 1
     assert (project / "docker-compose.yaml").read_text() == before
 
 
@@ -240,3 +231,123 @@ def test_selftest_reports_an_untrusted_compose_file(helper, project):
 def test_selftest_reports_a_missing_template(helper, project):
     helper.COMPOSE_TEMPLATE.unlink()
     assert helper.selftest() == 1
+
+
+# ---------------------------------------------------------- customised files
+
+
+def test_a_hand_edited_compose_file_is_backed_up(helper, project):
+    """Hand-editing is being taken away; what was written must not vanish."""
+    compose = project / "docker-compose.yaml"
+    compose.write_text("services:\n  mine:\n    image: something-i-wrote\n")
+
+    assert helper.main(["apply-cloud-template"]) == 0
+    backup = compose.with_suffix(".yaml.bak")
+    assert backup.exists()
+    assert "something-i-wrote" in backup.read_text()
+
+
+def test_one_of_our_own_templates_is_not_backed_up(helper, project):
+    """The template it came from is already the backup."""
+    compose = project / "docker-compose.yaml"
+    compose.write_text(helper.COMPOSE_TEMPLATE.read_text())
+
+    helper.main(["apply-cloud-template"])
+    assert not compose.with_suffix(".yaml.bak").exists()
+
+
+def test_an_existing_backup_is_not_overwritten(helper, project):
+    """A second switch must not bury the first backup."""
+    compose = project / "docker-compose.yaml"
+    backup = compose.with_suffix(".yaml.bak")
+    backup.write_text("the original\n")
+    compose.write_text("services:\n  mine: {}\n")
+
+    helper.main(["apply-cloud-template"])
+    assert backup.read_text() == "the original\n"
+
+
+# ------------------------------------------------------- the node-red image tag
+
+
+def test_the_image_tag_can_be_changed(helper, project):
+    assert helper.main(["set-nodered-image", "4.2.0-22-minimal"]) == 0
+    assert "nodered/node-red:4.2.0-22-minimal" in \
+        (project / "docker-compose.yaml").read_text()
+
+
+def test_changing_the_tag_touches_nothing_else(helper, project):
+    """The application used to rewrite the whole file to change one tag."""
+    compose = project / "docker-compose.yaml"
+    before = compose.read_text().splitlines()
+    helper.main(["set-nodered-image", "4.2.0-22-minimal"])
+    after = compose.read_text().splitlines()
+
+    assert len(before) == len(after)
+    changed = [
+        (b, a) for b, a in zip(before, after) if b != a
+    ]
+    assert len(changed) == 1
+    assert "nodered/node-red" in changed[0][0]
+    assert "caddy:2-alpine" in "\n".join(after), "the caddy image was disturbed"
+
+
+@pytest.mark.parametrize("tag", [
+    "",
+    "-leading",
+    "tag with space",
+    "tag\nservices:\n  evil:\n    privileged: true",
+    "$(id)",
+    "../../etc/passwd",
+    "a" * 200,
+])
+def test_an_implausible_tag_is_refused(helper, project, tag):
+    """Validated before it reaches the file `docker compose up` executes."""
+    compose = project / "docker-compose.yaml"
+    before = compose.read_text()
+    assert helper.main(["set-nodered-image", tag]) == 1
+    assert compose.read_text() == before
+
+
+def test_setting_the_same_tag_is_a_no_op(helper, project):
+    compose = project / "docker-compose.yaml"
+    before = compose.read_text()
+    assert helper.main(["set-nodered-image", "4.1.2-22-minimal"]) == 0
+    assert compose.read_text() == before
+
+
+def test_a_compose_file_without_the_image_line_is_refused(helper, project):
+    """Better than guessing which line was meant."""
+    compose = project / "docker-compose.yaml"
+    compose.write_text("services:\n  node-red:\n    build: .\n")
+    assert helper.main(["set-nodered-image", "4.2.0"]) == 1
+
+
+def test_setting_the_tag_needs_a_root_owned_compose_file(helper, project):
+    compose = project / "docker-compose.yaml"
+    os.chmod(compose, 0o666)
+    assert helper.main(["set-nodered-image", "4.2.0"]) == 2
+
+
+# ---------------------------------------------------------- container log access
+
+
+def test_a_container_log_needs_a_container_that_exists(helper, project, monkeypatch):
+    """A regex alone would still admit anything shaped like a name."""
+    import subprocess as sp
+
+    monkeypatch.setattr(
+        sp, "run",
+        lambda argv, **k: sp.CompletedProcess(argv, 0, stdout="nodered-caddy-1\n", stderr=""),
+    )
+    assert helper.main(["logs-container", "not-a-real-container"]) == 1
+
+
+@pytest.mark.parametrize("name", ["", "-rm", "name with space", "$(id)", "../etc"])
+def test_a_malformed_container_name_is_refused(helper, project, name):
+    assert helper.main(["logs-container", name]) == 1
+
+
+def test_names_is_a_read_only_verb(helper):
+    assert "names" in helper.READ_ONLY_VERBS
+    assert "names" in helper.DAEMON_VERBS

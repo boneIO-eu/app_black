@@ -40,6 +40,8 @@ from pathlib import Path
 from boneio.core.config.secret_masking import collect_secrets, scrub_text
 from boneio.version import __version__
 
+from boneio.core import containers
+
 _LOGGER = logging.getLogger(__name__)
 
 #: Files in the config directory that must never be collected, whatever their
@@ -303,10 +305,7 @@ def _container_names() -> list[str]:
     Returns:
         Container names, or an empty list when Docker cannot be asked.
     """
-    output = _run(["docker", "ps", "-a", "--format", "{{.Names}}"])
-    if output.startswith("["):
-        return []
-    return [line.strip() for line in output.splitlines() if line.strip()]
+    return containers.container_names()
 
 
 def _docker_report() -> str:
@@ -315,16 +314,38 @@ def _docker_report() -> str:
     Returns:
         The report text.
     """
+    if not containers.helper_available() and shutil.which("docker") is None:
+        # Say why rather than producing an empty section: a bundle that does
+        # not explain a gap sends the reader looking for the wrong problem.
+        return "[docker is not installed on this system]"
+
     parts = [
-        "$ docker ps -a",
-        _run(["docker", "ps", "-a"]),
-        "$ docker compose ls",
-        _run(["docker", "compose", "ls"]),
+        "$ containers ps",
+        _describe(containers.containers(), "containers ps"),
+        "$ containers status",
+        _describe(containers.status(), "containers status"),
     ]
     for name in _container_names():
-        parts.append(f"$ docker logs --tail 200 {name}")
-        parts.append(_run(["docker", "logs", "--tail", "200", name], timeout=30))
+        parts.append(f"$ container logs --tail 200 {name}")
+        parts.append(_describe(containers.container_logs(name), f"logs {name}"))
     return "\n\n".join(parts)
+
+
+def _describe(result: containers.Result, what: str) -> str:
+    """Render a container operation's outcome for the bundle.
+
+    Args:
+        result: The outcome.
+        what: What was attempted, for the failure line.
+
+    Returns:
+        The output, or a line explaining why there is none.
+    """
+    text = (result.stdout or "") + (result.stderr or "")
+    text = text.strip()
+    if text:
+        return text
+    return f"[{what} produced no output]"
 
 
 def _status_sections(config: dict) -> list[Section]:

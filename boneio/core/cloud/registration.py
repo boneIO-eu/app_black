@@ -26,6 +26,8 @@ import aiohttp
 from boneio.core.cloud.secrets import MASTER_SECRET as DEFAULT_MASTER_SECRET
 from boneio.core.system.monitor import get_network_info
 
+from boneio.core import containers
+
 _LOGGER = logging.getLogger(__name__)
 
 # Cloud API configuration
@@ -516,178 +518,109 @@ class CloudRegistration:
         except Exception as e:
             _LOGGER.warning("Could not deploy init-certs-cloud.sh: %s", e)
 
-    def _check_compose_writable(self) -> bool:
-        """
-        Check if docker-compose.yaml is writable.
+    def _check_compose_ownership(self) -> bool:
+        """Check the compose file is managed by the privileged helper.
+
+        This used to check the opposite — that the file was *writable* — and its
+        error message told the operator to ``sudo chown $USER`` it. That advice
+        reopens F-04: ``docker compose up`` executes this file, so whoever can
+        write it can start a container as root with the host filesystem mounted.
 
         Returns:
-            True if file is writable, False otherwise (sets _last_error).
+            True when the cloud switch can proceed.
         """
-        compose_file = _DOCKER_DIR / "docker-compose.yaml"
-        if compose_file.exists() and not os.access(compose_file, os.W_OK):
-            compose_path = str(compose_file)
-            self._last_error = f"Permission denied writing {compose_path}. Run via SSH: sudo chown $USER {compose_path}"
-            _LOGGER.error(
-                "Permission denied for %s. Fix with: sudo chown $USER %s",
-                compose_path,
-                compose_path,
-            )
-            return False
-        return True
+        if containers.helper_available():
+            return True
+        self._last_error = (
+            "boneio-containers is not installed yet, so the compose file cannot "
+            "be switched. Apply the pending system migrations and try again."
+        )
+        _LOGGER.error("%s", self._last_error)
+        return False
 
     async def _switch_to_cloud_config(self) -> bool:
-        """
-        Switch Caddy to cloud mode by replacing docker-compose.yaml with
-        the bundled cloud template from boneio.core.cloud.data.
+        """Switch Caddy to cloud mode.
 
-        Changes:
-        - Deploys init-certs-cloud.sh from package to caddy dir
-        - Replaces docker-compose.yaml with cloud version from package
-        - Recreates Caddy container with new config
+        The compose file is no longer written here. The helper copies it from a
+        root-owned template, so this method asks for a template by name and has
+        no way to influence its contents.
 
         Returns:
-            True if switch was successful
+            True if the switch was successful.
         """
-        # Ensure cloud script is deployed from package
+        # The init script still comes from the package; it is mounted read-only
+        # into the container and is not what compose executes on the host.
         self._ensure_cloud_script()
 
-        compose_file = _DOCKER_DIR / "docker-compose.yaml"
-        try:
-            if not compose_file.exists():
-                _LOGGER.error("docker-compose.yaml not found: %s", compose_file)
-                return False
+        if not self._check_compose_ownership():
+            return False
 
-            # Check permissions before attempting any changes
-            if not self._check_compose_writable():
-                return False
-
-            content = compose_file.read_text()
-
-            # Already switched?
-            if "init-certs-cloud.sh" in content:
-                _LOGGER.debug("Cloud config already active in docker-compose.yaml")
-                return await self._recreate_caddy()
-
-            # Backup original
-            backup = compose_file.with_suffix(".yaml.bak")
-            if not backup.exists():
-                shutil.copy2(compose_file, backup)
-                _LOGGER.info("Backed up docker-compose.yaml to %s", backup)
-
-            # Replace with bundled cloud template
-            cloud_src = files("boneio.core.cloud.data").joinpath("docker-compose-cloud.yaml")
-            cloud_content = cloud_src.read_text(encoding="utf-8")
-            compose_file.write_text(cloud_content)
-            _LOGGER.info("Replaced docker-compose.yaml with cloud template from package")
-
+        if self.is_cloud_config_active():
+            _LOGGER.debug("Cloud config already active in docker-compose.yaml")
             return await self._recreate_caddy()
 
-        except PermissionError:
-            compose_path = str(compose_file)
-            self._last_error = f"Permission denied writing {compose_path}. Run via SSH: sudo chown $USER {compose_path}"
-            _LOGGER.error(
-                "Permission denied for %s. Fix with: sudo chown $USER %s",
-                compose_path,
-                compose_path,
-            )
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, containers.apply_cloud_template
+        )
+        if not result.ok:
+            self._last_error = result.stderr.strip() or "could not apply the cloud template"
+            _LOGGER.error("Failed to switch to cloud config: %s", self._last_error)
             return False
-        except Exception as e:
-            self._last_error = str(e)
-            _LOGGER.error("Failed to switch to cloud config: %s", e)
-            return False
+
+        _LOGGER.info("Switched docker-compose.yaml to the cloud template")
+        return await self._recreate_caddy()
 
     async def _restore_local_config(self) -> bool:
-        """
-        Restore original docker-compose.yaml from package data and restart Caddy.
-
-        Uses the bundled docker-compose.yaml from boneio.core.cloud.data so that
-        future pip upgrades automatically bring the latest Caddy/Node-RED versions.
+        """Restore the plain compose template and restart Caddy.
 
         Returns:
-            True if restore was successful
+            True if the restore was successful.
         """
-        compose_file = _DOCKER_DIR / "docker-compose.yaml"
-        try:
-            # Check permissions before attempting any changes
-            if not self._check_compose_writable():
-                return False
+        if not self._check_compose_ownership():
+            return False
 
-            src = files("boneio.core.cloud.data").joinpath("docker-compose.yaml")
-            original_content = src.read_text(encoding="utf-8")
-
-            current_content = compose_file.read_text() if compose_file.exists() else ""
-            if current_content == original_content:
-                _LOGGER.debug("docker-compose.yaml already matches package original")
-                return await self._recreate_caddy()
-
-            compose_file.write_text(original_content)
-            _LOGGER.info("Restored original docker-compose.yaml from package data")
-
+        if not self.is_cloud_config_active():
+            _LOGGER.debug("docker-compose.yaml is already the local template")
             return await self._recreate_caddy()
 
-        except PermissionError:
-            compose_path = str(compose_file)
-            self._last_error = f"Permission denied writing {compose_path}. Run via SSH: sudo chown $USER {compose_path}"
-            _LOGGER.error(
-                "Permission denied for %s. Fix with: sudo chown $USER %s",
-                compose_path,
-                compose_path,
-            )
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, containers.remove_cloud_template
+        )
+        if not result.ok:
+            self._last_error = result.stderr.strip() or "could not restore the template"
+            _LOGGER.error("Failed to restore local config: %s", self._last_error)
             return False
-        except Exception as e:
-            self._last_error = str(e)
-            _LOGGER.error("Failed to restore local config: %s", e)
-            return False
+
+        _LOGGER.info("Restored the local docker-compose.yaml template")
+        return await self._recreate_caddy()
 
     async def _recreate_caddy(self) -> bool:
-        """
-        Recreate and restart Caddy container to apply new certs or docker-compose config.
+        """Recreate and restart Caddy so it picks up new certs or compose config.
 
-        Uses 'docker compose up -d caddy' and 'docker compose restart caddy' to ensure
-        Caddy reloads updated SSL certificates from disk.
+        Both steps go through the container helper, so neither passes anything
+        from here to Docker.
 
         Returns:
-            True if recreate was successful
+            True if the recreate was successful.
         """
-        compose_dir = str(_DOCKER_DIR)
-        try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: subprocess.run(
-                    ["docker", "compose", "up", "-d", "caddy"],
-                    cwd=compose_dir,
-                    capture_output=True,
-                    timeout=60,
-                ),
+        loop = asyncio.get_event_loop()
+        up = await loop.run_in_executor(None, containers.start_caddy)
+        if not up.ok:
+            _LOGGER.error(
+                "Failed to recreate Caddy: %s", up.stderr.strip() or "unknown error"
+            )
+            return False
+
+        # Restart as well: mounted TLS certificates are only re-read on start.
+        restart = await loop.run_in_executor(None, containers.restart_caddy)
+        if not restart.ok:
+            _LOGGER.warning(
+                "Caddy was recreated but the restart failed: %s",
+                restart.stderr.strip() or "unknown error",
             )
 
-            # Also restart caddy to ensure mounted TLS certs are reloaded from disk
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: subprocess.run(
-                    ["docker", "compose", "restart", "caddy"],
-                    cwd=compose_dir,
-                    capture_output=True,
-                    timeout=60,
-                ),
-            )
-
-            if result.returncode == 0:
-                _LOGGER.info("Caddy container recreated and restarted successfully")
-                return True
-            else:
-                _LOGGER.error(
-                    "Failed to recreate Caddy: %s",
-                    result.stderr.decode() if result.stderr else "Unknown error",
-                )
-                return False
-
-        except subprocess.TimeoutExpired:
-            _LOGGER.error("Caddy recreate timed out")
-            return False
-        except Exception as e:
-            _LOGGER.error("Failed to recreate Caddy: %s", e)
-            return False
+        _LOGGER.info("Caddy container recreated and restarted successfully")
+        return True
 
     def is_cloud_config_active(self) -> bool:
         """

@@ -61,6 +61,12 @@ _PRISTINE = (
     ("sudoers/boneio-helpers", "sudoers-boneio-helpers", 0o440),
     ("migrations.pem", "migrations.pem", 0o444),
     ("migrations-recovery.pem", "migrations-recovery.pem", 0o444),
+    # The compose templates. boneio-containers copies the compose file from
+    # here instead of the application writing it, which is what stops whoever
+    # can write that file from starting a container as root with the host
+    # filesystem mounted.
+    ("docker/nodered/docker-compose.yaml", "docker-compose.yaml", 0o644),
+    ("docker/nodered/docker-compose-cloud.yaml", "docker-compose-cloud.yaml", 0o644),
 )
 
 

@@ -21,6 +21,8 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Uploa
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from boneio.core import containers
+
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/nodered", tags=["nodered"])
@@ -158,25 +160,9 @@ def _check_container_running(force: bool = False) -> bool:
     
     running = False
     try:
-        result = subprocess.run(
-            ["docker", "compose", "ps", "--format", "json", "node-red"],
-            cwd=NODERED_DIR,
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            # Docker Compose outputs JSON format
-            try:
-                container_info = json.loads(result.stdout)
-                if isinstance(container_info, list):
-                    container_info = container_info[0] if container_info else {}
-                state = container_info.get("State", "unknown")
-                running = state == "running"
-            except json.JSONDecodeError:
-                # Fallback for plain text
-                running = "running" in result.stdout.lower() or "Up" in result.stdout
+        info = containers.service_status("node-red", timeout=10)
+        if info is not None:
+            running = info.get("State", "unknown") == "running"
     except Exception as e:
         _LOGGER.error("Failed to check Node-RED container status: %s", e)
     
@@ -412,28 +398,28 @@ async def restore_backup(backup_path: str) -> dict[str, str]:
 
         loop = asyncio.get_event_loop()
 
-        def _docker_compose_cmd(cmd: list[str], timeout: int = 30) -> None:
-            """Run a docker compose command synchronously (meant for executor)."""
-            result = subprocess.run(
-                cmd,
-                cwd=NODERED_DIR,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout,
-            )
-            if result.returncode != 0:
-                stderr_text = result.stderr.decode(errors="replace").strip()
+        def _container_verb(verb: str, timeout: int = 30) -> None:
+            """Perform one container operation, raising on failure.
+
+            Goes through boneio-containers when it is installed, so no argument
+            from this process reaches Docker (F-04).
+            """
+            result = containers.run(verb, timeout=timeout)
+            if not result.ok:
+                stderr_text = result.stderr.strip()
                 _LOGGER.error(
-                    "docker compose command failed (rc=%d): %s\nstderr: %s",
-                    result.returncode, " ".join(cmd), stderr_text,
+                    "container operation %s failed (rc=%d): %s",
+                    verb, result.returncode, stderr_text,
                 )
-                raise RuntimeError(f"docker compose failed: {stderr_text or 'unknown error'}")
+                raise RuntimeError(
+                    f"container operation failed: {stderr_text or 'unknown error'}"
+                )
 
         def _do_restore() -> None:
             """Perform the blocking restore steps in a thread."""
             # Step 1: Stop Node-RED container
             _LOGGER.info("Stopping Node-RED for restore...")
-            _docker_compose_cmd(["docker", "compose", "stop", "node-red"])
+            _container_verb("stop-nodered", timeout=60)
 
             # Step 2: Clear current files in data directory except node_modules
             _LOGGER.info("Cleaning up current Node-RED files...")
@@ -463,7 +449,7 @@ async def restore_backup(backup_path: str) -> dict[str, str]:
 
             # Step 4: Start Node-RED container
             _LOGGER.info("Starting Node-RED container back up...")
-            _docker_compose_cmd(["docker", "compose", "start", "node-red"])
+            _container_verb("start-nodered", timeout=120)
 
             _LOGGER.info("Node-RED restore complete.")
 
@@ -474,7 +460,7 @@ async def restore_backup(backup_path: str) -> dict[str, str]:
         _LOGGER.error("Failed to restore Node-RED backup: %s", e, exc_info=True)
         # Try to restart container just in case it got stuck stopped
         try:
-            subprocess.run(["docker", "compose", "start", "node-red"], cwd=NODERED_DIR, timeout=10, check=False)
+            containers.start_nodered(timeout=10)
         except Exception:
             pass
         raise HTTPException(status_code=500, detail=f"Failed to restore: {e}") from e
@@ -603,22 +589,18 @@ async def upload_restore(
 
     loop = asyncio.get_event_loop()
 
-    def _docker_compose_cmd(cmd: list[str], timeout: int = 30) -> None:
-        """Run a docker compose command synchronously."""
-        result = subprocess.run(
-            cmd,
-            cwd=NODERED_DIR,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
-        )
-        if result.returncode != 0:
-            stderr_text = result.stderr.decode(errors="replace").strip()
+    def _container_verb(verb: str, timeout: int = 30) -> None:
+        """Perform one container operation, raising on failure."""
+        result = containers.run(verb, timeout=timeout)
+        if not result.ok:
+            stderr_text = result.stderr.strip()
             _LOGGER.error(
-                "docker compose command failed (rc=%d): %s\nstderr: %s",
-                result.returncode, " ".join(cmd), stderr_text,
+                "container operation %s failed (rc=%d): %s",
+                verb, result.returncode, stderr_text,
             )
-            raise RuntimeError(f"docker compose failed: {stderr_text or 'unknown error'}")
+            raise RuntimeError(
+                f"container operation failed: {stderr_text or 'unknown error'}"
+            )
 
     def _do_upload_restore() -> None:
         """Perform the blocking restore steps from uploaded file."""
@@ -655,7 +637,7 @@ async def upload_restore(
 
         # Step 2: Stop Node-RED container
         _LOGGER.info("Stopping Node-RED for upload restore...")
-        _docker_compose_cmd(["docker", "compose", "stop", "node-red"])
+        _container_verb("stop-nodered", timeout=60)
 
         # Step 3: Clear current files (keep node_modules)
         _LOGGER.info("Cleaning up current Node-RED files...")
@@ -685,7 +667,7 @@ async def upload_restore(
 
         # Step 5: Start Node-RED container
         _LOGGER.info("Starting Node-RED container back up...")
-        _docker_compose_cmd(["docker", "compose", "start", "node-red"])
+        _container_verb("start-nodered", timeout=120)
 
         _LOGGER.info("Node-RED upload restore complete.")
 
@@ -696,10 +678,7 @@ async def upload_restore(
         _LOGGER.error("Failed to restore Node-RED from upload: %s", e, exc_info=True)
         # Try to restart container
         try:
-            subprocess.run(
-                ["docker", "compose", "start", "node-red"],
-                cwd=NODERED_DIR, timeout=10, check=False,
-            )
+            containers.start_nodered(timeout=10)
         except Exception:
             pass
         raise HTTPException(status_code=500, detail=f"Failed to restore: {e}") from e
@@ -896,41 +875,36 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
             # 3. Modify docker-compose.yaml image tag
             _update_progress(40, f"Updating docker-compose.yaml to version {target_version}...", f"Setting tag to {target_version}")
             
-            with open(COMPOSE_FILE_PATH, encoding="utf-8") as f:
-                content = f.read()
-                
-            new_content = re.sub(
-                r"image:\s*nodered/node-red:[^\s]+",
-                f"image: nodered/node-red:{target_version}",
-                content
+            # The compose file is not written here any more. It is what
+            # `docker compose up` executes, so writing it was equivalent to
+            # being able to run a container as root with the host filesystem
+            # mounted — the same hole as the docker group, reached through the
+            # update flow. The helper changes the one tag, after validating it.
+            loop = asyncio.get_event_loop()
+            set_result = await loop.run_in_executor(
+                None, containers.set_nodered_image, target_version
             )
-            
-            with open(COMPOSE_FILE_PATH, "w", encoding="utf-8") as f:
-                f.write(new_content)
+            if not set_result.ok:
+                raise Exception(
+                    f"could not set the Node-RED image tag: "
+                    f"{set_result.stderr.strip() or 'unknown error'}"
+                )
 
             # 4. Pull new image
             _update_progress(60, "Pulling new Node-RED Docker image...", "docker compose pull")
-            pull_process = await asyncio.create_subprocess_exec(
-                "docker", "compose", "pull", "node-red",
-                cwd=NODERED_DIR,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await pull_process.communicate()
-            if pull_process.returncode != 0:
-                raise Exception(f"docker compose pull failed: {stderr.decode().strip()}")
+            pull_result = await loop.run_in_executor(None, containers.pull_nodered)
+            if not pull_result.ok:
+                raise Exception(
+                    f"docker compose pull failed: {pull_result.stderr.strip()}"
+                )
 
             # 5. Restart Node-RED container
             _update_progress(80, "Restarting Node-RED container...", "docker compose up -d")
-            up_process = await asyncio.create_subprocess_exec(
-                "docker", "compose", "up", "-d", "node-red",
-                cwd=NODERED_DIR,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await up_process.communicate()
-            if up_process.returncode != 0:
-                raise Exception(f"docker compose up failed: {stderr.decode().strip()}")
+            up_result = await loop.run_in_executor(None, containers.start_nodered)
+            if not up_result.ok:
+                raise Exception(
+                    f"docker compose up failed: {up_result.stderr.strip()}"
+                )
 
             # 6. Verify and complete
             _update_status["status"] = "success"

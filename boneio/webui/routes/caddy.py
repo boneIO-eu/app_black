@@ -14,6 +14,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from boneio.core import containers
+
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/caddy", tags=["caddy"])
@@ -234,27 +236,16 @@ def reload_caddy() -> tuple[bool, str]:
         Tuple of (success, message).
     """
     try:
-        # Try docker compose reload first
-        result = subprocess.run(
-            ["docker", "compose", "exec", "caddy", "caddy", "reload", "--config", "/etc/caddy/Caddyfile"],
-            cwd=CADDY_CONFIG_DIR,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        # Ask Caddy to reload first; both paths go through the container
+        # helper, so nothing from this request reaches Docker (F-04).
+        result = containers.reload_caddy()
         
         if result.returncode == 0:
             return True, "Caddy configuration reloaded successfully"
         else:
             # If reload fails, try restart
-            result = subprocess.run(
-                ["docker", "compose", "restart", "caddy"],
-                cwd=CADDY_CONFIG_DIR,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
+            result = containers.restart_caddy()
+
             if result.returncode == 0:
                 return True, "Caddy container restarted successfully"
             else:
@@ -462,43 +453,21 @@ async def test_caddy_connection():
         Status response.
     """
     try:
-        result = subprocess.run(
-            ["docker", "compose", "ps", "--format", "json", "caddy"],
-            cwd=CADDY_CONFIG_DIR,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                container_info = json.loads(result.stdout)
-                if isinstance(container_info, list):
-                    container_info = container_info[0] if container_info else {}
-                
-                state = container_info.get("State", "unknown")
-                
-                if state == "running":
-                    return {
-                        "status": "success",
-                        "running": True,
-                        "message": "Caddy is running"
-                    }
-                else:
-                    return {
-                        "status": "warning",
-                        "running": False,
-                        "message": f"Caddy container state: {state}"
-                    }
-            except json.JSONDecodeError:
-                # Fallback for older docker compose versions
-                if "running" in result.stdout.lower() or "Up" in result.stdout:
-                    return {
-                        "status": "success",
-                        "running": True,
-                        "message": "Caddy is running"
-                    }
-        
+        container_info = containers.service_status("caddy", timeout=10)
+        if container_info is not None:
+            state = container_info.get("State", "unknown")
+            if state == "running":
+                return {
+                    "status": "success",
+                    "running": True,
+                    "message": "Caddy is running"
+                }
+            return {
+                "status": "warning",
+                "running": False,
+                "message": f"Caddy container state: {state}"
+            }
+
         return {
             "status": "error",
             "running": False,

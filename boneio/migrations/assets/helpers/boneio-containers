@@ -61,12 +61,18 @@ COMPOSE_CLOUD_TEMPLATE = TRUSTED_DIR / "docker-compose-cloud.yaml"
 CADDY_SERVICE = "caddy"
 NODERED_SERVICE = "node-red"
 
-#: A hostname, as permissive as DNS and no more. Checked before it can reach a
-#: template, so a domain cannot smuggle YAML into the compose file.
-_DOMAIN_RE = re.compile(
-    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$"
-)
 _MAX_LOG_LINES = 2000
+
+#: A container image tag, per Docker's own rules and no looser. Validated
+#: before it can reach the compose file, which is what `docker compose up`
+#: executes — the application used to rewrite that file itself to change the
+#: Node-RED version, which is the same escalation path by another route.
+_TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$")
+#: The line this helper is willing to change, and nothing else in the file.
+_NODERED_IMAGE_RE = re.compile(
+    r"^(?P<prefix>\s*image:\s*nodered/node-red:)(?P<tag>\S+)(?P<suffix>\s*)$",
+    re.MULTILINE,
+)
 
 
 def _configure_logging() -> logging.Logger:
@@ -122,7 +128,16 @@ VERBS: dict[str, tuple[str, ...]] = {
 #: Verbs that talk to the docker daemon rather than to a compose project.
 DAEMON_VERBS: dict[str, tuple[str, ...]] = {
     "ps": ("ps", "-a", "--format", "json"),
+    "names": ("ps", "-a", "--format", "{{.Names}}"),
 }
+
+#: How much of a container log the diagnostics bundle takes.
+_CONTAINER_LOG_LINES = 200
+#: A container name, per Docker's own rules. Checked, and then checked again
+#: against the containers that actually exist — a name is the one piece of
+#: caller data that reaches docker here, so a regex alone is not enough: it
+#: would still admit anything shaped like a name, including a flag.
+_CONTAINER_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 
 def _compose(*args: str) -> list[str]:
@@ -159,6 +174,8 @@ PARAMETERISED_VERBS = {
     "logs-nodered",
     "apply-cloud-template",
     "remove-cloud-template",
+    "set-nodered-image",
+    "logs-container",
 }
 
 ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS)
@@ -166,7 +183,9 @@ ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS)
 #: Verbs that only read. They are allowed to run even when the compose file is
 #: not yet root-owned, because refusing them would leave the UI unable to say
 #: what is wrong.
-READ_ONLY_VERBS = {"status", "ps", "logs-caddy", "logs-nodered"}
+READ_ONLY_VERBS = {
+    "status", "ps", "names", "logs-caddy", "logs-nodered", "logs-container",
+}
 
 
 def _assert_root() -> None:
@@ -263,12 +282,16 @@ def _logs(service: str, argument: str | None) -> int:
     return _run(_compose("logs", "--tail", str(lines), "--no-color", service), timeout=60)
 
 
-def _install_compose(source: Path, substitutions: dict[str, str]) -> int:
-    """Install a root-owned compose file rendered from a trusted template.
+def _install_compose(source: Path) -> int:
+    """Install a root-owned compose file, copied from a trusted template.
+
+    Nothing is substituted into it. The cloud template serves a wildcard
+    certificate and takes the hostname from the container itself, so no
+    caller-supplied value belongs in this file — which is the point, since the
+    file is what ``docker compose up`` executes.
 
     Args:
         source: Template in the pristine copy.
-        substitutions: ``${KEY}`` values to fill in; already validated.
 
     Returns:
         0 on success.
@@ -282,10 +305,9 @@ def _install_compose(source: Path, substitutions: dict[str, str]) -> int:
             "must come from the pristine copy, not from the application."
         )
     content = source.read_text(encoding="utf-8")
-    for key, value in substitutions.items():
-        content = content.replace(f"${{{key}}}", value)
 
     PROJECT_DIR.mkdir(parents=True, exist_ok=True)
+    _back_up_if_customised(content)
     with tempfile.NamedTemporaryFile(
         dir=PROJECT_DIR, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
     ) as tmp:
@@ -309,25 +331,171 @@ def _install_compose(source: Path, substitutions: dict[str, str]) -> int:
     return 0
 
 
-def _apply_cloud_template(argument: str | None) -> int:
-    """Switch the compose project to the cloud template for one domain.
+def _back_up_if_customised(replacement: str) -> None:
+    """Keep a copy of a compose file that matches neither template.
+
+    The code this replaces wrote a ``.yaml.bak`` before switching, which mattered
+    for anyone who had hand-edited the file. Hand-editing is what is being taken
+    away — the file is what ``docker compose up`` executes — but taking it away
+    should not silently discard what somebody already wrote.
 
     Args:
-        argument: The domain to serve.
+        replacement: The content about to be installed.
+    """
+    if not COMPOSE_FILE.is_file() or COMPOSE_FILE.is_symlink():
+        return
+    try:
+        current = COMPOSE_FILE.read_text(encoding="utf-8")
+    except OSError as exc:
+        _LOGGER.warning("Cannot read %s to back it up: %s", COMPOSE_FILE, exc)
+        return
+    if current == replacement:
+        return
+
+    known = []
+    for template in (COMPOSE_TEMPLATE, COMPOSE_CLOUD_TEMPLATE):
+        try:
+            known.append(template.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+    if current in known:
+        # One of ours; the template it came from is the backup.
+        return
+
+    backup = COMPOSE_FILE.with_suffix(".yaml.bak")
+    if backup.exists():
+        _LOGGER.info("Keeping the existing backup at %s", backup)
+        return
+    try:
+        backup.write_text(current, encoding="utf-8")
+        os.chmod(backup, 0o644)
+        _LOGGER.info(
+            "Backed up a customised %s to %s before replacing it",
+            COMPOSE_FILE, backup,
+        )
+    except OSError as exc:
+        _LOGGER.warning("Could not back up %s: %s", COMPOSE_FILE, exc)
+
+
+def _logs_container(argument: str | None) -> int:
+    """Show the tail of one container's log, by name.
+
+    The diagnostics bundle reads every container's log, and compose prefixes
+    the names with the project (``nodered-caddy-1``, not ``caddy``), so a fixed
+    list would produce "No such container" for exactly the logs somebody wanted.
+    The name therefore has to come from the caller — and is accepted only if it
+    matches a container that exists, which is a stronger check than any pattern.
+
+    Args:
+        argument: The container name.
 
     Returns:
         Process exit status.
 
     Raises:
-        Refused: If the domain is not a plausible hostname.
+        Refused: If the name is malformed or is not a container on this host.
     """
-    if not argument or not _DOMAIN_RE.match(argument):
+    if not argument or not _CONTAINER_NAME_RE.match(argument):
+        raise Refused(f"not a valid container name: {argument!r}")
+
+    listing = subprocess.run(
+        ["docker", *DAEMON_VERBS["names"]],
+        cwd=str(PROJECT_DIR), capture_output=True, text=True, timeout=30,
+    )
+    if listing.returncode != 0:
         raise Refused(
-            f"not a valid domain: {argument!r}. Checked before it can reach the "
-            "template, so a domain cannot smuggle YAML into the compose file."
+            f"cannot list containers, so {argument!r} cannot be checked: "
+            f"{listing.stderr.strip()}"
         )
-    _LOGGER.info("applying cloud template for %s", argument)
-    return _install_compose(COMPOSE_CLOUD_TEMPLATE, {"DOMAIN": argument})
+    existing = {line.strip() for line in listing.stdout.splitlines() if line.strip()}
+    if argument not in existing:
+        raise Refused(f"no such container: {argument!r}")
+
+    return _run(
+        ["docker", "logs", "--tail", str(_CONTAINER_LOG_LINES), argument], timeout=60
+    )
+
+
+def _set_nodered_image(argument: str | None) -> int:
+    """Change the Node-RED image tag in the compose file, and nothing else.
+
+    The application used to rewrite the whole compose file to do this. That file
+    is what ``docker compose up`` executes, so being able to write it is being
+    able to run a container as root with the host filesystem mounted — the same
+    hole as the docker group, reached through the update flow. Here the only
+    thing that can change is one tag, matched by a fixed pattern.
+
+    Args:
+        argument: The image tag.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: If the tag is implausible or the image line is not there.
+    """
+    if not argument or not _TAG_RE.match(argument):
+        raise Refused(
+            f"not a valid image tag: {argument!r}. Checked before it reaches the "
+            "compose file, so a tag cannot smuggle YAML into it."
+        )
+
+    content = COMPOSE_FILE.read_text(encoding="utf-8")
+    match = _NODERED_IMAGE_RE.search(content)
+    if match is None:
+        raise Refused(
+            f"no 'image: nodered/node-red:<tag>' line in {COMPOSE_FILE}; refusing "
+            "to guess what to edit"
+        )
+    if match.group("tag") == argument:
+        _LOGGER.info("Node-RED image is already nodered/node-red:%s", argument)
+        return 0
+
+    updated = _NODERED_IMAGE_RE.sub(
+        lambda m: f"{m.group('prefix')}{argument}{m.group('suffix')}", content, count=1
+    )
+    _back_up_if_customised(updated)
+
+    with tempfile.NamedTemporaryFile(
+        dir=PROJECT_DIR, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+    ) as tmp:
+        tmp.write(updated)
+        tmp_path = tmp.name
+    try:
+        os.chmod(tmp_path, 0o644)
+        if os.geteuid() == 0:
+            os.chown(tmp_path, 0, 0)
+        os.replace(tmp_path, COMPOSE_FILE)
+    except OSError:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    _LOGGER.info(
+        "Node-RED image set to nodered/node-red:%s (was %s)",
+        argument, match.group("tag"),
+    )
+    return 0
+
+
+def _apply_cloud_template(argument: str | None) -> int:
+    """Switch the compose project to the cloud template.
+
+    Args:
+        argument: Must be absent. The template needs no parameter, so accepting
+            one would only create a path for caller data to reach the file.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If an argument is supplied.
+    """
+    if argument is not None:
+        raise Refused("apply-cloud-template takes no argument")
+    _LOGGER.info("applying the cloud compose template")
+    return _install_compose(COMPOSE_CLOUD_TEMPLATE)
 
 
 def _remove_cloud_template(argument: str | None) -> int:
@@ -339,8 +507,10 @@ def _remove_cloud_template(argument: str | None) -> int:
     Returns:
         Process exit status.
     """
+    if argument is not None:
+        raise Refused("remove-cloud-template takes no argument")
     _LOGGER.info("restoring the plain compose template")
-    return _install_compose(COMPOSE_TEMPLATE, {})
+    return _install_compose(COMPOSE_TEMPLATE)
 
 
 def selftest() -> int:
@@ -428,6 +598,10 @@ def main(argv: list[str] | None = None) -> int:
             return _logs(CADDY_SERVICE, args.argument)
         if args.verb == "logs-nodered":
             return _logs(NODERED_SERVICE, args.argument)
+        if args.verb == "logs-container":
+            return _logs_container(args.argument)
+        if args.verb == "set-nodered-image":
+            return _set_nodered_image(args.argument)
         if args.verb == "apply-cloud-template":
             return _apply_cloud_template(args.argument)
         if args.verb == "remove-cloud-template":
