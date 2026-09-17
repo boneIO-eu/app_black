@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/usr/local/bin/set-hostname-once.sh","group":"root","mode":493,"owner":"root","src":"usr-local-bin/set-hostname-once.sh","template_vars":{}},{"action":"systemctl_enable","unit":"set-hostname-once.service"},{"action":"systemctl_restart","unit":"set-hostname-once.service"}]

@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/usr/sbin/oled_msg.py","group":"root","mode":493,"owner":"root","src":"usr-sbin/oled_msg.py","template_vars":{}},{"action":"install_file","dst":"/usr/sbin/oled_msg.sh","group":"root","mode":493,"owner":"root","src":"usr-sbin/oled_msg.sh","template_vars":{}}]

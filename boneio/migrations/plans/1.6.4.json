@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/etc/ssh/sshd_config.d/10-boneio-hardening.conf","group":"root","mode":420,"on_change":{"action":"systemctl_reload","unit":"ssh"},"owner":"root","src":"sshd/10-boneio-hardening.conf","template_vars":{},"validate_cmd":"sshd -t -f"}]

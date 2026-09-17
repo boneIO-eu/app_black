@@ -1,0 +1,1 @@
+[{"action":"disable_apparmor_profiles","keep":["unix-chkpwd","usr.sbin.dhclient","systemd-coredump","runc","crun","rootlesskit","slirp4netns","unprivileged_userns","userbindmount","busybox","toybox","lsb_release","nvidia_modprobe"]}]

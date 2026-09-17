@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/etc/sudoers.d/boneio","group":"root","mode":288,"owner":"root","src":"sudoers/boneio","template_vars":{},"validate_cmd":"visudo -cf"}]

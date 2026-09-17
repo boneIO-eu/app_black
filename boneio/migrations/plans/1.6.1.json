@@ -1,0 +1,1 @@
+[{"action":"set_file_permissions","group":"mosquitto","mode":416,"owner":"root","path":"/etc/mosquitto/passwd"},{"action":"systemctl_reload","unit":"mosquitto"}]

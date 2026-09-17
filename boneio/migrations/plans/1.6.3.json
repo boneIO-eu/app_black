@@ -1,0 +1,1 @@
+[{"action":"ufw_allow","comment":"SSH - do not lock the operator out","port":22,"proto":"tcp"},{"action":"ufw_allow","comment":"boneIO panel over TLS","port":8443,"proto":"tcp"}]

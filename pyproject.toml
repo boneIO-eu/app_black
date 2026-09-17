@@ -69,7 +69,7 @@ where = ["."]
 include = ["boneio*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.json", "*.yaml", "*.yml", "*.ttf", "*.sh"]
+"*" = ["*.json", "*.yaml", "*.yml", "*.ttf", "*.sh", "*.pem", "*.sig"]
 "boneio.webui" = ["frontend-dist/**/*"]
 "boneio.migrations" = [
     "assets/**/*",
@@ -77,6 +77,10 @@ include = ["boneio*"]
     "bootstrap/boneio-migrate",
     "bootstrap/sudoers-migrate",
     "bootstrap/install-helper.sh",
+    # Signed plans and their signatures. The "*" glob above only matches files
+    # directly in a package directory, not in subdirectories, so plans/ has to
+    # be named here or the helper ships with nothing to verify.
+    "plans/**/*",
 ]
 
 [tool.setuptools.dynamic]

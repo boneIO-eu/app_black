@@ -28,6 +28,14 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov httpx
           pip install -e .
 
+      # The signed plans are the only thing the privileged migration helper will
+      # execute (CVE-2026-77055), so a plan that drifts from its module means the
+      # device applies old, signed behaviour while the source says otherwise.
+      # No signing key here on purpose: verification needs only the public key,
+      # so a compromised workflow cannot mint a plan that runs as root.
+      - name: Verify signed migration plans
+        run: python scripts/generate_signed_plans.py --check
+
       - name: Run unit tests
         run: pytest tests/unit -v --tb=short -m "not hardware"
 

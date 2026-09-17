@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/etc/systemd/system/user@1000.service.d/50-boneio-defer.conf","group":"root","mode":420,"on_change":{"action":"systemctl_daemon_reload"},"owner":"root","src":"systemd/dropins/user-manager-defer.conf","template_vars":{}}]

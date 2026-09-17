@@ -1,0 +1,1 @@
+[{"action":"systemctl_disable","unit":"keyboard-setup.service"},{"action":"systemctl_disable","unit":"console-setup.service"},{"action":"systemctl_daemon_reload"}]

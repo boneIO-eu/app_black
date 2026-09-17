@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/etc/systemd/journald.conf","group":"root","mode":420,"on_change":{"action":"systemctl_restart","unit":"systemd-journald"},"owner":"root","src":"journald/journald.conf","template_vars":{}}]

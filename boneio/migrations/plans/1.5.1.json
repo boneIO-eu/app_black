@@ -1,0 +1,1 @@
+[{"action":"ufw_allow","comment":"BoneIO Loxone UDP","port":4445,"proto":"udp"}]

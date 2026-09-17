@@ -111,6 +111,36 @@ jobs:
         run: |
           python -m build
 
+      # package-data globs have silently dropped these before. Without the
+      # public key or the .sig files the helper refuses every migration, and the
+      # tempting fix in the field is to turn verification off.
+      - name: Verify the wheel carries the signed plans
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          wheel = sorted(glob.glob("dist/*.whl"))[-1]
+          names = zipfile.ZipFile(wheel).namelist()
+          plans = [n for n in names if "/migrations/plans/" in n]
+          missing = []
+          if not any(n.endswith("migrations/assets/migrations.pem") for n in names):
+              missing.append("migrations/assets/migrations.pem (the pinned public key)")
+          if not any(n.endswith("plans/manifest.json") for n in plans):
+              missing.append("migrations/plans/manifest.json")
+          if not any(n.endswith("plans/manifest.sig") for n in plans):
+              missing.append("migrations/plans/manifest.sig")
+          if not [n for n in plans if n.endswith(".sig")]:
+              missing.append("migrations/plans/*.sig (plan signatures)")
+          if not [n for n in plans if n.endswith(".json")]:
+              missing.append("migrations/plans/*.json (the plans themselves)")
+          if missing:
+              print(f"::error::{wheel} is missing:")
+              for item in missing:
+                  print(f"  - {item}")
+              sys.exit(1)
+          signed = len([n for n in plans if n.endswith(".sig")]) - 1
+          print(f"{wheel}: public key, manifest and {signed} signed plans present.")
+          PY
+
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__

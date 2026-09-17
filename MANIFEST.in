@@ -5,3 +5,7 @@ recursive-include boneio *.yaml
 recursive-include boneio *.json
 recursive-include boneio *.ttf
 recursive-include boneio/webui/frontend-dist *
+# Signing key and migration plan signatures — the helper refuses to run
+# without them, so a wheel built without these is useless on a device.
+recursive-include boneio *.pem
+recursive-include boneio *.sig
