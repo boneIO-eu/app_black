@@ -146,6 +146,18 @@ VALIDATORS: dict[str, list[str]] = {
 RECOVERY_ALLOWED_ACTIONS = {"install_file", "remove_file"}
 RECOVERY_ALLOWED_PATHS = {str(RELEASE_ANCHOR), str(RECOVERY_ANCHOR)}
 
+#: The application's systemd unit. Root-owned, so it is a trusted source for
+#: the two facts a portable plan cannot carry: which interpreter the
+#: application runs under and which account owns it. A signed plan must not
+#: name either, because it is frozen on a build machine and run on a device.
+SERVICE_UNITS = (
+    Path("/etc/systemd/system/boneio.service"),
+    Path("/lib/systemd/system/boneio.service"),
+    Path("/usr/lib/systemd/system/boneio.service"),
+)
+VENV_PLACEHOLDER = "@venv"
+SERVICE_USER_PLACEHOLDER = "@service_user"
+
 _PKG_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+.\-]*$")
 _VERSION_RE = re.compile(r"^[0-9]+(\.[0-9]+)*([a-z0-9.\-]*)$")
 
@@ -545,12 +557,21 @@ def _validator_for(action: dict[str, Any]) -> list[str] | None:
         Refused: If the plan names a validator this helper does not know, or
             tries to pass a command.
     """
-    if "validate_cmd" in action:
-        raise Refused(
-            "validate_cmd is not accepted; use validate with one of "
-            f"{sorted(VALIDATORS)}"
-        )
     name = action.get("validate")
+    if "validate_cmd" in action:
+        # The pivot has to be readable by both helpers: it is normally applied
+        # by the legacy one, which only understands validate_cmd, but on a fresh
+        # image where v2 ships preinstalled it arrives here instead. Carrying
+        # both is allowed; running the string never is.
+        if name is None:
+            raise Refused(
+                "validate_cmd is not accepted on its own; use validate with one "
+                f"of {sorted(VALIDATORS)}"
+            )
+        _LOGGER.info(
+            "ignoring validate_cmd %r in favour of the named validator %r",
+            action["validate_cmd"], name,
+        )
     if name is None:
         return None
     if name not in VALIDATORS:
@@ -851,6 +872,151 @@ def _run_as_user(user: str, cmd: list[str], timeout: int) -> subprocess.Complete
     )
 
 
+def _service_context() -> tuple[str, str]:
+    """The application's interpreter and service account.
+
+    Read from the root-owned systemd unit rather than from the request: the
+    caller is the account being constrained, so letting it name the interpreter
+    would mean letting it name a program for pip to run.
+
+    Returns:
+        (interpreter path, service user).
+
+    Raises:
+        Refused: If no root-owned unit can be read, or it names neither.
+    """
+    for unit in SERVICE_UNITS:
+        if not _root_owned(unit):
+            continue
+        exec_start = None
+        user = None
+        for line in unit.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("ExecStart=") and exec_start is None:
+                exec_start = line.split("=", 1)[1].split()[0]
+            elif line.startswith("User="):
+                user = line.split("=", 1)[1].strip()
+        if not exec_start or not user:
+            continue
+        interpreter = str(Path(exec_start).parent / "python3")
+        if not os.access(interpreter, os.X_OK):
+            raise Refused(
+                f"{unit} names {exec_start}, but {interpreter} is not executable"
+            )
+        return interpreter, user
+    raise Refused(
+        "cannot find a root-owned boneio.service naming ExecStart and User, so "
+        "there is no trustworthy way to learn which interpreter and account the "
+        "application uses"
+    )
+
+
+def _resolve_interpreter(action: dict[str, Any]) -> tuple[str, str]:
+    """Resolve the ``@venv`` / ``@service_user`` placeholders.
+
+    Args:
+        action: A pip_install_wheel action.
+
+    Returns:
+        (interpreter path, run_as user).
+
+    Raises:
+        Refused: If a placeholder cannot be resolved.
+    """
+    python = action["python"]
+    run_as = action["run_as"]
+    if python == VENV_PLACEHOLDER or run_as == SERVICE_USER_PLACEHOLDER:
+        venv_python, service_user = _service_context()
+        if python == VENV_PLACEHOLDER:
+            python = venv_python
+        if run_as == SERVICE_USER_PLACEHOLDER:
+            run_as = service_user
+    return python, run_as
+
+
+def _interpreter_tags(python: str, run_as: str) -> tuple[str, str]:
+    """Ask the target interpreter what wheels it can install.
+
+    Args:
+        python: Interpreter path.
+        run_as: User to ask as.
+
+    Returns:
+        (python tag such as ``cp313``, platform tag such as ``linux_armv7l``).
+
+    Raises:
+        Refused: If the interpreter cannot be questioned.
+    """
+    probe = _run_as_user(
+        run_as,
+        [python, "-c",
+         "import sys,sysconfig;print('cp%d%d' % sys.version_info[:2]);"
+         "print(sysconfig.get_platform().replace('-','_').replace('.','_'))"],
+        timeout=30,
+    )
+    if probe.returncode != 0:
+        raise Refused(
+            f"cannot determine the wheel tags of {python}: "
+            f"{(probe.stderr or probe.stdout).strip()}"
+        )
+    lines = probe.stdout.strip().splitlines()
+    if len(lines) != 2:
+        raise Refused(f"unexpected tag probe output from {python}: {lines!r}")
+    return lines[0], lines[1]
+
+
+def _select_wheel(action: dict[str, Any], python: str, run_as: str) -> tuple[str, str]:
+    """Pick the bundled wheel matching this device's interpreter.
+
+    The plan cannot name one wheel, because it is frozen on a machine whose
+    interpreter and architecture are not the device's. It lists every bundled
+    candidate with its digest instead, and the choice is made here.
+
+    Args:
+        action: A pip_install_wheel action.
+        python: Resolved interpreter.
+        run_as: Resolved user.
+
+    Returns:
+        (wheel path relative to assets, expected digest).
+
+    Raises:
+        Refused: If nothing matches, or the chosen wheel has no pinned digest.
+    """
+    if "wheel" in action:
+        digest = action.get("expected_sha256")
+        if not digest:
+            raise Refused(
+                f"the signed plan carries no digest for wheel {action['wheel']!r}"
+            )
+        return action["wheel"], digest
+
+    candidates = action.get("wheel_candidates") or []
+    digests = action.get("wheel_digests") or {}
+    if not candidates:
+        raise Refused("the plan names neither a wheel nor any candidates")
+
+    py_tag, platform_tag = _interpreter_tags(python, run_as)
+    matches = [
+        candidate for candidate in candidates
+        if py_tag in candidate and platform_tag in candidate
+    ]
+    if not matches:
+        raise Refused(
+            f"no bundled wheel matches {py_tag}/{platform_tag}; candidates were "
+            f"{candidates}"
+        )
+    chosen = sorted(matches)[0]
+    digest = digests.get(chosen)
+    if not digest:
+        raise Refused(
+            f"the signed plan carries no digest for {chosen!r}, so the wheel "
+            "cannot be verified"
+        )
+    _LOGGER.info("Selected %s for %s/%s", chosen, py_tag, platform_tag)
+    return chosen, digest
+
+
 def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
     """Install a bundled wheel into a virtualenv as an unprivileged user.
 
@@ -863,27 +1029,15 @@ def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
         Refused: On path escape, digest mismatch or failed verification.
         FileNotFoundError: If the wheel or interpreter is missing.
     """
-    assets_root = Path(assets_base).resolve()
-    wheel_path = (assets_root / action["wheel"]).resolve()
-    if not wheel_path.is_relative_to(assets_root):
-        raise Refused(f"wheel path escapes the assets directory: {action['wheel']}")
-    if not wheel_path.is_file():
-        raise FileNotFoundError(f"Wheel not found: {wheel_path}")
-
-    expected = action.get("expected_sha256")
-    if expected:
-        actual = _sha256_of_bytes(wheel_path.read_bytes())
-        if actual != expected:
-            raise Refused(
-                f"SHA-256 mismatch for {action['wheel']}: "
-                f"expected={expected} actual={actual}"
-            )
-
-    python = action["python"]
+    python, run_as = _resolve_interpreter(action)
     if not os.path.isabs(python) or not os.access(python, os.X_OK):
         raise FileNotFoundError(f"Target interpreter not usable: {python}")
 
-    run_as = action["run_as"]
+    # skip_if is evaluated before a wheel is chosen: on a device that already
+    # has the C extension there is nothing to select and nothing to install.
+    # The old plan made that decision on the build machine, which is why it
+    # froze to an empty plan and became a permanent no-op for the devices that
+    # actually needed it.
     skip_if = action.get("skip_if")
     if skip_if:
         probe = _run_as_user(
@@ -891,8 +1045,23 @@ def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
             timeout=30,
         )
         if probe.returncode == 0:
-            _LOGGER.info("SKIP (skip_if satisfied): %s", action["wheel"])
+            _LOGGER.info("SKIP (skip_if satisfied): %s", skip_if)
             return
+
+    wheel_rel, expected = _select_wheel(action, python, run_as)
+
+    assets_root = Path(assets_base).resolve()
+    wheel_path = (assets_root / wheel_rel).resolve()
+    if not wheel_path.is_relative_to(assets_root):
+        raise Refused(f"wheel path escapes the assets directory: {wheel_rel}")
+    if not wheel_path.is_file():
+        raise FileNotFoundError(f"Wheel not found: {wheel_path}")
+
+    actual = _sha256_of_bytes(wheel_path.read_bytes())
+    if actual != expected:
+        raise Refused(
+            f"SHA-256 mismatch for {wheel_rel}: expected={expected} actual={actual}"
+        )
 
     _LOGGER.info("pip install %s as %s", wheel_path.name, run_as)
     result = _run_as_user(

@@ -90,18 +90,7 @@ class NotDeterministic(Exception):
 #: which means they will not run under the signing helper — record the reason
 #: here rather than letting them be signed as whatever this build machine
 #: happened to need.
-NON_PORTABLE: dict[str, str] = {
-    "1.5.2": (
-        "plan() returns [] when the build machine already has libyaml, and "
-        "otherwise embeds sys.executable, getpass.getuser() and a wheel chosen "
-        "for the build interpreter. Needs the probe moved behind skip_if and "
-        "the interpreter/user supplied by the helper."
-    ),
-    "1.5.3": (
-        "same as 1.5.2 — it is the retry of that migration and shares its "
-        "environment probing."
-    ),
-}
+NON_PORTABLE: dict[str, str] = {}
 
 
 def _canonical(obj: object) -> bytes:
@@ -176,6 +165,29 @@ def _asset_hashes() -> dict[str, str]:
     return hashes
 
 
+def _digest_of(asset: str, hashes: dict[str, str], version: str) -> str:
+    """The pinned digest for one asset.
+
+    Args:
+        asset: Path relative to the assets directory.
+        hashes: Output of :func:`_asset_hashes`.
+        version: Migration version, for the error message.
+
+    Returns:
+        The sha256 hex digest.
+
+    Raises:
+        NotDeterministic: If the asset has no digest to pin.
+    """
+    if asset not in hashes:
+        raise NotDeterministic(
+            f"{version}: asset {asset!r} is not in MANIFEST.sha256, so its "
+            "digest\n        cannot be pinned in the signed plan. Run "
+            "scripts/generate_manifest.py."
+        )
+    return hashes[asset]
+
+
 def _inject_asset_hashes(actions: list, hashes: dict[str, str], version: str) -> None:
     """Put each installed asset's digest into the plan, in place.
 
@@ -193,15 +205,24 @@ def _inject_asset_hashes(actions: list, hashes: dict[str, str], version: str) ->
         NotDeterministic: If an installed asset has no digest to pin.
     """
     for action in actions:
-        if action.get("action") == "install_file" and "src" in action:
-            src = action["src"]
-            if src not in hashes:
-                raise NotDeterministic(
-                    f"{version}: asset {src!r} is not in MANIFEST.sha256, so its "
-                    "digest\n        cannot be pinned in the signed plan. Run "
-                    "scripts/generate_manifest.py."
+        kind = action.get("action")
+        if kind == "install_file" and "src" in action:
+            action["expected_sha256"] = _digest_of(action["src"], hashes, version)
+        elif kind == "pip_install_wheel":
+            if action.get("wheel"):
+                action["expected_sha256"] = _digest_of(
+                    action["wheel"], hashes, version
                 )
-            action["expected_sha256"] = hashes[src]
+            candidates = action.get("wheel_candidates") or []
+            if candidates:
+                # One digest per candidate, because the device chooses which
+                # wheel to install using its own interpreter tags. Pinning only
+                # the build machine's choice would leave the actual install
+                # unverified.
+                action["wheel_digests"] = {
+                    candidate: _digest_of(candidate, hashes, version)
+                    for candidate in candidates
+                }
         nested = action.get("on_change")
         if isinstance(nested, dict):
             _inject_asset_hashes([nested], hashes, version)

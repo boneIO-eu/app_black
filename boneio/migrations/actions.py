@@ -68,6 +68,12 @@ class InstallFile(MigrationAction):
     group: str = "root"
     template_vars: dict[str, str] = field(default_factory=dict)
     validate_cmd: str | None = None
+    #: Named validator for the protocol 2 helper: "sudoers", "sshd" or
+    #: "python". v2 refuses a command string, because a signature says who
+    #: wrote a plan, not what it may run as root. Migrations applied during the
+    #: transition carry both spellings — the legacy helper reads validate_cmd,
+    #: v2 reads this and ignores the string.
+    validate: str | None = None
     on_change: MigrationAction | None = None
     expected_sha256: str | None = None
 
@@ -84,6 +90,8 @@ class InstallFile(MigrationAction):
         }
         if self.validate_cmd:
             d["validate_cmd"] = self.validate_cmd
+        if self.validate:
+            d["validate"] = self.validate
         if self.on_change:
             d["on_change"] = self.on_change.to_dict()
         if self.expected_sha256:
@@ -282,11 +290,24 @@ class PipInstallWheel(MigrationAction):
     ownership. The wheel content is verified against ``expected_sha256``
     before installation.
 
+    A plan is frozen and signed at release time but executed on a controller, so
+    nothing here may name the build machine. ``python`` and ``run_as`` therefore
+    accept the placeholders ``@venv`` and ``@service_user``, which the helper
+    resolves from the root-owned systemd unit, and ``wheel_candidates`` lists
+    every bundled wheel so the device can pick the one matching its own
+    interpreter instead of the one that happened to match CI's.
+
     Args:
-        wheel: Path of the wheel relative to ``boneio/migrations/assets/``.
-        python: Absolute path of the target interpreter (the venv python).
-        run_as: Unprivileged user that owns the virtualenv.
+        wheel: Path of one wheel relative to ``boneio/migrations/assets/``.
+            Mutually exclusive with *wheel_candidates*.
+        wheel_candidates: Bundled wheels to choose between on the device, by
+            interpreter tag and platform. Their digests are injected into the
+            signed plan as *wheel_digests*.
+        python: Absolute path of the target interpreter, or ``@venv``.
+        run_as: Unprivileged user that owns the virtualenv, or
+            ``@service_user``.
         expected_sha256: SHA-256 of the wheel, injected from MANIFEST.sha256.
+        wheel_digests: SHA-256 per candidate, injected from MANIFEST.sha256.
         skip_if: Python expression evaluated with the target interpreter;
             when it evaluates truthy the installation is skipped.
         verify: Python expression evaluated with the target interpreter after
@@ -295,25 +316,43 @@ class PipInstallWheel(MigrationAction):
             migration continues.
     """
 
-    wheel: str
     python: str
     run_as: str
+    wheel: str | None = None
+    wheel_candidates: tuple[str, ...] = ()
     expected_sha256: str | None = None
+    wheel_digests: dict[str, str] | None = None
     skip_if: str | None = None
     verify: str | None = None
     optional: bool = False
+
+    def __post_init__(self) -> None:
+        """Validate the wheel selection.
+
+        Raises:
+            ValueError: If neither or both of the wheel fields are given.
+        """
+        if bool(self.wheel) == bool(self.wheel_candidates):
+            raise ValueError(
+                "PipInstallWheel needs exactly one of wheel or wheel_candidates"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         d: dict[str, Any] = {
             "action": "pip_install_wheel",
-            "wheel": self.wheel,
             "python": self.python,
             "run_as": self.run_as,
             "optional": self.optional,
         }
+        if self.wheel:
+            d["wheel"] = self.wheel
+        if self.wheel_candidates:
+            d["wheel_candidates"] = list(self.wheel_candidates)
         if self.expected_sha256:
             d["expected_sha256"] = self.expected_sha256
+        if self.wheel_digests:
+            d["wheel_digests"] = dict(self.wheel_digests)
         if self.skip_if:
             d["skip_if"] = self.skip_if
         if self.verify:

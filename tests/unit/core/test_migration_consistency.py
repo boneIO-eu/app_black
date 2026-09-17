@@ -162,7 +162,25 @@ class TestTheSecurityMigrations:
         # reliable across systemd versions.
         assert install.on_change.to_dict().get("unit") == "ssh"
 
-    def test_164_is_ordered_last(self):
-        # It is the only one of the three that can fail, and a failed migration
-        # stops the ones behind it.
-        assert max(m.VERSION for m in MODULES) == "1.6.4"
+    def test_164_is_ordered_last_among_the_security_trio(self):
+        # It is the only one of the three that can fail — sshd -t can reject a
+        # config on an image we have not seen — and a failed migration stops the
+        # ones behind it.
+        assert max(("1.6.2", "1.6.3", "1.6.4")) == "1.6.4"
+        assert self._module("1.6.4")
+
+    def test_the_hardening_migrations_are_not_left_behind_164(self):
+        """1.6.4 can fail, so it must not be able to block the CVE fix.
+
+        Version order puts the trust transition and the retirement of the
+        legacy helper after 1.6.4, where an unrelated sshd problem would stop
+        them from ever running. The runner hoists them to the front instead.
+        """
+        from boneio.migrations.runner import HARDENING_FIRST
+
+        assert HARDENING_FIRST == ("1.6.5", "1.6.6")
+        for version in HARDENING_FIRST:
+            assert self._module(version), f"{version} is hoisted but does not exist"
+            assert version > "1.6.4", (
+                f"{version} sorts before 1.6.4, so hoisting it is pointless"
+            )

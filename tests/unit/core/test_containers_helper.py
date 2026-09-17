@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-HELPER = REPO_ROOT / "boneio" / "migrations" / "bootstrap" / "boneio-containers"
+HELPER = REPO_ROOT / "boneio" / "migrations" / "assets" / "helpers" / "boneio-containers"
 
 
 @pytest.fixture(scope="module")

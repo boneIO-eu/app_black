@@ -41,6 +41,35 @@ _LOGGER = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 HELPER_PATH = "/usr/sbin/boneio-migrate"
+#: The protocol 2 helper, deliberately at its own path. Overwriting the only
+#: working helper during the pivot would be the one step with no way back: a
+#: syntax check cannot catch a bad openssl invocation or a missing trust anchor,
+#: and a device whose migration channel dies silently is worse than one that is
+#: merely not hardened yet.
+HELPER_V2_PATH = "/usr/sbin/boneio-migrate-v2"
+SUDOERS_HELPERS_PATH = "/etc/sudoers.d/boneio-helpers"
+HELPER_PROTOCOL = 2
+#: The installed package root, which is what the v2 helper is pointed at. It is
+#: only a hint: everything read from there is verified against the anchors
+#: pinned in /etc/boneio, because this directory is writable by the account the
+#: helper is protecting the system from.
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+#: The migration that installs v2, and the one that retires the legacy helper.
+#: Applied before everything else pending, in this order. Two reasons:
+#:
+#:  * In plain version order a device still on 1.5.x would work through its
+#:    whole backlog on the legacy helper before reaching the pivot, leaving the
+#:    escalation path open for the entire run.
+#:  * 1.6.4 hardens sshd and validates with ``sshd -t``, so it is the one
+#:    migration that can legitimately fail — and a failure stops everything
+#:    behind it. Ordered normally it would sit in front of these two and be
+#:    able to block the fix for CVE-2026-77055 over an unrelated sshd problem.
+#:
+#: Hoisting is safe: neither depends on an earlier migration.
+HARDENING_FIRST = ("1.6.5", "1.6.6")
+#: The one migration that may be applied by the legacy helper *after* v2 works,
+#: because it is what installs v2 and so cannot go through it.
+PIVOT_VERSIONS = frozenset({"1.6.5"})
 APPLIED_DIR = Path("/var/lib/boneio/migrations.d")
 ASSETS_DIR = Path(__file__).parent / "assets"
 MANIFEST_PATH = ASSETS_DIR / "MANIFEST.sha256"
@@ -120,6 +149,8 @@ class MigrationRunner:
         self._manifest: dict[str, str] = {}
         self._all_migrations: list[MigrationInfo] = []
         self._applied: set[str] = set()
+        self._v2_available: bool | None = None
+        self.hardening_pending: bool = False
 
     # ------------------------------------------------------------------
     # Public API
@@ -224,6 +255,11 @@ class MigrationRunner:
             "status": self.status.value,
             "bootstrap_required": self.bootstrap_required,
             "helper_installed": self._helper_installed(),
+            # Which protocol is in play. The UI needs to distinguish "not
+            # hardened yet" from "broken": a device applying migrations through
+            # the legacy helper still works, it just has CVE-2026-77055 open.
+            "helper_v2": self.helper_v2_available(),
+            "hardening_pending": self.hardening_pending,
             "pending_count": len(pending),
             "pending": [{"version": m.version, "description": m.description} for m in pending],
             "applied": applied_list,
@@ -291,6 +327,105 @@ class MigrationRunner:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def helper_v2_available(self, recheck: bool = False) -> bool:
+        """Whether the protocol 2 helper is installed and actually works.
+
+        Presence is not enough. The pivot installs v2 but keeps the old helper,
+        and the decision to retire the old one rests on this answer, so it is
+        taken from the helper's own selftest — which verifies a known-answer
+        signature in both directions and checks that both trust anchors are
+        pinned. A helper that parses but cannot verify signatures would refuse
+        every migration, silently, on a device in a cabinet.
+
+        Args:
+            recheck: Ask again instead of reusing this startup's answer. Used
+                immediately after the pivot, so the retirement migration can go
+                through v2 in the same run.
+
+        Returns:
+            True when v2 can be relied on.
+        """
+        if self._v2_available is not None and not recheck:
+            return self._v2_available
+
+        if not (os.path.isfile(HELPER_V2_PATH) and os.access(HELPER_V2_PATH, os.X_OK)):
+            self._v2_available = False
+            return False
+
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", HELPER_V2_PATH, "--selftest"],
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+        except (subprocess.SubprocessError, OSError) as exc:
+            _LOGGER.warning("Could not run the v2 helper selftest: %s", exc)
+            self._v2_available = False
+            return False
+
+        if result.returncode != 0:
+            _LOGGER.warning(
+                "boneio-migrate-v2 is installed but its selftest failed (rc=%d): %s",
+                result.returncode,
+                result.stderr.strip(),
+            )
+            self._v2_available = False
+            return False
+
+        _LOGGER.info("boneio-migrate-v2 selftest passed; using protocol %d.",
+                     HELPER_PROTOCOL)
+        self._v2_available = True
+        return True
+
+    def _apply_via_v2(self, migration: MigrationInfo) -> bool:
+        """Apply a migration through the protocol 2 helper.
+
+        The request carries a version and where to look, and nothing else. The
+        helper builds the plan from the signed release itself, which is the
+        whole point: under protocol 1 this process handed over the actions, the
+        asset digests and a command to run as root (CVE-2026-77055).
+
+        Args:
+            migration: Migration descriptor.
+
+        Returns:
+            True on success.
+        """
+        request = json.dumps({
+            "protocol": HELPER_PROTOCOL,
+            "version": migration.version,
+            "package_root": str(PACKAGE_ROOT),
+        })
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", HELPER_V2_PATH],
+                input=request,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            _LOGGER.error("Migration %s timed out.", migration.version)
+            return False
+        except Exception as exc:
+            _LOGGER.error("Migration %s subprocess error: %s", migration.version, exc)
+            return False
+
+        if result.returncode != 0:
+            _LOGGER.error(
+                "Migration %s refused or failed via v2 (rc=%d): %s",
+                migration.version,
+                result.returncode,
+                result.stderr.strip(),
+            )
+            return False
+
+        self._write_applied_flag(migration)
+        self._applied.add(migration.version)
+        _LOGGER.info("Migration %s applied via v2.", migration.version)
+        return True
 
     def _helper_installed(self) -> bool:
         """Return True when the helper binary exists and is executable."""
@@ -461,6 +596,7 @@ class MigrationRunner:
         Returns:
             True if all succeeded.
         """
+        pending = self._pivot_first(pending)
         total = len(pending)
         all_ok = True
 
@@ -472,6 +608,12 @@ class MigrationRunner:
                 progress_callback(pct, msg)
 
             ok = self._apply_one(migration)
+            if ok and migration.version in PIVOT_VERSIONS:
+                # Ask again in this same run: the pivot has just installed v2,
+                # and the migration that retires the legacy helper has to go
+                # through v2 — otherwise the old helper removes itself using
+                # the very path we are trying to close.
+                self.helper_v2_available(recheck=True)
             if not ok:
                 _LOGGER.error("Migration %s failed, stopping.", migration.version)
                 self.last_error = f"Migration {migration.version} failed"
@@ -486,8 +628,75 @@ class MigrationRunner:
 
         return all_ok
 
+    def _pivot_first(self, pending: list[MigrationInfo]) -> list[MigrationInfo]:
+        """Put the hardening migrations at the front of the queue.
+
+        See :data:`HARDENING_FIRST` for why. Unconditional: even when v2 is
+        already present, running the pair first keeps the retirement of the
+        legacy helper from sitting behind a migration that can fail.
+
+        Args:
+            pending: Migrations in version order.
+
+        Returns:
+            The same migrations, hardening first.
+        """
+        by_version = {m.version: m for m in pending}
+        hoisted = [by_version[v] for v in HARDENING_FIRST if v in by_version]
+        if not hoisted:
+            return pending
+        rest = [m for m in pending if m.version not in HARDENING_FIRST]
+        _LOGGER.info(
+            "Applying %s before the other %d pending migration(s), so the rest "
+            "go through the signing helper and an unrelated failure cannot block "
+            "the hardening.",
+            ", ".join(m.version for m in hoisted),
+            len(rest),
+        )
+        return hoisted + rest
+
     def _apply_one(self, migration: MigrationInfo) -> bool:
-        """Apply a single migration via the helper.
+        """Apply a single migration through whichever helper is allowed.
+
+        v2 handles everything it can. The legacy helper is permitted for the
+        pivot alone, because that migration is what installs v2 and therefore
+        cannot run through it. Anything else waits: applying it through legacy
+        would mean sending a plan over stdin, which is the vulnerability.
+
+        Args:
+            migration: Migration descriptor.
+
+        Returns:
+            True on success.
+        """
+        if self.helper_v2_available():
+            return self._apply_via_v2(migration)
+
+        # No v2 yet, so the legacy helper is all there is. Refusing here would
+        # be the stricter choice and the wrong one: it would leave a device
+        # unable to migrate at all, which is worse than the state it is already
+        # in. The escalation path is open on such a device today; what closes it
+        # is the pivot, which is why the pivot is hoisted to the front rather
+        # than everything else being blocked behind it.
+        self.hardening_pending = True
+        if migration.version in PIVOT_VERSIONS:
+            _LOGGER.info(
+                "Applying the pivot %s through the legacy helper — it is what "
+                "installs the replacement, so it cannot go through it.",
+                migration.version,
+            )
+        else:
+            _LOGGER.warning(
+                "Applying %s through the legacy helper: boneio-migrate-v2 is not "
+                "available yet, so CVE-2026-77055 is still open on this device. "
+                "The hardening is reported as unfinished and retried on each "
+                "start.",
+                migration.version,
+            )
+        return self._apply_via_legacy(migration)
+
+    def _apply_via_legacy(self, migration: MigrationInfo) -> bool:
+        """Apply a migration through the protocol 1 helper.
 
         Args:
             migration: Migration descriptor.

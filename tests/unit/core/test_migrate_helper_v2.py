@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-HELPER = REPO_ROOT / "boneio" / "migrations" / "bootstrap" / "boneio-migrate-v2"
+HELPER = REPO_ROOT / "boneio" / "migrations" / "assets" / "helpers" / "boneio-migrate-v2"
 
 openssl = shutil.which("openssl")
 pytestmark = pytest.mark.skipif(not openssl, reason="openssl not available")
@@ -576,3 +576,108 @@ def test_root_owned_requires_root_ownership(helper, tmp_path):
 ])
 def test_release_ordering(helper, lower, higher):
     assert helper._version_key(lower) < helper._version_key(higher)
+
+
+# ------------------------------------------------- portable wheel installation
+
+
+@pytest.fixture
+def unit(tmp_path, helper, monkeypatch):
+    """A root-owned systemd unit naming an interpreter and a service account."""
+    interpreter = tmp_path / "venv" / "bin" / "python3"
+    interpreter.parent.mkdir(parents=True)
+    interpreter.write_text("#!/bin/sh\nexit 0\n")
+    os.chmod(interpreter, 0o755)
+
+    path = tmp_path / "boneio.service"
+    path.write_text(
+        "[Service]\n"
+        f"ExecStart={interpreter.parent / 'boneio'} run -c /home/boneio/config.yaml\n"
+        "User=boneio\n"
+    )
+    os.chmod(path, 0o644)
+    monkeypatch.setattr(helper, "SERVICE_UNITS", (path,))
+    monkeypatch.setattr(
+        helper, "_root_owned",
+        lambda p: (
+            os.path.isfile(p) and not os.path.islink(p)
+            and not p.lstat().st_mode & 0o022
+        ),
+    )
+    return path, str(interpreter)
+
+
+def test_the_interpreter_comes_from_the_root_owned_unit(helper, unit):
+    """Not from the request: the caller is the account being constrained."""
+    _path, interpreter = unit
+    assert helper._service_context() == (interpreter, "boneio")
+
+
+def test_placeholders_are_resolved(helper, unit):
+    _path, interpreter = unit
+    action = {"python": "@venv", "run_as": "@service_user"}
+    assert helper._resolve_interpreter(action) == (interpreter, "boneio")
+
+
+def test_an_explicit_interpreter_is_left_alone(helper, unit):
+    action = {"python": "/usr/bin/python3", "run_as": "someone"}
+    assert helper._resolve_interpreter(action) == ("/usr/bin/python3", "someone")
+
+
+def test_a_unit_that_is_not_root_owned_is_not_trusted(helper, unit, monkeypatch):
+    path, _interpreter = unit
+    os.chmod(path, 0o666)
+    with pytest.raises(helper.Refused, match="root-owned"):
+        helper._service_context()
+
+
+def test_a_unit_naming_a_missing_interpreter_is_refused(helper, unit, tmp_path):
+    path, interpreter = unit
+    Path(interpreter).unlink()
+    with pytest.raises(helper.Refused, match="not executable"):
+        helper._service_context()
+
+
+def test_the_wheel_is_chosen_by_this_device_s_tags(helper, monkeypatch):
+    """A plan frozen in CI must not pick the wheel; CI's tags are not the device's."""
+    monkeypatch.setattr(
+        helper, "_interpreter_tags", lambda python, run_as: ("cp313", "linux_armv7l")
+    )
+    action = {
+        "wheel_candidates": [
+            "wheels/pyyaml-6.0.3-cp311-cp311-linux_x86_64.whl",
+            "wheels/pyyaml-6.0.3-cp313-cp313-linux_armv7l.whl",
+        ],
+        "wheel_digests": {
+            "wheels/pyyaml-6.0.3-cp311-cp311-linux_x86_64.whl": "a" * 64,
+            "wheels/pyyaml-6.0.3-cp313-cp313-linux_armv7l.whl": "b" * 64,
+        },
+    }
+    chosen, digest = helper._select_wheel(action, "/x/python3", "boneio")
+    assert chosen == "wheels/pyyaml-6.0.3-cp313-cp313-linux_armv7l.whl"
+    assert digest == "b" * 64
+
+
+def test_no_matching_wheel_is_refused(helper, monkeypatch):
+    monkeypatch.setattr(
+        helper, "_interpreter_tags", lambda python, run_as: ("cp399", "linux_riscv64")
+    )
+    action = {
+        "wheel_candidates": ["wheels/pyyaml-6.0.3-cp313-cp313-linux_armv7l.whl"],
+        "wheel_digests": {"wheels/pyyaml-6.0.3-cp313-cp313-linux_armv7l.whl": "b" * 64},
+    }
+    with pytest.raises(helper.Refused, match="no bundled wheel matches"):
+        helper._select_wheel(action, "/x/python3", "boneio")
+
+
+def test_a_chosen_wheel_without_a_pinned_digest_is_refused(helper, monkeypatch):
+    """The selection happens on the device, so every candidate needs a digest."""
+    monkeypatch.setattr(
+        helper, "_interpreter_tags", lambda python, run_as: ("cp313", "linux_armv7l")
+    )
+    action = {
+        "wheel_candidates": ["wheels/pyyaml-6.0.3-cp313-cp313-linux_armv7l.whl"],
+        "wheel_digests": {},
+    }
+    with pytest.raises(helper.Refused, match="no digest"):
+        helper._select_wheel(action, "/x/python3", "boneio")

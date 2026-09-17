@@ -1,0 +1,1 @@
+[{"action":"remove_file","path":"/etc/sudoers.d/boneio-migrate"},{"action":"remove_file","path":"/usr/sbin/boneio-migrate"}]

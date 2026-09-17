@@ -10,15 +10,9 @@ See also: ``v1_5_2_libyaml.py`` for the original migration.
 
 from __future__ import annotations
 
-import getpass
-import logging
-import sys
-import sysconfig
 from pathlib import Path
 
 from boneio.migrations.actions import AptInstall, MigrationAction, PipInstallWheel
-
-_LOGGER = logging.getLogger(__name__)
 
 VERSION = "1.5.3"
 DESCRIPTION = "Retry libyaml install (fix false v1.5.2 applied flag)"
@@ -31,70 +25,48 @@ WHEELS_SUBDIR = "wheels"
 _LIBYAML_CHECK = "__import__('yaml').__with_libyaml__"
 
 
-def _wheel_glob() -> str:
-    """Build the wheel filename pattern for the running interpreter.
+def _bundled_wheels() -> tuple[str, ...]:
+    """Every PyYAML wheel shipped in the migration assets.
 
-    Uses a case-insensitive prefix because pip normalises the project
-    name to lowercase (``pyyaml-*``) while the canonical PyPI name is
-    ``PyYAML``.
-
-    Returns:
-        A glob pattern such as ``[Pp][Yy][Yy][Aa][Mm][Ll]-*-cp313-*linux_armv7l*.whl``.
-    """
-    py_tag = f"cp{sys.version_info.major}{sys.version_info.minor}"
-    platform_tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
-    # Case-insensitive prefix: matches both "PyYAML" and "pyyaml"
-    ci_prefix = "[Pp][Yy][Yy][Aa][Mm][Ll]"
-    return f"{ci_prefix}-*-{py_tag}-*{platform_tag}*.whl"
-
-
-def _find_wheel() -> str | None:
-    """Locate a bundled PyYAML wheel matching this interpreter.
+    Deliberately not filtered by the running interpreter. This plan is frozen
+    and signed on a build machine, then executed on a controller: a wheel
+    chosen here would carry CI's Python tag and architecture, and the device
+    would be handed something it cannot install — with a valid signature over
+    it. The device picks from this list using its own tags.
 
     Returns:
-        Path of the wheel relative to the assets directory, or None when no
-        matching wheel is shipped for this Python version / architecture.
+        Wheel paths relative to the assets directory, sorted for determinism.
     """
     wheels_dir = ASSETS_DIR / WHEELS_SUBDIR
     if not wheels_dir.is_dir():
-        return None
-    matches = sorted(wheels_dir.glob(_wheel_glob()))
-    if not matches:
-        return None
-    return f"{WHEELS_SUBDIR}/{matches[0].name}"
+        return ()
+    names = sorted(
+        path.name
+        for path in wheels_dir.iterdir()
+        if path.suffix == ".whl" and path.name.lower().startswith("pyyaml-")
+    )
+    return tuple(f"{WHEELS_SUBDIR}/{name}" for name in names)
 
 
 def plan() -> list[MigrationAction]:
     """Return the ordered list of migration actions.
 
+    Unconditional on purpose. The previous version probed the build machine —
+    it returned an empty list whenever *that* machine already had libyaml — so
+    freezing it produced a signed no-op for exactly the devices that needed the
+    work. Whether anything is installed is now decided on the device by
+    ``skip_if``.
+
     Returns:
-        List of :class:`MigrationAction` to apply in order. Empty when the
-        C backend is already active or no matching wheel is bundled.
+        List of :class:`MigrationAction` to apply in order.
     """
-    try:
-        import yaml
-
-        if yaml.__with_libyaml__:
-            _LOGGER.debug("PyYAML already uses libyaml, nothing to do.")
-            return []
-    except ImportError:
-        return []
-
-    wheel = _find_wheel()
-    if wheel is None:
-        _LOGGER.warning(
-            "No bundled PyYAML wheel matching %s — keeping the pure-Python parser.",
-            _wheel_glob(),
-        )
-        return []
-
     return [
         # Runtime library the wheel links against; usually already present.
         AptInstall(packages=["libyaml-0-2"], optional=True),
         PipInstallWheel(
-            wheel=wheel,
-            python=sys.executable,
-            run_as=getpass.getuser(),
+            wheel_candidates=_bundled_wheels(),
+            python="@venv",
+            run_as="@service_user",
             skip_if=_LIBYAML_CHECK,
             verify=_LIBYAML_CHECK,
             optional=True,
