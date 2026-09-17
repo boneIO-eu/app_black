@@ -123,7 +123,9 @@ jobs:
           plans = [n for n in names if "/migrations/plans/" in n]
           missing = []
           if not any(n.endswith("migrations/assets/migrations.pem") for n in names):
-              missing.append("migrations/assets/migrations.pem (the pinned public key)")
+              missing.append("migrations/assets/migrations.pem (the release anchor)")
+          if not any(n.endswith("migrations/assets/migrations-recovery.pem") for n in names):
+              missing.append("migrations/assets/migrations-recovery.pem (the recovery anchor)")
           if not any(n.endswith("plans/manifest.json") for n in plans):
               missing.append("migrations/plans/manifest.json")
           if not any(n.endswith("plans/manifest.sig") for n in plans):
@@ -138,7 +140,7 @@ jobs:
                   print(f"  - {item}")
               sys.exit(1)
           signed = len([n for n in plans if n.endswith(".sig")]) - 1
-          print(f"{wheel}: public key, manifest and {signed} signed plans present.")
+          print(f"{wheel}: both trust anchors, manifest and {signed} signed plans present.")
           PY
 
       - name: Publish to PyPI

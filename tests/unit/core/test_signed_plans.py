@@ -175,6 +175,62 @@ def test_the_public_key_is_an_ed25519_key():
     assert "ED25519" in out.upper()
 
 
+# ---------------------------------------------------------------- trust anchors
+
+
+@pytest.mark.skipif(not openssl, reason="openssl not available")
+def test_both_trust_anchors_ship():
+    """A release has to pin two keys, not one.
+
+    Re-pinning needs a migration signed by a key the device already trusts, so
+    with a single anchor a lost release key leaves the installed base working
+    but unable to ever accept a signed migration again — recoverable only by
+    reflashing every controller.
+    """
+    assert not gen._anchor_problems()
+
+
+@pytest.mark.skipif(not openssl, reason="openssl not available")
+def test_the_two_anchors_are_different_keys():
+    """Two names for one key is one anchor."""
+    assert gen._key_id(gen.PUBKEY) != gen._key_id(gen.RECOVERY_PUBKEY)
+
+
+@pytest.mark.skipif(not openssl, reason="openssl not available")
+def test_the_recovery_anchor_is_an_ed25519_key():
+    out = subprocess.run(
+        ["openssl", "pkey", "-pubin", "-in", str(gen.RECOVERY_PUBKEY), "-text",
+         "-noout"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "ED25519" in out.upper()
+
+
+@pytest.mark.skipif(not openssl, reason="openssl not available")
+def test_no_private_key_is_committed():
+    """The signing keys live outside the repo; only public halves ship."""
+    leaked = [
+        path
+        for path in (REPO_ROOT / "boneio").rglob("*.pem")
+        if "PRIVATE KEY" in path.read_text(errors="ignore")
+    ]
+    assert not leaked, f"private key material committed: {leaked}"
+
+
+@pytest.mark.skipif(not openssl, reason="openssl not available")
+def test_a_missing_recovery_anchor_is_refused(monkeypatch, tmp_path):
+    monkeypatch.setattr(gen, "RECOVERY_PUBKEY", tmp_path / "absent.pem")
+    problems = gen._anchor_problems()
+    assert any("recovery public key is missing" in p for p in problems)
+
+
+@pytest.mark.skipif(not openssl, reason="openssl not available")
+def test_pointing_both_anchors_at_one_key_is_refused(monkeypatch):
+    monkeypatch.setattr(gen, "RECOVERY_PUBKEY", gen.PUBKEY)
+    problems = gen._anchor_problems()
+    assert any("same key" in p for p in problems)
+
+
 # ------------------------------------------------------------------ the guards
 
 

@@ -17,6 +17,13 @@ The manifest exists so a plan cannot be swapped for a differently-versioned one
 that also carries a valid signature: the helper checks the plan's hash against
 the manifest for the installed release, not just the signature.
 
+Two public keys are pinned, not one. Re-pinning requires a migration signed by a
+key the device already trusts, so a single anchor would mean that losing the
+release key leaves the installed base working but permanently unable to accept a
+signed migration — reflash or nothing. The recovery key signs no release; its
+private half lives on paper in a safe and exists only to re-pin a new release
+key.
+
 The signing key deliberately does not live in CI. Signatures are committed, and
 the workflows only verify them (``--check`` needs the public key alone), so a
 compromised release pipeline cannot mint a plan that runs as root on every
@@ -60,6 +67,15 @@ sys.path.insert(0, str(REPO_ROOT))
 VERSIONS_PKG = "boneio.migrations.versions"
 PLANS_DIR = REPO_ROOT / "boneio" / "migrations" / "plans"
 PUBKEY = REPO_ROOT / "boneio" / "migrations" / "assets" / "migrations.pem"
+#: The second trust anchor. Re-pinning a key needs a migration signed by a key
+#: the device already trusts, so with a single anchor a lost release key means
+#: the installed base can never receive a signed migration again — working
+#: devices with a permanently dead update channel, recoverable only by reflash.
+#: The recovery key signs nothing during normal releases; its private half lives
+#: on paper in a safe and exists solely to re-pin a new release key.
+RECOVERY_PUBKEY = (
+    REPO_ROOT / "boneio" / "migrations" / "assets" / "migrations-recovery.pem"
+)
 
 
 class NotDeterministic(Exception):
@@ -211,6 +227,74 @@ def _verify(pubkey: Path, data: bytes, sig: Path) -> bool:
         os.unlink(tmp_path)
 
 
+def _pubkey_of(key: Path) -> str:
+    """Derive the public half of a private key.
+
+    Args:
+        key: Private key in PEM form.
+
+    Returns:
+        The public key in PEM form, stripped.
+    """
+    return subprocess.run(
+        ["openssl", "pkey", "-in", str(key), "-pubout"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+
+
+def _key_id(pubkey: Path) -> str:
+    """A short fingerprint, the same one printed on the recovery sheet.
+
+    Args:
+        pubkey: Public key in PEM form.
+
+    Returns:
+        First 16 hex characters of the SHA-256 over the DER encoding.
+    """
+    der = subprocess.run(
+        ["openssl", "pkey", "-pubin", "-in", str(pubkey), "-outform", "DER"],
+        capture_output=True, check=True,
+    ).stdout
+    return hashlib.sha256(der).hexdigest()[:16]
+
+
+def _anchor_problems() -> list[str]:
+    """Check the two pinned trust anchors.
+
+    Both have to ship, both have to be Ed25519, and they have to be different
+    keys — pointing them at the same key would look like two anchors while
+    leaving exactly one, which is the failure this whole arrangement exists to
+    prevent.
+
+    Returns:
+        Human-readable problems; empty when the anchors are sound.
+    """
+    problems: list[str] = []
+    for role, path in (("release", PUBKEY), ("recovery", RECOVERY_PUBKEY)):
+        if not path.exists():
+            problems.append(
+                f"the {role} public key is missing ({path.name}). A release must "
+                "pin both\n    anchors: without the recovery key, losing the "
+                "release key kills the migration\n    channel on every device in "
+                "the field for good."
+            )
+            continue
+        text = subprocess.run(
+            ["openssl", "pkey", "-pubin", "-in", str(path), "-text", "-noout"],
+            capture_output=True, text=True,
+        )
+        if text.returncode != 0 or "ED25519" not in text.stdout.upper():
+            problems.append(f"the {role} public key is not an Ed25519 key ({path.name})")
+    if PUBKEY.exists() and RECOVERY_PUBKEY.exists() and not problems:
+        if _key_id(PUBKEY) == _key_id(RECOVERY_PUBKEY):
+            problems.append(
+                "the release and recovery anchors are the same key. Two names for "
+                "one key\n    is one anchor: if it is lost, there is nothing left "
+                "to re-pin with."
+            )
+    return problems
+
+
 def _release_version() -> str:
     """The version of the package being released."""
     from boneio.version import __version__
@@ -263,6 +347,13 @@ def main() -> int:
 
     if not args.check and not args.key:
         parser.error("--key is required unless --check is given")
+
+    anchors = _anchor_problems()
+    if anchors:
+        print("Trust anchors are not sound:\n", file=sys.stderr)
+        for problem in anchors:
+            print(f"  ✗ {problem}\n", file=sys.stderr)
+        return 1
 
     PLANS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -322,9 +413,6 @@ def main() -> int:
     }
 
     if args.check:
-        if not PUBKEY.exists():
-            print(f"missing public key: {PUBKEY}", file=sys.stderr)
-            return 1
         bad = []
         for version, payload in plans.items():
             data = _canonical(payload)
@@ -339,45 +427,53 @@ def main() -> int:
             bad.append("manifest.json is stale")
         elif not _verify(PUBKEY, manifest_data, PLANS_DIR / "manifest.sig"):
             bad.append("manifest signature missing or invalid")
-        if args.key:
-            derived = subprocess.run(
-                ["openssl", "pkey", "-in", str(args.key), "-pubout"],
-                capture_output=True, text=True, check=True,
-            ).stdout.strip()
-            if derived != PUBKEY.read_text().strip():
-                bad.append(
-                    "the public key in the repo does not match the signing key"
-                )
+        if args.key and _pubkey_of(args.key) != PUBKEY.read_text().strip():
+            bad.append("the public key in the repo does not match the signing key")
         for line in bad:
             print(f"  ✗ {line}", file=sys.stderr)
         if bad:
             return 1
         print(f"OK: {len(plans)} plans, manifest and signatures all verify.")
+        print(
+            f"Anchors: release {_key_id(PUBKEY)}, "
+            f"recovery {_key_id(RECOVERY_PUBKEY)}."
+        )
         return 0
 
-    derived = subprocess.run(
-        ["openssl", "pkey", "-in", str(args.key), "-pubout"],
-        capture_output=True, text=True, check=True,
-    ).stdout
+    derived = _pubkey_of(args.key)
+
+    # Signing with the recovery key would collapse the two anchors into one and
+    # spend the offline key on routine work. It is meant to sign exactly one
+    # thing, by hand, when the release key is gone.
+    if derived == RECOVERY_PUBKEY.read_text().strip():
+        print(
+            "That is the recovery key. It signs nothing during a normal release "
+            "— its\nwhole value is being kept offline against the loss of the "
+            "release key. Use\nthe release key, or follow the recovery procedure "
+            "if the release key is gone.",
+            file=sys.stderr,
+        )
+        return 1
 
     # The public key is the trust anchor pinned on every device. Signing with a
     # different private key than the one the repo advertises would re-pin it
-    # silently — which is exactly the move an attacker with CI access would
-    # make. Rotation has to be deliberate and paired with a release that
-    # accepts both keys.
-    if PUBKEY.exists() and PUBKEY.read_text().strip() != derived.strip():
+    # silently — which is exactly the move an attacker with release access would
+    # make. Rotation has to be deliberate.
+    if PUBKEY.read_text().strip() != derived:
         if not args.rotate_key:
             print(
                 "The signing key does not match the public key committed in the "
-                "repo.\nThat key is pinned on every device in the field. If this "
-                "is a genuine\nrotation, pass --rotate-key and ship a release "
-                "that accepts both keys\nfirst; otherwise the wrong key is "
-                "configured.",
+                "repo.\nThat key is pinned on every device in the field, and a "
+                "device only accepts a\nnew release key from a migration signed "
+                "with a key it already trusts — so this\nis never just a matter "
+                "of editing the file. Follow the recovery procedure and\npass "
+                "--rotate-key once the re-pinning migration is in place. "
+                "Otherwise the\nwrong key is configured.",
                 file=sys.stderr,
             )
             return 1
-        print("Rotating the committed public key (--rotate-key given).")
-    PUBKEY.write_text(derived)
+        print("Rotating the committed release key (--rotate-key given).")
+    PUBKEY.write_text(derived + "\n")
 
     for version, payload in plans.items():
         data = _canonical(payload)
@@ -392,6 +488,10 @@ def main() -> int:
     for version in plans:
         print(f"  {version}")
     print(f"Manifest and public key written. Plans dir: {PLANS_DIR}")
+    print(
+        f"Anchors: release {_key_id(PUBKEY)}, "
+        f"recovery {_key_id(RECOVERY_PUBKEY)} (offline, on paper)."
+    )
     return 0
 
 
