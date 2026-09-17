@@ -48,7 +48,7 @@ interface OverlayChangeResponse {
  *
  * After saving the 'boneio' section with a new version, call `checkOverlayAfterVersionChange()`
  * to detect if the device tree overlay needs updating. If a mismatch is found, opens a
- * confirmation dialog that asks for sudo password.
+ * confirmation dialog.
  */
 export function useOverlayCheck() {
   const { t } = useTranslation();
@@ -98,10 +98,11 @@ export function useOverlayCheck() {
   /**
    * Apply the overlay change via sudo.
    *
-   * @param password - Sudo password for writing to /boot/uEnv.txt
+   * The overlay change goes through the privileged helper, which accepts only
+   * the overlay names this board ships — so no password is involved.
    * @returns true if change was successful
    */
-  const applyOverlayChange = useCallback(async (password: string): Promise<boolean> => {
+  const applyOverlayChange = useCallback(async (): Promise<boolean> => {
     if (!dialogState.expectedOverlay) return false;
 
     setIsChanging(true);
@@ -111,7 +112,6 @@ export function useOverlayCheck() {
     try {
       const { data } = await axios.post<OverlayChangeResponse>('/api/system/overlay', {
         overlay: dialogState.expectedOverlay,
-        password,
       });
 
       if (data.status === 'changed' || data.status === 'unchanged') {

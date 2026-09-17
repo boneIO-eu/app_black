@@ -1,7 +1,7 @@
 """CAN bus tools routes for BoneIO Web UI.
 
 Provides endpoints for:
-- Bringing CAN interface up/down (requires sudo)
+- Bringing CAN interface up/down (through the privileged helper)
 - Running candump (streaming via SSE)
 - Sending CAN frames via cansend
 """
@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -20,13 +19,7 @@ from pydantic import BaseModel
 from boneio.core.manager import Manager
 
 
-class _SudoStep(TypedDict):
-    """Typed definition of a sudo command step."""
-
-    name: str
-    cmd: list[str]
-    ignore_error: bool
-
+from boneio.core import system_ops
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,12 +42,10 @@ class InterfaceUpRequest(BaseModel):
     Args:
         interface: CAN interface name (default: can0)
         bitrate: CAN bus bitrate in bps (default: 125000)
-        password: Sudo password for ip link commands
     """
 
     interface: str = DEFAULT_INTERFACE
     bitrate: int = DEFAULT_BITRATE
-    password: str
 
 
 class CanSendRequest(BaseModel):
@@ -78,57 +69,10 @@ class NodeConfigRequest(BaseModel):
     config_yaml: str
 
 
-async def _run_sudo_command(password: str, cmd: list[str], timeout: float = 10) -> dict:
-    """Run a command with sudo, piping the password via stdin.
-
-    Args:
-        password: Sudo password
-        cmd: Command and arguments (without 'sudo -S' prefix)
-        timeout: Command timeout in seconds
-
-    Returns:
-        Dict with returncode, stdout, stderr
-    """
-    full_cmd = ["sudo", "-S"] + cmd
-    _LOGGER.info("Running: %s", " ".join(full_cmd))
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *full_cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(input=(password + "\n").encode()),
-            timeout=timeout,
-        )
-        return {
-            "returncode": proc.returncode,
-            "stdout": stdout.decode().strip(),
-            "stderr": stderr.decode().strip(),
-        }
-    except TimeoutError:
-        return {"returncode": -1, "stdout": "", "stderr": "Command timed out"}
-    except Exception as e:
-        return {"returncode": -1, "stdout": "", "stderr": str(e)}
-
-
-def _check_sudo_error(result: dict) -> str | None:
-    """Check if sudo command failed due to bad password.
-
-    Args:
-        result: Dict from _run_sudo_command
-
-    Returns:
-        Error message string or None if no auth error
-    """
-    stderr = result.get("stderr", "").lower()
-    if "incorrect password" in stderr or "sorry" in stderr:
-        return "Incorrect sudo password"
-    return None
-
-
+# _run_sudo_command() and _check_sudo_error() are gone. They piped the
+# operator's system password to `sudo -S` and translated its authentication
+# failures. Interface setup goes through boneio-system now, which takes a verb
+# and validated arguments and needs no password at all.
 def _validate_interface(interface: str) -> None:
     """Validate CAN interface name to prevent injection.
 
@@ -301,87 +245,35 @@ async def get_can_status(interface: str = DEFAULT_INTERFACE):
 
 @router.post("/interface-up")
 async def bring_interface_up(body: InterfaceUpRequest):
-    """Bring CAN interface up with specified bitrate using sudo.
+    """Bring a CAN interface up at the requested bitrate.
 
-    Runs: sudo ip link set can0 down (ignore error)
-          sudo ip link set can0 type can bitrate 125000
-          sudo ip link set can0 up
+    This used to take the operator's sudo password and run three
+    ``sudo ip link set <iface> ...`` commands. The password is the same on every
+    controller that shipped, and the sudoers rule behind it was
+    ``ip link set can0 *`` — so both are gone: boneio-system takes an interface
+    from a list of two and a bitrate from a list of nine, and does the three
+    steps itself.
 
     Args:
-        body: InterfaceUpRequest with interface, bitrate, and sudo password
+        body: InterfaceUpRequest with interface and bitrate.
 
     Returns:
-        Status response dict
+        Status response dict.
     """
     _validate_interface(body.interface)
 
-    steps: list[_SudoStep] = [
-        {
-            "name": "link down",
-            "cmd": ["ip", "link", "set", body.interface, "down"],
-            "ignore_error": True,
-        },
-        {
-            "name": "set bitrate",
-            "cmd": [
-                "ip",
-                "link",
-                "set",
-                body.interface,
-                "type",
-                "can",
-                "bitrate",
-                str(body.bitrate),
-            ],
-            "ignore_error": False,
-        },
-        {
-            "name": "link up",
-            "cmd": ["ip", "link", "set", body.interface, "up"],
-            "ignore_error": False,
-        },
-    ]
-
-    results = []
-    for step in steps:
-        result = await _run_sudo_command(body.password, step["cmd"])
-
-        # Check for password error on first command
-        auth_err = _check_sudo_error(result)
-        if auth_err:
-            return {"status": "error", "message": auth_err}
-
-        results.append(
-            {
-                "step": step["name"],
-                "returncode": result["returncode"],
-                "stderr": result["stderr"],
-            }
-        )
-
-        if result["returncode"] != 0 and not step["ignore_error"]:
-            _LOGGER.warning(
-                "CAN interface-up failed at step '%s': %s",
-                step["name"],
-                result["stderr"],
-            )
-            return {
-                "status": "error",
-                "message": f"Failed at '{step['name']}': {result['stderr']}",
-                "steps": results,
-            }
-
-    _LOGGER.info(
-        "CAN interface %s brought up at %d bps",
-        body.interface,
-        body.bitrate,
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, system_ops.can_up, body.interface, body.bitrate
     )
+    if not result.ok:
+        return {
+            "status": "error",
+            "message": result.stderr.strip() or "could not bring the interface up",
+        }
     return {
         "status": "success",
         "message": f"{body.interface} is up at {body.bitrate} bps",
-        "steps": results,
     }
-
 
 @router.post("/send")
 async def can_send(body: CanSendRequest):

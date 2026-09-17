@@ -43,6 +43,7 @@ RESTORE: tuple[tuple[str, Path, int], ...] = (
     ("migrations-recovery.pem", PINNED_DIR / "migrations-recovery.pem", 0o444),
     ("boneio-migrate-v2", Path("/usr/sbin/boneio-migrate-v2"), 0o755),
     ("boneio-containers", Path("/usr/sbin/boneio-containers"), 0o755),
+    ("boneio-system", Path("/usr/sbin/boneio-system"), 0o755),
     ("sudoers-boneio-helpers", Path("/etc/sudoers.d/boneio-helpers"), 0o440),
 )
 

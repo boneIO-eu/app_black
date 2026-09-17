@@ -2,10 +2,11 @@
  * Dialog shown when the board version has been changed and the device tree
  * overlay in /boot/uEnv.txt needs updating.
  *
- * Includes a sudo password field since boneIO runs as user `boneio`
- * without write access to /boot/.
+ * No password field: the overlay change goes through the privileged helper,
+ * which accepts only the overlay names this board ships, so the application
+ * needs no write access to /boot/ and no system password.
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface OverlayChangeDialogProps {
@@ -17,7 +18,7 @@ interface OverlayChangeDialogProps {
   isChanging: boolean;
   changeResult: 'success' | 'error' | null;
   changeError: string | null;
-  onApply: (password: string) => void;
+  onApply: () => void;
   onDismiss: () => void;
 }
 
@@ -25,7 +26,7 @@ interface OverlayChangeDialogProps {
  * Confirmation dialog for device tree overlay changes.
  *
  * Shows a warning that changing the overlay is potentially dangerous,
- * displays current vs expected overlay, asks for sudo password,
+ * displays current vs expected overlay,
  * and requests user confirmation. When the required overlay file is
  * not installed on the system, the Apply button is disabled and a
  * prominent error message explains the situation.
@@ -43,20 +44,13 @@ const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
   onDismiss,
 }) => {
   const { t } = useTranslation();
-  const [password, setPassword] = useState('');
 
   if (!open) return null;
 
   const handleApply = () => {
-    if (!password.trim()) return;
-    onApply(password);
+    onApply();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && password.trim() && !isChanging && changeResult !== 'success' && overlayAvailable) {
-      handleApply();
-    }
-  };
 
   return (
     <div className="dialog-backdrop" onClick={onDismiss}>
@@ -111,29 +105,6 @@ const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
             </div>
           )}
 
-          {/* Sudo password input — hidden when overlay is not available */}
-          {overlayAvailable && (
-            <div>
-              <label
-                htmlFor="overlay-sudo-password"
-                style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.25rem', opacity: 0.8 }}
-              >
-                {t('overlay.password_label')}
-              </label>
-              <input
-                id="overlay-sudo-password"
-                type="password"
-                className="input input-bordered w-full"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t('overlay.password_placeholder')}
-                disabled={isChanging || changeResult === 'success'}
-                autoFocus
-              />
-            </div>
-          )}
-
           {overlayAvailable && (
             <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>
               {t('overlay.restart_notice')}
@@ -165,7 +136,7 @@ const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
             <button
               className="btn btn-warning"
               onClick={handleApply}
-              disabled={isChanging || changeResult === 'success' || !password.trim()}
+              disabled={isChanging || changeResult === 'success'}
               style={{
                 background: 'var(--color-warning, #f59e0b)',
                 color: '#000',

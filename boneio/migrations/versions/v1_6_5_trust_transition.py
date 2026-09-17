@@ -57,6 +57,7 @@ PINNED_DIR = "/etc/boneio"
 _PRISTINE = (
     ("helpers/boneio-migrate-v2", "boneio-migrate-v2", 0o755),
     ("helpers/boneio-containers", "boneio-containers", 0o755),
+    ("helpers/boneio-system", "boneio-system", 0o755),
     ("helpers/boneio-helpers-heal", "boneio-helpers-heal", 0o755),
     ("sudoers/boneio-helpers", "sudoers-boneio-helpers", 0o440),
     ("migrations.pem", "migrations.pem", 0o444),

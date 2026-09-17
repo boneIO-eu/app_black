@@ -1240,8 +1240,8 @@ export default function UISettings() {
         isChanging={isChangingOverlay}
         changeResult={overlayChangeResult}
         changeError={overlayChangeError}
-        onApply={async (password: string) => {
-          const success = await applyOverlayChange(password);
+        onApply={async () => {
+          const success = await applyOverlayChange();
           // Trigger restart after successful overlay change
           if (success) {
             try {

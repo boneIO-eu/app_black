@@ -11,3 +11,4 @@
 # compromised boneio account cannot re-pin the trust anchors.
 boneio ALL=(root) NOPASSWD: /usr/sbin/boneio-migrate-v2
 boneio ALL=(root) NOPASSWD: /usr/sbin/boneio-containers
+boneio ALL=(root) NOPASSWD: /usr/sbin/boneio-system

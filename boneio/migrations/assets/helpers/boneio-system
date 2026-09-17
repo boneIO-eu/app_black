@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+"""boneio-system — the remaining privileged system operations, by name.
+
+Three features needed root and got it the two worst ways available: a broad
+sudo rule, or an API endpoint that asked the operator for their system password.
+The password is the same on every controller that shipped, so an endpoint
+collecting it is a way to intercept it; and the rules it stood in for were
+wildcards — ``ip link set can0 *`` and a ``sed -i`` expression built in the
+application and run as root on /boot/uEnv.txt.
+
+This replaces both with named operations:
+
+    can-up <can0|can1> <bitrate>   down, set bitrate, up
+    can-down <can0|can1>
+    overlay-get                    read the device-tree overlay from uEnv.txt
+    overlay-set <basename>         change it, from a fixed list of overlays
+    hostname-set <name>
+
+Every argument is checked against a closed set before anything runs, and the
+uEnv.txt edit is done here with a compiled pattern rather than by handing a
+``sed`` expression to root. Nothing takes a password: the sudoers rule for this
+helper is NOPASSWD, which is safe precisely because the vocabulary is closed.
+
+Exit codes:
+    0  success
+    1  refused, or the underlying command failed
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import logging.handlers
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+LOG_FILE = "/var/log/boneio-system.log"
+
+#: The CAN interfaces this board has. A name from the caller would otherwise
+#: reach `ip link set`, where it is not just a device but a namespace and a
+#: rename away from something else.
+CAN_INTERFACES = ("can0", "can1")
+#: Bitrates the CAN transceiver supports. A free integer would be harmless to
+#: the kernel but pointless to allow: the UI offers exactly these.
+CAN_BITRATES = (10_000, 20_000, 50_000, 100_000, 125_000, 250_000, 500_000, 800_000,
+                1_000_000)
+
+#: Device-tree overlays shipped for this board. The application already kept
+#: this list to reject unknown filenames; it is repeated here because the
+#: helper cannot trust the application's copy of it.
+VALID_OVERLAYS = (
+    "BONEIO-BLACK-PINS-v0.2-v0.3.dtbo",
+    "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
+    "BONEIO-BLACK-PINS-v1.0.dtbo",
+    "BONEIO-BLACK-PINS.dtbo",
+)
+
+UENV_PATHS = (Path("/boot/firmware/uEnv.txt"), Path("/boot/uEnv.txt"))
+
+#: An uncommented uboot_overlay_addr line naming a boneIO overlay, with or
+#: without a directory prefix. Compiled here rather than passed to `sed -i` as
+#: an expression the application composes.
+_OVERLAY_LINE_RE = re.compile(
+    r"^(?P<indent>[^\S\n]*)"
+    r"(?P<key>uboot_overlay_addr[0-9]*=)"
+    r"(?P<dir>.*/)?"
+    r"(?P<name>BONEIO-BLACK-PINS[^\s]*)"
+    r"(?P<rest>.*)$"
+)
+
+#: A hostname: DNS label rules, which is stricter than hostnamectl's own.
+_HOSTNAME_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)$")
+
+VERBS = (
+    "can-up", "can-down", "overlay-get", "overlay-set", "hostname-set",
+)
+
+
+def _configure_logging() -> logging.Logger:
+    """Set up logging without making the log file a hard requirement.
+
+    Returns:
+        The helper's logger.
+    """
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
+    try:
+        handlers.append(
+            logging.handlers.RotatingFileHandler(
+                LOG_FILE, maxBytes=524_288, backupCount=1, encoding="utf-8"
+            )
+        )
+    except OSError as exc:
+        print(f"boneio-system: cannot open {LOG_FILE}: {exc}", file=sys.stderr)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+    )
+    return logging.getLogger("boneio-system")
+
+
+_LOGGER = _configure_logging()
+
+
+class Refused(Exception):
+    """The request was rejected; nothing was run."""
+
+
+def _assert_root() -> None:
+    """Exit unless running as root."""
+    if os.geteuid() != 0:
+        _LOGGER.error("boneio-system must be run as root via sudo.")
+        sys.exit(1)
+
+
+def _run(argv: list[str], timeout: int = 30, tolerate: bool = False) -> int:
+    """Run a fixed command.
+
+    Args:
+        argv: The command.
+        timeout: Seconds to allow.
+        tolerate: Report a failure but do not treat it as one.
+
+    Returns:
+        Process exit status, or 0 when *tolerate* and it failed.
+    """
+    _LOGGER.info("RUN: %s", " ".join(argv))
+    try:
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _LOGGER.error("timed out after %ds: %s", timeout, " ".join(argv))
+        return 0 if tolerate else 1
+    except OSError as exc:
+        _LOGGER.error("cannot run %s: %s", argv[0], exc)
+        return 0 if tolerate else 1
+
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+    if result.returncode != 0:
+        _LOGGER.log(
+            logging.WARNING if tolerate else logging.ERROR,
+            "rc=%d: %s", result.returncode, result.stderr.strip(),
+        )
+        if not tolerate:
+            sys.stderr.write(result.stderr)
+    return 0 if tolerate else result.returncode
+
+
+# ------------------------------------------------------------------------ CAN
+
+
+def _check_interface(name: str | None) -> str:
+    """Validate a CAN interface name.
+
+    Args:
+        name: Candidate name.
+
+    Returns:
+        The name.
+
+    Raises:
+        Refused: If it is not one of this board's interfaces.
+    """
+    if name not in CAN_INTERFACES:
+        raise Refused(
+            f"not a CAN interface on this board: {name!r}. Allowed: "
+            f"{', '.join(CAN_INTERFACES)}"
+        )
+    return name
+
+
+def _can_up(interface: str | None, bitrate: str | None) -> int:
+    """Bring a CAN interface up at a given bitrate.
+
+    Args:
+        interface: ``can0`` or ``can1``.
+        bitrate: One of :data:`CAN_BITRATES`, as text.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If either argument is not in its allowed set.
+    """
+    interface = _check_interface(interface)
+    if bitrate is None or not bitrate.isdigit() or int(bitrate) not in CAN_BITRATES:
+        raise Refused(
+            f"unsupported bitrate: {bitrate!r}. Allowed: "
+            f"{', '.join(str(rate) for rate in CAN_BITRATES)}"
+        )
+
+    # Down first, tolerating an interface that was not up.
+    _run(["ip", "link", "set", interface, "down"], tolerate=True)
+    status = _run(
+        ["ip", "link", "set", interface, "type", "can", "bitrate", bitrate]
+    )
+    if status != 0:
+        return status
+    return _run(["ip", "link", "set", interface, "up"])
+
+
+def _can_down(interface: str | None) -> int:
+    """Take a CAN interface down.
+
+    Args:
+        interface: ``can0`` or ``can1``.
+
+    Returns:
+        Process exit status.
+    """
+    return _run(["ip", "link", "set", _check_interface(interface), "down"])
+
+
+# -------------------------------------------------------------------- overlay
+
+
+def _find_uenv() -> Path:
+    """The active uEnv.txt.
+
+    Returns:
+        Its path.
+
+    Raises:
+        Refused: If there is none.
+    """
+    for path in UENV_PATHS:
+        if path.is_file() and not path.is_symlink():
+            return path
+    raise Refused(f"no uEnv.txt at any of {[str(p) for p in UENV_PATHS]}")
+
+
+def _overlay_get() -> int:
+    """Print the overlay currently configured in uEnv.txt.
+
+    Returns:
+        0, with the overlay name on stdout, or ``null`` when none is set.
+    """
+    uenv = _find_uenv()
+    for line in uenv.read_text(encoding="utf-8").splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        match = _OVERLAY_LINE_RE.match(line)
+        if match:
+            print(json.dumps({"overlay": match.group("name"), "uenv": str(uenv)}))
+            return 0
+    print(json.dumps({"overlay": None, "uenv": str(uenv)}))
+    return 0
+
+
+def _overlay_set(overlay: str | None) -> int:
+    """Point uEnv.txt at one of the shipped overlays.
+
+    The application used to build a ``sed -i`` expression and have root run it.
+    The edit happens here instead, line by line, against a compiled pattern —
+    and commented lines are left alone, as before.
+
+    Args:
+        overlay: Overlay basename.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: If the overlay is not one that ships with this board.
+    """
+    if overlay not in VALID_OVERLAYS:
+        raise Refused(
+            f"unknown overlay: {overlay!r}. Allowed: {', '.join(VALID_OVERLAYS)}"
+        )
+
+    uenv = _find_uenv()
+    original = uenv.read_text(encoding="utf-8")
+    lines = original.splitlines(keepends=True)
+
+    changed = 0
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            continue
+        match = _OVERLAY_LINE_RE.match(line.rstrip("\n"))
+        if not match:
+            continue
+        if match.group("name") == overlay:
+            continue
+        newline = "\n" if line.endswith("\n") else ""
+        lines[index] = (
+            f"{match.group('indent')}{match.group('key')}"
+            f"{match.group('dir') or ''}{overlay}{match.group('rest')}{newline}"
+        )
+        changed += 1
+
+    if not changed:
+        _LOGGER.info("uEnv.txt already points at %s", overlay)
+        return 0
+
+    backup = uenv.with_suffix(uenv.suffix + ".boneio.bak")
+    if not backup.exists():
+        shutil.copy2(uenv, backup)
+        _LOGGER.info("Backed up %s to %s", uenv, backup)
+
+    with tempfile.NamedTemporaryFile(
+        dir=uenv.parent, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+    ) as tmp:
+        tmp.write("".join(lines))
+        tmp_path = tmp.name
+    try:
+        os.chmod(tmp_path, uenv.stat().st_mode & 0o7777)
+        if os.geteuid() == 0:
+            os.chown(tmp_path, 0, 0)
+        os.replace(tmp_path, uenv)
+    except OSError:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    _LOGGER.info("Overlay set to %s in %s (%d line(s))", overlay, uenv, changed)
+    return 0
+
+
+# ------------------------------------------------------------------- hostname
+
+
+def _hostname_set(name: str | None) -> int:
+    """Set the system hostname.
+
+    Args:
+        name: The new hostname.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If it is not a plausible DNS label.
+    """
+    if not name or not _HOSTNAME_RE.match(name):
+        raise Refused(
+            f"not a valid hostname: {name!r}. Lower-case letters, digits and "
+            "hyphens, up to 63 characters, not starting or ending with a hyphen."
+        )
+    return _run(["hostnamectl", "set-hostname", name])
+
+
+# ----------------------------------------------------------------- selftest
+
+
+def selftest() -> int:
+    """Check the helper can do its job, changing nothing.
+
+    Returns:
+        0 when healthy.
+    """
+    problems: list[str] = []
+    if shutil.which("ip") is None:
+        problems.append("ip is not installed, so CAN cannot be configured")
+    if shutil.which("hostnamectl") is None:
+        problems.append("hostnamectl is not installed")
+    try:
+        _find_uenv()
+    except Refused as exc:
+        problems.append(str(exc))
+
+    for problem in problems:
+        _LOGGER.error("selftest: %s", problem)
+    if problems:
+        return 1
+    _LOGGER.info("selftest: %d verbs available.", len(VERBS))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.
+
+    Returns:
+        Process exit status.
+    """
+    parser = argparse.ArgumentParser(description="boneIO privileged system operations")
+    parser.add_argument("verb", nargs="?", help=f"one of: {', '.join(VERBS)}")
+    parser.add_argument("argument", nargs="?", default=None)
+    parser.add_argument("value", nargs="?", default=None)
+    parser.add_argument(
+        "--list-verbs", action="store_true", help="print the allowed verbs as JSON"
+    )
+    parser.add_argument(
+        "--selftest", action="store_true", help="check the helper, change nothing"
+    )
+    args, unparsed = parser.parse_known_args(argv)
+
+    if args.list_verbs:
+        print(json.dumps(list(VERBS)))
+        return 0
+
+    _assert_root()
+
+    if args.selftest:
+        return selftest()
+
+    if not args.verb:
+        parser.error("a verb is required")
+
+    try:
+        if unparsed:
+            # Argparse could not place these, and they are still caller input.
+            if args.argument is None and len(unparsed) == 1:
+                args.argument = unparsed[0]
+            elif args.value is None and len(unparsed) == 1:
+                args.value = unparsed[0]
+            else:
+                raise Refused(f"unexpected arguments: {unparsed}")
+
+        if args.verb == "can-up":
+            return _can_up(args.argument, args.value)
+        if args.verb == "can-down":
+            return _can_down(args.argument)
+        if args.verb == "overlay-get":
+            return _overlay_get()
+        if args.verb == "overlay-set":
+            return _overlay_set(args.argument)
+        if args.verb == "hostname-set":
+            return _hostname_set(args.argument)
+        raise Refused(f"unknown verb {args.verb!r}. Allowed: {', '.join(VERBS)}")
+    except Refused as exc:
+        _LOGGER.error("REFUSED: %s", exc)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

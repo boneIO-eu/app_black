@@ -31,7 +31,6 @@ export default function CANHelper() {
   // Interface state
   const [canInterface, setCanInterface] = useState('can0');
   const [bitrate, setBitrate] = useState(125000);
-  const [sudoPassword, setSudoPassword] = useState('');
   const [status, setStatus] = useState<CANStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [ifUpResult, setIfUpResult] = useState<{ status: string; message: string } | null>(null);
@@ -77,18 +76,15 @@ export default function CANHelper() {
 
   // Bring interface up
   const handleInterfaceUp = useCallback(async () => {
-    if (!sudoPassword) return;
     setIfUpLoading(true);
     setIfUpResult(null);
     try {
       const { data } = await axios.post('/api/can/interface-up', {
         interface: canInterface,
         bitrate,
-        password: sudoPassword,
       });
       setIfUpResult(data);
       if (data.status === 'success') {
-        setSudoPassword('');
         checkStatus();
       }
     } catch (err: any) {
@@ -96,7 +92,7 @@ export default function CANHelper() {
     } finally {
       setIfUpLoading(false);
     }
-  }, [canInterface, bitrate, sudoPassword, checkStatus]);
+  }, [canInterface, bitrate, checkStatus]);
 
   // Start candump SSE stream
   const startDump = useCallback(() => {
@@ -271,25 +267,18 @@ export default function CANHelper() {
           {/* Bring up section */}
           {status && !status.is_up && (
             <div className="mt-3 p-3 bg-base-300 rounded-lg">
+              {/* No password here any more: interface setup goes through the
+                  privileged helper, which takes an interface from a list of two
+                  and a bitrate from a list of nine. */}
               <p className="text-sm mb-2">
-                Enter sudo password to bring <code className="font-mono">{canInterface}</code> up:
+                Bring <code className="font-mono">{canInterface}</code> up at{' '}
+                <code className="font-mono">{bitrate}</code> bps:
               </p>
               <div className="flex gap-2 items-center">
-                <input
-                  type="password"
-                  className="input input-bordered input-sm flex-1"
-                  placeholder="sudo password"
-                  value={sudoPassword}
-                  onChange={(e) => setSudoPassword(e.target.value)}
-                  disabled={ifUpLoading}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && sudoPassword) handleInterfaceUp();
-                  }}
-                />
                 <button
                   className={`btn btn-sm btn-primary gap-1 ${ifUpLoading ? 'loading' : ''}`}
                   onClick={handleInterfaceUp}
-                  disabled={!sudoPassword || ifUpLoading}
+                  disabled={ifUpLoading}
                 >
                   {ifUpLoading ? <FaSpinner className="animate-spin" /> : <FaPlug />}
                   Bring Up

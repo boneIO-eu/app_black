@@ -7,6 +7,8 @@ import glob
 import logging
 import os
 from pathlib import Path
+
+from boneio.core import system_ops
 import re
 import subprocess
 from datetime import datetime
@@ -652,22 +654,21 @@ async def set_hostname(request: HostnameRequest):
     if not all(c.isalnum() or c in '-_' for c in new_hostname):
         raise HTTPException(status_code=400, detail="Hostname can only contain alphanumeric characters, hyphens, and underscores")
     
-    try:
-        subprocess.run(
-            ["sudo", "hostnamectl", "set-hostname", new_hostname],
-            check=True,
-            capture_output=True,
-            text=True
+    # Through the helper rather than `sudo hostnamectl set-hostname *`: that
+    # rule's wildcard took whatever this endpoint passed, and the check above
+    # accepts underscores, which are not valid in a DNS label. The helper
+    # applies DNS label rules of its own, so the two cannot disagree in the
+    # direction that matters.
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, system_ops.hostname_set, new_hostname
+    )
+    if not result.ok:
+        raise HTTPException(
+            status_code=500,
+            detail=result.stderr.strip() or "Failed to set hostname",
         )
-        
-        _LOGGER.info(f"Hostname changed to: {new_hostname}")
-        return {"status": "success", "hostname": new_hostname}
-    except subprocess.CalledProcessError as e:
-        _LOGGER.error("Failed to set hostname: %s", e.stderr)
-        raise HTTPException(status_code=500, detail=f"Failed to set hostname: {e.stderr}") from e
-    except Exception as e:
-        _LOGGER.error("Error setting hostname: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    _LOGGER.info("Hostname changed to: %s", new_hostname)
+    return {"status": "success", "hostname": new_hostname}
 
 
 @router.post("/reboot")
@@ -1177,8 +1178,6 @@ class OverlayChangeRequest(BaseModel):
 
     overlay: str
     """Overlay basename to set (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``)."""
-    password: str
-    """Sudo password for writing to /boot/uEnv.txt."""
 
 
 @router.get("/system/overlay")
@@ -1233,67 +1232,27 @@ async def get_overlay_status():
 
 
 @router.post("/system/overlay")
-async def change_overlay(body: OverlayChangeRequest, request: Request):
-    """Change the device tree overlay in /boot/uEnv.txt via sudo.
+async def change_overlay(body: OverlayChangeRequest):
+    """Change the device tree overlay in uEnv.txt.
 
-    This is a potentially dangerous operation — the wrong overlay
-    can make GPIO pins non-functional. A system restart is required
-    for the change to take effect.
-
-    Safety measures:
-    - Rate-limited to prevent sudo password brute-force
-    - Validates overlay is in whitelist
-    - Verifies .dtbo file exists on disk before modifying uEnv.txt
-    - Creates backup of uEnv.txt before modification
-    - Uses ``sudo -S sed -i`` (skips commented lines)
-    - Calls ``os.sync()`` after modification to flush to disk
-    - Verifies the change was applied
+    A wrong overlay leaves GPIO pins non-functional and the change needs a
+    restart to take effect, so this is still a deliberate, verified operation.
+    What it no longer does is ask for the operator's system password and hand
+    root a ``sed -i`` expression composed here. boneio-system takes an overlay
+    name from the four this board ships, edits the file against a compiled
+    pattern, and keeps the same backup it always did.
 
     Args:
-        body: Request with the overlay basename and sudo password.
+        body: Request with the overlay basename.
 
     Returns:
         Status response with previous and new overlay values.
     """
-    client_ip = request.client.host if request.client else "unknown"
-    if not sudo_rate_limiter.check(client_ip):
-        return JSONResponse(
-            status_code=429,
-            content=SUDO_RATE_LIMITED_RESPONSE,
-        )
     overlay = body.overlay.strip()
-
-    # Defense-in-depth: reject sed metacharacters even if whitelist is misconfigured
-    if not re.fullmatch(r"[A-Za-z0-9._-]+", overlay):
-        _LOGGER.warning("Overlay name rejected (unsafe characters): %r", overlay)
-        return JSONResponse(
-            status_code=422,
-            content={
-                "status": "error",
-                "message": "Invalid overlay name — only alphanumerics, dots, hyphens and underscores allowed.",
-            },
-        )
-
-    # Security: only allow known overlay filenames
     if overlay not in _VALID_OVERLAYS:
         return JSONResponse(
-            status_code=422,
-            content={
-                "status": "error",
-                "message": f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
-            },
-        )
-
-    # Fix #2: verify the .dtbo file actually exists on disk
-    if not _overlay_file_exists(overlay):
-        _LOGGER.error("Overlay file '%s' not found on disk", overlay)
-        return JSONResponse(
-            status_code=404,
-            content={
-                "status": "error",
-                "message": f"Overlay file '{overlay}' not found on disk. "
-                "Install the overlay first (make install).",
-            },
+            status_code=400,
+            content={"status": "error", "message": f"Unknown overlay: {overlay}"},
         )
 
     uenv = _find_uenv()
@@ -1304,7 +1263,6 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
         )
 
     previous = _read_current_overlay(uenv)
-
     if previous == overlay:
         return {
             "status": "unchanged",
@@ -1312,86 +1270,22 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
             "message": "Overlay already set to requested value",
         }
 
-    # Fix #3: backup uEnv.txt before modification (cp -n = no-clobber)
-    backup_path = uenv + ".boneio.bak"
-    backup_cmd = ["sudo", "-S", "cp", "-n", uenv, backup_path]
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *backup_cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await asyncio.wait_for(
-            proc.communicate(input=(body.password + "\n").encode()),
-            timeout=10,
-        )
-        if proc.returncode == 0:
-            _LOGGER.info("Backup created: %s", backup_path)
-        else:
-            _LOGGER.warning("Backup creation returned %d (may already exist)", proc.returncode)
-    except Exception as exc:
-        _LOGGER.warning("Could not create backup: %s (continuing anyway)", exc)
-
-    # Fix #4: sed skips commented lines using address /^[[:space:]]*#/!
-    # Only modifies uncommented uboot_overlay_addr lines containing BONEIO-BLACK-PINS
-    # Fix #7: handle both path-prefixed and bare overlay names in uEnv.txt
-    sed_pattern = (
-        r"/^[[:space:]]*#/!s|"
-        r"\(uboot_overlay_addr[0-9]*=\)\(.*\/\)\{0,1\}BONEIO-BLACK-PINS[^ ]*|"
-        rf"\1\2{overlay}|"
-    )
-
-    cmd = ["sudo", "-S", "sed", "-i", sed_pattern, uenv]
-    _LOGGER.info("Overlay change: running sed on %s (%s → %s)", uenv, previous, overlay)
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(input=(body.password + "\n").encode()),
-            timeout=10,
-        )
-
-        stderr_str = stderr.decode().strip()
-
-        if proc.returncode != 0:
-            if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
-                sudo_rate_limiter.record_failure(client_ip)
-                return JSONResponse(
-                    status_code=403,
-                    content=SUDO_AUTH_FAILED_RESPONSE,
-                )
-            _LOGGER.error("sudo sed failed: %s", stderr_str)
-            return JSONResponse(
-                status_code=500,
-                content={"status": "error", "message": f"sudo sed failed: {stderr_str}"},
-            )
-
-    except TimeoutError:
-        _LOGGER.error("sudo sed timed out for overlay change on %s", uenv)
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "message": "sudo command timed out"},
-        )
-    except Exception as exc:
-        _LOGGER.error("Failed to change overlay in %s: %s", uenv, exc)
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "message": str(exc)},
-        )
-
-    # Fix #1: flush filesystem buffers before returning restart_required
-    # Critical on vfat (/boot/firmware) — reboot before flush = corrupted/empty uEnv.txt
     loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, system_ops.overlay_set, overlay)
+    if not result.ok:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": result.stderr.strip() or "overlay change failed",
+            },
+        )
+
+    # Flush before reporting restart_required. /boot/firmware is vfat, so a
+    # reboot before the flush can leave uEnv.txt truncated or empty.
     await loop.run_in_executor(None, os.sync)
     _LOGGER.info("Filesystem sync completed after overlay change")
 
-    # Verify the change was applied
     new_overlay = _read_current_overlay(uenv)
     if new_overlay != overlay:
         _LOGGER.error(
@@ -1401,17 +1295,17 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
             status_code=500,
             content={
                 "status": "error",
-                "message": f"Overlay change not verified. Expected '{overlay}', found '{new_overlay}'.",
+                "message": (
+                    f"Overlay change not verified. Expected '{overlay}', "
+                    f"found '{new_overlay}'."
+                ),
             },
         )
 
     _LOGGER.warning(
-        "Device tree overlay changed: '%s' → '%s' in %s (restart required)",
-        previous,
-        overlay,
-        uenv,
+        "Device tree overlay changed: '%s' -> '%s' in %s (restart required)",
+        previous, overlay, uenv,
     )
-
     return {
         "status": "changed",
         "previous_overlay": previous,
@@ -1419,4 +1313,3 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
         "restart_required": True,
         "message": "Overlay changed. System restart required for changes to take effect.",
     }
-
