@@ -181,9 +181,16 @@ class MigrationRunner:
                 [m.version for m in pending],
             )
 
-            if not self._helper_installed():
+            # Either helper will do. Checking only the legacy path would break
+            # the device the moment 1.6.6 retires it: v2 would be installed and
+            # working, and the runner would still report "bootstrap required"
+            # and ask for a system password — undoing the point of removing the
+            # password prompts in the first place.
+            if not self._any_helper_available():
                 _LOGGER.warning(
-                    "boneio-migrate helper not found at %s. Bootstrap required — open WebUI to install.",
+                    "No migration helper found (neither %s nor %s). Bootstrap "
+                    "required — open the panel to install one.",
+                    HELPER_V2_PATH,
                     HELPER_PATH,
                 )
                 self.bootstrap_required = True
@@ -224,6 +231,8 @@ class MigrationRunner:
             self.status = MigrationStatus.OK
             return True
 
+        # Only meaningful while the legacy helper exists; it returns early
+        # once 1.6.6 has removed it.
         self._ensure_helper_up_to_date()
         return self._apply_pending(pending, progress_callback=progress_callback)
 
@@ -426,6 +435,17 @@ class MigrationRunner:
         self._applied.add(migration.version)
         _LOGGER.info("Migration %s applied via v2.", migration.version)
         return True
+
+    def _any_helper_available(self) -> bool:
+        """Whether some helper can apply a migration.
+
+        v2 first: once the retirement migration has run, it is the only one
+        there is.
+
+        Returns:
+            True when a migration can be applied.
+        """
+        return self.helper_v2_available() or self._helper_installed()
 
     def _helper_installed(self) -> bool:
         """Return True when the helper binary exists and is executable."""

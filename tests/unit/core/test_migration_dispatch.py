@@ -279,3 +279,52 @@ def test_the_status_says_which_protocol_is_in_play(runner, monkeypatch):
     status = runner.get_status_dict()
     assert status["helper_v2"] is False
     assert status["hardening_pending"] is True
+
+
+# ------------------------------------------------- the gate after retirement
+
+
+def test_a_device_with_only_v2_is_not_asked_to_bootstrap(runner, monkeypatch):
+    """The bug this guards against would have surfaced on the first upgrade.
+
+    Migration 1.6.6 removes /usr/sbin/boneio-migrate. The startup gate used to
+    check that path alone, so the next pending migration on a hardened device
+    would report "bootstrap required" and ask for a system password — putting
+    back the prompt the whole exercise removes.
+    """
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: True)
+    monkeypatch.setattr(runner, "_helper_installed", lambda: False)
+    assert runner._any_helper_available() is True
+
+
+def test_a_device_with_only_the_legacy_helper_still_migrates(runner, monkeypatch):
+    """The state every field device is in before the pivot."""
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: False)
+    monkeypatch.setattr(runner, "_helper_installed", lambda: True)
+    assert runner._any_helper_available() is True
+
+
+def test_a_device_with_no_helper_at_all_needs_bootstrap(runner, monkeypatch):
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: False)
+    monkeypatch.setattr(runner, "_helper_installed", lambda: False)
+    assert runner._any_helper_available() is False
+
+
+def test_the_startup_gate_uses_both_helpers(runner, monkeypatch):
+    """End to end: v2 present, legacy gone, migrations pending."""
+    monkeypatch.setattr(runner, "_load_manifest", lambda: None)
+    monkeypatch.setattr(runner, "_discover_migrations", lambda: None)
+    monkeypatch.setattr(runner, "_load_applied_flags", lambda: None)
+    monkeypatch.setattr(runner, "_get_pending", lambda: [_info("1.6.10")])
+    monkeypatch.setattr(runner, "_check_overlay_in_current_kernel", lambda: None)
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: True)
+    monkeypatch.setattr(runner, "_helper_installed", lambda: False)
+    monkeypatch.setattr(runner, "_ensure_helper_up_to_date", lambda: None)
+    applied: list[str] = []
+    monkeypatch.setattr(
+        runner, "_apply_one", lambda m: applied.append(m.version) or True
+    )
+
+    runner.startup_check()
+    assert runner.bootstrap_required is False, "a hardened device was asked for a password"
+    assert applied == ["1.6.10"]
