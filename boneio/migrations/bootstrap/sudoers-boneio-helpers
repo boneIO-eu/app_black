@@ -1,0 +1,13 @@
+# boneIO privileged helpers.
+#
+# Both take a closed vocabulary and nothing else: boneio-migrate-v2 accepts a
+# version string and builds the plan itself from a signed release, and
+# boneio-containers accepts one of a fixed list of verbs. Neither will run a
+# command supplied by the caller, which is what separates this from the
+# NOPASSWD rule it replaces (CVE-2026-77055).
+#
+# There is deliberately no rule for reinstalling the helpers. Recovery goes
+# through boneio-helpers-heal.service and the root-owned pristine copy, so a
+# compromised boneio account cannot re-pin the trust anchors.
+boneio ALL=(root) NOPASSWD: /usr/sbin/boneio-migrate-v2
+boneio ALL=(root) NOPASSWD: /usr/sbin/boneio-containers

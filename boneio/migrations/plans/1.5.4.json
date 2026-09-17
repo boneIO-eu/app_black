@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/etc/modules-load.d/onewire.conf","group":"root","mode":420,"owner":"root","src":"modules-load.d/onewire.conf","template_vars":{}}]
+[{"action":"install_file","dst":"/etc/modules-load.d/onewire.conf","expected_sha256":"75e3985aabe2170021dcdc70eb07ff4516ce9f7190e32ddfae3b0e9d963aac88","group":"root","mode":420,"owner":"root","src":"modules-load.d/onewire.conf","template_vars":{}}]

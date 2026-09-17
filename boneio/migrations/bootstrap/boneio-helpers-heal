@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""boneio-helpers-heal — restore the privileged helpers from the pristine copy.
+
+Run as root by ``boneio-helpers-heal.service`` before the application starts.
+
+This exists so that recovery never needs the ``boneio`` account. The obvious
+design — a sudo rule letting the application reinstall its own helpers — hands
+back everything the hardening took away, because the password for that account
+is shared across every controller, and because a script that reinstalls the
+*public key* lets an attacker re-pin their own trust anchor and sign every
+future "trusted" plan. That would be persistence surviving the whole exercise.
+
+So the pristine copy at /usr/lib/boneio/trusted is root-owned, written only by
+the image build or by a signed migration, and this unit copies from it. Nothing
+here reads anything from the pip package, least of all the trust anchors.
+
+If the pristine copy itself is gone, that is a state for a console or a reflash,
+and this says so rather than trying to bootstrap trust out of nothing.
+
+Exit codes:
+    0  everything in place (possibly after restoring something)
+    1  the pristine copy is missing or incomplete — needs a human
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+TRUSTED_DIR = Path("/usr/lib/boneio/trusted")
+PINNED_DIR = Path("/etc/boneio")
+
+#: (name in the pristine copy, destination, mode). The order matters: the
+#: anchors and the helpers go in before the sudoers fragment that points at
+#: them, so a partial run never leaves a rule for a missing binary.
+RESTORE: tuple[tuple[str, Path, int], ...] = (
+    ("migrations.pem", PINNED_DIR / "migrations.pem", 0o444),
+    ("migrations-recovery.pem", PINNED_DIR / "migrations-recovery.pem", 0o444),
+    ("boneio-migrate-v2", Path("/usr/sbin/boneio-migrate-v2"), 0o755),
+    ("boneio-containers", Path("/usr/sbin/boneio-containers"), 0o755),
+    ("sudoers-boneio-helpers", Path("/etc/sudoers.d/boneio-helpers"), 0o440),
+)
+
+logging.basicConfig(
+    level=logging.INFO, format="boneio-helpers-heal: %(levelname)s %(message)s"
+)
+_LOGGER = logging.getLogger("boneio-helpers-heal")
+
+
+def _assert_root() -> None:
+    """Exit unless running as root."""
+    if os.geteuid() != 0:
+        _LOGGER.error("must be run as root")
+        sys.exit(1)
+
+
+def _root_owned(path: Path) -> bool:
+    """Whether *path* is a real file owned by root and not writable by others.
+
+    Args:
+        path: Path to inspect.
+
+    Returns:
+        True when root can trust the file.
+    """
+    try:
+        st = path.lstat()
+    except OSError:
+        return False
+    if not os.path.isfile(path) or os.path.islink(path):
+        return False
+    return st.st_uid == 0 and not st.st_mode & 0o022
+
+
+def _needs_restore(source: Path, destination: Path) -> bool:
+    """Whether *destination* differs from the pristine copy or cannot be trusted.
+
+    Args:
+        source: File in the pristine copy.
+        destination: Installed path.
+
+    Returns:
+        True when the file should be rewritten.
+    """
+    if not _root_owned(destination):
+        return True
+    return source.read_bytes() != destination.read_bytes()
+
+
+def _install(source: Path, destination: Path, mode: int) -> None:
+    """Copy a file from the pristine copy, atomically.
+
+    Args:
+        source: File in the pristine copy.
+        destination: Installed path.
+        mode: Permission bits.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staged = destination.with_suffix(destination.suffix + ".heal")
+    shutil.copyfile(source, staged)
+    os.chmod(staged, mode)
+    os.chown(staged, 0, 0)
+    if destination.name == "boneio-helpers":
+        # A bad sudoers fragment locks out every privileged operation, so it is
+        # validated before it is allowed into place.
+        result = subprocess.run(
+            ["visudo", "-cf", str(staged)], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            staged.unlink(missing_ok=True)
+            raise RuntimeError(f"sudoers fragment is invalid: {result.stderr.strip()}")
+    os.replace(staged, destination)
+    _LOGGER.info("restored %s from the pristine copy", destination)
+
+
+def _selftest_helper() -> bool:
+    """Ask the restored migration helper whether it is functional.
+
+    Returns:
+        True when the helper reports itself healthy, or cannot be asked.
+    """
+    helper = Path("/usr/sbin/boneio-migrate-v2")
+    if not helper.is_file():
+        return False
+    try:
+        result = subprocess.run(
+            [str(helper), "--selftest"], capture_output=True, text=True, timeout=60
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        _LOGGER.warning("could not run the helper selftest: %s", exc)
+        return False
+    if result.returncode != 0:
+        _LOGGER.warning("helper selftest failed: %s", result.stderr.strip())
+    return result.returncode == 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.
+
+    Returns:
+        Process exit status.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check", action="store_true", help="report what would be restored"
+    )
+    args = parser.parse_args(argv)
+
+    _assert_root()
+
+    if not TRUSTED_DIR.is_dir():
+        _LOGGER.error(
+            "the pristine copy %s does not exist. The helpers cannot be restored "
+            "from the application, by design — reinstall the boneIO image or fix "
+            "this from a console.",
+            TRUSTED_DIR,
+        )
+        return 1
+
+    missing = [name for name, _, _ in RESTORE if not _root_owned(TRUSTED_DIR / name)]
+    if missing:
+        _LOGGER.error(
+            "the pristine copy is incomplete (missing or not root-owned: %s). "
+            "Refusing to restore a partial trust chain; this needs a console.",
+            ", ".join(missing),
+        )
+        return 1
+
+    pending = [
+        (TRUSTED_DIR / name, destination, mode)
+        for name, destination, mode in RESTORE
+        if _needs_restore(TRUSTED_DIR / name, destination)
+    ]
+
+    if args.check:
+        for source, destination, _ in pending:
+            print(f"would restore {destination} from {source}")
+        if not pending:
+            print("all helpers match the pristine copy")
+        return 0
+
+    for source, destination, mode in pending:
+        try:
+            _install(source, destination, mode)
+        except (OSError, RuntimeError) as exc:
+            _LOGGER.error("could not restore %s: %s", destination, exc)
+            return 1
+
+    if not pending:
+        _LOGGER.info("all helpers match the pristine copy")
+
+    if not _selftest_helper():
+        _LOGGER.error(
+            "the migration helper is present but not functional. Migrations will "
+            "not run; the application will report the hardening as unfinished."
+        )
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,37 @@
+[Unit]
+# Restores the privileged helpers from the root-owned pristine copy before the
+# application starts. This is the recovery path that deliberately does NOT go
+# through the boneio account: the password for that account is shared across
+# controllers, and a script that reinstalls the trust anchors would let an
+# attacker re-pin their own key and sign every future "trusted" plan.
+Description=boneIO privileged helper self-heal
+DefaultDependencies=no
+Requires=local-fs.target
+After=local-fs.target
+Before=boneio.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/boneio-helpers-heal
+# A failure here must not stop the application from starting: a controller that
+# boots with migrations unavailable is bad, one that does not boot is worse. The
+# application reports the hardening as unfinished and retries.
+SuccessExitStatus=0 1
+StandardOutput=journal
+StandardError=journal
+# The helpers it restores need to be written as root, so no filesystem
+# protections here — but nothing else is needed.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE
+
+[Install]
+WantedBy=multi-user.target

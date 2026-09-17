@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/etc/systemd/journald.conf","group":"root","mode":420,"on_change":{"action":"systemctl_restart","unit":"systemd-journald"},"owner":"root","src":"journald/journald.conf","template_vars":{}}]
+[{"action":"install_file","dst":"/etc/systemd/journald.conf","expected_sha256":"e6013f4fbf11693f39123b1e6159c7d7224a7c832e994722120980f64039c17e","group":"root","mode":420,"on_change":{"action":"systemctl_restart","unit":"systemd-journald"},"owner":"root","src":"journald/journald.conf","template_vars":{}}]

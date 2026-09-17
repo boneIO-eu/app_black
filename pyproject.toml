@@ -74,14 +74,20 @@ include = ["boneio*"]
 "boneio.migrations" = [
     "assets/**/*",
     "assets/MANIFEST.sha256",
-    "bootstrap/boneio-migrate",
-    "bootstrap/sudoers-migrate",
-    "bootstrap/install-helper.sh",
+    # Every privileged helper, its sudoers fragment and the self-heal script.
+    # A glob rather than a list: a helper missing from the wheel is a device
+    # that cannot migrate, and that is not a failure worth risking on someone
+    # remembering to add a line here.
+    "bootstrap/**/*",
     # Signed plans and their signatures. The "*" glob above only matches files
     # directly in a package directory, not in subdirectories, so plans/ has to
     # be named here or the helper ships with nothing to verify.
     "plans/**/*",
 ]
+
+[tool.setuptools.exclude-package-data]
+# bootstrap/**/* would otherwise pull in bytecode left behind by py_compile.
+"*" = ["**/__pycache__/*", "**/*.pyc"]
 
 [tool.setuptools.dynamic]
 version = {attr = "boneio.version.__version__"}

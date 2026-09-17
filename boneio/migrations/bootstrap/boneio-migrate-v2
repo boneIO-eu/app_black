@@ -1,0 +1,1303 @@
+#!/usr/bin/env python3
+"""boneio-migrate-v2 — privileged system migration helper, protocol 2.
+
+Version 1 of this helper accepted a whole migration plan over stdin from the
+unprivileged ``boneio`` process it serves: the actions to perform, the digests
+to check assets against, and a free-text ``validate_cmd`` that it ran as root.
+Anyone holding the ``boneio`` account could therefore execute arbitrary code as
+root through an entirely legitimate call. That is CVE-2026-77055.
+
+Version 2 accepts a version string. Everything else it works out for itself,
+and it trusts nothing it is handed:
+
+    stdin: {"protocol": 2, "version": "1.6.5", "package_root": "/.../boneio"}
+
+``package_root`` is a hint about where to look, not a grant of trust — the
+application's site-packages are writable by ``boneio``, so every byte read from
+there is verified before it is used:
+
+  1. ``migrations/plans/manifest.json`` must carry a valid signature from a key
+     pinned in /etc/boneio, outside the application's reach.
+  2. The manifest's release must not be older than the highest release this
+     device has already seen (the release floor). Without that, an attacker can
+     present a whole older package tree — every signature in it genuinely
+     valid — and replay a migration this device never applied.
+  3. The requested version must appear in that manifest, and the plan file's
+     digest must equal what the manifest says.
+  4. The plan must carry a valid signature of its own.
+  5. The version must not already be applied, judged by root-owned flags in
+     /var/lib/boneio/migrations.d — never by anything the caller claims.
+  6. Every action must be in the whitelist, and the only validators available
+     are named ones (``sudoers``, ``sshd``, ``python``). There is no way to ask
+     this helper to run a command of the caller's choosing.
+
+Asset digests now come from inside the signed plan. Under v1 the digest arrived
+over stdin alongside the file path, so the integrity check compared a file
+against a hash supplied by the same process that could replace the file — it
+proved nothing.
+
+A plan verified by the *recovery* key may contain nothing but the re-pinning of
+the trust anchors. The recovery key exists so a lost release key can be
+replaced; it is deliberately not a second, equivalent key to root on the fleet.
+
+Exit codes:
+    0  applied (or already applied, for --selftest: healthy)
+    1  refused or failed
+    2  every action failed, so the migration achieved nothing and is not flagged
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import grp
+import hashlib
+import json
+import logging
+import logging.handlers
+import os
+import pwd
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from string import Template
+from typing import Any
+
+PROTOCOL_VERSION = 2
+
+LOG_FILE = "/var/log/boneio-migrate.log"
+APPLIED_DIR = Path("/var/lib/boneio/migrations.d")
+#: Highest release this device has ever accepted a manifest from. Root-owned,
+#: and only ever moved forward.
+RELEASE_FLOOR = APPLIED_DIR / ".release-floor"
+
+PINNED_DIR = Path("/etc/boneio")
+RELEASE_ANCHOR = PINNED_DIR / "migrations.pem"
+RECOVERY_ANCHOR = PINNED_DIR / "migrations-recovery.pem"
+
+#: Root-owned escape hatch for developing migrations on a device. While it
+#: exists the helper accepts an unsigned plan over stdin, which is protocol 1
+#: behaviour and reopens the escalation path — so every use is logged at
+#: WARNING and --selftest reports it.
+DEV_HATCH = PINNED_DIR / "allow-unsigned-migrations"
+
+def _configure_logging() -> logging.Logger:
+    """Set up logging to stderr, and to the log file when that is possible.
+
+    The log file is not allowed to be a hard requirement. /var/log is log2ram
+    on these controllers, so a full tmpfs or a read-only remount would
+    otherwise make the helper die on import — turning a logging problem into a
+    device that cannot migrate at all.
+
+    Returns:
+        The helper's logger.
+    """
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
+    try:
+        handlers.append(
+            logging.handlers.RotatingFileHandler(
+                LOG_FILE, maxBytes=1_048_576, backupCount=1, encoding="utf-8"
+            )
+        )
+    except OSError as exc:  # full, read-only, or not running as root
+        print(f"boneio-migrate-v2: cannot open {LOG_FILE}: {exc}", file=sys.stderr)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+    )
+    return logging.getLogger("boneio-migrate-v2")
+
+
+_LOGGER = _configure_logging()
+
+ALLOWED_ACTIONS = {
+    "install_file",
+    "remove_file",
+    "systemctl_daemon_reload",
+    "systemctl_enable",
+    "systemctl_disable",
+    "systemctl_restart",
+    "systemctl_reload",
+    "append_line_if_missing",
+    "ufw_allow",
+    "apt_install",
+    "pip_install_wheel",
+    "disable_apparmor_profiles",
+    "prune_orphaned_journal_dirs",
+    "set_file_permissions",
+}
+
+#: The closed set of validators. v1 took a command string and ran it, so the
+#: signing key would have been a key to arbitrary root execution — a signature
+#: says who wrote something, not what it is allowed to do. Every migration in
+#: the tree uses exactly ``visudo -cf`` or ``sshd -t -f``, so nothing is lost.
+VALIDATORS: dict[str, list[str]] = {
+    "sudoers": ["visudo", "-cf"],
+    "sshd": ["sshd", "-t", "-f"],
+    "python": ["python3", "-m", "py_compile"],
+}
+
+#: Actions a recovery-signed plan may carry, and the only paths they may touch.
+RECOVERY_ALLOWED_ACTIONS = {"install_file", "remove_file"}
+RECOVERY_ALLOWED_PATHS = {str(RELEASE_ANCHOR), str(RECOVERY_ANCHOR)}
+
+_PKG_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+.\-]*$")
+_VERSION_RE = re.compile(r"^[0-9]+(\.[0-9]+)*([a-z0-9.\-]*)$")
+
+#: Known-answer test for --selftest: a fixed message, a fixed Ed25519 public
+#: key and a signature over that message, all generated once at development
+#: time. Its private half was destroyed; it proves the verification path works
+#: (openssl present, -rawin understood, exit codes meaningful) without needing
+#: access to any real signing key.
+_KAT_MESSAGE = b"boneio-migrate selftest vector v1"
+_KAT_PUBKEY = (
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAY8BKe/pFXafo1cuC+TF98tuCZoYLkTQPEb49m63zSmU=\n"
+    "-----END PUBLIC KEY-----\n"
+)
+_KAT_SIGNATURE = base64.b64decode(
+    "puVCLGnm3nscixmb6F9KvKVtGRKmMGDeXMzsch0tx7xn6xrwXJUkgZ8n0Fk05YMl3h/5yQNu"
+    "KSqovlpO61uaDQ=="
+)
+
+
+class Refused(Exception):
+    """The request was rejected before anything was applied."""
+
+
+# ---------------------------------------------------------------------------
+# Guards
+# ---------------------------------------------------------------------------
+
+def _assert_root() -> None:
+    """Exit unless running as root."""
+    if os.geteuid() != 0:
+        _LOGGER.error("boneio-migrate-v2 must be run as root via sudo.")
+        sys.exit(1)
+
+
+def _sha256_of_bytes(data: bytes) -> str:
+    """Lower-case hex SHA-256 of *data*."""
+    return hashlib.sha256(data).hexdigest()
+
+
+def _root_owned(path: Path) -> bool:
+    """Whether *path* is a real file owned by root and not group/world writable.
+
+    Args:
+        path: Path to inspect.
+
+    Returns:
+        True when the file is safe for root to trust.
+    """
+    try:
+        st = path.lstat()
+    except OSError:
+        return False
+    if not os.path.isfile(path) or os.path.islink(path):
+        return False
+    return st.st_uid == 0 and not st.st_mode & 0o022
+
+
+# ---------------------------------------------------------------------------
+# Signature verification
+# ---------------------------------------------------------------------------
+
+def _verify(pubkey: Path | str, data: bytes, signature: bytes) -> bool:
+    """Check an Ed25519 signature over exactly *data*.
+
+    The data is written to a root-only directory under /run before openssl sees
+    it, rather than pointing openssl at the file it came from. The plans live in
+    a directory the ``boneio`` account can write, so verifying the file in place
+    and reading it afterwards would leave a window to swap it in between.
+
+    Args:
+        pubkey: Public key path, or the key itself in PEM form.
+        data: Exact bytes that were signed.
+        signature: Detached signature.
+
+    Returns:
+        True when the signature is good.
+    """
+    try:
+        # /run is root-only and a tmpfs, which is what we want when running as
+        # root. Falling back keeps --selftest and the test suite usable for an
+        # unprivileged caller, where there is no privilege to protect anyway.
+        work = Path(tempfile.mkdtemp(prefix="boneio-migrate-", dir="/run"))
+    except OSError:
+        work = Path(tempfile.mkdtemp(prefix="boneio-migrate-"))
+    try:
+        os.chmod(work, 0o700)
+        data_path = work / "data"
+        sig_path = work / "sig"
+        data_path.write_bytes(data)
+        sig_path.write_bytes(signature)
+        if isinstance(pubkey, Path):
+            key_path = pubkey
+        else:
+            key_path = work / "key.pem"
+            key_path.write_text(pubkey, encoding="utf-8")
+        result = subprocess.run(
+            ["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(key_path),
+             "-sigfile", str(sig_path), "-rawin", "-in", str(data_path)],
+            capture_output=True,
+            timeout=30,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError) as exc:
+        _LOGGER.error("Signature verification could not run: %s", exc)
+        return False
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _verify_with_anchors(data: bytes, signature: bytes) -> str | None:
+    """Try both pinned anchors.
+
+    Args:
+        data: Exact bytes that were signed.
+        signature: Detached signature.
+
+    Returns:
+        ``"release"`` or ``"recovery"`` naming the anchor that verified, or None.
+    """
+    for role, anchor in (("release", RELEASE_ANCHOR), ("recovery", RECOVERY_ANCHOR)):
+        if not _root_owned(anchor):
+            _LOGGER.warning("Trust anchor %s is missing or not root-owned", anchor)
+            continue
+        if _verify(anchor, data, signature):
+            return role
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Request parsing
+# ---------------------------------------------------------------------------
+
+def _read_request() -> dict[str, Any]:
+    """Parse and validate the request on stdin.
+
+    Unknown keys are refused rather than ignored. A v1 runner sends ``actions``
+    and ``assets_base``; silently dropping them would apply a different
+    migration than the caller asked for, so it has to be an error the caller
+    sees.
+
+    Returns:
+        The request.
+
+    Raises:
+        Refused: If the request is malformed or asks for protocol 1 behaviour.
+    """
+    try:
+        request = json.loads(sys.stdin.read())
+    except ValueError as exc:
+        raise Refused(f"stdin is not valid JSON: {exc}") from exc
+    if not isinstance(request, dict):
+        raise Refused("stdin must be a JSON object")
+
+    legacy = sorted({"actions", "assets_base", "skip_applied_flag"} & set(request))
+    if legacy and not _dev_hatch_open():
+        raise Refused(
+            f"request carries protocol 1 fields {legacy}. This helper builds the "
+            "plan itself from a signed release; it does not accept actions, asset "
+            "locations or applied flags from the caller. Send "
+            '{"protocol": 2, "version": "..."} instead.'
+        )
+
+    allowed = {"protocol", "version", "package_root", "actions", "assets_base"}
+    unknown = sorted(set(request) - allowed)
+    if unknown:
+        raise Refused(f"unknown fields in request: {unknown}")
+
+    protocol = request.get("protocol")
+    if protocol != PROTOCOL_VERSION:
+        raise Refused(
+            f"unsupported protocol {protocol!r}; this helper speaks "
+            f"{PROTOCOL_VERSION}"
+        )
+
+    version = request.get("version")
+    if not isinstance(version, str) or not _VERSION_RE.match(version):
+        raise Refused(f"invalid version: {version!r}")
+
+    return request
+
+
+def _dev_hatch_open() -> bool:
+    """Whether the root-owned development hatch is in place.
+
+    Returns:
+        True when unsigned plans are permitted on this device.
+    """
+    return _root_owned(DEV_HATCH)
+
+
+# ---------------------------------------------------------------------------
+# Plan resolution
+# ---------------------------------------------------------------------------
+
+def _read_release_floor() -> str | None:
+    """The highest release this device has accepted a manifest from.
+
+    Returns:
+        The release string, or None when no floor has been recorded.
+    """
+    if not _root_owned(RELEASE_FLOOR):
+        return None
+    value = RELEASE_FLOOR.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def _version_key(version: str) -> tuple:
+    """Sortable key for a release string.
+
+    Args:
+        version: Something like ``1.6.0.dev1``.
+
+    Returns:
+        A tuple that orders releases sensibly; pre-release suffixes sort before
+        the plain release of the same number.
+    """
+    head = re.match(r"^[0-9.]+", version)
+    numbers = tuple(int(p) for p in head.group(0).strip(".").split(".")) if head else ()
+    suffix = version[head.end():] if head else version
+    return (numbers, suffix == "", suffix)
+
+
+def _raise_floor(release: str) -> None:
+    """Record *release* as the new floor if it is higher than the current one.
+
+    Args:
+        release: The release the accepted manifest belongs to.
+    """
+    current = _read_release_floor()
+    if current is not None and _version_key(release) <= _version_key(current):
+        return
+    APPLIED_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = RELEASE_FLOOR.with_suffix(".tmp")
+    tmp.write_text(release + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, RELEASE_FLOOR)
+    _LOGGER.info("Release floor now %s", release)
+
+
+def _load_manifest(plans_dir: Path) -> tuple[dict[str, Any], str]:
+    """Read and verify the release manifest.
+
+    Args:
+        plans_dir: The package's plans directory.
+
+    Returns:
+        The manifest and the name of the anchor that signed it.
+
+    Raises:
+        Refused: If the manifest is missing, unsigned or older than the floor.
+    """
+    manifest_path = plans_dir / "manifest.json"
+    sig_path = plans_dir / "manifest.sig"
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        signature = sig_path.read_bytes()
+    except OSError as exc:
+        raise Refused(f"cannot read the release manifest: {exc}") from exc
+
+    role = _verify_with_anchors(manifest_bytes, signature)
+    if role is None:
+        raise Refused(
+            f"{manifest_path} is not signed by a trusted key. Either this is not "
+            "a boneIO release, or the pinned anchors in /etc/boneio are wrong."
+        )
+
+    try:
+        manifest = json.loads(manifest_bytes)
+        release = manifest["release"]
+        plans = manifest["plans"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise Refused(f"malformed manifest: {exc}") from exc
+    if not isinstance(release, str) or not isinstance(plans, dict):
+        raise Refused("malformed manifest: release/plans have the wrong type")
+
+    floor = _read_release_floor()
+    if floor is not None and _version_key(release) < _version_key(floor):
+        raise Refused(
+            f"manifest is for release {release}, but this device has already "
+            f"accepted {floor}. Refusing to go backwards: an older release's "
+            "plans are all validly signed, so accepting them would let a "
+            "migration this device never applied be replayed from a downgraded "
+            "package."
+        )
+
+    _LOGGER.info("Manifest for release %s verified by the %s anchor", release, role)
+    return manifest, role
+
+
+def _load_plan(plans_dir: Path, version: str, manifest: dict[str, Any]) -> list:
+    """Read and verify one migration plan.
+
+    Args:
+        plans_dir: The package's plans directory.
+        version: Migration version requested.
+        manifest: The already-verified manifest.
+
+    Returns:
+        The plan's actions.
+
+    Raises:
+        Refused: If the plan is absent, not in the manifest, tampered with or
+            unsigned.
+    """
+    expected_digest = manifest["plans"].get(version)
+    if expected_digest is None:
+        raise Refused(
+            f"migration {version} is not part of release "
+            f"{manifest['release']}. Either the package is older than the "
+            "application, or this migration is deliberately unsigned (see "
+            "NON_PORTABLE in scripts/generate_signed_plans.py)."
+        )
+
+    plan_path = plans_dir / f"{version}.json"
+    sig_path = plans_dir / f"{version}.sig"
+    try:
+        plan_bytes = plan_path.read_bytes()
+        signature = sig_path.read_bytes()
+    except OSError as exc:
+        raise Refused(f"cannot read the plan for {version}: {exc}") from exc
+
+    actual_digest = _sha256_of_bytes(plan_bytes)
+    if actual_digest != expected_digest:
+        raise Refused(
+            f"plan for {version} does not match the manifest "
+            f"(expected {expected_digest}, got {actual_digest})"
+        )
+
+    if _verify_with_anchors(plan_bytes, signature) is None:
+        raise Refused(f"plan for {version} is not signed by a trusted key")
+
+    try:
+        actions = json.loads(plan_bytes)
+    except ValueError as exc:
+        raise Refused(f"plan for {version} is not valid JSON: {exc}") from exc
+    if not isinstance(actions, list) or not actions:
+        raise Refused(f"plan for {version} is empty or not a list")
+
+    return actions
+
+
+def _assert_recovery_scope(actions: list) -> None:
+    """Restrict what a recovery-signed plan may do.
+
+    The recovery key's private half lives on paper in a safe so that a lost
+    release key can be replaced. If it could authorise any migration, that sheet
+    would be a second, equivalent key to root on every device — and a signature
+    says who wrote a plan, not what the plan may do.
+
+    Args:
+        actions: The plan's actions.
+
+    Raises:
+        Refused: If the plan does anything but re-pin the trust anchors.
+    """
+    for action in actions:
+        kind = action.get("action")
+        target = action.get("dst") or action.get("path")
+        if kind not in RECOVERY_ALLOWED_ACTIONS or target not in RECOVERY_ALLOWED_PATHS:
+            raise Refused(
+                "a recovery-signed plan may only re-pin the trust anchors in "
+                f"/etc/boneio, but it contains {kind!r} on {target!r}. Sign this "
+                "with the release key."
+            )
+
+
+# ---------------------------------------------------------------------------
+# Action handlers
+# ---------------------------------------------------------------------------
+
+def _render_template(content: str, template_vars: dict[str, str]) -> str:
+    """Apply ``${KEY}`` substitutions.
+
+    Args:
+        content: Template text.
+        template_vars: Substitutions.
+
+    Returns:
+        The rendered text.
+    """
+    if not template_vars:
+        return content
+    return Template(content).safe_substitute(template_vars)
+
+
+def _validator_for(action: dict[str, Any]) -> list[str] | None:
+    """Resolve the named validator for an install_file action.
+
+    Args:
+        action: The action.
+
+    Returns:
+        The command prefix to run against the staged file, or None.
+
+    Raises:
+        Refused: If the plan names a validator this helper does not know, or
+            tries to pass a command.
+    """
+    if "validate_cmd" in action:
+        raise Refused(
+            "validate_cmd is not accepted; use validate with one of "
+            f"{sorted(VALIDATORS)}"
+        )
+    name = action.get("validate")
+    if name is None:
+        return None
+    if name not in VALIDATORS:
+        raise Refused(f"unknown validator {name!r}; known: {sorted(VALIDATORS)}")
+    return VALIDATORS[name]
+
+
+def handle_install_file(action: dict[str, Any], assets_base: str) -> None:
+    """Install an asset, verifying its digest against the signed plan.
+
+    Args:
+        action: Action dict with src, dst and the digest from the signed plan.
+        assets_base: The package's assets directory.
+
+    Raises:
+        Refused: If the digest is absent from the plan or does not match.
+        FileNotFoundError: If the asset is missing.
+    """
+    assets_root = Path(assets_base).resolve()
+    src_rel = action["src"]
+    src_path = (assets_root / src_rel).resolve()
+    if not src_path.is_relative_to(assets_root):
+        raise Refused(f"asset path escapes the assets directory: {src_rel!r}")
+    if not src_path.is_file():
+        raise FileNotFoundError(f"Asset not found: {src_path}")
+
+    raw_content = src_path.read_bytes()
+
+    expected = action.get("expected_sha256")
+    if not expected:
+        raise Refused(
+            f"the signed plan carries no digest for {src_rel!r}. Asset integrity "
+            "has to come from the signed plan; under protocol 1 it came from the "
+            "caller, which proved nothing."
+        )
+    actual = _sha256_of_bytes(raw_content)
+    if actual != expected:
+        raise Refused(
+            f"SHA-256 mismatch for {src_rel}: expected={expected} actual={actual}"
+        )
+
+    template_vars = action.get("template_vars", {})
+    if template_vars:
+        content = _render_template(raw_content.decode("utf-8"), template_vars).encode()
+    else:
+        content = raw_content
+
+    mode = int(action.get("mode", 0o644))
+    owner = action.get("owner", "root")
+    group = action.get("group", "root")
+    validator = _validator_for(action)
+
+    dst = action["dst"]
+    dst_path = Path(dst)
+    if dst_path.exists():
+        if dst_path.is_dir() and not dst_path.is_symlink():
+            # Docker creates missing bind-mount sources as empty directories.
+            _LOGGER.info("Removing ghost directory at %s (bind-mount artifact)", dst)
+            shutil.rmtree(dst_path)
+        elif dst_path.read_bytes() == content:
+            _LOGGER.info("SKIP (unchanged): %s", dst)
+            return
+
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=dst_path.parent, delete=False, suffix=".tmp"
+    ) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        os.chmod(tmp_path, mode)
+        if validator:
+            result = subprocess.run(
+                [*validator, tmp_path], capture_output=True, text=True, timeout=10
+            )
+            if result.returncode != 0:
+                raise Refused(
+                    f"validation failed for {dst}: {result.stderr.strip()}"
+                )
+        os.replace(tmp_path, dst)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+    try:
+        os.chown(dst, pwd.getpwnam(owner).pw_uid, grp.getgrnam(group).gr_gid)
+    except (KeyError, OSError) as exc:
+        _LOGGER.warning("Could not set owner %s:%s on %s: %s", owner, group, dst, exc)
+
+    _LOGGER.info("WRITE: %s (mode=%o owner=%s:%s)", dst, mode, owner, group)
+
+    on_change = action.get("on_change")
+    if on_change:
+        _LOGGER.info("Executing on_change action for %s", dst)
+        dispatch_action(on_change, assets_base)
+
+
+def handle_remove_file(action: dict[str, Any], assets_base: str) -> None:
+    """Remove a file if it exists.
+
+    Args:
+        action: Action dict with path.
+        assets_base: Unused.
+    """
+    path = Path(action["path"])
+    if path.exists():
+        path.unlink()
+        _LOGGER.info("REMOVED: %s", path)
+    else:
+        _LOGGER.info("SKIP (not found): %s", path)
+
+
+def handle_systemctl_daemon_reload(action: dict[str, Any], assets_base: str) -> None:
+    """Run ``systemctl daemon-reload``."""
+    _LOGGER.info("systemctl daemon-reload")
+    subprocess.run(["systemctl", "daemon-reload"], check=True, timeout=30)
+
+
+def handle_systemctl_enable(action: dict[str, Any], assets_base: str) -> None:
+    """Enable a systemd unit.
+
+    Args:
+        action: Action dict with unit.
+        assets_base: Unused.
+    """
+    unit = action["unit"]
+    _LOGGER.info("systemctl enable %s", unit)
+    subprocess.run(["systemctl", "enable", unit], check=True, timeout=15)
+
+
+def handle_systemctl_disable(action: dict[str, Any], assets_base: str) -> None:
+    """Disable a systemd unit.
+
+    Args:
+        action: Action dict with unit.
+        assets_base: Unused.
+    """
+    unit = action["unit"]
+    _LOGGER.info("systemctl disable %s", unit)
+    subprocess.run(["systemctl", "disable", unit], check=False, timeout=15)
+
+
+def _systemctl_tolerant(verb: str, unit: str) -> None:
+    """Run ``systemctl <verb> <unit>``, tolerating an inactive unit.
+
+    Args:
+        verb: ``restart`` or ``reload``.
+        unit: Unit name.
+
+    Raises:
+        subprocess.CalledProcessError: On a real failure.
+    """
+    _LOGGER.info("systemctl %s %s", verb, unit)
+    result = subprocess.run(
+        ["systemctl", verb, unit], capture_output=True, text=True, timeout=30
+    )
+    if result.returncode == 0:
+        return
+    if any(m in result.stderr for m in ("not active", "not loaded", "not found")):
+        _LOGGER.warning("systemctl %s %s skipped (not active)", verb, unit)
+        return
+    raise subprocess.CalledProcessError(
+        result.returncode, ["systemctl", verb, unit], result.stdout, result.stderr
+    )
+
+
+def handle_systemctl_restart(action: dict[str, Any], assets_base: str) -> None:
+    """Restart a unit, tolerating one that is not running.
+
+    Args:
+        action: Action dict with unit.
+        assets_base: Unused.
+    """
+    _systemctl_tolerant("restart", action["unit"])
+
+
+def handle_systemctl_reload(action: dict[str, Any], assets_base: str) -> None:
+    """Reload a unit, tolerating one that is not running.
+
+    Args:
+        action: Action dict with unit.
+        assets_base: Unused.
+    """
+    _systemctl_tolerant("reload", action["unit"])
+
+
+def handle_append_line_if_missing(action: dict[str, Any], assets_base: str) -> None:
+    """Append a line to a file unless it is already there.
+
+    Args:
+        action: Action dict with path and line.
+        assets_base: Unused.
+    """
+    path = Path(action["path"])
+    line = action["line"]
+    if path.exists() and line in path.read_text(encoding="utf-8").splitlines():
+        _LOGGER.info("SKIP (line present): %s in %s", line, path)
+        return
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n{line}\n")
+    _LOGGER.info("APPENDED: %s to %s", line, path)
+
+
+def handle_ufw_allow(action: dict[str, Any], assets_base: str) -> None:
+    """Allow a port through ufw, idempotently.
+
+    Args:
+        action: Action dict with port, proto and optional comment.
+        assets_base: Unused.
+    """
+    port = int(action["port"])
+    proto = action.get("proto", "udp")
+    comment = action.get("comment", "")
+    rule_spec = f"{port}/{proto}"
+
+    result = subprocess.run(["ufw", "status"], capture_output=True, text=True, timeout=10)
+    if result.returncode == 0 and rule_spec in result.stdout:
+        _LOGGER.info("SKIP (rule exists): ufw allow %s", rule_spec)
+        return
+
+    cmd = ["ufw", "allow", rule_spec]
+    if comment:
+        cmd.extend(["comment", comment])
+    _LOGGER.info("ufw allow %s", rule_spec)
+    subprocess.run(cmd, check=True, timeout=15)
+
+
+def handle_apt_install(action: dict[str, Any], assets_base: str) -> None:
+    """Install Debian packages that are not present yet.
+
+    Args:
+        action: Action dict with a ``packages`` list.
+        assets_base: Unused.
+
+    Raises:
+        Refused: If a package name looks suspicious.
+    """
+    packages = action.get("packages") or []
+    for pkg in packages:
+        if not isinstance(pkg, str) or not _PKG_NAME_RE.match(pkg):
+            raise Refused(f"invalid package name: {pkg!r}")
+
+    missing = []
+    for pkg in packages:
+        result = subprocess.run(
+            ["dpkg-query", "-W", "-f=${Status}", pkg],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0 or "install ok installed" not in result.stdout:
+            missing.append(pkg)
+
+    if not missing:
+        _LOGGER.info("SKIP (already installed): %s", " ".join(packages))
+        return
+
+    _LOGGER.info("apt-get install %s", " ".join(missing))
+    subprocess.run(
+        ["apt-get", "install", "-y", "--no-install-recommends", *missing],
+        check=True, capture_output=True, text=True, timeout=300,
+        env=dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
+    )
+
+
+def _run_as_user(user: str, cmd: list[str], timeout: int) -> subprocess.CompletedProcess:
+    """Run *cmd* as an unprivileged user with a clean environment.
+
+    Args:
+        user: Target username; must not be root.
+        cmd: Command and arguments.
+        timeout: Timeout in seconds.
+
+    Returns:
+        The completed process.
+
+    Raises:
+        Refused: If the user is unknown or is root.
+    """
+    try:
+        pw = pwd.getpwnam(user)
+    except KeyError as exc:
+        raise Refused(f"unknown user: {user!r}") from exc
+    if pw.pw_uid == 0:
+        raise Refused("run_as must not be root")
+
+    env = {
+        "HOME": pw.pw_dir,
+        "USER": user,
+        "LOGNAME": user,
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+    }
+    return subprocess.run(
+        cmd, user=pw.pw_uid, group=pw.pw_gid, env=env, cwd=pw.pw_dir,
+        capture_output=True, text=True, timeout=timeout,
+    )
+
+
+def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
+    """Install a bundled wheel into a virtualenv as an unprivileged user.
+
+    Args:
+        action: Action dict with wheel, python, run_as and optional digest,
+            skip_if and verify expressions.
+        assets_base: The package's assets directory.
+
+    Raises:
+        Refused: On path escape, digest mismatch or failed verification.
+        FileNotFoundError: If the wheel or interpreter is missing.
+    """
+    assets_root = Path(assets_base).resolve()
+    wheel_path = (assets_root / action["wheel"]).resolve()
+    if not wheel_path.is_relative_to(assets_root):
+        raise Refused(f"wheel path escapes the assets directory: {action['wheel']}")
+    if not wheel_path.is_file():
+        raise FileNotFoundError(f"Wheel not found: {wheel_path}")
+
+    expected = action.get("expected_sha256")
+    if expected:
+        actual = _sha256_of_bytes(wheel_path.read_bytes())
+        if actual != expected:
+            raise Refused(
+                f"SHA-256 mismatch for {action['wheel']}: "
+                f"expected={expected} actual={actual}"
+            )
+
+    python = action["python"]
+    if not os.path.isabs(python) or not os.access(python, os.X_OK):
+        raise FileNotFoundError(f"Target interpreter not usable: {python}")
+
+    run_as = action["run_as"]
+    skip_if = action.get("skip_if")
+    if skip_if:
+        probe = _run_as_user(
+            run_as, [python, "-c", f"import sys; sys.exit(0 if ({skip_if}) else 1)"],
+            timeout=30,
+        )
+        if probe.returncode == 0:
+            _LOGGER.info("SKIP (skip_if satisfied): %s", action["wheel"])
+            return
+
+    _LOGGER.info("pip install %s as %s", wheel_path.name, run_as)
+    result = _run_as_user(
+        run_as,
+        [python, "-m", "pip", "install", "--no-cache-dir", "--no-deps",
+         "--no-index", "--force-reinstall", str(wheel_path)],
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise Refused(
+            f"pip install failed (rc={result.returncode}): "
+            f"{(result.stderr or result.stdout).strip()}"
+        )
+
+    verify = action.get("verify")
+    if verify:
+        check = _run_as_user(
+            run_as, [python, "-c", f"import sys; sys.exit(0 if ({verify}) else 1)"],
+            timeout=30,
+        )
+        if check.returncode != 0:
+            raise Refused(f"post-install verification failed: {verify}")
+
+    _LOGGER.info("INSTALLED: %s into %s", wheel_path.name, python)
+
+
+def handle_prune_orphaned_journal_dirs(action: dict[str, Any], assets_base: str) -> None:
+    """Remove journal directories belonging to a previous machine-id.
+
+    journald manages only the directory matching /etc/machine-id, so any other
+    is invisible to ``journalctl --vacuum-*`` and never cleaned, yet log2ram
+    rsyncs it on every boot.
+
+    Args:
+        action: Unused.
+        assets_base: Unused.
+    """
+    try:
+        machine_id = Path("/etc/machine-id").read_text().strip()
+    except OSError as exc:
+        _LOGGER.warning("Cannot read /etc/machine-id: %s", exc)
+        return
+    if not re.fullmatch(r"[0-9a-f]{32}", machine_id):
+        _LOGGER.warning("Refusing to prune: /etc/machine-id is %r", machine_id)
+        return
+
+    removed = 0
+    freed = 0
+    for root in (Path("/var/log/journal"), Path("/var/hdd.log/journal")):
+        if not root.is_dir():
+            continue
+        for child in root.iterdir():
+            if not child.is_dir() or child.name == machine_id:
+                continue
+            if not re.fullmatch(r"[0-9a-f]{32}", child.name):
+                continue
+            try:
+                for item in child.rglob("*"):
+                    if item.is_file():
+                        freed += item.stat().st_size
+                shutil.rmtree(child)
+                removed += 1
+            except OSError as exc:
+                _LOGGER.warning("Cannot remove %s: %s", child, exc)
+
+    if removed:
+        _LOGGER.info(
+            "Removed %d orphaned journal dir(s), %.1f MB apparent",
+            removed, freed / 1048576,
+        )
+    else:
+        _LOGGER.info("No orphaned journal directories found")
+
+
+def handle_disable_apparmor_profiles(action: dict[str, Any], assets_base: str) -> None:
+    """Disable AppArmor profiles not needed on a headless controller.
+
+    A keep-list, not a removal list, so a future apparmor package that adds
+    desktop profiles does not quietly restore the boot cost. Files are never
+    deleted — each profile gets a symlink in /etc/apparmor.d/disable/, the
+    mechanism apparmor_parser itself honours, so it stays reversible.
+
+    Args:
+        action: Action dict with ``keep`` (profile basenames to leave enabled).
+        assets_base: Unused.
+    """
+    keep = set(action.get("keep", []))
+    profile_dir = Path("/etc/apparmor.d")
+    disable_dir = profile_dir / "disable"
+    if not profile_dir.is_dir():
+        _LOGGER.info("No /etc/apparmor.d — AppArmor not installed, skipping")
+        return
+
+    disable_dir.mkdir(mode=0o755, exist_ok=True)
+    disabled = 0
+    kept: list[str] = []
+    for entry in sorted(profile_dir.iterdir()):
+        if not entry.is_file():
+            continue
+        if entry.name in keep:
+            kept.append(entry.name)
+            continue
+        link = disable_dir / entry.name
+        try:
+            if link.is_symlink() or link.exists():
+                continue
+            link.symlink_to(entry)
+            disabled += 1
+        except OSError as exc:
+            _LOGGER.warning("Cannot disable AppArmor profile %s: %s", entry.name, exc)
+
+    _LOGGER.info(
+        "AppArmor: disabled %d profile(s), kept %d (%s)",
+        disabled, len(kept), ", ".join(kept) if kept else "none",
+    )
+
+
+def handle_set_file_permissions(action: dict[str, Any], assets_base: str) -> None:
+    """Set owner, group and mode on an existing file.
+
+    Args:
+        action: Action dict with path, mode, owner, group.
+        assets_base: Unused.
+
+    Raises:
+        Refused: If the path is a symlink.
+    """
+    path = Path(action["path"])
+    if not path.exists():
+        _LOGGER.info("SKIP (not found): set_file_permissions %s", path)
+        return
+    if path.is_symlink():
+        raise Refused(f"refusing to change permissions of a symlink: {path}")
+
+    mode = int(action.get("mode", 0o640))
+    owner = action.get("owner", "root")
+    group = action.get("group", "root")
+    shutil.chown(path, user=owner, group=group)
+    os.chmod(path, mode)
+    _LOGGER.info("PERMS: %s -> %s:%s %04o", path, owner, group, mode)
+
+
+ACTION_HANDLERS = {
+    "install_file": handle_install_file,
+    "remove_file": handle_remove_file,
+    "systemctl_daemon_reload": handle_systemctl_daemon_reload,
+    "systemctl_enable": handle_systemctl_enable,
+    "systemctl_disable": handle_systemctl_disable,
+    "systemctl_restart": handle_systemctl_restart,
+    "systemctl_reload": handle_systemctl_reload,
+    "append_line_if_missing": handle_append_line_if_missing,
+    "ufw_allow": handle_ufw_allow,
+    "apt_install": handle_apt_install,
+    "pip_install_wheel": handle_pip_install_wheel,
+    "disable_apparmor_profiles": handle_disable_apparmor_profiles,
+    "prune_orphaned_journal_dirs": handle_prune_orphaned_journal_dirs,
+    "set_file_permissions": handle_set_file_permissions,
+}
+
+
+def dispatch_action(action: dict[str, Any], assets_base: str) -> None:
+    """Run one action from the whitelist.
+
+    Args:
+        action: Action dict with an ``action`` key.
+        assets_base: The package's assets directory.
+
+    Raises:
+        Refused: If the action is not in the whitelist.
+    """
+    kind = action.get("action")
+    if kind not in ALLOWED_ACTIONS:
+        raise Refused(f"disallowed action type: {kind!r}")
+    handler = ACTION_HANDLERS.get(kind)
+    if handler is None:
+        raise Refused(f"no handler for action: {kind!r}")
+    handler(action, assets_base)
+
+
+# ---------------------------------------------------------------------------
+# Applied flags
+# ---------------------------------------------------------------------------
+
+def _already_applied(version: str) -> bool:
+    """Whether this device has already applied *version*.
+
+    Judged by root-owned flags only. The caller's opinion is not consulted,
+    because under protocol 1 it could simply omit the flag and replay a
+    migration.
+
+    Args:
+        version: Migration version.
+
+    Returns:
+        True when the flag is present.
+    """
+    return _root_owned(APPLIED_DIR / f"{version}.applied")
+
+
+def _write_applied_flag(version: str) -> None:
+    """Record that *version* has been applied.
+
+    Args:
+        version: Migration version.
+    """
+    APPLIED_DIR.mkdir(parents=True, exist_ok=True)
+    flag = APPLIED_DIR / f"{version}.applied"
+    flag.write_text(
+        f"applied_at={datetime.now(timezone.utc).isoformat()}\n"
+        f"helper=boneio-migrate-v2\n",
+        encoding="utf-8",
+    )
+    os.chmod(flag, 0o644)
+    _LOGGER.info("FLAG: %s", flag)
+
+
+# ---------------------------------------------------------------------------
+# Selftest
+# ---------------------------------------------------------------------------
+
+def selftest() -> int:
+    """Prove the helper can do its job, without applying anything.
+
+    The runner calls this before it retires the previous helper. Syntax alone is
+    not enough: a wrong openssl invocation or a missing trust anchor would leave
+    a device that silently refuses every migration, with nothing to fall back
+    on. So this exercises the real verification path against a fixed
+    known-answer vector, in both directions.
+
+    Returns:
+        0 when the helper is healthy.
+    """
+    problems: list[str] = []
+
+    if not _verify(_KAT_PUBKEY, _KAT_MESSAGE, _KAT_SIGNATURE):
+        problems.append(
+            "the known-answer vector does not verify — signature checking is "
+            "broken on this system (openssl missing, too old for -rawin, or "
+            "Ed25519 unavailable)"
+        )
+    if _verify(_KAT_PUBKEY, _KAT_MESSAGE + b"!", _KAT_SIGNATURE):
+        problems.append(
+            "a tampered message verified successfully — signature checking "
+            "accepts anything, which is worse than not working"
+        )
+
+    if not _root_owned(RELEASE_ANCHOR):
+        problems.append(f"the release anchor {RELEASE_ANCHOR} is missing or not root-owned")
+    if not _root_owned(RECOVERY_ANCHOR):
+        problems.append(
+            f"the recovery anchor {RECOVERY_ANCHOR} is missing or not root-owned; "
+            "without it a lost release key cannot be replaced"
+        )
+
+    try:
+        APPLIED_DIR.mkdir(parents=True, exist_ok=True)
+        probe = APPLIED_DIR / ".selftest"
+        probe.write_text("ok\n", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        problems.append(f"cannot write applied flags to {APPLIED_DIR}: {exc}")
+
+    if _dev_hatch_open():
+        _LOGGER.warning(
+            "DEV HATCH OPEN: %s exists, so unsigned plans are accepted on this "
+            "device. This reopens CVE-2026-77055; remove it before shipping.",
+            DEV_HATCH,
+        )
+
+    for problem in problems:
+        _LOGGER.error("selftest: %s", problem)
+    if problems:
+        return 1
+
+    _LOGGER.info(
+        "selftest: protocol %d, signature verification works, both anchors "
+        "pinned, flags writable.",
+        PROTOCOL_VERSION,
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def _apply(actions: list, assets_base: str, version: str) -> int:
+    """Run a plan's actions.
+
+    Args:
+        actions: The actions to run.
+        assets_base: The package's assets directory.
+        version: Migration version, for logging.
+
+    Returns:
+        Process exit status.
+    """
+    succeeded = 0
+    optional_failed = 0
+    for index, action in enumerate(actions, start=1):
+        kind = action.get("action", "?")
+        _LOGGER.info("[%d/%d] %s", index, len(actions), kind)
+        try:
+            dispatch_action(action, assets_base)
+            succeeded += 1
+        except Exception as exc:
+            if action.get("optional"):
+                optional_failed += 1
+                _LOGGER.warning(
+                    "[%d/%d] optional action %s failed, continuing: %s",
+                    index, len(actions), kind, exc,
+                )
+                continue
+            _LOGGER.error("[%d/%d] action %s failed: %s", index, len(actions), kind, exc)
+            return 1
+
+    if succeeded == 0:
+        _LOGGER.error(
+            "Migration %s: all %d action(s) failed (optional_failed=%d). NOT "
+            "marking as applied — it will be retried.",
+            version, len(actions), optional_failed,
+        )
+        return 2
+
+    _write_applied_flag(version)
+    _LOGGER.info("Migration %s completed successfully.", version)
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.
+
+    Returns:
+        Process exit status.
+    """
+    parser = argparse.ArgumentParser(description="boneIO privileged migration helper")
+    parser.add_argument(
+        "--protocol-version", action="store_true",
+        help="print the protocol this helper speaks and exit",
+    )
+    parser.add_argument(
+        "--selftest", action="store_true",
+        help="verify the helper can work, apply nothing",
+    )
+    args = parser.parse_args(argv)
+
+    if args.protocol_version:
+        print(PROTOCOL_VERSION)
+        return 0
+
+    _assert_root()
+
+    if args.selftest:
+        return selftest()
+
+    _LOGGER.info("boneio-migrate-v2 started (pid=%d)", os.getpid())
+
+    try:
+        request = _read_request()
+        version = request["version"]
+
+        if _already_applied(version):
+            _LOGGER.info("Migration %s is already applied; nothing to do.", version)
+            return 0
+
+        if _dev_hatch_open() and "actions" in request:
+            _LOGGER.warning(
+                "DEV HATCH: applying an UNSIGNED plan for %s because %s exists. "
+                "This is protocol 1 behaviour and reopens CVE-2026-77055.",
+                version, DEV_HATCH,
+            )
+            actions = request["actions"]
+            assets_base = request.get("assets_base")
+            if not assets_base or not Path(assets_base).is_dir():
+                raise Refused(f"assets_base is missing or not a directory: {assets_base}")
+            return _apply(actions, assets_base, version)
+
+        package_root = Path(request.get("package_root") or "").resolve()
+        if not (package_root / "migrations" / "plans").is_dir():
+            raise Refused(
+                f"no migrations/plans directory under {package_root} — "
+                "package_root must point at the installed boneio package"
+            )
+        plans_dir = package_root / "migrations" / "plans"
+        assets_dir = package_root / "migrations" / "assets"
+
+        manifest, role = _load_manifest(plans_dir)
+        actions = _load_plan(plans_dir, version, manifest)
+        if role == "recovery":
+            _assert_recovery_scope(actions)
+        _raise_floor(manifest["release"])
+    except Refused as exc:
+        _LOGGER.error("REFUSED: %s", exc)
+        return 1
+
+    _LOGGER.info(
+        "Applying migration %s from release %s (%d actions, %s anchor)",
+        version, manifest["release"], len(actions), role,
+    )
+    try:
+        return _apply(actions, str(assets_dir), version)
+    except Refused as exc:
+        _LOGGER.error("REFUSED: %s", exc)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

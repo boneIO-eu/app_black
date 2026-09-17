@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/etc/kernel/postinst.d/zz-boneio-overlay","group":"root","mode":493,"owner":"root","src":"kernel/postinst-boneio-overlay","template_vars":{}}]
+[{"action":"install_file","dst":"/etc/kernel/postinst.d/zz-boneio-overlay","expected_sha256":"d28f2e9336b881b102c42f4278ec9ddf046c83dab4469dc5be7326768e074cb6","group":"root","mode":493,"owner":"root","src":"kernel/postinst-boneio-overlay","template_vars":{}}]

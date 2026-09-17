@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/home/boneio/docker/nodered/node-red/settings.js","group":"boneio","mode":420,"owner":"boneio","src":"docker/nodered/node-red/settings.js","template_vars":{}}]
+[{"action":"install_file","dst":"/home/boneio/docker/nodered/node-red/settings.js","expected_sha256":"bff00753c72fb17609a6f7b3a58ef78b7b394da12d19fd65b875f2889695e2b4","group":"boneio","mode":420,"owner":"boneio","src":"docker/nodered/node-red/settings.js","template_vars":{}}]

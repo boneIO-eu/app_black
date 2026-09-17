@@ -66,6 +66,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 VERSIONS_PKG = "boneio.migrations.versions"
 PLANS_DIR = REPO_ROOT / "boneio" / "migrations" / "plans"
+ASSET_MANIFEST = (
+    REPO_ROOT / "boneio" / "migrations" / "assets" / "MANIFEST.sha256"
+)
 PUBKEY = REPO_ROOT / "boneio" / "migrations" / "assets" / "migrations.pem"
 #: The second trust anchor. Re-pinning a key needs a migration signed by a key
 #: the device already trusts, so with a single anchor a lost release key means
@@ -156,6 +159,70 @@ def _assert_portable(version: str, payload: object) -> None:
             )
 
 
+def _asset_hashes() -> dict[str, str]:
+    """Read MANIFEST.sha256 into {relative asset path: sha256}.
+
+    Returns:
+        Mapping of asset path to its expected digest.
+    """
+    hashes: dict[str, str] = {}
+    for line in ASSET_MANIFEST.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            hashes[parts[1]] = parts[0]
+    return hashes
+
+
+def _inject_asset_hashes(actions: list, hashes: dict[str, str], version: str) -> None:
+    """Put each installed asset's digest into the plan, in place.
+
+    The runner used to inject these at apply time, which made asset integrity
+    theatre: the helper compared a file against a hash handed to it by the same
+    unprivileged process that could also replace the file. Carrying the digest
+    inside the signed plan is what makes the check mean something.
+
+    Args:
+        actions: Serialised actions; nested ``on_change`` actions are covered too.
+        hashes: Output of :func:`_asset_hashes`.
+        version: Migration version, for the error message.
+
+    Raises:
+        NotDeterministic: If an installed asset has no digest to pin.
+    """
+    for action in actions:
+        if action.get("action") == "install_file" and "src" in action:
+            src = action["src"]
+            if src not in hashes:
+                raise NotDeterministic(
+                    f"{version}: asset {src!r} is not in MANIFEST.sha256, so its "
+                    "digest\n        cannot be pinned in the signed plan. Run "
+                    "scripts/generate_manifest.py."
+                )
+            action["expected_sha256"] = hashes[src]
+        nested = action.get("on_change")
+        if isinstance(nested, dict):
+            _inject_asset_hashes([nested], hashes, version)
+
+
+def _plan_payload(module, hashes: dict[str, str] | None = None) -> list:
+    """The exact structure that gets signed for a migration.
+
+    Args:
+        module: The imported migration module.
+        hashes: Asset digests; read from MANIFEST.sha256 when omitted.
+
+    Returns:
+        Serialised actions with asset digests pinned.
+    """
+    version = getattr(module, "VERSION", "?")
+    payload = [a.to_dict() for a in module.plan()]
+    _inject_asset_hashes(payload, _asset_hashes() if hashes is None else hashes, version)
+    return payload
+
+
 def _assert_stable(version: str, module) -> object:
     """Call plan() twice and require the same answer.
 
@@ -169,8 +236,9 @@ def _assert_stable(version: str, module) -> object:
     Raises:
         NotDeterministic: If two calls disagree.
     """
-    first = [a.to_dict() for a in module.plan()]
-    second = [a.to_dict() for a in module.plan()]
+    hashes = _asset_hashes()
+    first = _plan_payload(module, hashes)
+    second = _plan_payload(module, hashes)
     if _canonical(first) != _canonical(second):
         raise NotDeterministic(
             f"{version}: plan() returns something different on each call, so it "

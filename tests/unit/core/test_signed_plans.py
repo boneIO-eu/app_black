@@ -91,7 +91,7 @@ def test_each_plan_matches_the_module_it_came_from():
         plan_path = PLANS_DIR / f"{version}.json"
         if not plan_path.exists():
             continue
-        expected = gen._canonical([a.to_dict() for a in module.plan()])
+        expected = gen._canonical(gen._plan_payload(module))
         if plan_path.read_bytes() != expected:
             drifted.append(version)
     assert not drifted, (

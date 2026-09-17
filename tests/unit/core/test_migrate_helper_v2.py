@@ -1,0 +1,578 @@
+"""Tests for boneio-migrate-v2, the privileged migration helper.
+
+The helper is the thing standing between the ``boneio`` account and root, so
+these tests are mostly about what it *refuses*. Each one drives ``main()`` end
+to end against a throwaway package tree with real Ed25519 signatures, because
+the interesting failures live in the interaction between the manifest, the plan
+digest and the signature — not in any one function.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+HELPER = REPO_ROOT / "boneio" / "migrations" / "bootstrap" / "boneio-migrate-v2"
+
+openssl = shutil.which("openssl")
+pytestmark = pytest.mark.skipif(not openssl, reason="openssl not available")
+
+
+@pytest.fixture(scope="module")
+def helper():
+    """The helper loaded as a module (it has no .py extension)."""
+    return SourceFileLoader("boneio_migrate_v2", str(HELPER)).load_module()
+
+
+def _canonical(obj) -> bytes:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _genkey(path: Path) -> Path:
+    subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(path)],
+        check=True, capture_output=True,
+    )
+    return path
+
+
+def _pubkey(private: Path, out: Path) -> Path:
+    subprocess.run(
+        ["openssl", "pkey", "-in", str(private), "-pubout", "-out", str(out)],
+        check=True, capture_output=True,
+    )
+    return out
+
+
+def _sign(private: Path, data: bytes, out: Path) -> None:
+    data_file = out.with_suffix(".data")
+    data_file.write_bytes(data)
+    subprocess.run(
+        ["openssl", "pkeyutl", "-sign", "-inkey", str(private), "-rawin",
+         "-in", str(data_file), "-out", str(out)],
+        check=True, capture_output=True,
+    )
+    data_file.unlink()
+
+
+class Device:
+    """A throwaway controller: pinned anchors, a package tree, applied flags."""
+
+    def __init__(self, root: Path):
+        self.root = root
+        self.keys = root / "keys"
+        self.etc = root / "etc-boneio"
+        self.applied = root / "applied"
+        self.package = root / "pkg" / "boneio"
+        self.plans = self.package / "migrations" / "plans"
+        self.assets = self.package / "migrations" / "assets"
+        for path in (self.keys, self.etc, self.applied, self.plans, self.assets):
+            path.mkdir(parents=True, exist_ok=True)
+
+        self.release_key = _genkey(self.keys / "release.pem")
+        self.recovery_key = _genkey(self.keys / "recovery.pem")
+        _pubkey(self.release_key, self.etc / "migrations.pem")
+        _pubkey(self.recovery_key, self.etc / "migrations-recovery.pem")
+        self.release = "1.6.0"
+
+    def add_asset(self, rel: str, content: bytes) -> str:
+        """Write an asset and return its digest."""
+        path = self.assets / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        return hashlib.sha256(content).hexdigest()
+
+    def publish(self, plans: dict[str, list], key: Path | None = None,
+                release: str | None = None) -> None:
+        """Sign and write plans plus the manifest, as a release would."""
+        signing = key or self.release_key
+        digests = {}
+        for version, actions in plans.items():
+            data = _canonical(actions)
+            (self.plans / f"{version}.json").write_bytes(data)
+            _sign(signing, data, self.plans / f"{version}.sig")
+            digests[version] = hashlib.sha256(data).hexdigest()
+        manifest = {"release": release or self.release, "plans": digests}
+        data = _canonical(manifest)
+        (self.plans / "manifest.json").write_bytes(data)
+        _sign(signing, data, self.plans / "manifest.sig")
+
+    def install(self, helper, monkeypatch) -> None:
+        """Point the helper at this device instead of the real filesystem."""
+        monkeypatch.setattr(helper, "PINNED_DIR", self.etc)
+        monkeypatch.setattr(helper, "RELEASE_ANCHOR", self.etc / "migrations.pem")
+        monkeypatch.setattr(
+            helper, "RECOVERY_ANCHOR", self.etc / "migrations-recovery.pem"
+        )
+        monkeypatch.setattr(helper, "DEV_HATCH", self.etc / "allow-unsigned-migrations")
+        monkeypatch.setattr(helper, "APPLIED_DIR", self.applied)
+        monkeypatch.setattr(helper, "RELEASE_FLOOR", self.applied / ".release-floor")
+        monkeypatch.setattr(
+            helper, "RECOVERY_ALLOWED_PATHS",
+            {str(self.etc / "migrations.pem"), str(self.etc / "migrations-recovery.pem")},
+        )
+        # The suite does not run as root, so nothing on disk is root-owned.
+        # Ownership itself is covered by test_root_owned_* below; here we keep
+        # every other property of the check.
+        monkeypatch.setattr(
+            helper, "_root_owned",
+            lambda path: (
+                os.path.isfile(path)
+                and not os.path.islink(path)
+                and not path.lstat().st_mode & 0o022
+            ),
+        )
+        monkeypatch.setattr(helper, "_assert_root", lambda: None)
+
+    def run(self, helper, monkeypatch, request: dict) -> int:
+        """Feed *request* to the helper on stdin and return its exit status."""
+        monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(request)))
+        return helper.main([])
+
+    def ask(self, helper, monkeypatch, version: str, **extra) -> int:
+        """Ask for *version* with a well-formed protocol 2 request."""
+        request = {
+            "protocol": 2,
+            "version": version,
+            "package_root": str(self.package),
+        }
+        request.update(extra)
+        return self.run(helper, monkeypatch, request)
+
+
+class _Stdin:
+    def __init__(self, text: str):
+        self._text = text
+
+    def read(self) -> str:
+        return self._text
+
+
+@pytest.fixture
+def device(tmp_path, helper, monkeypatch) -> Device:
+    dev = Device(tmp_path)
+    dev.install(helper, monkeypatch)
+    return dev
+
+
+def _touch_plan(device: Device, target: Path) -> list:
+    """A minimal, valid plan that writes one asset to *target*."""
+    digest = device.add_asset("hello.conf", b"hello\n")
+    return [{
+        "action": "install_file",
+        "src": "hello.conf",
+        "dst": str(target),
+        "mode": 0o644,
+        "expected_sha256": digest,
+    }]
+
+
+# ------------------------------------------------------------------ happy path
+
+
+def test_a_signed_plan_is_applied(device, helper, monkeypatch, tmp_path):
+    target = tmp_path / "out" / "hello.conf"
+    device.publish({"1.6.1": _touch_plan(device, target)})
+
+    assert device.ask(helper, monkeypatch, "1.6.1") == 0
+    assert target.read_bytes() == b"hello\n"
+    assert (device.applied / "1.6.1.applied").exists()
+
+
+def test_applying_records_the_release_floor(device, helper, monkeypatch, tmp_path):
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+    device.ask(helper, monkeypatch, "1.6.1")
+    assert (device.applied / ".release-floor").read_text().strip() == "1.6.0"
+
+
+def test_an_already_applied_migration_is_a_no_op(device, helper, monkeypatch, tmp_path):
+    target = tmp_path / "out.conf"
+    device.publish({"1.6.1": _touch_plan(device, target)})
+    (device.applied / "1.6.1.applied").write_text("applied_at=earlier\n")
+
+    assert device.ask(helper, monkeypatch, "1.6.1") == 0
+    assert not target.exists(), "the plan ran again for an applied migration"
+
+
+# ------------------------------------------------------------- the v1 protocol
+
+
+def test_a_plan_sent_over_stdin_is_refused(device, helper, monkeypatch, tmp_path):
+    """The whole of CVE-2026-77055 in one request."""
+    evil = tmp_path / "pwned"
+    status = device.run(helper, monkeypatch, {
+        "protocol": 2,
+        "version": "1.6.1",
+        "actions": [{
+            "action": "install_file", "src": "x", "dst": str(evil),
+            "validate_cmd": f"touch {evil};",
+        }],
+        "assets_base": str(device.assets),
+    })
+    assert status == 1
+    assert not evil.exists()
+
+
+def test_a_caller_cannot_suppress_the_applied_flag(device, helper, monkeypatch):
+    status = device.run(helper, monkeypatch, {
+        "protocol": 2, "version": "1.6.1", "skip_applied_flag": True,
+    })
+    assert status == 1
+
+
+def test_protocol_1_requests_are_refused(device, helper, monkeypatch):
+    status = device.run(helper, monkeypatch, {"version": "1.6.1", "actions": []})
+    assert status == 1
+
+
+def test_an_unknown_protocol_is_refused(device, helper, monkeypatch):
+    assert device.run(helper, monkeypatch, {"protocol": 3, "version": "1.6.1"}) == 1
+
+
+def test_unknown_request_fields_are_refused(device, helper, monkeypatch, tmp_path):
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+    status = device.ask(helper, monkeypatch, "1.6.1", surprise="hello")
+    assert status == 1
+
+
+@pytest.mark.parametrize("version", ["", "../../etc/passwd", "1.6.1; rm -rf /", "x"])
+def test_malformed_versions_are_refused(device, helper, monkeypatch, version):
+    assert device.run(
+        helper, monkeypatch,
+        {"protocol": 2, "version": version, "package_root": str(device.package)},
+    ) == 1
+
+
+def test_stdin_that_is_not_json_is_refused(device, helper, monkeypatch):
+    monkeypatch.setattr("sys.stdin", _Stdin("not json at all"))
+    assert helper.main([]) == 1
+
+
+# -------------------------------------------------------------- the trust path
+
+
+def test_a_manifest_signed_by_an_unknown_key_is_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    stranger = _genkey(device.keys / "stranger.pem")
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")}, key=stranger)
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+def test_a_tampered_plan_is_refused(device, helper, monkeypatch, tmp_path):
+    """Digest mismatch against the manifest."""
+    victim = tmp_path / "victim"
+    victim.write_text("still here\n")
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+
+    plan = json.loads((device.plans / "1.6.1.json").read_bytes())
+    plan.append({"action": "remove_file", "path": str(victim)})
+    (device.plans / "1.6.1.json").write_bytes(_canonical(plan))
+
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+    assert victim.exists(), "the appended action ran despite the digest mismatch"
+
+
+def test_a_tampered_plan_with_a_matching_manifest_is_still_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    """The digest alone is not the defence — the plan signature has to hold.
+
+    An attacker who can rewrite the plan can also rewrite the manifest's digest
+    for it. What they cannot do is produce a signature for either.
+    """
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+
+    plan = [{"action": "remove_file", "path": str(tmp_path / "victim")}]
+    data = _canonical(plan)
+    (device.plans / "1.6.1.json").write_bytes(data)
+    manifest = json.loads((device.plans / "manifest.json").read_bytes())
+    manifest["plans"]["1.6.1"] = hashlib.sha256(data).hexdigest()
+    (device.plans / "manifest.json").write_bytes(_canonical(manifest))
+
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+def test_a_version_absent_from_the_manifest_is_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+    assert device.ask(helper, monkeypatch, "1.6.2") == 1
+
+
+def test_a_missing_package_root_is_refused(device, helper, monkeypatch):
+    assert device.run(helper, monkeypatch, {
+        "protocol": 2, "version": "1.6.1", "package_root": "/nonexistent",
+    }) == 1
+
+
+# -------------------------------------------------------------- release floor
+
+
+def test_an_older_release_cannot_replay_a_migration(
+    device, helper, monkeypatch, tmp_path
+):
+    """Every signature in an older package tree is genuine.
+
+    So without a floor, an attacker restores an old release wholesale and
+    presents a migration this device never applied.
+    """
+    (device.applied / ".release-floor").write_text("1.6.4\n")
+    device.publish(
+        {"1.6.1": _touch_plan(device, tmp_path / "out.conf")}, release="1.5.0"
+    )
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+def test_the_same_release_is_still_accepted(device, helper, monkeypatch, tmp_path):
+    (device.applied / ".release-floor").write_text("1.6.0\n")
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+    assert device.ask(helper, monkeypatch, "1.6.1") == 0
+
+
+def test_the_floor_only_moves_forward(device, helper, monkeypatch, tmp_path):
+    (device.applied / ".release-floor").write_text("1.7.0\n")
+    device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
+    device.ask(helper, monkeypatch, "1.6.1")
+    assert (device.applied / ".release-floor").read_text().strip() == "1.7.0"
+
+
+# ------------------------------------------------------------- recovery anchor
+
+
+def test_a_recovery_signed_plan_may_repin_the_anchors(device, helper, monkeypatch):
+    new_release = _genkey(device.keys / "new-release.pem")
+    fresh = _pubkey(new_release, device.keys / "new-release.pub.pem")
+    digest = device.add_asset("new-release.pem", fresh.read_bytes())
+    plan = [{
+        "action": "install_file",
+        "src": "new-release.pem",
+        "dst": str(device.etc / "migrations.pem"),
+        "mode": 0o444,
+        "expected_sha256": digest,
+    }]
+    device.publish({"1.6.9": plan}, key=device.recovery_key)
+
+    assert device.ask(helper, monkeypatch, "1.6.9") == 0
+    assert (device.etc / "migrations.pem").read_bytes() == fresh.read_bytes()
+
+
+def test_a_recovery_signed_plan_may_not_do_anything_else(
+    device, helper, monkeypatch, tmp_path
+):
+    """The sheet in the safe is a key to one operation, not to the fleet."""
+    target = tmp_path / "elsewhere.conf"
+    device.publish({"1.6.9": _touch_plan(device, target)}, key=device.recovery_key)
+
+    assert device.ask(helper, monkeypatch, "1.6.9") == 1
+    assert not target.exists()
+
+
+def test_a_recovery_signed_plan_may_not_touch_other_paths(
+    device, helper, monkeypatch, tmp_path
+):
+    plan = [{"action": "remove_file", "path": str(tmp_path / "victim")}]
+    device.publish({"1.6.9": plan}, key=device.recovery_key)
+    assert device.ask(helper, monkeypatch, "1.6.9") == 1
+
+
+# ------------------------------------------------------------------ validators
+
+
+def test_validate_cmd_inside_a_signed_plan_is_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    """Signed by the vendor is not the same as allowed to run anything.
+
+    If the signing key could authorise an arbitrary root command, a compromised
+    release would own every controller in the field.
+    """
+    marker = tmp_path / "ran"
+    plan = _touch_plan(device, tmp_path / "out.conf")
+    plan[0]["validate_cmd"] = f"touch {marker};"
+    device.publish({"1.6.1": plan})
+
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+    assert not marker.exists()
+
+
+def test_an_unknown_validator_name_is_refused(device, helper, monkeypatch, tmp_path):
+    plan = _touch_plan(device, tmp_path / "out.conf")
+    plan[0]["validate"] = "definitely-not-a-validator"
+    device.publish({"1.6.1": plan})
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+def test_the_validator_inventory_covers_what_migrations_use(helper):
+    """visudo and sshd are the only validators any migration asks for."""
+    assert {"sudoers", "sshd"} <= set(helper.VALIDATORS)
+    assert helper.VALIDATORS["sudoers"] == ["visudo", "-cf"]
+    assert helper.VALIDATORS["sshd"] == ["sshd", "-t", "-f"]
+
+
+# ---------------------------------------------------------------- asset digest
+
+
+def test_an_install_without_a_digest_in_the_plan_is_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    plan = _touch_plan(device, tmp_path / "out.conf")
+    del plan[0]["expected_sha256"]
+    device.publish({"1.6.1": plan})
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+def test_an_asset_that_does_not_match_the_signed_digest_is_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    """The asset lives in the same writable tree as the plan."""
+    target = tmp_path / "out.conf"
+    device.publish({"1.6.1": _touch_plan(device, target)})
+    (device.assets / "hello.conf").write_bytes(b"malicious\n")
+
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+    assert not target.exists()
+
+
+def test_an_asset_path_cannot_escape_the_assets_directory(
+    device, helper, monkeypatch, tmp_path
+):
+    secret = tmp_path / "secret"
+    secret.write_bytes(b"secret\n")
+    plan = [{
+        "action": "install_file",
+        "src": "../../../" + str(secret.relative_to(tmp_path)),
+        "dst": str(tmp_path / "leaked"),
+        "expected_sha256": hashlib.sha256(b"secret\n").hexdigest(),
+    }]
+    device.publish({"1.6.1": plan})
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+def test_a_disallowed_action_type_is_refused(device, helper, monkeypatch):
+    device.publish({"1.6.1": [{"action": "run_shell", "cmd": "id"}]})
+    assert device.ask(helper, monkeypatch, "1.6.1") == 1
+
+
+# -------------------------------------------------------------------- dev hatch
+
+
+def test_the_dev_hatch_allows_an_unsigned_plan(device, helper, monkeypatch, tmp_path):
+    (device.etc / "allow-unsigned-migrations").write_text("dev\n")
+    target = tmp_path / "unsigned.conf"
+    digest = device.add_asset("hello.conf", b"hello\n")
+    status = device.run(helper, monkeypatch, {
+        "protocol": 2,
+        "version": "1.6.1",
+        "actions": [{
+            "action": "install_file", "src": "hello.conf", "dst": str(target),
+            "expected_sha256": digest,
+        }],
+        "assets_base": str(device.assets),
+    })
+    assert status == 0
+    assert target.read_bytes() == b"hello\n"
+
+
+def test_without_the_hatch_the_same_request_is_refused(
+    device, helper, monkeypatch, tmp_path
+):
+    target = tmp_path / "unsigned.conf"
+    digest = device.add_asset("hello.conf", b"hello\n")
+    status = device.run(helper, monkeypatch, {
+        "protocol": 2,
+        "version": "1.6.1",
+        "actions": [{
+            "action": "install_file", "src": "hello.conf", "dst": str(target),
+            "expected_sha256": digest,
+        }],
+        "assets_base": str(device.assets),
+    })
+    assert status == 1
+    assert not target.exists()
+
+
+# --------------------------------------------------------------------- selftest
+
+
+def test_selftest_passes_on_a_healthy_device(device, helper):
+    assert helper.selftest() == 0
+
+
+def test_selftest_fails_without_the_recovery_anchor(device, helper):
+    (device.etc / "migrations-recovery.pem").unlink()
+    assert helper.selftest() == 1
+
+
+def test_selftest_fails_without_the_release_anchor(device, helper):
+    (device.etc / "migrations.pem").unlink()
+    assert helper.selftest() == 1
+
+
+def test_selftest_exercises_the_real_verification_path(helper):
+    """A known-answer vector, in both directions.
+
+    Syntax checking cannot tell the difference between a helper that verifies
+    signatures and one that accepts everything; this can.
+    """
+    assert helper._verify(helper._KAT_PUBKEY, helper._KAT_MESSAGE,
+                          helper._KAT_SIGNATURE)
+    assert not helper._verify(helper._KAT_PUBKEY, helper._KAT_MESSAGE + b"!",
+                              helper._KAT_SIGNATURE)
+
+
+def test_protocol_version_is_reported(helper, capsys):
+    assert helper.main(["--protocol-version"]) == 0
+    assert capsys.readouterr().out.strip() == str(helper.PROTOCOL_VERSION)
+
+
+# ------------------------------------------------------------------ root_owned
+
+
+def test_root_owned_rejects_a_symlink(helper, tmp_path):
+    real = tmp_path / "real"
+    real.write_text("x")
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    assert not helper._root_owned(link)
+
+
+def test_root_owned_rejects_a_group_writable_file(helper, tmp_path):
+    path = tmp_path / "loose"
+    path.write_text("x")
+    os.chmod(path, 0o664)
+    assert not helper._root_owned(path)
+
+
+def test_root_owned_rejects_a_missing_file(helper, tmp_path):
+    assert not helper._root_owned(tmp_path / "absent")
+
+
+def test_root_owned_requires_root_ownership(helper, tmp_path):
+    """The suite does not run as root, so this file is not root-owned."""
+    path = tmp_path / "mine"
+    path.write_text("x")
+    os.chmod(path, 0o644)
+    assert path.stat().st_uid == os.getuid()
+    assert helper._root_owned(path) == (os.getuid() == 0)
+
+
+# --------------------------------------------------------------- version order
+
+
+@pytest.mark.parametrize("lower,higher", [
+    ("1.5.9", "1.5.10"),
+    ("1.6.0.dev1", "1.6.0"),
+    ("1.9.0", "1.10.0"),
+    ("1.6.0", "1.6.1"),
+])
+def test_release_ordering(helper, lower, higher):
+    assert helper._version_key(lower) < helper._version_key(higher)

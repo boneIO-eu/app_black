@@ -1,0 +1,445 @@
+#!/usr/bin/env python3
+"""boneio-containers — privileged container operations, by name only.
+
+The ``boneio`` account is in the ``docker`` group, which is root-equivalent: a
+container can bind-mount the host root and write to it. Removing the account
+from that group is the fix, but the application still needs to start Node-RED
+and reload Caddy — so those operations move here, behind a closed list of
+verbs.
+
+Two things make this worth doing rather than granting ``sudo docker compose``:
+
+  * **The vector is the compose file, not the argument list.** ``docker compose
+    up`` reads ``docker-compose.yaml`` from the project directory, and that file
+    lives under /home/boneio. A sudoers rule permitting only ``docker compose
+    up`` still lets anyone who can write that file run a container as root with
+    the host filesystem mounted. So this helper refuses to act at all unless the
+    compose file is root-owned and not writable by anyone else.
+  * **No argument reaches docker from the caller.** Each verb expands to a fixed
+    command. The only caller-supplied values are a log line count and a domain
+    name, both validated.
+
+Usage:
+    boneio-containers <verb> [argument]
+    boneio-containers --list-verbs
+    boneio-containers --selftest
+
+Exit codes:
+    0  success
+    1  refused, or the underlying command failed
+    2  the compose file is not root-owned, so nothing was run
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import logging.handlers
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+LOG_FILE = "/var/log/boneio-containers.log"
+
+#: The compose project. Hard-coded on purpose: a caller-supplied project
+#: directory would be a caller-supplied compose file, which is the vector.
+PROJECT_DIR = Path("/home/boneio/docker/nodered")
+COMPOSE_FILE = PROJECT_DIR / "docker-compose.yaml"
+
+#: Root-owned templates, restored from the pristine copy rather than written by
+#: the application. The application used to write the compose file itself,
+#: which is precisely what must stop.
+TRUSTED_DIR = Path("/usr/lib/boneio/trusted")
+COMPOSE_TEMPLATE = TRUSTED_DIR / "docker-compose.yaml"
+COMPOSE_CLOUD_TEMPLATE = TRUSTED_DIR / "docker-compose-cloud.yaml"
+
+CADDY_SERVICE = "caddy"
+NODERED_SERVICE = "node-red"
+
+#: A hostname, as permissive as DNS and no more. Checked before it can reach a
+#: template, so a domain cannot smuggle YAML into the compose file.
+_DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$"
+)
+_MAX_LOG_LINES = 2000
+
+
+def _configure_logging() -> logging.Logger:
+    """Set up logging without making the log file a hard requirement.
+
+    Returns:
+        The helper's logger.
+    """
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
+    try:
+        handlers.append(
+            logging.handlers.RotatingFileHandler(
+                LOG_FILE, maxBytes=524_288, backupCount=1, encoding="utf-8"
+            )
+        )
+    except OSError as exc:
+        print(f"boneio-containers: cannot open {LOG_FILE}: {exc}", file=sys.stderr)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=handlers,
+    )
+    return logging.getLogger("boneio-containers")
+
+
+_LOGGER = _configure_logging()
+
+
+class Refused(Exception):
+    """The request was rejected; nothing was run."""
+
+
+#: Verb → the arguments that follow ``docker compose -f <file>``. Constants
+#: only: nothing in this table can be influenced from outside, and building the
+#: argv at call time keeps it honest about which compose file is in play rather
+#: than freezing the path at import.
+VERBS: dict[str, tuple[str, ...]] = {
+    "status": ("ps", "--format", "json"),
+    "up": ("up", "-d"),
+    "down": ("down",),
+    "pull": ("pull",),
+    "start-nodered": ("up", "-d", NODERED_SERVICE),
+    "stop-nodered": ("stop", NODERED_SERVICE),
+    "restart-nodered": ("restart", NODERED_SERVICE),
+    "pull-nodered": ("pull", NODERED_SERVICE),
+    "start-caddy": ("up", "-d", CADDY_SERVICE),
+    "restart-caddy": ("restart", CADDY_SERVICE),
+    "reload-caddy": (
+        "exec", CADDY_SERVICE, "caddy", "reload", "--config", "/etc/caddy/Caddyfile"
+    ),
+}
+
+#: Verbs that talk to the docker daemon rather than to a compose project.
+DAEMON_VERBS: dict[str, tuple[str, ...]] = {
+    "ps": ("ps", "-a", "--format", "json"),
+}
+
+
+def _compose(*args: str) -> list[str]:
+    """A docker compose command for the fixed project.
+
+    Args:
+        *args: Verb and arguments to pass to compose.
+
+    Returns:
+        The full argv.
+    """
+    return ["docker", "compose", "-f", str(COMPOSE_FILE), *args]
+
+
+def _argv_for(verb: str) -> list[str]:
+    """The command a fixed verb expands to.
+
+    Args:
+        verb: One of :data:`VERBS` or :data:`DAEMON_VERBS`.
+
+    Returns:
+        The full argv.
+
+    Raises:
+        KeyError: If the verb is not a fixed one.
+    """
+    if verb in DAEMON_VERBS:
+        return ["docker", *DAEMON_VERBS[verb]]
+    return _compose(*VERBS[verb])
+
+#: Verbs that take one validated argument.
+PARAMETERISED_VERBS = {
+    "logs-caddy",
+    "logs-nodered",
+    "apply-cloud-template",
+    "remove-cloud-template",
+}
+
+ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS)
+
+#: Verbs that only read. They are allowed to run even when the compose file is
+#: not yet root-owned, because refusing them would leave the UI unable to say
+#: what is wrong.
+READ_ONLY_VERBS = {"status", "ps", "logs-caddy", "logs-nodered"}
+
+
+def _assert_root() -> None:
+    """Exit unless running as root."""
+    if os.geteuid() != 0:
+        _LOGGER.error("boneio-containers must be run as root via sudo.")
+        sys.exit(1)
+
+
+def _root_owned(path: Path) -> bool:
+    """Whether *path* is a real file owned by root and not writable by others.
+
+    Args:
+        path: Path to inspect.
+
+    Returns:
+        True when root can trust the file's contents.
+    """
+    try:
+        st = path.lstat()
+    except OSError:
+        return False
+    if not os.path.isfile(path) or os.path.islink(path):
+        return False
+    return st.st_uid == 0 and not st.st_mode & 0o022
+
+
+def _assert_compose_trustworthy() -> None:
+    """Refuse to run compose against a file the caller could have written.
+
+    Raises:
+        Refused: If the compose file is missing or not root-owned.
+    """
+    if not _root_owned(COMPOSE_FILE):
+        raise Refused(
+            f"{COMPOSE_FILE} is missing, a symlink, or not owned by root. "
+            "Running compose against it would let whoever can write that file "
+            "start a container as root with the host filesystem mounted — the "
+            "file is the vector, not the command line. Reinstall it from "
+            f"{COMPOSE_TEMPLATE} with a migration."
+        )
+
+
+def _run(argv: list[str], timeout: int = 120) -> int:
+    """Run a fixed command in the project directory.
+
+    Args:
+        argv: The command to run.
+        timeout: Seconds to allow.
+
+    Returns:
+        Process exit status; output is passed through.
+    """
+    _LOGGER.info("RUN: %s", " ".join(argv))
+    try:
+        result = subprocess.run(
+            argv, cwd=str(PROJECT_DIR), capture_output=True, text=True, timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        _LOGGER.error("timed out after %ds: %s", timeout, " ".join(argv))
+        return 1
+    except OSError as exc:
+        _LOGGER.error("cannot run %s: %s", argv[0], exc)
+        return 1
+
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+    if result.returncode != 0:
+        _LOGGER.error("rc=%d: %s", result.returncode, result.stderr.strip())
+        sys.stderr.write(result.stderr)
+    return result.returncode
+
+
+def _logs(service: str, argument: str | None) -> int:
+    """Show the tail of a service's log.
+
+    Args:
+        service: Compose service name.
+        argument: Number of lines, as text.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If the line count is not a sane integer.
+    """
+    lines = 200
+    if argument is not None:
+        if not argument.isdigit() or not 1 <= int(argument) <= _MAX_LOG_LINES:
+            raise Refused(
+                f"log line count must be an integer between 1 and {_MAX_LOG_LINES}"
+            )
+        lines = int(argument)
+    return _run(_compose("logs", "--tail", str(lines), "--no-color", service), timeout=60)
+
+
+def _install_compose(source: Path, substitutions: dict[str, str]) -> int:
+    """Install a root-owned compose file rendered from a trusted template.
+
+    Args:
+        source: Template in the pristine copy.
+        substitutions: ``${KEY}`` values to fill in; already validated.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: If the template is missing or not root-owned.
+    """
+    if not _root_owned(source):
+        raise Refused(
+            f"template {source} is missing or not root-owned. The compose file "
+            "must come from the pristine copy, not from the application."
+        )
+    content = source.read_text(encoding="utf-8")
+    for key, value in substitutions.items():
+        content = content.replace(f"${{{key}}}", value)
+
+    PROJECT_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=PROJECT_DIR, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+    ) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        os.chmod(tmp_path, 0o644)
+        if os.geteuid() == 0:
+            # The whole point of installing it from here is that it ends up
+            # root-owned; running as root this cannot fail, and not running as
+            # root there is no privilege to protect.
+            os.chown(tmp_path, 0, 0)
+        os.replace(tmp_path, COMPOSE_FILE)
+    except OSError:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    _LOGGER.info("INSTALLED: %s from %s (root:root 0644)", COMPOSE_FILE, source.name)
+    return 0
+
+
+def _apply_cloud_template(argument: str | None) -> int:
+    """Switch the compose project to the cloud template for one domain.
+
+    Args:
+        argument: The domain to serve.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If the domain is not a plausible hostname.
+    """
+    if not argument or not _DOMAIN_RE.match(argument):
+        raise Refused(
+            f"not a valid domain: {argument!r}. Checked before it can reach the "
+            "template, so a domain cannot smuggle YAML into the compose file."
+        )
+    _LOGGER.info("applying cloud template for %s", argument)
+    return _install_compose(COMPOSE_CLOUD_TEMPLATE, {"DOMAIN": argument})
+
+
+def _remove_cloud_template(argument: str | None) -> int:
+    """Restore the plain compose template.
+
+    Args:
+        argument: Unused.
+
+    Returns:
+        Process exit status.
+    """
+    _LOGGER.info("restoring the plain compose template")
+    return _install_compose(COMPOSE_TEMPLATE, {})
+
+
+def selftest() -> int:
+    """Check the helper can do its job, changing nothing.
+
+    Returns:
+        0 when healthy.
+    """
+    problems: list[str] = []
+    if shutil.which("docker") is None:
+        problems.append("docker is not installed")
+    if not PROJECT_DIR.is_dir():
+        problems.append(f"the compose project directory {PROJECT_DIR} does not exist")
+    if not _root_owned(COMPOSE_FILE):
+        problems.append(
+            f"{COMPOSE_FILE} is not root-owned, so every write verb will refuse"
+        )
+    for template in (COMPOSE_TEMPLATE, COMPOSE_CLOUD_TEMPLATE):
+        if not _root_owned(template):
+            problems.append(f"template {template} is missing or not root-owned")
+
+    for problem in problems:
+        _LOGGER.error("selftest: %s", problem)
+    if problems:
+        return 1
+    _LOGGER.info("selftest: %d verbs available, compose file trusted.", len(ALL_VERBS))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.
+
+    Returns:
+        Process exit status.
+    """
+    parser = argparse.ArgumentParser(
+        description="boneIO privileged container operations"
+    )
+    parser.add_argument("verb", nargs="?", help=f"one of: {', '.join(ALL_VERBS)}")
+    # A value starting with "-" would otherwise be parsed as an option and make
+    # argparse exit before the domain validator ever sees it. The validator
+    # should be the thing that rejects it, with a message that says why.
+    parser.add_argument(
+        "argument", nargs="?", default=None,
+        help="log line count, or a domain",
+    )
+    parser.add_argument(
+        "--list-verbs", action="store_true", help="print the allowed verbs as JSON"
+    )
+    parser.add_argument(
+        "--selftest", action="store_true", help="check the helper, change nothing"
+    )
+    args, unparsed = parser.parse_known_args(argv)
+    if unparsed:
+        # Anything argparse could not place is still caller input, so it is
+        # refused rather than ignored.
+        if args.argument is None and len(unparsed) == 1:
+            args.argument = unparsed[0]
+        else:
+            _LOGGER.error("REFUSED: unexpected arguments: %s", unparsed)
+            return 1
+
+    if args.list_verbs:
+        print(json.dumps(ALL_VERBS))
+        return 0
+
+    _assert_root()
+
+    if args.selftest:
+        return selftest()
+
+    if not args.verb:
+        parser.error("a verb is required")
+
+    try:
+        if args.verb not in ALL_VERBS:
+            raise Refused(
+                f"unknown verb {args.verb!r}. Allowed: {', '.join(ALL_VERBS)}"
+            )
+
+        if args.verb not in READ_ONLY_VERBS:
+            _assert_compose_trustworthy()
+
+        if args.verb == "logs-caddy":
+            return _logs(CADDY_SERVICE, args.argument)
+        if args.verb == "logs-nodered":
+            return _logs(NODERED_SERVICE, args.argument)
+        if args.verb == "apply-cloud-template":
+            return _apply_cloud_template(args.argument)
+        if args.verb == "remove-cloud-template":
+            return _remove_cloud_template(args.argument)
+
+        if args.argument is not None:
+            raise Refused(f"verb {args.verb!r} takes no argument")
+        return _run(_argv_for(args.verb))
+    except Refused as exc:
+        _LOGGER.error("REFUSED: %s", exc)
+        return 2 if "not owned by root" in str(exc) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
