@@ -17,6 +17,22 @@ The manifest exists so a plan cannot be swapped for a differently-versioned one
 that also carries a valid signature: the helper checks the plan's hash against
 the manifest for the installed release, not just the signature.
 
+The signing key deliberately does not live in CI. Signatures are committed, and
+the workflows only verify them (``--check`` needs the public key alone), so a
+compromised release pipeline cannot mint a plan that runs as root on every
+controller in the field.
+
+Because the manifest names the release it belongs to, bumping the version
+invalidates it even when no migration changed. Release order:
+
+    1. bump boneio/version.py
+    2. generate_signed_plans.py --key ~/.config/boneio/migration-signing-key.pem
+    3. commit the version bump and boneio/migrations/plans/ together
+    4. tag vX.Y.Z
+
+Skipping step 2 cannot ship a stale manifest: ``--check`` runs in test.yml and
+the publish job depends on it.
+
 Usage:
     generate_signed_plans.py --key <private.pem>        # generate + sign
     generate_signed_plans.py --check --key <private.pem>  # verify, write nothing
