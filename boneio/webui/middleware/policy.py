@@ -50,7 +50,6 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/accounts",
     "/api/config/download",
     "/api/config/backups",
-    "/api/caddy",
     "/api/nodered",
     # A list of what is still unlocked is a shopping list for anyone who
     # should not have it.

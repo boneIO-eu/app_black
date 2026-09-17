@@ -59,7 +59,6 @@ from boneio.webui.middleware.auth import (
 from boneio.webui.routes import (
     accounts_router,
     auth_router,
-    caddy_router,
     can_router,
     config_router,
     covers_router,
@@ -186,7 +185,6 @@ app.include_router(modbus_router)
 app.include_router(sensors_router)
 app.include_router(security_router)
 app.include_router(diagnostics_router)
-app.include_router(caddy_router)
 app.include_router(nodered_router)
 app.include_router(onboarding_router)
 app.include_router(can_router)

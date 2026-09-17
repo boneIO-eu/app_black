@@ -2,7 +2,6 @@
 
 from boneio.webui.routes.accounts import router as accounts_router
 from boneio.webui.routes.auth import router as auth_router
-from boneio.webui.routes.caddy import router as caddy_router
 from boneio.webui.routes.can import router as can_router
 from boneio.webui.routes.config import router as config_router
 from boneio.webui.routes.covers import router as covers_router
@@ -28,7 +27,6 @@ from boneio.webui.routes.dev_fake_device import router as dev_fake_device_router
 __all__ = [
     "accounts_router",
     "auth_router",
-    "caddy_router",
     "can_router",
     "config_router",
     "covers_router",

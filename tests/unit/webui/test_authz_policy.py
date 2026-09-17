@@ -70,7 +70,6 @@ def test_viewer_may_read(path):
         "/api/accounts",
         "/api/config/download",
         "/api/config/backups",
-        "/api/caddy/status",
         "/api/nodered/backup",
     ],
 )

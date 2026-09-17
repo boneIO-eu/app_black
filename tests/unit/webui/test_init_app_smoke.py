@@ -171,3 +171,30 @@ def test_no_dev_warning_without_the_variable(config_file, monkeypatch, caplog):
     with caplog.at_level("WARNING"):
         _init(config_file, monkeypatch=monkeypatch)
     assert not any("BONEIO_DEV is set" in r.message for r in caplog.records)
+
+
+# ------------------------------------------------------- the certificate panel
+
+
+def test_no_route_manages_certificates_on_the_device():
+    """Certificates come from cloud registration, not from the device.
+
+    The wildcard for ``*.black.boneio.app`` is issued centrally and the
+    controller only fetches it (``boneio.core.cloud.registration``). The
+    ``/api/caddy`` router was a second, parallel design — a hidden panel that
+    rewrote the Caddyfile and shelled out to acme.sh — and it never worked:
+    ``CADDY_CONFIG_DIR`` was set nowhere, so it wrote to ``/opt/boneio/...``
+    while Caddy lives under the service account's home.
+
+    What makes it worth a test rather than just a deletion is the overlap:
+    registration.py owns that same Caddyfile. A panel that rewrites it would
+    take a device off its cloud certificate, and only the divergent paths kept
+    that from happening.
+    """
+    from boneio.webui.app import app
+
+    caddy_routes = [
+        route.path for route in app.routes
+        if getattr(route, "path", "").startswith("/api/caddy")
+    ]
+    assert caddy_routes == []

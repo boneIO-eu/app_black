@@ -294,6 +294,10 @@ Punkty 1–6 są w `app_black` i można je wypuścić niezależnie od 7.
 ### Zostaje
 
 - **Hasło per urządzenie** w obrazie — osobna gałąź, osobny cykl wydawniczy.
-- **Certyfikat i proxy** (`SslSection`) — wyjęty z drzewa, bo jest oznaczony `hidden` od lutowego
-  refaktoru i nigdy się nie renderował. Decyzja produktowa: odsłonić czy zostawić schowany.
+- ~~**Certyfikat i proxy** (`SslSection`)~~ — **rozstrzygnięte: usunięte.** Certyfikat wystawia
+  centralnie chmura (wildcard `*.black.boneio.app` z certbota + Cloudflare DNS, patrz
+  `registration.py`), a urządzenie tylko go pobiera. Panel był drugim, równoległym projektem
+  tej samej rzeczy i nigdy nie działał — `CADDY_CONFIG_DIR` nie było nigdzie ustawiane, więc
+  pisał Caddyfile do `/opt/boneio/...`, podczas gdy Caddy żyje w katalogu domowym konta usługi.
+  Panel i router `/api/caddy` poszły razem z nim.
 - **Liczniki przy pozycjach** („Wyjścia 32", „Rolety 2") — rozważane, nieuzgodnione.
