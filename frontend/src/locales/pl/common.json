@@ -964,10 +964,10 @@
     "cloud_disable_confirm": "Czy na pewno chcesz wyłączyć tryb cloud? Serwer web zostanie przywrócony do domyślnych ustawień z dostępem po adresie IP i certyfikatami self-signed. Subdomena PWA przestanie działać.",
     "cloud_disabling": "Wyłączanie...",
     "cloud_permission_error_title": "Błąd uprawnień",
-    "cloud_permission_error": "Plik docker-compose.yaml nie ma uprawnień do zapisu. Uruchom przez SSH: sudo chown $USER ~/docker/nodered/docker-compose.yaml",
-    "cloud_permission_fix_hint": "Podaj hasło systemowe, aby automatycznie naprawić uprawnienia pliku:",
-    "cloud_sudo_placeholder": "Hasło systemowe",
-    "cloud_fix_btn": "Napraw"
+    "cloud_permission_error": "docker-compose.yaml należy do roota i tak ma być. Nie przywracaj właściciela — to ten plik wykonuje Docker. Zastosuj oczekujące migracje systemowe, żeby uprzywilejowany helper mógł nim zarządzać.",
+    "cloud_permission_managed_title": "Plikiem compose zarządza system",
+    "cloud_permission_managed": "docker-compose.yaml należy do roota celowo — to jego wykonuje Docker, więc aplikacja go już nie zapisuje. Ustawienia chmury stosuje uprzywilejowany helper; jeśli nie jest jeszcze zainstalowany, zastosuj oczekujące migracje systemowe.",
+    "cloud_sudo_placeholder": "Hasło systemowe"
   },
   "mqtt_config": {
     "host": "Host",
@@ -1900,13 +1900,10 @@
     "description": "Skonfiguruj reguły sudoers NOPASSWD, aby aplikacja mogła zmieniać strefę czasową i ustawienia NTP (timedatectl) bez pytania o hasło.",
     "checking": "Sprawdzanie konfiguracji sudoers...",
     "check_now": "Sprawdź uprawnienia",
-    "password_required": "Hasło sudo jest wymagane do zmiany strefy czasowej",
-    "password_required_hint": "Aplikacja potrzebuje reguł NOPASSWD w sudoers, aby uruchomić 'sudo timedatectl set-timezone' i 'sudo timedatectl set-ntp'. Utwórz plik sudoers, aby to naprawić.",
-    "create_sudoers": "Utwórz plik sudoers",
+    "missing": "Uprawnienia strefy czasowej nie są jeszcze zainstalowane",
+    "missing_hint": "Regułę pozwalającą aplikacji uruchomić 'timedatectl set-timezone' i 'set-ntp' instaluje migracja systemowa. Zastosuj oczekujące migracje i sprawdź ponownie.",
     "status_ok": "Uprawnienia strefy czasowej OK",
-    "status_ok_hint": "Sudoers NOPASSWD jest poprawnie skonfigurowany. Aplikacja może zmieniać strefę czasową i ustawienia NTP bez hasła.",
-    "info_1": "Utworzy plik sudoers, który pozwoli aplikacji zmieniać strefę czasową i ustawienia NTP bez hasła:",
-    "info_2": "Plik przyznaje dostęp NOPASSWD tylko do komend timedatectl set-timezone i set-ntp."
+    "status_ok_hint": "Sudoers NOPASSWD jest poprawnie skonfigurowany. Aplikacja może zmieniać strefę czasową i ustawienia NTP bez hasła."
   },
   "irrigation": {
     "title": "Nawadnianie",

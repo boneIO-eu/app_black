@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/etc/sudoers.d/boneio-timedatectl","expected_sha256":"2573e2abb1e0e8bb13d2df435ecd75d9766b3d8257104fcd876837ee260d0f76","group":"root","mode":288,"owner":"root","src":"sudoers/boneio-timedatectl","template_vars":{},"validate":"sudoers","validate_cmd":"visudo -cf"}]

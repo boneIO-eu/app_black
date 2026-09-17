@@ -5,7 +5,6 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { FaExclamationTriangle, FaInfoCircle, FaCheck, FaSpinner } from 'react-icons/fa';
 import { FormInputNumber, FormInputText } from './widgets';
 import HelpLabel from './components/HelpLabel';
-import SudoPasswordDialog from './SudoPasswordDialog';
 import { NoticeCallout } from './ui';
 
 interface WebServerFormProps {
@@ -39,10 +38,6 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   const [composeWritable, setComposeWritable] = useState(true);
   const [isDisablingCloud, setIsDisablingCloud] = useState(false);
   const [cloudActive, setCloudActive] = useState(false);
-  const [isFixingPermissions, setIsFixingPermissions] = useState(false);
-  const [fixResult, setFixResult] = useState<{ status: string; message: string } | null>(null);
-  const [showSudoDialog, setShowSudoDialog] = useState(false);
-  const [sudoError, setSudoError] = useState<string | null>(null);
   const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 
   const handleChange = (field: string, value: any) => {
@@ -93,25 +88,6 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
     }
   };
 
-  const handleFixPermissions = async (password: string) => {
-    setIsFixingPermissions(true);
-    setFixResult(null);
-    setSudoError(null);
-    try {
-      const { data: res } = await axios.post('/api/cloud/fix-permissions', { password });
-      setFixResult(res);
-      if (res.status === 'success') {
-        setComposeWritable(true);
-        setShowSudoDialog(false);
-      } else {
-        setSudoError(res.message || 'Fix failed');
-      }
-    } catch (err: any) {
-      setSudoError(err.response?.data?.detail || err.message || 'Request failed');
-    } finally {
-      setIsFixingPermissions(false);
-    }
-  };
 
   return (
     <div className="stg-cols">
@@ -213,47 +189,17 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
             />
           )}
 
-          {/* Permission error with sudo fix (HTTPS only) */}
+          {/* The compose file is root-owned on purpose: it is what
+              `docker compose up` executes, so being able to write it is being
+              able to run a container as root. There used to be a button here
+              that asked for the sudo password and chowned it back. */}
           {!composeWritable && isHttps && (
             <NoticeCallout
-              variant="error"
-              title={t('boneio_config.cloud_permission_error_title') || 'Permission error'}
-              message={
-                <>
-                  <span className="block">
-                    {t('boneio_config.cloud_permission_fix_hint') || 'Enter your system password to fix file permissions automatically:'}
-                  </span>
-                  <button
-                    className="btn btn-sm btn-primary mt-2"
-                    onClick={() => {
-                      setSudoError(null);
-                      setShowSudoDialog(true);
-                    }}
-                  >
-                    {t('boneio_config.cloud_fix_btn') || 'Fix'}
-                  </button>
-                  {fixResult && (
-                    <span className={`block mt-2 text-xs ${fixResult.status === 'success' ? 'text-success' : 'text-error'}`}>
-                      {fixResult.status === 'success' ? <FaCheck className="inline mr-1" /> : <FaExclamationTriangle className="inline mr-1" />}
-                      {fixResult.message}
-                    </span>
-                  )}
-                </>
-              }
+              variant="warning"
+              title={t('boneio_config.cloud_permission_managed_title')}
+              message={t('boneio_config.cloud_permission_managed')}
             />
           )}
-
-          <SudoPasswordDialog
-            open={showSudoDialog}
-            onOpenChange={setShowSudoDialog}
-            title={t('boneio_config.cloud_permission_error_title') || 'Fix Permissions'}
-            description={t('boneio_config.cloud_permission_fix_hint')}
-            submitLabel={t('boneio_config.cloud_fix_btn') || 'Fix'}
-            isSubmitting={isFixingPermissions}
-            error={sudoError}
-            success={fixResult?.status === 'success' ? fixResult.message : null}
-            onSubmit={handleFixPermissions}
-          />
 
           {/* Cloud error */}
           {cloudError && composeWritable && (

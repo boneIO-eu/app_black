@@ -964,10 +964,10 @@
     "cloud_disable_confirm": "Are you sure you want to disable cloud mode? The web server will be restored to default settings with local IP access and self-signed certificates. The PWA subdomain will stop working.",
     "cloud_disabling": "Disabling...",
     "cloud_permission_error_title": "Permission error",
-    "cloud_permission_error": "docker-compose.yaml is not writable. Run via SSH: sudo chown $USER ~/docker/nodered/docker-compose.yaml",
-    "cloud_permission_fix_hint": "Enter your system password to fix file permissions automatically:",
-    "cloud_sudo_placeholder": "System password",
-    "cloud_fix_btn": "Fix"
+    "cloud_permission_error": "docker-compose.yaml is owned by root, which is deliberate. Do not chown it back — that file is what Docker executes. Apply the pending system migrations so the privileged helper can manage it.",
+    "cloud_permission_managed_title": "Compose file is managed by the system",
+    "cloud_permission_managed": "docker-compose.yaml is owned by root on purpose — it is what Docker executes, so the application no longer writes it. Cloud settings are applied by the privileged helper; if that is not installed yet, apply the pending system migrations.",
+    "cloud_sudo_placeholder": "System password"
   },
   "mqtt_config": {
     "host": "Host",
@@ -1901,13 +1901,10 @@
     "description": "Configure sudoers NOPASSWD rules so the application can change timezone and NTP settings (timedatectl) without a password prompt.",
     "checking": "Checking sudoers configuration...",
     "check_now": "Check permissions",
-    "password_required": "Sudo password is required for timezone changes",
-    "password_required_hint": "The application needs NOPASSWD sudoers rules to run 'sudo timedatectl set-timezone' and 'sudo timedatectl set-ntp'. Create the sudoers file to fix this.",
-    "create_sudoers": "Create sudoers file",
+    "missing": "Timezone permissions are not installed yet",
+    "missing_hint": "The rule that lets the application run 'timedatectl set-timezone' and 'set-ntp' is installed by a system migration. Apply the pending system migrations and check again.",
     "status_ok": "Timezone permissions OK",
-    "status_ok_hint": "Sudoers NOPASSWD is configured correctly. The application can change timezone and NTP settings without a password.",
-    "info_1": "This will create a sudoers file that allows the application to change timezone and NTP settings without a password:",
-    "info_2": "The file grants NOPASSWD access only to timedatectl set-timezone and set-ntp commands."
+    "status_ok_hint": "Sudoers NOPASSWD is configured correctly. The application can change timezone and NTP settings without a password."
   },
   "irrigation": {
     "title": "Irrigation",

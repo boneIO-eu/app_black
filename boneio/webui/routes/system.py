@@ -6,6 +6,7 @@ import asyncio
 import glob
 import logging
 import os
+from pathlib import Path
 import re
 import subprocess
 from datetime import datetime
@@ -463,11 +464,6 @@ async def get_cloud_status():
     }
 
 
-class SudoFixRequest(BaseModel):
-    """Request body for fixing docker-compose.yaml permissions via sudo."""
-    password: str
-
-
 def _get_compose_info() -> dict:
     """Get detailed info about docker-compose.yaml file.
 
@@ -517,83 +513,13 @@ async def test_compose_permissions():
     return info
 
 
-@router.post("/cloud/fix-permissions")
-async def fix_compose_permissions(body: SudoFixRequest, request: Request):
-    """Fix docker-compose.yaml ownership using sudo chown.
-
-    Accepts the user's sudo password, runs 'sudo chown' on docker-compose.yaml,
-    and returns success/error. The password is never logged or stored.
-    Rate-limited to prevent brute-force attacks.
-
-    Returns:
-        Status response with success or error message.
-    """
-    client_ip = request.client.host if request.client else "unknown"
-    if not sudo_rate_limiter.check(client_ip):
-        return SUDO_RATE_LIMITED_RESPONSE
-
-    info = _get_compose_info()
-    compose_path = info["compose_path"]
-    current_user = info["current_user"]
-
-    _LOGGER.info(
-        "Fix permissions requested. File: %s, exists: %s, writable: %s, owner: %s, current_user: %s",
-        compose_path,
-        info.get("file_exists"),
-        info.get("writable"),
-        info.get("file_owner"),
-        current_user,
-    )
-
-    if not info["file_exists"]:
-        return {"status": "error", "message": f"File not found: {compose_path}"}
-
-    if info.get("writable"):
-        return {"status": "success", "message": "File is already writable"}
-
-    try:
-        cmd = ["sudo", "-S", "chown", f"{current_user}:{current_user}", compose_path]
-        _LOGGER.info("Running: %s", " ".join(cmd))
-
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(input=(body.password + "\n").encode()),
-            timeout=10,
-        )
-
-        stdout_str = stdout.decode().strip()
-        stderr_str = stderr.decode().strip()
-        _LOGGER.info(
-            "sudo chown result: returncode=%s, stdout=%r, stderr=%r",
-            proc.returncode, stdout_str, stderr_str,
-        )
-
-        if proc.returncode == 0:
-            after = _get_compose_info()
-            _LOGGER.info("After fix: %s", after)
-            return {
-                "status": "success",
-                "message": "Permissions fixed successfully",
-                "before": info,
-                "after": after,
-            }
-        else:
-            if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
-                sudo_rate_limiter.record_failure(client_ip)
-                return SUDO_AUTH_FAILED_RESPONSE
-            return {"status": "error", "message": f"sudo failed: {stderr_str}"}
-
-    except TimeoutError:
-        _LOGGER.error("sudo chown timed out for %s", compose_path)
-        return {"status": "error", "message": "sudo command timed out"}
-    except Exception as e:
-        _LOGGER.error("Failed to fix permissions: %s", e)
-        return {"status": "error", "message": str(e)}
+# POST /cloud/fix-permissions is gone. It took the operator's sudo password and
+# ran `chown <user>:<user>` on docker-compose.yaml — which is now root-owned on
+# purpose, because that file is what `docker compose up` executes: whoever can
+# write it can start a container as root with the host filesystem mounted. An
+# endpoint that hands the file back on request would undo migration 1.6.5 and
+# reopen F-04, so there is nothing here to keep. The read-only diagnostic above
+# still reports the file's owner and mode.
 
 
 @router.post("/cloud/disable")
@@ -973,6 +899,32 @@ async def get_timezone():
     }
 
 
+_ZONEINFO_ROOT = Path("/usr/share/zoneinfo")
+
+
+def _is_known_timezone(tz: str) -> bool:
+    """Whether *tz* is a timezone this system actually has.
+
+    Args:
+        tz: Candidate IANA name, e.g. ``"Europe/Warsaw"``.
+
+    Returns:
+        True when tzdata knows it.
+    """
+    try:
+        import zoneinfo
+
+        return tz in zoneinfo.available_timezones()
+    except Exception:
+        # No tzdata module or no database: fall back to the filesystem, but
+        # require the resolved path to stay inside the zoneinfo tree.
+        candidate = (_ZONEINFO_ROOT / tz).resolve()
+        return (
+            candidate.is_file()
+            and candidate.is_relative_to(_ZONEINFO_ROOT.resolve())
+        )
+
+
 @router.post("/timezone")
 async def set_timezone(request: TimezoneRequest):
     """
@@ -988,9 +940,12 @@ async def set_timezone(request: TimezoneRequest):
     if not tz:
         raise HTTPException(status_code=400, detail="Timezone cannot be empty")
 
-    # Validate timezone exists in system
-    zoneinfo_path = f"/usr/share/zoneinfo/{tz}"
-    if not os.path.isfile(zoneinfo_path):
+    # Validate against tzdata. The previous check was
+    # os.path.isfile(f"/usr/share/zoneinfo/{tz}"), which passes for
+    # "../../etc/passwd" — that resolves to a file that exists. timedatectl
+    # rejects such a name itself, so it was not an escalation, but a check that
+    # can be walked out of its own directory is not a check.
+    if not _is_known_timezone(tz):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid timezone: {tz}. Must be a valid IANA timezone.",
@@ -1074,11 +1029,6 @@ async def list_timezones():
 # ── Timezone Sudoers ─────────────────────────────────────────────────────
 
 
-class TimezoneSudoersFixRequest(BaseModel):
-    """Request body for creating timedatectl sudoers file."""
-    password: str
-
-
 @router.get("/timezone/sudoers/check")
 async def check_timezone_sudoers():
     """Check if sudoers NOPASSWD is configured for timedatectl commands.
@@ -1093,34 +1043,11 @@ async def check_timezone_sudoers():
     return await check_sudo_nopasswd_for_timedatectl()
 
 
-@router.post("/timezone/sudoers/fix")
-async def fix_timezone_sudoers(body: TimezoneSudoersFixRequest, request: Request):
-    """Create /etc/sudoers.d/boneio-timedatectl with NOPASSWD rules.
-
-    Accepts the user's sudo password, validates the sudoers content,
-    and installs it. The password is never logged or stored.
-    Rate-limited to prevent brute-force attacks.
-
-    Returns:
-        Status response with success or error message.
-    """
-    client_ip = request.client.host if request.client else "unknown"
-    if not sudo_rate_limiter.check(client_ip):
-        return SUDO_RATE_LIMITED_RESPONSE
-
-    from boneio.webui.routes.timezone_sudoers import (
-        create_timedatectl_sudoers_file,
-    )
-
-    result = await create_timedatectl_sudoers_file(body.password)
-
-    # Record failure if sudo auth failed (generic message already returned)
-    if result.get("status") == "error" and result.get("_auth_failed"):
-        sudo_rate_limiter.record_failure(client_ip)
-        del result["_auth_failed"]
-        result["message"] = SUDO_AUTH_FAILED_RESPONSE["message"]
-
-    return result
+# POST /timezone/sudoers/fix is gone. It accepted the operator's sudo password
+# over HTTP to write /etc/sudoers.d/boneio-timedatectl; the pentest report lists
+# that as a path to intercepting the password, which on these controllers is
+# shared across devices. The file is installed by migration 1.6.7 instead, over
+# a channel that needs no password. The read-only check above stays.
 
 
 # ── Device Tree Overlay management ──────────────────────────────────

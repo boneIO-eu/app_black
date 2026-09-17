@@ -11,7 +11,6 @@ import {
   FaPowerOff,
 } from 'react-icons/fa';
 import SelfTest from './SelfTest';
-import FixAppPermissions from './FixAppPermissions';
 import HardwareErrors from './HardwareErrors';
 
 /** Which block of the old System page to render. */
@@ -831,7 +830,6 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
       </SettingsCard>
 
       {/* Fix App Permissions */}
-      <FixAppPermissions />
 
       {/* Restart application */}
       <SettingsCard

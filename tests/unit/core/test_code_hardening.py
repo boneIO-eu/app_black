@@ -19,25 +19,26 @@ def _source() -> str:
     return inspect.getsource(timezone_sudoers)
 
 
-def test_the_temp_file_name_is_not_predictable():
-    """The old name was built from the pid, so another local account could
-    guess it, pre-create it as a symlink, and have the write follow through."""
-    assert "mkstemp" in _source()
-    assert "boneio-timedatectl-sudoers-{os.getpid()}" not in _source()
+def test_the_password_path_is_gone_entirely():
+    """These two used to check how create_timedatectl_sudoers_file() installed
+    the file: with `install` rather than cp+chmod, and cleaning up its temp file
+    on every path. The function is gone — the sudoers fragment now arrives with
+    migration 1.6.7, over a channel that needs no password at all, so there is
+    no install sequence here left to harden.
 
+    What is worth guarding is that it does not come back: an endpoint that
+    collects the sudo password is a way to intercept a password shared across
+    every controller.
+    """
+    import boneio.webui.routes.timezone_sudoers as module
 
-def test_the_sudoers_file_is_installed_with_its_final_mode():
-    """cp followed by chmod left the file in /etc/sudoers.d with the wrong
-    mode in between, and permanently so if the chmod failed — a mode sudo
-    refuses to honour, so the rule would silently not apply."""
+    assert not hasattr(module, "create_timedatectl_sudoers_file")
+    # A password piped to sudo is the shape to watch for; the module may still
+    # mention the old function in a comment explaining why it went.
     source = _source()
-    assert '"install"' in source
-    assert '"0440"' in source
-    assert '"chmod", "0440", SUDOERS_FILE' not in source
-
-
-def test_the_temp_file_is_cleaned_up_on_every_path():
-    assert "finally:" in _source()
+    assert '"-S"' not in source, (
+        "something in this module pipes a password to sudo again"
+    )
 
 
 def test_mkstemp_gives_a_private_file(tmp_path):

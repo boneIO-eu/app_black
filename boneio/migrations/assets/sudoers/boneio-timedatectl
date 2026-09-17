@@ -1,0 +1,19 @@
+# Allow the boneIO service account to set the system timezone and toggle NTP.
+#
+# Installed by a system migration, not by the application. It used to be
+# created through /api/timezone/sudoers/fix, which took the operator's sudo
+# password over HTTP — the pentest listed that as a path to intercepting the
+# password, and the password for this account is shared across controllers.
+#
+# The user is named explicitly rather than taken from $USER: the account this
+# is written for is the one the service runs as, and reading it from the
+# environment meant the rule could be written for whoever happened to be
+# logged in.
+#
+# timedatectl validates the timezone name itself and refuses anything that is
+# not in tzdata, so the wildcard cannot be steered outside that set. A polkit
+# rule for org.freedesktop.timedate1.set-timezone would be narrower still and
+# is the better long-term shape; it would mean the application talking to
+# timedated over D-Bus instead of shelling out.
+boneio ALL=(root) NOPASSWD: /usr/bin/timedatectl set-timezone *
+boneio ALL=(root) NOPASSWD: /usr/bin/timedatectl set-ntp *
