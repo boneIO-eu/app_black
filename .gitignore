@@ -142,3 +142,11 @@ frontend/dev-dist/
 /graft/
 .graft
 .ignore
+
+# AI working plans — local scratch, not committed. See AGENTS.md.
+# Durable, shared docs (e.g. SECURITY_ROADMAP_*.md) stay tracked at repo root.
+.ai-plans/
+
+# Local pointer so Claude Code picks up AGENTS.md; the rules themselves are
+# in AGENTS.md, which is tracked.
+CLAUDE.md
