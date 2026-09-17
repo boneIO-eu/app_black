@@ -94,6 +94,16 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "defaultUpdateInterval": "10s",
     "hasSetBase": false
   },
+  "defro-drx": {
+    "modelKey": "defro-drx",
+    "displayName": "Defro AIR DRX",
+    "manufacturer": "Defro AIR",
+    "description": "Defro AIR DRX heat-recovery ventilation unit (rekuperator)",
+    "category": "hvac",
+    "defaultAddress": 10,
+    "defaultUpdateInterval": "30s",
+    "hasSetBase": false
+  },
   "eht-topventil-plus": {
     "modelKey": "eht-topventil-plus",
     "displayName": "EHT Topventil Plus",
