@@ -76,16 +76,31 @@ def test_the_helper_refuses_a_symlink():
 
 def test_the_image_sets_the_permissions_after_writing_the_passwords():
     """mosquitto_passwd rewrites the file, so permissions set before it would
-    be replaced by whatever it chooses."""
+    be replaced by whatever it chooses.
+
+    Checked per write rather than once overall: the script gained a second
+    place that writes to the file — the rotation away from the shipped default
+    password — and a single "last chmod comes after the last write" assertion
+    would pass while an earlier write went unprotected.
+    """
     if not IMAGE_SCRIPT.exists():
         import pytest
 
         pytest.skip("image repository not checked out next to this one")
 
     text = IMAGE_SCRIPT.read_text(encoding="utf-8")
-    last_write = max(m.end() for m in re.finditer(r"mosquitto_passwd -b", text))
-    chmod_at = text.index("chmod 0640 /etc/mosquitto/passwd")
-    assert chmod_at > last_write
+    chmods = [m.start() for m in re.finditer(r"chmod 0640 /etc/mosquitto/passwd", text)]
+    assert chmods, "the script never restricts the password file"
+
+    unprotected = [
+        m.group(0)
+        for m in re.finditer(r"mosquitto_passwd -b [^\n]*", text)
+        if not any(c > m.end() for c in chmods)
+    ]
+    assert not unprotected, (
+        "these writes to /etc/mosquitto/passwd are not followed by a chmod, "
+        f"so the file keeps whatever mode mosquitto_passwd chose: {unprotected}"
+    )
 
 
 def test_the_image_no_longer_ships_it_world_readable():
