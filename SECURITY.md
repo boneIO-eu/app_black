@@ -18,7 +18,7 @@ Use one of these, in order of preference:
    <https://github.com/boneIO-eu/app_bbb>, go to the **Security** tab and
    choose *Report a vulnerability*. The report stays private between you and
    us, and it is the channel we watch most closely.
-2. **Email** — <pszafer@gmail.com>, with `SECURITY` in the subject. Say up
+2. **Email** — <security@boneio.eu>, with `SECURITY` in the subject. Say up
    front if the contents are sensitive and we will move to an encrypted
    channel before you send details.
 

@@ -1,13 +1,15 @@
 # ⛔ DO NOT INSTALL THIS VERSION ⛔
 
-**This is a non-working beta. Please do not use this version.**
+**This is a beta. Please do not use this version.**
 
-`1.6.0.dev2` exists so that we can test the new system-migration chain on a
-development controller. It has **not** been run end to end on real hardware even
-once. It changes how boneIO obtains root privileges, installs new system
-helpers, rewrites sudo rules and takes ownership of `docker-compose.yaml` — on a
-device in production, a mistake in any of that means a controller that needs
-physical access to repair.
+`1.6.0.dev3` exists so that we can test the new system-migration chain on a
+development controller. The chain has been run end to end exactly once, on one
+device upgraded from 1.5.1 — that is the entire body of evidence behind it.
+
+It changes how boneIO obtains root privileges, installs new system helpers,
+rewrites sudo rules, takes ownership of `docker-compose.yaml` and removes the
+`boneio` account from the `docker` group. On a device in production, a mistake
+in any of that means a controller that needs physical access to repair.
 
 - **Do not install it on a controller you depend on.**
 - **Do not install it on a device you cannot reach with a console or an SD card
@@ -21,7 +23,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev2 — internal test build
+# v1.6.0.dev3 — internal test build
 
 ## What this build is for
 
