@@ -38,9 +38,9 @@ license = { text = "GNU General Public License v3.0" }
 
 [project.urls]
 Homepage = "https://boneio.eu"
-Repository = "https://github.com/boneIO-eu/app_bbb"
+Repository = "https://github.com/boneIO-eu/app_black"
 Documentation = "https://boneio.eu/docs/intro/"
-Changelog = "https://github.com/boneIO-eu/app_bbb/releases"
+Changelog = "https://github.com/boneIO-eu/app_black/releases"
 
 [project.scripts]
 boneio = "boneio.bonecli:main"

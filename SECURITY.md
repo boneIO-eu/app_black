@@ -15,7 +15,7 @@ what we commit to in return.
 Use one of these, in order of preference:
 
 1. **GitHub private vulnerability reporting** — on
-   <https://github.com/boneIO-eu/app_bbb>, go to the **Security** tab and
+   <https://github.com/boneIO-eu/app_black>, go to the **Security** tab and
    choose *Report a vulnerability*. The report stays private between you and
    us, and it is the channel we watch most closely.
 2. **Email** — <security@boneio.eu>, with `SECURITY` in the subject. Say up
