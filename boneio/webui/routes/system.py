@@ -34,6 +34,7 @@ from boneio.core.utils import overlay as overlay_util
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
+from boneio.webui.routes.onboarding import get_configured_before
 from boneio.webui.middleware.auth import (
     get_user_store,
     is_anonymous_allowed,
@@ -371,6 +372,13 @@ async def get_init(
         "board_version": board_version,
         "has_irrigation": has_irrigation,
         "has_location": has_location,
+        # The wizard reads this to drop the import and device-binding steps on
+        # a controller that already has a configuration. It lives here rather
+        # than only on /api/onboarding/status because the wizard never asks
+        # that endpoint — it renders from this payload, and for two releases
+        # the field was computed, returned somewhere nobody read, and
+        # defaulted to false at the only place that used it.
+        "configured_before": get_configured_before(),
     }
 
 @router.get("/name")

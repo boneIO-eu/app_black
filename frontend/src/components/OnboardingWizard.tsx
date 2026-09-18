@@ -89,7 +89,6 @@ export default function OnboardingWizard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeStepRef = useRef<HTMLLIElement>(null);
 
-  const legacy = initData?.legacy_migration ?? null;
   const configuredBefore = initData?.configured_before ?? false;
   const steps = stepsFor(configuredBefore);
   const stepIndex = steps.indexOf(step);
@@ -402,15 +401,6 @@ export default function OnboardingWizard() {
             <div className="alert alert-warning text-sm">
               <span>{t('onboarding.welcome_why')}</span>
             </div>
-
-            {legacy && (
-              <div className="alert alert-info text-sm">
-                <span>
-                  {t('onboarding.legacy_migrated', { username: legacy.username })}
-                  {legacy.used_secret_file ? ` ${t('onboarding.legacy_secret_hint')}` : ''}
-                </span>
-              </div>
-            )}
 
             {/* Pinned as a pair, and pinned on the wrapper rather than on the
                 caption: /api/init can be slow or absent, and the button must
@@ -773,12 +763,6 @@ export default function OnboardingWizard() {
             {importDone && (
               <div className="alert alert-info text-sm">
                 <span>{t('onboarding.done_import_skipped')}</span>
-              </div>
-            )}
-
-            {legacy && (
-              <div className="alert alert-warning text-sm">
-                <span>{t('onboarding.done_remove_web_auth')}</span>
               </div>
             )}
 

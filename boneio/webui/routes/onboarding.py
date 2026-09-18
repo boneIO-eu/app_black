@@ -59,6 +59,15 @@ def set_configured_before(value: bool) -> None:
     _configured_before = value
 
 
+def get_configured_before() -> bool:
+    """Whether this device was set up under an earlier release.
+
+    Returns:
+        True when the wizard should skip the steps that assume a blank device.
+    """
+    return _configured_before
+
+
 def set_legacy_migration(info: dict | None) -> None:
     """Record what the startup credential migration did.
 

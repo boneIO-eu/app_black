@@ -32,7 +32,6 @@ interface AppInitData {
   /** True when config.yaml opts this device out of authentication entirely. */
   allow_anonymous?: boolean;
   /** Set when a pre-1.6 web.auth block was migrated into users.json on boot. */
-  legacy_migration?: { username: string; used_secret_file: boolean } | null;
   /** The device was set up under a pre-1.6 release, so it already has a
    *  configuration: the wizard drops the steps that assume a blank one. */
   configured_before?: boolean;
