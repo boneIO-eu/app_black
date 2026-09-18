@@ -41,9 +41,11 @@ KEY_FILE = CERT_DIR / "privkey.pem"
 
 # Caddy configuration paths
 CADDY_CONFIG_DIR = _DOCKER_DIR / "caddy"
-CADDY_DEFAULT_CONFIG = CADDY_CONFIG_DIR / "Caddyfile"
-CADDY_CLOUD_CONFIG = CADDY_CONFIG_DIR / "Caddyfile.cloud"
-CADDY_ACTIVE_CONFIG = CADDY_CONFIG_DIR / "Caddyfile"
+# No Caddyfile constants here on purpose. Caddy's configuration is not a file
+# in this directory — init-certs.sh (or init-certs-cloud.sh) writes it to
+# /tmp/Caddyfile inside the container on every start. Switching between local
+# and cloud mode swaps the compose file, and with it which of those two scripts
+# runs; there is no Caddyfile to copy over another.
 
 # Registration interval (1 hour)
 REGISTRATION_INTERVAL = 3600

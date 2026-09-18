@@ -55,7 +55,12 @@ _FALLBACK: dict[str, list[str]] = {
     "restart-caddy": ["docker", "compose", "restart", CADDY_SERVICE],
     "reload-caddy": [
         "docker", "compose", "exec", CADDY_SERVICE,
-        "caddy", "reload", "--config", "/etc/caddy/Caddyfile",
+        # /tmp/Caddyfile, not /etc/caddy/Caddyfile: the container runs the
+        # file init-certs.sh writes on every start. /etc/caddy/Caddyfile is the
+        # stock config baked into the image, and reloading that swaps the
+        # working proxy for Caddy's welcome page — HTTPS goes down and stays
+        # down until the container is restarted.
+        "caddy", "reload", "--config", "/tmp/Caddyfile",
     ],
 }
 

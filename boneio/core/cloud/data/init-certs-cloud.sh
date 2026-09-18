@@ -79,34 +79,12 @@ cat > /tmp/Caddyfile << EOF
 
 # HTTP - serve directly
 :80 {
-        handle_errors {
-                @502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504
-                handle @502-504 {
-                        root * /srv
-                        rewrite * /502.html
-                        file_server
-                }
-        }
-
-        handle /nodered-status {
-                header Content-Type application/json
-                header X-NodeRed-Available "true"
-                header Access-Control-Expose-Headers "X-NodeRed-Available"
-                respond \`{"available": true}\` 200
-        }
-
-        handle /nodered/* {
-                reverse_proxy node-red:1880 {
-                        header_up X-Forwarded-Proto {scheme}
-                        header_down X-NodeRed-Available "true"
-                }
-        }
-
-        handle {
-                reverse_proxy host.docker.internal:8090 {
-                        header_up X-Forwarded-Proto {scheme}
-                }
-        }
+        # Redirect to HTTPS. This port used to serve the panel in the clear —
+        # the login form, the token it hands back, and a configuration carrying
+        # passwords. The port is substituted by this shell as the file is
+        # written: Caddy only sees 443 from inside the container, while the
+        # host publishes it as 8443.
+        redir https://{host}:${PUBLIC_HTTPS_PORT:-8443}{uri}
 }
 
 ${CLOUD_BLOCK}

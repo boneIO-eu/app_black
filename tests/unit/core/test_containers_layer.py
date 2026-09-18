@@ -313,3 +313,46 @@ def test_container_logs_pass_the_name_to_the_helper(with_helper):
 def test_container_logs_need_a_name(without_helper):
     with pytest.raises(ValueError, match="needs a container name"):
         containers.run("logs-container")
+
+
+def test_caddy_is_reloaded_with_the_config_it_is_running():
+    """The container runs /tmp/Caddyfile, not /etc/caddy/Caddyfile.
+
+    init-certs.sh writes the real configuration on every start and execs caddy
+    against it. /etc/caddy/Caddyfile is the stock file baked into the image, so
+    reloading that swaps the working reverse proxy for Caddy's welcome page:
+    HTTPS stops answering and stays down until the container is restarted.
+    Verified the hard way, on a device.
+    """
+    from pathlib import Path
+
+    sources = [
+        Path(containers.__file__),
+        Path(containers.__file__).resolve().parents[1]
+        / "migrations" / "assets" / "helpers" / "boneio-containers",
+    ]
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        assert "/tmp/Caddyfile" in text, f"{path.name} does not name the live config"
+        for line in text.splitlines():
+            if "/etc/caddy/Caddyfile" in line and not line.strip().startswith("#"):
+                raise AssertionError(
+                    f"{path.name} reloads the image's stock config: {line.strip()}"
+                )
+
+
+def test_no_dead_caddyfile_is_left_in_the_tree():
+    """Two places used to hold Caddy configuration and only one was live.
+
+    A file that looks like the configuration but is read by nothing is where a
+    fix goes to be silently ineffective — which is what nearly happened with
+    the HTTP-to-HTTPS redirect.
+    """
+    from pathlib import Path
+
+    root = Path(containers.__file__).resolve().parents[2]
+    strays = [
+        p for p in root.rglob("Caddyfile*")
+        if "node_modules" not in str(p) and ".git" not in str(p)
+    ]
+    assert not strays, f"unread Caddy configuration: {[str(p) for p in strays]}"

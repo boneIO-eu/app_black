@@ -121,7 +121,10 @@ VERBS: dict[str, tuple[str, ...]] = {
     "start-caddy": ("up", "-d", CADDY_SERVICE),
     "restart-caddy": ("restart", CADDY_SERVICE),
     "reload-caddy": (
-        "exec", CADDY_SERVICE, "caddy", "reload", "--config", "/etc/caddy/Caddyfile"
+        # The container runs /tmp/Caddyfile, written by init-certs.sh on every
+        # start. /etc/caddy/Caddyfile is the image's stock config: reloading it
+        # takes HTTPS down until the container is restarted.
+        "exec", CADDY_SERVICE, "caddy", "reload", "--config", "/tmp/Caddyfile"
     ),
 }
 
