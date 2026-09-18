@@ -25,10 +25,26 @@ will be announced as such, and it will not look like this notice.
 
 ## What this build is for
 
-Everything below is about closing a privilege-assignment weakness in how the
-application obtains root, and the sudo-password paths that went with it. The
-mechanism is new, and the point of this build is to find out how it behaves on a
-real 1.5.x controller upgraded in place.
+This release is part of bringing boneIO Black in line with the **EU Cyber
+Resilience Act** (Regulation (EU) 2024/2847), which sets essential
+cybersecurity requirements for products with digital elements sold in the EU.
+Its substantive obligations apply from 11 December 2027, and the reporting
+obligations have applied since 11 September 2026. This is not a declaration of
+conformity — it is the engineering work that has to exist before one can be
+made.
+
+The requirements this build works towards, and what it does about each:
+
+| CRA requirement | In this build |
+|---|---|
+| Ship with a **secure-by-default configuration** | The application no longer runs with a standing path to root; privileged work goes through helpers with fixed vocabularies. |
+| Grant only the **privileges actually needed** | Wildcard sudo rules and the `docker` group — root without a password — are gone; what remains is four narrow NOPASSWD rules. |
+| **Minimise the attack surface** | Every endpoint that collected the operator's system password is removed, except the one-time bootstrap on a device with no helper at all. |
+| Deliver **security updates through a secure mechanism** | Migration plans are frozen and signed at release time with an Ed25519 key that is not held by CI, and verified on the device against two pinned anchors. |
+| **Protect against unauthorised access** to privileged functions | Holding the `boneio` account is no longer equivalent to holding root. |
+
+The mechanism is new, and the point of this build is to find out how it behaves
+on a real 1.5.x controller upgraded in place.
 
 ## What changed
 

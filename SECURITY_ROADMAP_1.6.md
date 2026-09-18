@@ -3,6 +3,31 @@
 Podstawa: raport pentestowy 1.5.0 (`Pobrane/boneio_raport_1.5.0/`), 16 ustaleń F-01…F-16.
 Zasada: każda poprawka wdrażana jako **nowa funkcja** (nie łata w ukryciu), po kolei, każde wdrożenie samodzielnie wypuszczalne w 1.6.x.
 
+## Po co to naprawdę robimy: CRA
+
+Raport pentestowy jest listą zadań, ale ramą jest **Cyber Resilience Act** — rozporządzenie (UE) 2024/2847,
+które nakłada wymagania cyberbezpieczeństwa na produkty z elementami cyfrowymi sprzedawane w UE. boneIO Black
+jest takim produktem. Terminy: obowiązki raportowania aktywnie wykorzystywanych podatności obowiązują
+od **11 września 2026**, obowiązki merytoryczne (wymagania zasadnicze, deklaracja zgodności, CE) od
+**11 grudnia 2027**.
+
+Cała seria 1.6.x to **dostosowanie do tych wymagań**, a nie deklaracja zgodności — deklarację można wystawić
+dopiero wtedy, gdy praca inżynierska jest skończona i udokumentowana. Wymagania, pod które podpinają się
+kolejne wdrożenia:
+
+| Wymaganie CRA | Gdzie u nas |
+|---|---|
+| Bezpieczna **konfiguracja domyślna** | #1 kreator (brak pracy bez konta), #8 brak stałej ścieżki aplikacji do roota |
+| Brak **uniwersalnych haseł domyślnych** | #8 obraz: SSH i MQTT (F-05), hasło per urządzenie zamiast wypalonego |
+| **Kontrola dostępu** i ochrona przed nieuprawnionym dostępem | #2 RBAC, #3 twardnienie logowania, #7 CSRF |
+| **Minimalizacja powierzchni ataku** i zasada najmniejszych uprawnień | #8 F-04: helpery o zamkniętym słowniku zamiast reguł z gwiazdką, zdjęcie grupy `docker`, usunięcie endpointów zbierających hasło systemowe |
+| **Ochrona poufności** danych przechowywanych i przesyłanych | #4 maskowanie sekretów, F-10 TLS, F-11 uprawnienia `/etc/mosquitto/passwd` |
+| Dostarczanie **aktualizacji bezpieczeństwa bezpiecznym kanałem** | #8 podpisane plany migracji (Ed25519, klucz poza CI, dwie kotwice zaufania na urządzeniu) |
+| **Obsługa podatności**: przyjmowanie zgłoszeń, poprawki bez zbędnej zwłoki | proces CVE prowadzony z CERT, wydania 1.6.x |
+
+To jest też powód, dla którego każda poprawka idzie jako osobna, opisana funkcja: przy CRA liczy się nie tylko
+to, że dziura jest zamknięta, ale że da się pokazać **czym** i **kiedy** została zamknięta.
+
 ## Mapowanie wdrożeń na ustalenia
 
 | # | Wdrożenie (nowa funkcja) | Łata (findings) | Warstwa |

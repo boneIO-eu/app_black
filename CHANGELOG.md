@@ -4,6 +4,40 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## Unreleased — 1.6.x security series
+
+Brought under the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847), which
+sets cybersecurity requirements for products with digital elements sold in the
+EU. Its reporting obligations have applied since 11 September 2026 and its
+substantive obligations apply from 11 December 2027. These releases are the work
+of meeting those requirements; they are not a declaration of conformity.
+
+### 🔐 Security
+
+- **Signed migration plans** — plans are frozen and signed at release time with
+  an Ed25519 key that CI does not hold, and verified on the device against two
+  pinned trust anchors. *Delivering security updates through a secure
+  mechanism.*
+- **Named privileged operations** — container management, CAN setup, the device
+  tree overlay, timezone and hostname moved from wildcard sudo rules to three
+  helpers with closed vocabularies. *Least privilege, attack-surface
+  minimisation.*
+- **No endpoint collects a system password** any more, except the one-time
+  bootstrap on a device with no helper at all.
+- **`docker-compose.yaml` belongs to root** — `docker compose up` executes it,
+  so being able to write it was being able to run a container as root with the
+  host filesystem mounted.
+- **The `boneio` account is out of the `docker` group**, which is root without a
+  password. Fresh images no longer grant it; existing devices lose it through
+  migration 1.6.11.
+- **Roles enforced on the settings routes** — a viewer could reach the settings
+  menu through a long press on an output and issue quick actions.
+- **Onboarding, RBAC, login hardening, secret masking, Node-RED adminAuth, SSRF
+  and CSRF protection** — see `SECURITY_ROADMAP_1.6.md` for the mapping from
+  each to the requirement it serves.
+
+---
+
 ## v1.6.0.dev1 (2026-08-02)
 
 ### ✨ New Features
