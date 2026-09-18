@@ -2910,6 +2910,11 @@
     "ran": "Schedule fired.",
     "run_failed": "Failed to run the schedule.",
     "needs_location": "Sun triggers are unavailable until you set the coordinates in Settings → Device → Location. A clock trigger works without them.",
-    "needs_location_short": "needs a location"
+    "needs_location_short": "needs a location",
+    "column_name": "Name",
+    "column_trigger": "Trigger",
+    "column_actions": "Actions",
+    "column_next": "Next",
+    "no_actions": "no actions"
   }
 }

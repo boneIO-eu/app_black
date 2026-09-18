@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FaBolt, FaCheck, FaPlus, FaSpinner, FaTrash } from 'react-icons/fa';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { FaBolt, FaCheck, FaChevronDown, FaChevronRight, FaPlus, FaSpinner, FaTrash } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import type {
@@ -184,6 +184,10 @@ export default function ScheduleSection() {
   const [dirty, setDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
+  // One editor open at a time. With several schedules, stacking every
+  // trigger, condition and action editor on the page is a kilometre of
+  // scrolling that shows nothing at a glance.
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [result, setResult] = useState<{ status: string; message: string } | null>(null);
 
   const fetchAll = useCallback(async () => {
@@ -255,6 +259,7 @@ export default function ScheduleSection() {
         actions: [],
       },
     ]);
+    setOpenIndex(schedules.length);
     setDirty(true);
   };
 
@@ -291,6 +296,27 @@ export default function ScheduleSection() {
     () => `${schedules.length} ${t('schedule.count')}`,
     [schedules.length, t],
   );
+
+  /** One line describing when this schedule fires, for the table row. */
+  const triggerSummary = (entry: ScheduleEntry): string => {
+    const trigger = entry.trigger || {};
+    const days = t(`schedule.days_${trigger.days || 'daily'}`);
+    const offset = offsetToMinutes(trigger.offset);
+    const shift = offset && offset !== '0'
+      ? ` ${Number(offset) > 0 ? '+' : '\u2212'}${Math.abs(Number(offset))} min`
+      : '';
+
+    if ((trigger.type || 'sun') === 'time') {
+      return `${trigger.at || '--:--'}${shift} · ${days}`;
+    }
+    const event = trigger.event ? t(`sun.anchor_${trigger.event}`) : '—';
+    return `${event}${shift} · ${days}`;
+  };
+
+  /** The distinct action types this schedule runs, for the table row. */
+  const actionTypes = (entry: ScheduleEntry): string[] => [
+    ...new Set((entry.actions || []).map((a) => String(a.action || '')).filter(Boolean)),
+  ];
 
   const renderTrigger = (entry: ScheduleEntry, index: number) => {
     const trigger = entry.trigger || {};
@@ -434,126 +460,185 @@ export default function ScheduleSection() {
             <NoticeCallout variant="info" message={t('schedule.empty')} />
           )}
 
-          {schedules.map((entry, index) => {
-            const state = status[entry.id];
-            return (
-              <div key={index} className="border border-base-300 rounded-lg p-3 space-y-3 bg-base-200/40">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm"
-                      checked={entry.enabled !== false}
-                      onChange={(e) => update(index, (s) => ({ ...s, enabled: e.target.checked }))}
-                      title={t('schedule.enabled')}
+          {schedules.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th className="w-10"></th>
+                    <th>{t('schedule.column_name')}</th>
+                    <th>{t('schedule.column_trigger')}</th>
+                    <th>{t('schedule.column_actions')}</th>
+                    <th className="text-right">{t('schedule.column_next')}</th>
+                    <th className="w-32"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedules.map((entry, index) => {
+                    const state = status[entry.id];
+                    const open = openIndex === index;
+                    const disabled = entry.enabled === false;
+                    return (
+                      <Fragment key={index}>
+                        <tr
+                          className={`hover cursor-pointer ${open ? 'bg-base-200' : ''} ${disabled ? 'opacity-50' : ''}`}
+                          onClick={() => setOpenIndex(open ? null : index)}
+                        >
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="toggle toggle-xs"
+                              checked={!disabled}
+                              onChange={(e) => update(index, (sc) => ({ ...sc, enabled: e.target.checked }))}
+                              title={t('schedule.enabled')}
+                            />
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1.5">
+                              {open ? <FaChevronDown className="w-2.5 h-2.5 opacity-50" />
+                                    : <FaChevronRight className="w-2.5 h-2.5 opacity-50" />}
+                              <div className="min-w-0">
+                                <div className="truncate">{entry.name || entry.id}</div>
+                                {entry.name && (
+                                  <div className="text-xs opacity-50 font-mono truncate">{entry.id}</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap text-xs">{triggerSummary(entry)}</td>
+                          <td>
+                            <div className="flex flex-wrap gap-1">
+                              {actionTypes(entry).map((type) => (
+                                <span key={type} className="badge badge-ghost badge-xs">{type}</span>
+                              ))}
+                              {(entry.actions || []).length === 0 && (
+                                <span className="badge badge-warning badge-xs">{t('schedule.no_actions')}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="text-right font-mono text-xs whitespace-nowrap">
+                            {formatFire(state?.next_fire ?? null)}
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs btn-square"
+                                onClick={() => runNow(entry.id)}
+                                disabled={!state || running === entry.id || dirty}
+                                title={dirty ? t('schedule.run_needs_save') : t('schedule.run_now')}
+                              >
+                                {running === entry.id
+                                  ? <FaSpinner className="animate-spin w-3 h-3" />
+                                  : <FaBolt className="w-3 h-3" />}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs btn-square text-error"
+                                onClick={() => {
+                                  setSchedules((current) => current.filter((_, i) => i !== index));
+                                  setOpenIndex(null);
+                                  setDirty(true);
+                                }}
+                                title={t('schedule.remove')}
+                              >
+                                <FaTrash className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {open && (
+                          <tr>
+                            <td colSpan={6} className="bg-base-200/40">
+                              <div className="space-y-3 p-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <input
+                                    type="text"
+                                    className="input input-bordered input-sm"
+                                    placeholder={t('schedule.name')}
+                                    value={entry.name || ''}
+                                    onChange={(e) => update(index, (sc) => ({ ...sc, name: e.target.value }))}
+                                  />
+                                  <input
+                                    type="text"
+                                    className="input input-bordered input-sm w-40 font-mono"
+                                    placeholder="id"
+                                    value={entry.id || ''}
+                                    onChange={(e) => update(index, (sc) => ({ ...sc, id: e.target.value }))}
+                                  />
+                                </div>
+                    {state?.last_error && (
+                      <NoticeCallout variant="error" message={`${t('schedule.last_error')}: ${state.last_error}`} />
+                    )}
+
+                    {renderTrigger(entry, index)}
+
+                    {/* The schedule's own conditions gate the whole firing. Each
+                        action may still carry its own, edited below. */}
+                    <ActionConditions
+                      action={entry}
+                      onUpdate={(field, value) =>
+                        update(index, (s) => applyActionUpdate(s, field, value))
+                      }
+                      t={t}
+                      allOutputs={entities.allOutputs}
+                      allCovers={entities.allCovers}
+                      allBinarySensors={entities.allBinarySensors}
+                      allRemoteInputs={entities.allRemoteInputs}
+                      allAreas={entities.allAreas}
                     />
-                    <input
-                      type="text"
-                      className="input input-bordered input-sm"
-                      placeholder={t('schedule.name')}
-                      value={entry.name || ''}
-                      onChange={(e) => update(index, (s) => ({ ...s, name: e.target.value }))}
-                    />
-                    <input
-                      type="text"
-                      className="input input-bordered input-sm w-40 font-mono"
-                      placeholder="id"
-                      value={entry.id || ''}
-                      onChange={(e) => update(index, (s) => ({ ...s, id: e.target.value }))}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs opacity-70">
-                      {t('schedule.next_fire')}:{' '}
-                      <span className="font-mono">{formatFire(state?.next_fire ?? null)}</span>
-                    </span>
+
+                    <div className="divider text-xs opacity-70 my-1">{t('schedule.actions')}</div>
+                    {(entry.actions || []).map((action: ActionEntry, actionIndex: number) => (
+                      <ActionFields
+                        key={actionIndex}
+                        action={action}
+                        index={actionIndex}
+                        onUpdate={(field, value) =>
+                          update(index, (s) => ({
+                            ...s,
+                            actions: (s.actions || []).map((a: ActionEntry, i: number) =>
+                              i === actionIndex ? applyActionUpdate(a, field, value) : a,
+                            ),
+                          }))
+                        }
+                        onRemove={() =>
+                          update(index, (s) => ({
+                            ...s,
+                            actions: (s.actions || []).filter((_: ActionEntry, i: number) => i !== actionIndex),
+                          }))
+                        }
+                        actionTypeOptions={ACTION_TYPE_OPTIONS}
+                        actionOutputOptions={ACTION_OUTPUT_OPTIONS}
+                        actionCoverOptions={ACTION_COVER_OPTIONS}
+                        {...entities}
+                      />
+                    ))}
                     <button
                       type="button"
                       className="btn btn-ghost btn-xs gap-1"
-                      onClick={() => runNow(entry.id)}
-                      disabled={!state || running === entry.id || dirty}
-                      title={dirty ? t('schedule.run_needs_save') : t('schedule.run_now')}
+                      onClick={() =>
+                        update(index, (s) => ({
+                          ...s,
+                          actions: [...(s.actions || []), { action: 'output', action_output: 'TOGGLE' }],
+                        }))
+                      }
                     >
-                      {running === entry.id ? <FaSpinner className="animate-spin w-3 h-3" /> : <FaBolt className="w-3 h-3" />}
-                      {t('schedule.run_now')}
+                      <FaPlus className="w-2.5 h-2.5" />
+                      {t('schedule.add_action')}
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-xs btn-square text-error"
-                      onClick={() => {
-                        setSchedules((current) => current.filter((_, i) => i !== index));
-                        setDirty(true);
-                      }}
-                      title={t('schedule.remove')}
-                    >
-                      <FaTrash className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                {state?.last_error && (
-                  <NoticeCallout variant="error" message={`${t('schedule.last_error')}: ${state.last_error}`} />
-                )}
-
-                {renderTrigger(entry, index)}
-
-                {/* The schedule's own conditions gate the whole firing. Each
-                    action may still carry its own, edited below. */}
-                <ActionConditions
-                  action={entry}
-                  onUpdate={(field, value) =>
-                    update(index, (s) => applyActionUpdate(s, field, value))
-                  }
-                  t={t}
-                  allOutputs={entities.allOutputs}
-                  allCovers={entities.allCovers}
-                  allBinarySensors={entities.allBinarySensors}
-                  allRemoteInputs={entities.allRemoteInputs}
-                  allAreas={entities.allAreas}
-                />
-
-                <div className="divider text-xs opacity-70 my-1">{t('schedule.actions')}</div>
-                {(entry.actions || []).map((action: ActionEntry, actionIndex: number) => (
-                  <ActionFields
-                    key={actionIndex}
-                    action={action}
-                    index={actionIndex}
-                    onUpdate={(field, value) =>
-                      update(index, (s) => ({
-                        ...s,
-                        actions: (s.actions || []).map((a: ActionEntry, i: number) =>
-                          i === actionIndex ? applyActionUpdate(a, field, value) : a,
-                        ),
-                      }))
-                    }
-                    onRemove={() =>
-                      update(index, (s) => ({
-                        ...s,
-                        actions: (s.actions || []).filter((_: ActionEntry, i: number) => i !== actionIndex),
-                      }))
-                    }
-                    actionTypeOptions={ACTION_TYPE_OPTIONS}
-                    actionOutputOptions={ACTION_OUTPUT_OPTIONS}
-                    actionCoverOptions={ACTION_COVER_OPTIONS}
-                    {...entities}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs gap-1"
-                  onClick={() =>
-                    update(index, (s) => ({
-                      ...s,
-                      actions: [...(s.actions || []), { action: 'output', action_output: 'TOGGLE' }],
-                    }))
-                  }
-                >
-                  <FaPlus className="w-2.5 h-2.5" />
-                  {t('schedule.add_action')}
-                </button>
-              </div>
-            );
-          })}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {result && (
             <NoticeCallout

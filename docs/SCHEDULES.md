@@ -148,6 +148,12 @@ Its own page rather than a generated form, for one reason: without "next firing"
 and "Run now" next to the fields, the only way to find out whether a schedule
 works is to wait until evening.
 
+A table, one row per schedule — name, what triggers it in words ("Sunset −15 min
+· Every day"), the action types, the next firing — and a row expands in place to
+the full editor, one at a time. Stacking every trigger, condition and action
+editor down the page showed nothing at a glance and scrolled forever once there
+were three of them.
+
 The action editor is the same `ActionFields` component the input forms use, and
 the condition editor the same `ActionConditions`, so a schedule's actions
 support exactly what a button's do.

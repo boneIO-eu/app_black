@@ -2909,6 +2909,11 @@
     "ran": "Harmonogram odpalony.",
     "run_failed": "Nie udało się odpalić harmonogramu.",
     "needs_location": "Wyzwalacze słoneczne są niedostępne, dopóki nie ustawisz współrzędnych w Ustawienia → Urządzenie → Lokalizacja. Wyzwalacz zegarowy działa bez nich.",
-    "needs_location_short": "wymaga lokalizacji"
+    "needs_location_short": "wymaga lokalizacji",
+    "column_name": "Nazwa",
+    "column_trigger": "Wyzwalacz",
+    "column_actions": "Akcje",
+    "column_next": "Następne",
+    "no_actions": "brak akcji"
   }
 }
