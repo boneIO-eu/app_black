@@ -45,13 +45,15 @@ from pathlib import Path
 
 LOG_FILE = "/var/log/boneio-system.log"
 
-#: The CAN interfaces this board has. A name from the caller would otherwise
-#: reach `ip link set`, where it is not just a device but a namespace and a
-#: rename away from something else.
-CAN_INTERFACES = ("can0", "can1")
-#: Bitrates the CAN transceiver supports. A free integer would be harmless to
-#: the kernel but pointless to allow: the UI offers exactly these.
-CAN_BITRATES = (10_000, 20_000, 50_000, 100_000, 125_000, 250_000, 500_000, 800_000,
+#: The CAN interfaces this board has, plus the virtual one the schema allows for
+#: testing. A name from the caller would otherwise reach `ip link set`, where it
+#: is not just a device but a namespace and a rename away from something else.
+CAN_INTERFACES = ("can0", "can1", "vcan0")
+#: Bitrates the schema accepts, and only those. Kept identical to the `allowed`
+#: list under `can.bitrate` in boneio/schema/schema.yaml: a helper that takes
+#: more than the schema does is a wider grant than anything can ask for, and one
+#: that takes fewer silently breaks a configuration the schema called valid.
+CAN_BITRATES = (10_000, 20_000, 50_000, 100_000, 125_000, 250_000, 500_000,
                 1_000_000)
 
 #: Device-tree overlays shipped for this board. The application already kept

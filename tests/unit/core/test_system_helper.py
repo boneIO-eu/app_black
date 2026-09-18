@@ -393,3 +393,29 @@ def test_reading_back_with_no_drop_in_reports_the_defaults(helper, dropin, capsy
     payload = json.loads(capsys.readouterr().out)
     assert payload["servers"] == []
     assert payload["dropin"] is False
+
+
+def test_the_helper_accepts_exactly_the_bitrates_the_schema_allows():
+    """A helper wider than the schema grants more than anything can ask for;
+    a narrower one breaks a configuration the schema called valid.
+
+    It shipped with 800000, which the schema does not list, and without vcan0,
+    which it does.
+    """
+    import re
+
+    schema = (REPO_ROOT / "boneio" / "schema" / "schema.yaml").read_text(encoding="utf-8")
+    # Anchored on the can: block rather than on indentation, which moves.
+    can_block = schema[schema.index("\ncan:"):]
+    allowed = re.search(r"bitrate:.*?allowed:\s*\[([^\]]*)\]", can_block, re.S)
+    assert allowed, "can.bitrate no longer declares an allowed list"
+    from_schema = tuple(int(v) for v in allowed.group(1).replace(" ", "").split(","))
+
+    helper_mod = SourceFileLoader("boneio_system_bitrates", str(HELPER)).load_module()
+    assert tuple(sorted(helper_mod.CAN_BITRATES)) == tuple(sorted(from_schema))
+
+
+def test_the_virtual_interface_the_schema_mentions_is_accepted(helper, ran):
+    """The schema offers vcan0 for testing; refusing it would break that."""
+    assert helper.main(["can-up", "vcan0", "125000"]) == 0
+    assert ran[0] == ["ip", "link", "set", "vcan0", "down"]
