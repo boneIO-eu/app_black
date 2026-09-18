@@ -142,6 +142,11 @@ def can_down(interface: str, timeout: int = 30) -> Result:
     return run("can-down", interface, timeout=timeout)
 
 
+def can_restart(interface: str, timeout: int = 30) -> Result:
+    """Bring a CAN controller out of bus-off, keeping its bitrate."""
+    return run("can-restart", interface, timeout=timeout)
+
+
 def overlay_get(timeout: int = 30) -> Result:
     """Read the device-tree overlay configured in uEnv.txt."""
     return run("overlay-get", timeout=timeout)

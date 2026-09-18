@@ -1,7 +1,10 @@
 """CAN interface management for boneIO.
 
 Provides functions to setup, restart, and check CAN network interfaces.
-Uses 'sudo ip link' commands - requires sudoers NOPASSWD configuration:
+Interface setup goes through ``boneio-system`` when it is installed: that helper
+takes an interface from a fixed list and a bitrate the schema allows, rather
+than whatever arguments the caller assembles. Until the migration that installs
+it has run, the direct route below is used, which needs the wider rule:
 
     boneio ALL=(ALL) NOPASSWD: /sbin/ip link set can0 *
     boneio ALL=(ALL) NOPASSWD: /sbin/ip link set can1 *
@@ -85,6 +88,24 @@ def interface_exists(channel: str) -> bool:
     return os.path.exists(f"/sys/class/net/{channel}")
 
 
+async def _helper_or_none(verb: str, *arguments: str) -> tuple[bool, str] | None:
+    """Try the privileged helper.
+
+    Args:
+        verb: The helper verb.
+        *arguments: Its arguments.
+
+    Returns:
+        The outcome, or None when the helper is not installed.
+    """
+    from boneio.core import system_ops
+
+    if not await asyncio.to_thread(system_ops.helper_available):
+        return None
+    result = await asyncio.to_thread(system_ops.run, verb, *arguments)
+    return result.ok, (result.stderr or result.stdout).strip()
+
+
 async def setup_can_interface(channel: str, bitrate: int) -> bool:
     """Setup CAN interface with given bitrate.
 
@@ -101,6 +122,17 @@ async def setup_can_interface(channel: str, bitrate: int) -> bool:
     if not interface_exists(channel):
         _LOGGER.error("CAN interface %s does not exist", channel)
         return False
+
+    # One verb does the whole sequence when the helper is installed: it is the
+    # same three steps, decided there rather than assembled here.
+    via_helper = await _helper_or_none("can-up", channel, str(bitrate))
+    if via_helper is not None:
+        ok, err = via_helper
+        if not ok:
+            _LOGGER.error("Failed to bring up %s: %s", channel, err)
+            return False
+        _LOGGER.info("CAN interface %s is up with bitrate %d", channel, bitrate)
+        return True
 
     # Bring down first (ignore errors - might already be down)
     if await is_interface_up(channel):
@@ -140,6 +172,23 @@ async def restart_can_interface(channel: str, bitrate: int) -> bool:
         True if interface was successfully restarted.
     """
     _LOGGER.warning("Restarting CAN interface %s", channel)
+
+    # The kernel has a primitive for exactly this: a controller that has counted
+    # too many errors stops transmitting until it is restarted, and `type can
+    # restart` clears that without touching the configured bitrate. The full
+    # down/bitrate/up cycle below does the same thing the long way, and is what
+    # a controller without the helper still has.
+    via_helper = await _helper_or_none("can-restart", channel)
+    if via_helper is not None:
+        ok, err = via_helper
+        if ok:
+            _LOGGER.info("CAN interface %s restarted out of bus-off", channel)
+            return True
+        _LOGGER.warning(
+            "Restarting %s out of bus-off failed (%s); falling back to a full cycle",
+            channel, err,
+        )
+
     return await setup_can_interface(channel, bitrate)
 
 

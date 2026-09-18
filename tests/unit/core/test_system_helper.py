@@ -419,3 +419,34 @@ def test_the_virtual_interface_the_schema_mentions_is_accepted(helper, ran):
     """The schema offers vcan0 for testing; refusing it would break that."""
     assert helper.main(["can-up", "vcan0", "125000"]) == 0
     assert ran[0] == ["ip", "link", "set", "vcan0", "down"]
+
+
+# --------------------------------------------------------- bus-off recovery
+
+
+def test_a_controller_can_be_restarted_out_of_bus_off(helper, ran):
+    """A CAN controller that has counted too many errors stops transmitting.
+
+    The kernel's primitive for that is `type can restart`, which clears the
+    state without touching the configured bitrate — so a recovery does not have
+    to know what the bus is running at.
+    """
+    assert helper.main(["can-restart", "can0"]) == 0
+    assert ran == [["ip", "link", "set", "can0", "type", "can", "restart"]]
+
+
+@pytest.mark.parametrize("interface", ["can2", "eth0", "", "can0;id", "../can0"])
+def test_a_restart_is_refused_for_anything_but_a_can_interface(helper, ran, interface):
+    assert helper.main(["can-restart", interface]) == 1
+    assert ran == []
+
+
+def test_recovery_needs_no_wider_grant_than_setup(helper):
+    """Both verbs touch the same three interfaces and nothing else.
+
+    This is what lets the `ip link set can0 *` rule go: the operations CAN
+    actually needs — bring up, take down, restart out of bus-off — are all
+    named, so nothing is left that requires an open argument list.
+    """
+    assert "can-restart" in helper.VERBS
+    assert set(helper.CAN_INTERFACES) == {"can0", "can1", "vcan0"}

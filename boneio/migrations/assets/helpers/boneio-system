@@ -10,8 +10,9 @@ application and run as root on /boot/uEnv.txt.
 
 This replaces both with named operations:
 
-    can-up <can0|can1> <bitrate>   down, set bitrate, up
-    can-down <can0|can1>
+    can-up <iface> <bitrate>       down, set bitrate, up
+    can-down <iface>
+    can-restart <iface>            recover from bus-off without a full cycle
     overlay-get                    read the device-tree overlay from uEnv.txt
     overlay-set <basename>         change it, from a fixed list of overlays
     hostname-set <name>
@@ -106,7 +107,8 @@ _NTP_HOSTNAME_RE = re.compile(
 )
 
 VERBS = (
-    "can-up", "can-down", "overlay-get", "overlay-set", "hostname-set",
+    "can-up", "can-down", "can-restart", "overlay-get", "overlay-set",
+    "hostname-set",
     "ntp-get", "ntp-set",
 )
 
@@ -232,6 +234,26 @@ def _can_up(interface: str | None, bitrate: str | None) -> int:
     if status != 0:
         return status
     return _run(["ip", "link", "set", interface, "up"])
+
+
+def _can_restart(interface: str | None) -> int:
+    """Bring a CAN controller out of bus-off.
+
+    A controller that has counted too many errors stops transmitting until it is
+    restarted. The bring-up cycle does that too — down clears the state and up
+    starts a fresh controller — but this is the primitive the kernel offers for
+    exactly that job, and it keeps the configured bitrate, so a recovery does not
+    have to know what the bus is running at.
+
+    Args:
+        interface: ``can0``, ``can1`` or ``vcan0``.
+
+    Returns:
+        Process exit status.
+    """
+    return _run(
+        ["ip", "link", "set", _check_interface(interface), "type", "can", "restart"]
+    )
 
 
 def _can_down(interface: str | None) -> int:
@@ -594,6 +616,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.verb == "can-up":
             return _can_up(args.argument, args.value)
+        if args.verb == "can-restart":
+            return _can_restart(args.argument)
         if args.verb == "can-down":
             return _can_down(args.argument)
         if args.verb == "overlay-get":
