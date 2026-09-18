@@ -464,6 +464,12 @@ export default function OnboardingWizard() {
                     showPassword ? t('onboarding.hide_password') : t('onboarding.show_password')
                   }
                   aria-pressed={showPassword}
+                  // Out of the tab order on purpose: Tab goes from the password
+                  // straight to its confirmation, which is what somebody typing
+                  // a password they just invented is about to do. The button is
+                  // still clickable and still announced, since aria-label and
+                  // aria-pressed do not depend on tab order.
+                  tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <FaEyeSlash className="w-4 h-4" /> : <FaEye className="w-4 h-4" />}
