@@ -1035,7 +1035,7 @@
     "auth": "Authentication (optional)",
     "accounts_moved": "Panel sign-in is no longer configured here. From 1.6 accounts have hashed passwords and roles — manage them under",
     "builtin_proxy_title": "HTTPS is already being served",
-    "builtin_proxy": "This device runs its own reverse proxy, which serves the panel over HTTPS on port 8443. Home Assistant is linked to the panel's own port over plain HTTP unless the panel is reachable only through the proxy, when 8443 is used because nothing else would answer.",
+    "builtin_proxy": "This device runs its own reverse proxy, which serves the panel over HTTPS on port 8443. The Security section shows the address Home Assistant is given and the one worth handing to people.",
     "expose_proxy": "Only reachable through the proxy",
     "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers only on the loopback and the Docker bridge — reachable over HTTPS, or through an SSH tunnel. Saving this is refused if the proxy is not already serving the panel, so the device cannot end up unreachable. Takes effect after a restart."
   },
@@ -2792,7 +2792,8 @@
       "use_this": "Open the panel at",
       "use_this_why": "A name, not an address: the next DHCP lease changes the address, and a certificate naming one goes stale with it.",
       "on_lan": "The panel also answers in the clear on the local network. The Security checks above offer to stop that.",
-      "proxy_only": "The panel answers only through this proxy, not in the clear on the local network."
+      "proxy_only": "The panel answers only through this proxy, not in the clear on the local network.",
+      "home_assistant_url": "Home Assistant links to: {{url}}"
     }
   },
   "login": {

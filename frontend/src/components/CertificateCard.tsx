@@ -19,6 +19,8 @@ interface CertificateState {
   reached_by: string[];
   /** The address to hand people: a name, which survives a new DHCP lease. */
   preferred_url: string;
+  /** What Home Assistant shows on this device's page. */
+  home_assistant_url: string;
   /** Whether the panel's own port still answers on the local network. */
   exposed_on_lan: boolean;
   root_ca_available: boolean;
@@ -42,6 +44,8 @@ function normalize(raw: unknown): CertificateState | null {
     certificate: normalizeDetails(data.certificate),
     reached_by: Array.isArray(data.reached_by) ? data.reached_by : [],
     preferred_url: typeof data.preferred_url === 'string' ? data.preferred_url : '',
+    home_assistant_url:
+      typeof data.home_assistant_url === 'string' ? data.home_assistant_url : '',
     exposed_on_lan: data.exposed_on_lan !== false,
     root_ca_available: Boolean(data.root_ca_available),
   };
@@ -205,6 +209,12 @@ export default function CertificateCard() {
       <p className="text-xs text-base-content/60 mt-2">
         {t('security.cert.reached_by', { names: state.reached_by.join(', ') })}
       </p>
+
+      {state.home_assistant_url && (
+        <p className="text-xs text-base-content/60 mt-1">
+          {t('security.cert.home_assistant_url', { url: state.home_assistant_url })}
+        </p>
+      )}
 
       <p className="text-xs mt-1">
         <span className={state.exposed_on_lan ? 'text-warning' : 'text-success'}>

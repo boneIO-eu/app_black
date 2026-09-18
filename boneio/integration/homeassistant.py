@@ -82,11 +82,9 @@ def ha_availabilty_message(
     topic = config_helper.topic_prefix if topic is None else topic
     device_name = config_helper.name if device_name is None else device_name
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
-    if config_helper.cloud_registration and config_helper.serial_number:
-        # PWA-registered device: use the public PWA domain with TLS
-        web_url = f"https://{config_helper.serial_number}.black.boneio.app:8443"
-    elif config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
-        web_url = f"{config_helper.http_proto}://{config_helper.network_info[IP]}:{config_helper.web_configuration_port}"
+    # Decided in one place, which the panel reads too. Built here, the panel's
+    # description of it drifted out of date within a day.
+    web_url = config_helper.configuration_url or web_url
     
     web_url_dict = {
         "configuration_url": web_url

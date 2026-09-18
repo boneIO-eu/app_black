@@ -74,3 +74,58 @@ def test_a_configured_proxy_port_is_still_honoured_though_the_panel_hides_it():
     schema = Path(__file__).resolve().parents[3] / "boneio" / "schema" / "schema.yaml"
     text = schema.read_text(encoding="utf-8")
     assert "proxy_port:" in text, "dropping it from the schema deletes it from configs"
+
+
+# ------------------------------------------------- one address, one decision
+
+
+def _addressable(**kwargs):
+    return ConfigHelper(
+        name="x",
+        version="1",
+        web_port=8090,
+        is_web_active=True,
+        network_info={"ip": "192.168.50.220"},
+        **kwargs,
+    )
+
+
+def test_the_url_follows_every_setting_that_changes_it():
+    assert _addressable().configuration_url == "http://192.168.50.220:8090"
+    assert (
+        _addressable(proxy_port=8443).configuration_url
+        == "https://192.168.50.220:8443"
+    )
+    assert (
+        _addressable(expose="proxy").configuration_url == "https://192.168.50.220:8443"
+    )
+
+
+def test_cloud_registration_wins():
+    """It is the only address with a certificate a browser accepts, so nothing
+    local beats it — and the panel used to claim otherwise."""
+    helper = _addressable(cloud_registration=True, proxy_port=8443)
+    assert helper.configuration_url.startswith("https://")
+    assert ".black.boneio.app:8443" in helper.configuration_url
+
+
+def test_no_address_means_no_url():
+    """A device with no network information has nothing truthful to publish."""
+    helper = ConfigHelper(name="x", version="1", web_port=8090, is_web_active=True)
+    assert helper.configuration_url is None
+
+
+def test_discovery_publishes_exactly_this():
+    """The panel described the rule instead of asking, and was wrong about a
+    device with cloud registration on within a day of being written. Both read
+    the same property now — this keeps them that way."""
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[3]
+        / "boneio" / "integration" / "homeassistant.py"
+    ).read_text(encoding="utf-8")
+    assert "config_helper.configuration_url" in source
+    assert "black.boneio.app" not in source, (
+        "discovery is building the address again instead of reading it"
+    )

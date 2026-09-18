@@ -16,6 +16,7 @@ from boneio.const import (
     BINARY_SENSOR,
     BONEIO,
     DEFAULT_PROXY_PORT,
+    IP,
     BUTTON,
     CLIMATE,
     COVER,
@@ -197,6 +198,28 @@ class ConfigHelper:
         port has been taken off the network and the proxy is the only way in.
         """
         return bool(self._proxy_port) or self._expose == "proxy"
+
+    @property
+    def configuration_url(self) -> str | None:
+        """The address anything linking to this panel should use.
+
+        Home Assistant puts this on the device page, and the panel shows it so
+        an operator can see what was published without opening Home Assistant.
+        Both read it here rather than each deciding for itself: the wording in
+        the panel drifted away from what discovery actually sends within a day
+        of being written, because it described the rule instead of asking.
+
+        Returns:
+            The URL, or None when there is no address to build one from.
+        """
+        if self._cloud_registration and self.serial_number:
+            # Registered with the cloud: a real certificate on a public name,
+            # pointing at the local address. Nothing else can beat that.
+            return f"https://{self.serial_number}.black.boneio.app:{DEFAULT_PROXY_PORT}"
+        address = (self._network_info or {}).get(IP)
+        if not (self._is_web_active and address):
+            return None
+        return f"{self.http_proto}://{address}:{self.web_configuration_port}"
 
     @property
     def web_configuration_port(self) -> int:

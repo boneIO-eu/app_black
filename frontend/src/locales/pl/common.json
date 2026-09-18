@@ -1035,7 +1035,7 @@
     "auth": "Uwierzytelnianie (opcjonalnie)",
     "accounts_moved": "Logowanie do panelu nie jest już konfigurowane tutaj. Od wersji 1.6 konta mają hasła zapisane jako hash i role — zarządzasz nimi w zakładce",
     "builtin_proxy_title": "HTTPS już działa",
-    "builtin_proxy": "To urządzenie ma własne reverse proxy, które serwuje panel po HTTPS na porcie 8443. Home Assistant dostaje odnośnik do portu samego panelu po zwykłym HTTP — chyba że panel jest osiągalny wyłącznie przez proxy, wtedy użyty zostanie 8443, bo nic innego by nie odpowiedziało.",
+    "builtin_proxy": "To urządzenie ma własne reverse proxy, które serwuje panel po HTTPS na porcie 8443. W sekcji Bezpieczeństwo zobaczysz adres przekazany Home Assistantowi oraz ten, który warto podawać ludziom.",
     "expose_proxy": "Osiągalny tylko przez proxy",
     "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada wyłącznie na loopbacku i na mostku Dockera, czyli przez HTTPS albo przez tunel SSH. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
   },
@@ -2791,7 +2791,8 @@
       "use_this": "Otwieraj panel pod",
       "use_this_why": "Nazwa, nie adres: przy następnej dzierżawie DHCP adres się zmieni, a certyfikat, który go wymienia, zwietrzeje razem z nim.",
       "on_lan": "Panel odpowiada też czystym tekstem w sieci lokalnej. Kontrole bezpieczeństwa powyżej proponują to wyłączyć.",
-      "proxy_only": "Panel odpowiada wyłącznie przez to proxy, nie czystym tekstem w sieci lokalnej."
+      "proxy_only": "Panel odpowiada wyłącznie przez to proxy, nie czystym tekstem w sieci lokalnej.",
+      "home_assistant_url": "Home Assistant kieruje na: {{url}}"
     }
   },
   "login": {

@@ -487,12 +487,35 @@ def get_certificate():
         "certificate": info.to_dict() if info else None,
         "reached_by": _reached_by(),
         "preferred_url": _preferred_url(web),
+        # What Home Assistant was actually given, asked rather than described.
+        "home_assistant_url": _home_assistant_url(),
         # Answers "is this device still answering in the clear on the LAN"
         # where somebody is already looking at how it is served, rather than
         # only as a finding that disappears once it is dealt with.
         "exposed_on_lan": web.get("expose") != "proxy",
         "root_ca_available": certs.ROOT_CA.exists(),
     }
+
+
+def _home_assistant_url() -> str:
+    """The address Home Assistant shows for this device.
+
+    Read from the live ConfigHelper rather than worked out here: cloud
+    registration, a configured proxy port and the exposure setting each change
+    it, and a second implementation of those rules is a second thing to be
+    wrong.
+
+    Returns:
+        The URL, or an empty string when there is none to give.
+    """
+    helper = getattr(_app_state, "config_helper", None)
+    if helper is None:
+        return ""
+    try:
+        return helper.configuration_url or ""
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.debug("Could not read the configuration URL: %s", err)
+        return ""
 
 
 def _preferred_url(web: dict) -> str:
