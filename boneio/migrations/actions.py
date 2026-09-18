@@ -482,3 +482,30 @@ class SetFilePermissions(MigrationAction):
             "owner": self.owner,
             "group": self.group,
         }
+
+
+@dataclass
+class RemoveFromGroup(MigrationAction):
+    """Take an account out of a supplementary group.
+
+    The helper does not accept an arbitrary pair: it carries its own list of
+    the memberships it may take away, and refuses anything else. A plan is
+    signed on a build machine and runs on a device whose accounts it cannot
+    see, so "remove account A from group B" is a shape that has to be narrow at
+    the privileged end, not at this one.
+
+    Args:
+        account: The account to remove.
+        group: The supplementary group to remove it from.
+    """
+
+    account: str
+    group: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "action": "remove_from_group",
+            "account": self.account,
+            "group": self.group,
+        }

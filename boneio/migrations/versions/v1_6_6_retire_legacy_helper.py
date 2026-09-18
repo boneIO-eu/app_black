@@ -15,10 +15,12 @@ far better than a controller in a cabinet whose migration channel died quietly.
 
 What remains after this:
 
-  * The ``docker`` group, which is root-equivalent, and the ``admin`` group,
-    which carries a password-gated ``(ALL:ALL) ALL`` from the stock BeagleBone
-    image. Those come last (1.6.7), after the operations that need them have
-    moved to ``boneio-containers``.
+  * The ``docker`` group, which is root-equivalent. That comes last (1.6.11),
+    after the operations that need it have moved to ``boneio-containers``.
+  * The ``admin`` group, which carries a password-gated ``(ALL:ALL) ALL`` from
+    the stock BeagleBone image. That one stays: it is the operator's own way to
+    a root shell on a controller in a cabinet, and it is behind a password an
+    attacker would already have to hold.
   * A device compromised *before* this update. An attacker with root already
     can replace both anchors locally, and no in-place update can bootstrap
     trust on a machine that is already owned.

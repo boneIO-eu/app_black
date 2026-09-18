@@ -62,13 +62,23 @@ being able to write it is being able to run a container as root with the host
 filesystem mounted — routing the commands through a helper would have achieved
 nothing on its own.
 
+**The `boneio` account is out of the `docker` group.** That group is root
+without a password and without a sudo rule — the daemon starts containers as
+root, so anyone who can reach its socket can ask for one with the host
+filesystem mounted. It was a way around every helper in this series. Container
+management goes through `boneio-containers` now, so nothing boneIO does still
+needs it. The helper checks for itself that the replacement is installed and
+root-owned before it removes anything, and a device whose migration helper
+never arrived defers the step instead of failing it. Fresh images no longer
+grant the group at all.
+
 ## What is deliberately not done yet
 
-- The `boneio` account is still in the `docker` group, and still has
-  `(ALL : ALL) ALL` through the `admin` group inherited from the stock
-  BeagleBone image. Removing those is the last step and comes after this build
-  has been verified on hardware — it is also the step that takes away the
-  operator's own way back in over SSH.
+- The `boneio` account still has `(ALL : ALL) ALL` through the `admin` group
+  inherited from the stock BeagleBone image. That one is staying: it is behind
+  the account password, and it is the operator's own way to a root shell on a
+  controller in a cabinet. Taking it away would mean a device whose only repair
+  is a serial console or the SD card.
 - `mosquitto_passwd` still receives a new password as a command-line argument,
   where `ps` can see it.
 - Fresh images do not yet ship the helpers preinstalled, so an upgraded device

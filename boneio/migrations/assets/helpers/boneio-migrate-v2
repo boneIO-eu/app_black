@@ -130,6 +130,7 @@ ALLOWED_ACTIONS = {
     "disable_apparmor_profiles",
     "prune_orphaned_journal_dirs",
     "set_file_permissions",
+    "remove_from_group",
 }
 
 #: The closed set of validators. v1 took a command string and ran it, so the
@@ -143,6 +144,21 @@ VALIDATORS: dict[str, list[str]] = {
 }
 
 #: Actions a recovery-signed plan may carry, and the only paths they may touch.
+#: Group memberships this helper may take away, as (account, group). Not a
+#: general "remove any account from any group": a plan is signed on a build
+#: machine weeks before it runs, and cannot see the account layout of the
+#: device it lands on. A general verb would be a way to strip an operator of
+#: their own access, or a service account of something it needs, with a valid
+#: signature on it. These are the memberships boneIO granted itself.
+REMOVABLE_MEMBERSHIPS = {("boneio", "docker")}
+
+#: Membership of ``docker`` is membership of root: the daemon will start a
+#: container as root with the host filesystem mounted for anyone who can reach
+#: its socket. Giving it up is only safe once container management has
+#: somewhere else to go, so the helper checks that the somewhere else is
+#: actually installed and root-owned rather than trusting the plan's ordering.
+CONTAINERS_HELPER = Path("/usr/sbin/boneio-containers")
+
 RECOVERY_ALLOWED_ACTIONS = {"install_file", "remove_file"}
 RECOVERY_ALLOWED_PATHS = {str(RELEASE_ANCHOR), str(RECOVERY_ANCHOR)}
 
@@ -1204,6 +1220,69 @@ def handle_set_file_permissions(action: dict[str, Any], assets_base: str) -> Non
     _LOGGER.info("PERMS: %s -> %s:%s %04o", path, owner, group, mode)
 
 
+def handle_remove_from_group(action: dict[str, Any], assets_base: str) -> None:
+    """Take one account out of one supplementary group.
+
+    Idempotent in every direction that matters: a group that does not exist, an
+    account that does not exist, and an account that is already not a member
+    are all reported and skipped. A controller that has already been through
+    this migration, or one imaged after it, must not fail here.
+
+    Args:
+        action: Action dict with account and group.
+        assets_base: Unused.
+
+    Raises:
+        Refused: If the pair is not in :data:`REMOVABLE_MEMBERSHIPS`, if the
+            replacement for the group's privileges is not installed, or if the
+            group is the account's primary group.
+    """
+    account = str(action.get("account", ""))
+    group = str(action.get("group", ""))
+    if (account, group) not in REMOVABLE_MEMBERSHIPS:
+        raise Refused(
+            f"refusing to remove {account!r} from {group!r}: not a membership "
+            "this helper may take away"
+        )
+
+    if group == "docker" and not _root_owned(CONTAINERS_HELPER):
+        raise Refused(
+            f"refusing to remove {account!r} from 'docker': {CONTAINERS_HELPER} "
+            "is missing or not root-owned, so container management would have "
+            "nowhere to go"
+        )
+
+    try:
+        entry = grp.getgrnam(group)
+    except KeyError:
+        _LOGGER.info("SKIP (no such group): %s", group)
+        return
+
+    try:
+        passwd = pwd.getpwnam(account)
+    except KeyError:
+        _LOGGER.info("SKIP (no such account): %s", account)
+        return
+
+    if passwd.pw_gid == entry.gr_gid:
+        raise Refused(f"{group!r} is the primary group of {account!r}")
+
+    if account not in entry.gr_mem:
+        _LOGGER.info("SKIP (not a member): %s is not in %s", account, group)
+        return
+
+    result = subprocess.run(
+        ["gpasswd", "--delete", account, group],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise Refused(
+            f"could not remove {account!r} from {group!r}: "
+            f"{result.stderr.strip() or 'gpasswd failed'}"
+        )
+    _LOGGER.info("GROUP: removed %s from %s", account, group)
+
+
 ACTION_HANDLERS = {
     "install_file": handle_install_file,
     "remove_file": handle_remove_file,
@@ -1219,6 +1298,7 @@ ACTION_HANDLERS = {
     "disable_apparmor_profiles": handle_disable_apparmor_profiles,
     "prune_orphaned_journal_dirs": handle_prune_orphaned_journal_dirs,
     "set_file_permissions": handle_set_file_permissions,
+    "remove_from_group": handle_remove_from_group,
 }
 
 

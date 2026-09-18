@@ -70,6 +70,14 @@ HARDENING_FIRST = ("1.6.5", "1.6.6")
 #: The one migration that may be applied by the legacy helper *after* v2 works,
 #: because it is what installs v2 and so cannot go through it.
 PIVOT_VERSIONS = frozenset({"1.6.5"})
+
+#: Migrations that use an action the legacy helper does not have, and that
+#: therefore have to wait for v2 rather than be attempted through protocol 1.
+#: Sending one to the old helper would simply be refused, and a refusal stops
+#: the whole queue — so a device whose pivot failed would never apply anything
+#: again. These are deferred instead: skipped, left pending, retried on the
+#: next start. Nothing ordered after one of these may depend on it.
+V2_ONLY_VERSIONS = frozenset({"1.6.11"})
 APPLIED_DIR = Path("/var/lib/boneio/migrations.d")
 ASSETS_DIR = Path(__file__).parent / "assets"
 MANIFEST_PATH = ASSETS_DIR / "MANIFEST.sha256"
@@ -626,6 +634,20 @@ class MigrationRunner:
             _LOGGER.info(msg)
             if progress_callback:
                 progress_callback(pct, msg)
+
+            if (
+                migration.version in V2_ONLY_VERSIONS
+                and not self.helper_v2_available()
+            ):
+                self.hardening_pending = True
+                _LOGGER.warning(
+                    "Deferring %s: it needs boneio-migrate-v2, which is not "
+                    "available on this device. The legacy helper would refuse "
+                    "it and a refusal stops every migration behind it. Retried "
+                    "on the next start.",
+                    migration.version,
+                )
+                continue
 
             ok = self._apply_one(migration)
             if ok and migration.version in PIVOT_VERSIONS:

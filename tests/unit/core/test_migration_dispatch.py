@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +19,7 @@ from boneio.migrations.runner import (
     MigrationInfo,
     MigrationRunner,
     PIVOT_VERSIONS,
+    V2_ONLY_VERSIONS,
 )
 
 
@@ -328,3 +330,80 @@ def test_the_startup_gate_uses_both_helpers(runner, monkeypatch):
     runner.startup_check()
     assert runner.bootstrap_required is False, "a hardened device was asked for a password"
     assert applied == ["1.6.10"]
+
+
+# ------------------------------------------------------- migrations v2 must do
+#
+# Some migrations use an action the legacy helper has never heard of. Sending
+# one to it would be refused, and a refusal stops every migration behind it —
+# so a controller whose pivot failed would stop migrating for good, over a
+# hardening step rather than over anything it needs.
+
+
+def test_a_v2_only_migration_is_deferred_rather_than_refused(runner, monkeypatch):
+    applied = []
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: False)
+    monkeypatch.setattr(runner, "_apply_one", lambda m: applied.append(m.version) or True)
+
+    version = sorted(V2_ONLY_VERSIONS)[0]
+    assert runner._apply_pending([_info(version), _info("1.5.4")]) is True
+    assert version not in applied, "sent a v2-only migration to the legacy helper"
+    assert "1.5.4" in applied, "the deferral blocked the migrations behind it"
+    assert runner.hardening_pending is True
+
+
+def test_a_v2_only_migration_is_applied_once_v2_works(runner, monkeypatch):
+    applied = []
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: True)
+    monkeypatch.setattr(runner, "_apply_one", lambda m: applied.append(m.version) or True)
+
+    version = sorted(V2_ONLY_VERSIONS)[0]
+    assert runner._apply_pending([_info(version)]) is True
+    assert applied == [version]
+
+
+def test_a_deferred_migration_is_not_marked_applied(runner, monkeypatch):
+    """It has to come back on the next start, so nothing may record it."""
+    written = []
+    monkeypatch.setattr(runner, "helper_v2_available", lambda recheck=False: False)
+    monkeypatch.setattr(runner, "_apply_one", lambda m: written.append(m.version) or True)
+
+    version = sorted(V2_ONLY_VERSIONS)[0]
+    runner._apply_pending([_info(version)])
+    assert written == []
+
+
+def test_every_v2_only_version_uses_an_action_legacy_does_not_have(runner):
+    """Guards the list against growing by habit.
+
+    A version listed here that the old helper could in fact apply would be
+    deferred for no reason on exactly the devices least able to afford it.
+    """
+    import importlib
+
+    from boneio.migrations.runner import BOOTSTRAP_HELPER_SRC
+
+    legacy_text = Path(BOOTSTRAP_HELPER_SRC).read_text()
+
+    for version in V2_ONLY_VERSIONS:
+        module = importlib.import_module(_module_name(version))
+        kinds = {a.to_dict()["action"] for a in module.plan()}
+        assert kinds, f"{version} has an empty plan"
+        assert any(f'"{kind}"' not in legacy_text for kind in kinds), (
+            f"{version} is marked v2-only but the legacy helper knows all of "
+            f"{sorted(kinds)}"
+        )
+
+
+def _module_name(version: str) -> str:
+    """Find the versions module for *version* by its VERSION attribute."""
+    import importlib
+    import pkgutil
+
+    from boneio.migrations import versions
+
+    for info in pkgutil.iter_modules(versions.__path__):
+        module = importlib.import_module(f"{versions.__name__}.{info.name}")
+        if getattr(module, "VERSION", None) == version:
+            return f"{versions.__name__}.{info.name}"
+    raise AssertionError(f"no migration module declares VERSION {version!r}")

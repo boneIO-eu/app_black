@@ -681,3 +681,157 @@ def test_a_chosen_wheel_without_a_pinned_digest_is_refused(helper, monkeypatch):
     }
     with pytest.raises(helper.Refused, match="no digest"):
         helper._select_wheel(action, "/x/python3", "boneio")
+
+
+# --------------------------------------------------------------- group removal
+#
+# Membership of ``docker`` is root without a password, so taking it away is the
+# last step of the hardening. The verb that does it is the one action in the
+# vocabulary that changes an account rather than a file, which is why these
+# tests are mostly about the pairs it will *not* touch.
+
+
+class _FakeGroup:
+    def __init__(self, gid, members):
+        self.gr_gid = gid
+        self.gr_mem = members
+
+
+class _FakePasswd:
+    def __init__(self, gid):
+        self.pw_gid = gid
+
+
+@pytest.fixture
+def groups(helper, monkeypatch, tmp_path):
+    """A device where boneio is in docker and the replacement is installed."""
+    containers = tmp_path / "boneio-containers"
+    containers.write_text("#!/usr/bin/env python3\n")
+    os.chmod(containers, 0o755)
+    monkeypatch.setattr(helper, "CONTAINERS_HELPER", containers)
+    monkeypatch.setattr(helper, "_root_owned", lambda path: path == containers)
+
+    state = {"groups": {"docker": _FakeGroup(999, ["boneio"])},
+             "users": {"boneio": _FakePasswd(1000)},
+             "calls": []}
+
+    def getgrnam(name):
+        try:
+            return state["groups"][name]
+        except KeyError:
+            raise KeyError(name)
+
+    def getpwnam(name):
+        try:
+            return state["users"][name]
+        except KeyError:
+            raise KeyError(name)
+
+    def run(argv, **kwargs):
+        state["calls"].append(argv)
+        return subprocess.CompletedProcess(argv, state.get("rc", 0), "", "")
+
+    monkeypatch.setattr(helper.grp, "getgrnam", getgrnam)
+    monkeypatch.setattr(helper.pwd, "getpwnam", getpwnam)
+    monkeypatch.setattr(helper.subprocess, "run", run)
+    return state
+
+
+def _remove(helper, account="boneio", group="docker"):
+    helper.handle_remove_from_group(
+        {"action": "remove_from_group", "account": account, "group": group}, ""
+    )
+
+
+def test_the_docker_group_is_removed_with_gpasswd(helper, groups):
+    _remove(helper)
+    assert groups["calls"] == [["gpasswd", "--delete", "boneio", "docker"]]
+
+
+@pytest.mark.parametrize(
+    "account,group",
+    [
+        ("boneio", "admin"),   # the operator's own way back in, kept on purpose
+        ("boneio", "sudo"),
+        ("boneio", "boneio"),
+        ("root", "docker"),
+        ("mosquitto", "docker"),
+        ("", ""),
+    ],
+)
+def test_only_the_listed_membership_may_be_taken_away(helper, groups, account, group):
+    with pytest.raises(helper.Refused):
+        _remove(helper, account, group)
+    assert groups["calls"] == []
+
+
+def test_the_vocabulary_is_a_closed_list_of_pairs(helper):
+    assert helper.REMOVABLE_MEMBERSHIPS == {("boneio", "docker")}
+
+
+def test_docker_is_not_removed_without_the_replacement(helper, groups, monkeypatch):
+    """The plan cannot assert that boneio-containers is there; the device can.
+
+    Removing the group on a controller whose container helper never arrived
+    would leave Node-RED unmanageable with no way to put it back that does not
+    need somebody physically present.
+    """
+    monkeypatch.setattr(helper, "_root_owned", lambda path: False)
+    with pytest.raises(helper.Refused):
+        _remove(helper)
+    assert groups["calls"] == []
+
+
+def test_a_group_that_does_not_exist_is_not_an_error(helper, groups):
+    """A device imaged after this change never had the group."""
+    del groups["groups"]["docker"]
+    _remove(helper)
+    assert groups["calls"] == []
+
+
+def test_an_account_that_does_not_exist_is_not_an_error(helper, groups):
+    del groups["users"]["boneio"]
+    _remove(helper)
+    assert groups["calls"] == []
+
+
+def test_an_account_already_out_of_the_group_is_not_an_error(helper, groups):
+    """Re-running the migration on a device that has had it must not fail."""
+    groups["groups"]["docker"] = _FakeGroup(999, [])
+    _remove(helper)
+    assert groups["calls"] == []
+
+
+def test_a_primary_group_is_refused(helper, groups):
+    """gpasswd would refuse too, but not before the account is left groupless
+    on a system where it is the only thing holding the home directory."""
+    groups["users"]["boneio"] = _FakePasswd(999)
+    with pytest.raises(helper.Refused):
+        _remove(helper)
+    assert groups["calls"] == []
+
+
+def test_a_failing_gpasswd_is_reported_not_swallowed(helper, groups):
+    groups["rc"] = 1
+    with pytest.raises(helper.Refused):
+        _remove(helper)
+
+
+def test_group_removal_is_not_available_to_the_recovery_key(helper):
+    """The offline anchor exists to re-pin a signing key and nothing else."""
+    assert "remove_from_group" in helper.ALLOWED_ACTIONS
+    assert "remove_from_group" not in helper.RECOVERY_ALLOWED_ACTIONS
+
+
+def test_group_removal_has_a_handler(helper):
+    assert helper.ACTION_HANDLERS["remove_from_group"] is helper.handle_remove_from_group
+
+
+def test_the_migration_asks_for_a_pair_the_helper_accepts(helper):
+    """Cross-check: the plan is written in one repo and enforced in another
+    file that deliberately does not import it."""
+    from boneio.migrations.versions import v1_6_11_drop_docker_group as migration
+
+    for action in (a.to_dict() for a in migration.plan()):
+        assert action["action"] in helper.ALLOWED_ACTIONS
+        assert (action["account"], action["group"]) in helper.REMOVABLE_MEMBERSHIPS
