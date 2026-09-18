@@ -24,7 +24,7 @@ export default function ActionsSection({
   const { t } = useTranslation();
 
   return (
-    <div className="card bg-base-200">
+    <div className="stg-inset">
       <div className="card-body">
         <div className="flex flex-wrap gap-2 justify-between items-center">
           <div className="flex gap-2">

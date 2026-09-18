@@ -452,7 +452,7 @@ export default function ModbusHelper() {
       )}
 
       {/* Tabs */}
-      <div className="tabs tabs-boxed mb-6">
+      <div className="tabs tabs-box mb-6">
         <button
           className={`tab ${activeTab === 'get' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('get')}
@@ -495,7 +495,7 @@ export default function ModbusHelper() {
 
       {/* GET Tab */}
       {activeTab === 'get' && (
-        <div className="card bg-base-200 mb-6">
+        <div className="stg-card mb-6">
           <div className="card-body">
             <h2 className="card-title text-lg">{t('modbus_helper.read_register')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -574,7 +574,7 @@ export default function ModbusHelper() {
 
       {/* SET Tab */}
       {activeTab === 'set' && (
-        <div className="card bg-base-200 mb-6">
+        <div className="stg-card mb-6">
           <div className="card-body">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="card-title text-lg">{t('modbus_helper.write_register')}</h2>
@@ -729,7 +729,7 @@ export default function ModbusHelper() {
 
       {/* SEARCH Tab */}
       {activeTab === 'search' && (
-        <div className="card bg-base-200 mb-6">
+        <div className="stg-card mb-6">
           <div className="card-body">
             <h2 className="card-title text-lg">{t('modbus_helper.search_devices')}</h2>
             <p className="text-sm text-base-content/70 mb-4">
@@ -837,9 +837,14 @@ export default function ModbusHelper() {
         </div>
       )}
 
-      {/* Results - hide during active search */}
+      {/* Results - hide during active search.
+
+          A tinted `bg-*` utility would lose to `.stg-card`'s own background:
+          the surface classes are unlayered and Tailwind's utilities are not.
+          The failure case gets the danger cap instead, which is how every
+          other page says the same thing. */}
       {result && !loading && (
-        <div className={`card ${result.success ? 'bg-success/10' : 'bg-error/10'} mb-6`}>
+        <div className={`stg-card ${result.success ? '' : 'stg-card-danger'} mb-6`}>
           <div className="card-body">
             <h2 className="card-title text-lg">
               {result.success ? '✅ ' : '❌ '}
@@ -912,7 +917,7 @@ export default function ModbusHelper() {
 
       {/* Loading indicator with progress */}
       {loading && activeTab === 'search' && result && result.total && (
-        <div className="card bg-base-200 mb-6">
+        <div className="stg-card mb-6">
           <div className="card-body">
             <div className="flex items-center justify-between mb-2">
               <span>{t('modbus_helper.scanning')}...</span>
@@ -943,7 +948,7 @@ export default function ModbusHelper() {
 
       {/* CONFIGURE Tab */}
       {activeTab === 'configure' && (
-        <div className="card bg-base-200 mb-6">
+        <div className="stg-card mb-6">
           <div className="card-body">
             <h2 className="card-title text-lg">{t('modbus_helper.configure_device')}</h2>
             <div className="alert alert-warning mb-4">
@@ -1189,7 +1194,7 @@ export default function ModbusHelper() {
 
       {/* CREATOR Tab */}
       {activeTab === 'creator' && (
-        <div className="card bg-base-200 mb-6">
+        <div className="stg-card mb-6">
           <div className="card-body">
             <h2 className="card-title text-lg">{t('modbus_helper.device_creator')}</h2>
             <ModbusDeviceCreator />
@@ -1201,7 +1206,7 @@ export default function ModbusHelper() {
       {activeTab === 'simulator' && showSimulator && (
         <div className="space-y-4">
           {/* Create form card */}
-          <div className="card bg-base-200 shadow-sm">
+          <div className="stg-card">
             <div className="card-body p-4 sm:p-6">
               <h2 className="card-title text-base sm:text-lg flex items-center gap-2">
                 <FaFlask className="text-primary shrink-0" /> {t('modbus_helper.simulator_title')}
@@ -1265,7 +1270,7 @@ export default function ModbusHelper() {
               </h3>
               <div className="space-y-3">
                 {fakeDevices.map((dev) => (
-                  <div key={dev.device_id} className="card bg-base-200 shadow-sm">
+                  <div key={dev.device_id} className="stg-card">
                     <div className="card-body p-4">
                       {/* Top row: device info */}
                       <div className="flex flex-wrap items-start gap-x-4 gap-y-1">

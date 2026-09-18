@@ -47,7 +47,7 @@ export default function SetBaseSection({
   };
 
   return (
-    <div className="card bg-base-200">
+    <div className="stg-inset">
       <div className="card-body">
         <h3 className="card-title text-lg">{t('modbus_creator.set_base_config')}</h3>
         

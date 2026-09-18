@@ -200,7 +200,7 @@ export default function CANHelper() {
   return (
     <div className="space-y-6">
       {/* Interface Status & Configuration */}
-      <div className="card bg-base-200">
+      <div className="stg-card">
         <div className="card-body">
           <h2 className="card-title text-lg">
             <FaPlug className="text-primary" /> CAN Interface
@@ -302,7 +302,7 @@ export default function CANHelper() {
       </div>
 
       {/* candump */}
-      <div className="card bg-base-200">
+      <div className="stg-card">
         <div className="card-body">
           <h2 className="card-title text-lg">candump</h2>
           <p className="text-sm text-base-content/70">
@@ -380,7 +380,7 @@ export default function CANHelper() {
       </div>
 
       {/* cansend */}
-      <div className="card bg-base-200">
+      <div className="stg-card">
         <div className="card-body">
           <h2 className="card-title text-lg">cansend</h2>
           <p className="text-sm text-base-content/70">

@@ -26,7 +26,7 @@ export default function DeviceInfoSection({
   const { t } = useTranslation();
 
   return (
-    <div className="card bg-base-200">
+    <div className="stg-inset">
       <div className="card-body">
         <h3 className="card-title text-lg">{t('modbus_creator.device_info')}</h3>
         

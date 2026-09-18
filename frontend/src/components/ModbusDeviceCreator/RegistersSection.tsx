@@ -28,7 +28,7 @@ export default function RegistersSection({
   };
 
   return (
-    <div className="card bg-base-200">
+    <div className="stg-inset">
       <div className="card-body">
         <div className="flex justify-between items-center">
           <div>

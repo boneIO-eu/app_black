@@ -99,7 +99,7 @@ export default function CANNetwork() {
       )}
 
       {/* Unconfigured Nodes */}
-      <div className="card bg-base-200">
+      <div className="stg-card">
         <div className="card-body">
           <h2 className="card-title text-lg text-warning">
             <FaPlus /> Pending Devices (Unconfigured)
@@ -157,7 +157,7 @@ export default function CANNetwork() {
       </div>
 
       {/* Active Slaves */}
-      <div className="card bg-base-200">
+      <div className="stg-card">
         <div className="card-body">
           <h2 className="card-title text-lg text-success">
             <FaServer /> Active Slaves
