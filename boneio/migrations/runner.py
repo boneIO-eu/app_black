@@ -63,7 +63,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 #:  * 1.6.4 hardens sshd and validates with ``sshd -t``, so it is the one
 #:    migration that can legitimately fail — and a failure stops everything
 #:    behind it. Ordered normally it would sit in front of these two and be
-#:    able to block the fix for CVE-2026-77055 over an unrelated sshd problem.
+#:    able to block the fix for F-04 over an unrelated sshd problem.
 #:
 #: Hoisting is safe: neither depends on an earlier migration.
 HARDENING_FIRST = ("1.6.5", "1.6.6")
@@ -266,7 +266,7 @@ class MigrationRunner:
             "helper_installed": self._helper_installed(),
             # Which protocol is in play. The UI needs to distinguish "not
             # hardened yet" from "broken": a device applying migrations through
-            # the legacy helper still works, it just has CVE-2026-77055 open.
+            # the legacy helper still works, it just has F-04 open.
             "helper_v2": self.helper_v2_available(),
             "hardening_pending": self.hardening_pending,
             "pending_count": len(pending),
@@ -394,7 +394,7 @@ class MigrationRunner:
         The request carries a version and where to look, and nothing else. The
         helper builds the plan from the signed release itself, which is the
         whole point: under protocol 1 this process handed over the actions, the
-        asset digests and a command to run as root (CVE-2026-77055).
+        asset digests and a command to run as root (F-04).
 
         Args:
             migration: Migration descriptor.
@@ -708,7 +708,7 @@ class MigrationRunner:
         else:
             _LOGGER.warning(
                 "Applying %s through the legacy helper: boneio-migrate-v2 is not "
-                "available yet, so CVE-2026-77055 is still open on this device. "
+                "available yet, so F-04 is still open on this device. "
                 "The hardening is reported as unfinished and retried on each "
                 "start.",
                 migration.version,

@@ -2,7 +2,7 @@
 """Generate and sign the migration plans that ship with a release.
 
 The privileged helper must not be handed a plan by the unprivileged process it
-serves — that is the escalation path behind CVE-2026-77055. So plans are frozen
+serves — that is the escalation path behind F-04. So plans are frozen
 and signed here, at release time, and the helper accepts nothing but a version
 string and verifies the rest against a pinned public key.
 

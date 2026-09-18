@@ -1,6 +1,6 @@
 """Remove the migration helper that accepts a plan from the caller.
 
-This is where CVE-2026-77055 actually closes. Installing the replacement (1.6.5)
+This is where F-04 actually closes. Installing the replacement (1.6.5)
 does not close it: as long as ``/usr/sbin/boneio-migrate`` exists with its
 NOPASSWD rule, the old path is still there to be used, and nothing stops the
 application — or anyone holding the ``boneio`` account — from calling it with a
@@ -32,7 +32,7 @@ from __future__ import annotations
 from boneio.migrations.actions import MigrationAction, RemoveFile
 
 VERSION = "1.6.6"
-DESCRIPTION = "Retire the legacy migration helper (closes CVE-2026-77055)"
+DESCRIPTION = "Retire the legacy migration helper"
 REQUIRES_ROOT = True
 
 

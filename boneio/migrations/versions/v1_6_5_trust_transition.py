@@ -4,7 +4,7 @@ The helper this migration is applied *by* accepts a whole plan over stdin from
 the unprivileged application: the actions, the asset digests, and a
 ``validate_cmd`` string it runs as root. Holding the ``boneio`` account is
 therefore equivalent to holding root, through a completely legitimate call —
-CVE-2026-77055.
+F-04.
 
 This installs the replacement. It does **not** remove the old helper, and it
 deliberately installs the new one at its own path:
@@ -43,7 +43,7 @@ from boneio.migrations.actions import (
 )
 
 VERSION = "1.6.5"
-DESCRIPTION = "Install the signature-verifying migration helper (CVE-2026-77055)"
+DESCRIPTION = "Install the signature-verifying migration helper"
 REQUIRES_ROOT = True
 
 #: Root-owned master copies. boneio-helpers-heal.service restores the installed

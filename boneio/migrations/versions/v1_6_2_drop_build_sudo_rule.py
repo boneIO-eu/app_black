@@ -6,7 +6,7 @@ until 1.6.2 nothing removed it afterwards. Every image built that way shipped
 with the service account holding full root with no credential at all — not a
 password, not a narrow command list. Anything that manages to run code as
 ``boneio``, including the web app itself, is already root (F-04, part of
-CVE-2026-77055).
+F-04).
 
 The image scripts now drop the file when they seal an image. That only helps
 units built from now on, which is why this repairs the controllers already in

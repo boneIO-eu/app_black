@@ -1,6 +1,6 @@
 """Tests for how the runner chooses between the two migration helpers.
 
-This is where it is decided whether CVE-2026-77055 is open on a given boot, so
+This is where it is decided whether F-04 is open on a given boot, so
 the interesting cases are the transitions: no v2 yet, v2 present but broken, v2
 working, and the moment in between when the pivot has just installed it.
 """

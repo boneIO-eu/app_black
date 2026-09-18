@@ -1,7 +1,7 @@
 """Tests for the signed migration plans that ship with a release.
 
 The point of signing is that the privileged helper stops trusting anything the
-unprivileged process hands it (CVE-2026-77055). These tests guard the two ways
+unprivileged process hands it (F-04). These tests guard the two ways
 that can quietly fail: a plan on disk drifting from the module it came from, and
 a plan being frozen from something this build machine happened to have.
 """

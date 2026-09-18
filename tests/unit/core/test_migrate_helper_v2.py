@@ -206,7 +206,7 @@ def test_an_already_applied_migration_is_a_no_op(device, helper, monkeypatch, tm
 
 
 def test_a_plan_sent_over_stdin_is_refused(device, helper, monkeypatch, tmp_path):
-    """The whole of CVE-2026-77055 in one request."""
+    """The whole of F-04 in one request."""
     evil = tmp_path / "pwned"
     status = device.run(helper, monkeypatch, {
         "protocol": 2,

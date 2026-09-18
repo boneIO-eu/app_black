@@ -166,7 +166,7 @@ verbs in 1.6.9:
 The sudoers fragment names the helper and says nothing about its verbs, so
 adding verbs does **not** widen what the service account may run. That is the
 whole point of a helper with a closed vocabulary instead of a wildcard rule —
-see `docs/CAN_SUDOERS_FIX.md` and CVE-2026-77055.
+see `docs/CAN_SUDOERS_FIX.md` and the privilege-escalation finding F-04.
 
 ## Sudoers
 

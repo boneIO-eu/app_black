@@ -1,7 +1,7 @@
 """BoneIO 1.6.4 — throttle SSH logins the way the web login already is.
 
 Deliverable 3 rate-limited ``/api/login`` and left SSH alone, so the finding
-about excessive authentication attempts (F-06, CVE-2026-77057) is only half
+about excessive authentication attempts (F-06) is only half
 closed: the panel counts attempts, ``sshd`` runs on Debian's defaults, and an
 attacker on the LAN can keep guessing the shipped password for as long as they
 care to.

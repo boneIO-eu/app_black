@@ -3,7 +3,7 @@
 /api/version and /api/init answer without a token on purpose — the UI needs
 them to decide whether to show a login form — but the serial identifies the
 unit and feeds its cloud subdomain and MQTT topics, so it must not be part of
-an anonymous reply (CVE-2026-77061).
+an anonymous reply (F-03).
 """
 
 from __future__ import annotations
@@ -170,7 +170,7 @@ class TestAnonymousDevice:
 class TestApiDocsAreClosed:
     """The interactive docs sit outside AuthMiddleware, which only gates /api.
 
-    So they cannot be protected — they have to be absent (CVE-2026-77061).
+    So they cannot be protected — they have to be absent (F-03).
     """
 
     def test_the_app_ships_without_docs_routes(self):

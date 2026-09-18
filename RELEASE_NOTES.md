@@ -25,10 +25,10 @@ will be announced as such, and it will not look like this notice.
 
 ## What this build is for
 
-Everything below is about closing CVE-2026-77055 (privilege assignment) and the
-sudo-password paths reported alongside it. The mechanism is new and the point of
-this build is to find out how it behaves on a real 1.5.x controller that is
-upgraded in place.
+Everything below is about closing a privilege-assignment weakness in how the
+application obtains root, and the sudo-password paths that went with it. The
+mechanism is new, and the point of this build is to find out how it behaves on a
+real 1.5.x controller upgraded in place.
 
 ## What changed
 
