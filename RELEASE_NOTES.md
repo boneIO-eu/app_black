@@ -2,10 +2,10 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev4` exists so that we can test the new system-migration chain on a
-development controller. The chain has been run end to end on two devices, one
-upgraded from 1.5.1 and one from 1.5.2 — that is the entire body of evidence
-behind it.
+`1.6.0.dev5` exists so that we can test the new system-migration chain on a
+development controller. The chain has been run end to end on two devices, and
+dev4 stalled partway through on one of them — see below. That is the entire
+body of evidence behind it.
 
 It changes how boneIO obtains root privileges, installs new system helpers,
 rewrites sudo rules, takes ownership of `docker-compose.yaml` and removes the
@@ -24,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev4 — internal test build
+# v1.6.0.dev5 — internal test build
 
 ## What this build is for
 
@@ -90,6 +90,57 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev4
+
+**The migration chain ran again.** On a freshly imaged controller upgraded to
+dev4 it stopped dead at 1.6.4 and stayed there, with six later migrations
+behind it and no `boneio-system`. Three plans — 1.3.0, 1.4.0 and 1.6.4 — still
+named a validator as a command string, which the signing helper refuses by
+design; that refusal is the fix for the privilege-assignment weakness, and the
+plans were simply never rewritten in the vocabulary that replaced it. The test
+that was supposed to catch this asked whether the helper's own validator table
+was well formed. It never asked whether the migrations were written in it. It
+does now, by putting every action of every migration through the helper's own
+gate.
+
+**The panel gets its state back after the first-run wizard.** The socket
+carries every entity to the panel and nothing polls for them, so a socket that
+cannot open is a controller that appears to have no outputs, inputs or sensors
+at all. Whether a token is required was decided once, at startup — on a device
+that ships with no account, which is to say: decided as "no", permanently. The
+moment the wizard created an account the client began offering its token and
+the server kept refusing to agree to it. Every device claimed through the
+wizard was in that state until the service was restarted.
+
+**The wizard knows an upgraded device when it sees one.** It skips the import
+and device-binding steps there, and it has never once done so: the value it
+reads was computed, correct, and returned by an endpoint the wizard does not
+call. The devices step replaces the whole `event` section, so this was the path
+that loses a controller's input actions to a wizard its owner opened only to
+create an account.
+
+**Plain HTTP redirects to HTTPS.** That port was serving the login form, the
+token it hands back and a configuration carrying passwords, readable by anyone
+on the network.
+
+**The panel can be taken off the local network.** `web.expose: proxy` binds it
+to the loopback and the Docker bridges, leaving it reachable over TLS and
+through an SSH tunnel. Offered from the Security section, and refused unless
+the proxy is demonstrably already serving this panel — the failure mode is a
+controller answering on no port at all.
+
+**A certificate of your own.** Upload one and the proxy serves it, checked
+first: a key that does not match stops the proxy from starting, and names that
+do not cover the address people type leave exactly the warning they were meant
+to remove. The device's own certificate authority can also be downloaded and
+trusted on the machines that open the panel — no domain, nothing exposed.
+
+**Cloud registration starts when it is switched on**, rather than at the next
+boot.
+
+**The serial console shows how to reach the device** — its name and its
+address, filled in as the prompt is drawn.
 
 ## Since dev3
 

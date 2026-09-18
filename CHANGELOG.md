@@ -4,7 +4,7 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
-## v1.6.0.dev4 (2026-09-18) — 1.6.x security series
+## v1.6.0.dev5 (2026-09-18) — 1.6.x security series
 
 Brought under the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847), which
 sets cybersecurity requirements for products with digital elements sold in the
