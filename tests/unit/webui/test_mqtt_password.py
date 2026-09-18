@@ -72,50 +72,51 @@ class TestSudoersAsset:
                 f"Sudoers rule uses dangerous -c flag (creates new file, wipes others): {line}"
             )
 
-    def test_all_mqtt_users_have_batch_rule(self):
-        """Each allowed MQTT user must have a NOPASSWD rule with ``-b``."""
-        expected_users = {"boneio", "homeassistant", "mqtt"}
-        lines = _read_sudoers_lines()
+    def test_the_mosquitto_rules_are_gone(self):
+        """They took the new password on the command line.
 
-        for user in expected_users:
-            pattern = re.compile(
-                rf"NOPASSWD:.*mosquitto_passwd\s+-b\s+/etc/mosquitto/passwd\s+{user}\s"
-            )
-            matches = [line for line in lines if pattern.search(line)]
-            assert matches, (
-                f"Missing NOPASSWD sudoers rule for MQTT user '{user}' with -b flag"
-            )
-
-    def test_sudoers_command_matches_api_invocation(self):
-        """The sudo command built by the API must match a sudoers rule.
-
-        The API builds: ``sudo mosquitto_passwd -b /etc/mosquitto/passwd <user> <pw>``
-        The sudoers must allow: ``/usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd <user> *``
+        `mosquitto_passwd -b <file> <user> *` meant the password stood in the
+        process table for as long as the command ran, readable by every local
+        account. It goes to boneio-system over stdin now, so the rule that
+        allowed the old shape has no reason to exist.
         """
-        passwd_file = "/etc/mosquitto/passwd"
-        allowed_users = ["boneio", "homeassistant", "mqtt"]
-        lines = _read_sudoers_lines()
-
-        for username in allowed_users:
-            # This is the exact pattern the API will invoke
-            expected_cmd_fragment = f"mosquitto_passwd -b {passwd_file} {username}"
-            matching = [line for line in lines if expected_cmd_fragment in line]
-            assert matching, (
-                f"API invokes 'sudo mosquitto_passwd -b {passwd_file} {username} <pw>' "
-                f"but no matching sudoers rule found"
+        for line in _read_sudoers_lines():
+            assert "mosquitto_passwd" not in line, (
+                f"a rule still grants mosquitto_passwd directly: {line}"
+            )
+            assert "reload mosquitto" not in line, (
+                f"a rule still grants the broker reload directly: {line}"
             )
 
-    def test_sudoers_allows_mosquitto_reload(self):
-        """Sudoers must allow reloading mosquitto after password change."""
-        lines = _read_sudoers_lines()
-        assert any(
-            "systemctl reload mosquitto" in line for line in lines
-        ), "Missing NOPASSWD rule for 'systemctl reload mosquitto'"
+    def test_nothing_left_here_takes_a_name_the_caller_chooses(self):
+        """Except the CAN one, which the bring-up still falls back to.
 
+        Everything else is a fixed command: a wildcard is a rule whose effect
+        the caller decides, and that is what moved behind the helpers.
+        """
+        wildcards = [
+            line for line in _read_sudoers_lines()
+            if line.strip().endswith("*")
+        ]
+        assert all("ip link set can" in line for line in wildcards), (
+            f"unexpected wildcard rules remain: {wildcards}"
+        )
 
-# ---------------------------------------------------------------------------
-# 2. Migration plan validation
-# ---------------------------------------------------------------------------
+    def test_the_helper_rule_is_what_replaced_them(self):
+        """The capability did not go away; it changed shape."""
+        from pathlib import Path
+
+        fragment = (
+            Path(_SUDOERS_PATH).resolve().parent / "boneio-helpers"
+        ).read_text(encoding="utf-8")
+        assert "/usr/sbin/boneio-system" in fragment
+        # And that helper is what now holds the account list.
+        helper = (
+            Path(__file__).resolve().parents[3]
+            / "boneio" / "migrations" / "assets" / "helpers" / "boneio-system"
+        ).read_text(encoding="utf-8")
+        for account in ("boneio", "homeassistant", "mqtt"):
+            assert f'"{account}"' in helper
 
 
 class TestMqttSudoersMigration:
@@ -158,31 +159,29 @@ class TestChangePasswordEndpoint:
     """Validate the change_mqtt_password endpoint builds correct commands."""
 
     @pytest.mark.asyncio
-    async def test_calls_mosquitto_passwd_without_create_flag(self):
-        """The endpoint must use ``-b`` (batch) NOT ``-c -b`` (create)."""
-        from boneio.webui.routes.update import change_mqtt_password, MqttPasswordChangeRequest
+    async def test_the_password_never_reaches_the_command_line(self):
+        """It used to: `sudo mosquitto_passwd -b <file> <user> <password>`.
+
+        The process table is readable by every local account, so the new
+        password was exposed for as long as the command ran. It goes to the
+        helper over stdin now.
+        """
+        from boneio.webui.routes.update import (
+            MqttPasswordChangeRequest,
+            change_mqtt_password,
+        )
 
         request = MqttPasswordChangeRequest(username="boneio", new_password="testpass123")
 
-        with patch("boneio.webui.routes.update.subprocess") as mock_subprocess:
-            # Mock which to return success
-            mock_which = MagicMock()
-            mock_which.returncode = 0
-            mock_subprocess.run.side_effect = [mock_which, MagicMock(returncode=0), MagicMock(returncode=0)]
-            mock_subprocess.CalledProcessError = subprocess.CalledProcessError
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
 
             result = await change_mqtt_password(request)
 
-            # Second call is the actual mosquitto_passwd command
-            passwd_call = mock_subprocess.run.call_args_list[1]
-            cmd = passwd_call[0][0]  # First positional arg is the command list
+        assert result["status"] == "success"
+        ops.mqtt_password.assert_called_once_with("boneio", "testpass123")
 
-            assert cmd[0] == "sudo"
-            assert cmd[1] == "mosquitto_passwd"
-            assert "-b" in cmd
-            assert "-c" not in cmd, "Must not use -c flag (creates new file, wipes other users)"
-            assert cmd[3] == "/etc/mosquitto/passwd"
-            assert cmd[4] == "boneio"
 
     @pytest.mark.asyncio
     async def test_rejects_short_password(self):
@@ -207,28 +206,39 @@ class TestChangePasswordEndpoint:
         assert "Invalid username" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_all_allowed_users_use_same_command_pattern(self):
-        """All three allowed users must use the same ``-b`` command pattern."""
-        from boneio.webui.routes.update import change_mqtt_password, MqttPasswordChangeRequest
+    async def test_every_allowed_user_takes_the_same_path(self):
+        """No account gets a different, less careful route to the broker file."""
+        from boneio.webui.routes.update import (
+            MqttPasswordChangeRequest,
+            change_mqtt_password,
+        )
 
         for username in ["boneio", "homeassistant", "mqtt"]:
-            request = MqttPasswordChangeRequest(username=username, new_password="testpass123")
-
-            with patch("boneio.webui.routes.update.subprocess") as mock_subprocess:
-                mock_which = MagicMock()
-                mock_which.returncode = 0
-                mock_subprocess.run.side_effect = [
-                    mock_which,
-                    MagicMock(returncode=0),
-                    MagicMock(returncode=0),
-                ]
-                mock_subprocess.CalledProcessError = subprocess.CalledProcessError
+            request = MqttPasswordChangeRequest(
+                username=username, new_password="testpass123"
+            )
+            with patch("boneio.webui.routes.update.system_ops") as ops:
+                ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+                ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
 
                 await change_mqtt_password(request)
 
-                passwd_call = mock_subprocess.run.call_args_list[1]
-                cmd = passwd_call[0][0]
-                assert cmd == [
-                    "sudo", "mosquitto_passwd", "-b",
-                    "/etc/mosquitto/passwd", username, "testpass123",
-                ], f"Wrong command for user '{username}': {cmd}"
+            ops.mqtt_password.assert_called_once_with(username, "testpass123")
+
+    @pytest.mark.asyncio
+    async def test_the_create_flag_is_nowhere_near_this(self):
+        """`-c` creates a new file, wiping every other account out of it.
+
+        The route no longer runs mosquitto_passwd at all; the helper does, and
+        it uses the interactive form. This holds the property where it lives now.
+        """
+        from pathlib import Path
+
+        helper = (
+            Path(__file__).resolve().parents[3]
+            / "boneio" / "migrations" / "assets" / "helpers" / "boneio-system"
+        )
+        source = helper.read_text(encoding="utf-8")
+        assert '"-c"' not in source
+        assert '"-b"' not in source, "the batch form puts the password in argv"
+

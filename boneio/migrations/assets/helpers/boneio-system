@@ -18,6 +18,8 @@ This replaces both with named operations:
     hostname-set <name>
     ntp-get                        read the configured NTP servers
     ntp-set <servers|default>      point systemd-timesyncd at given servers
+    mqtt-password <account>        set a broker password, read from stdin
+    mqtt-reload                    have the broker re-read its password file
 
 Every argument is checked against a closed set before anything runs, and the
 uEnv.txt edit is done here with a compiled pattern rather than by handing a
@@ -93,6 +95,19 @@ NTP_DROPIN = Path("/etc/systemd/timesyncd.conf.d/boneio.conf")
 #: a bounded list keeps the generated file a fixed, reviewable shape.
 NTP_MAX_SERVERS = 5
 
+#: The broker's password file, and the accounts the application manages in it.
+#: Naming them here rather than taking any account keeps this from becoming a
+#: way to add a broker login nobody asked for.
+MOSQUITTO_PASSWD = Path("/etc/mosquitto/passwd")
+MQTT_ACCOUNTS = ("boneio", "homeassistant", "mqtt")
+#: mosquitto_passwd rewrites the file with a mode of its own, so the permissions
+#: have to be re-applied after every write. Found the hard way: the file shipped
+#: 0644 and was seen at 0704, which let any local account take the hashes for an
+#: offline crack (F-11). The broker runs as its own user, so the group read bit
+#: has to stay or the fix takes the broker down with the exposure.
+MOSQUITTO_PASSWD_MODE = 0o640
+MOSQUITTO_PASSWD_OWNER = ("root", "mosquitto")
+
 #: One DNS name. Addresses are validated with :mod:`ipaddress` instead, so this
 #: only has to cover hostnames.
 #:
@@ -110,6 +125,7 @@ VERBS = (
     "can-up", "can-down", "can-restart", "overlay-get", "overlay-set",
     "hostname-set",
     "ntp-get", "ntp-set",
+    "mqtt-password", "mqtt-reload",
 )
 
 
@@ -377,6 +393,89 @@ def _overlay_set(overlay: str | None) -> int:
 # ------------------------------------------------------------------- hostname
 
 
+def _mqtt_password(account: str | None) -> int:
+    """Set a broker password for one of the managed accounts.
+
+    The password is read from stdin, never from the argument list. The rule this
+    replaces was ``mosquitto_passwd -b /etc/mosquitto/passwd <account> *``, so
+    the new password stood in the process table for as long as the command ran —
+    visible to every local account, and to anything sampling ``ps``.
+
+    Args:
+        account: One of :data:`MQTT_ACCOUNTS`.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If the account is not one this application manages, or the
+            password is empty or contains a newline.
+    """
+    if account not in MQTT_ACCOUNTS:
+        raise Refused(
+            f"not an account this device manages: {account!r}. Allowed: "
+            f"{', '.join(MQTT_ACCOUNTS)}"
+        )
+    if not MOSQUITTO_PASSWD.is_file() or MOSQUITTO_PASSWD.is_symlink():
+        raise Refused(f"{MOSQUITTO_PASSWD} is missing or is a symlink")
+
+    password = sys.stdin.read()
+    # Only the trailing newline a shell adds; anything else would be part of
+    # the password, and mosquitto_passwd takes it on one line.
+    password = password[:-1] if password.endswith("\n") else password
+    if not password:
+        raise Refused("no password on stdin")
+    if "\n" in password or "\r" in password:
+        raise Refused("a password cannot contain a line break")
+
+    # -b takes the password as an argument, which is what we are getting away
+    # from; the interactive form reads it from stdin instead.
+    try:
+        result = subprocess.run(
+            ["mosquitto_passwd", str(MOSQUITTO_PASSWD), account],
+            input=f"{password}\n{password}\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise Refused(f"cannot run mosquitto_passwd: {exc}") from exc
+
+    if result.returncode != 0:
+        # Deliberately not echoing stdout/stderr wholesale: mosquitto_passwd is
+        # not expected to print a password back, but this is not the place to
+        # find out the hard way.
+        _LOGGER.error("mosquitto_passwd failed for %s (rc=%d)", account, result.returncode)
+        return result.returncode
+
+    _restore_passwd_permissions()
+    _LOGGER.info("Broker password set for %s", account)
+    return 0
+
+
+def _restore_passwd_permissions() -> None:
+    """Put the password file back to root:mosquitto 0640 after a write."""
+    try:
+        import grp
+        import pwd
+
+        os.chmod(MOSQUITTO_PASSWD, MOSQUITTO_PASSWD_MODE)
+        uid = pwd.getpwnam(MOSQUITTO_PASSWD_OWNER[0]).pw_uid
+        gid = grp.getgrnam(MOSQUITTO_PASSWD_OWNER[1]).gr_gid
+        os.chown(MOSQUITTO_PASSWD, uid, gid)
+    except (KeyError, OSError) as exc:
+        _LOGGER.error(
+            "Could not restore %s to %s:%s %04o: %s — the hashes may be readable "
+            "by other local accounts",
+            MOSQUITTO_PASSWD, *MOSQUITTO_PASSWD_OWNER, MOSQUITTO_PASSWD_MODE, exc,
+        )
+
+
+def _mqtt_reload() -> int:
+    """Have the broker re-read its password file."""
+    return _run(["systemctl", "reload", "mosquitto"])
+
+
 def _hostname_set(name: str | None) -> int:
     """Set the system hostname.
 
@@ -624,6 +723,10 @@ def main(argv: list[str] | None = None) -> int:
             return _overlay_get()
         if args.verb == "overlay-set":
             return _overlay_set(args.argument)
+        if args.verb == "mqtt-password":
+            return _mqtt_password(args.argument)
+        if args.verb == "mqtt-reload":
+            return _mqtt_reload()
         if args.verb == "hostname-set":
             return _hostname_set(args.argument)
         if args.verb == "ntp-get":

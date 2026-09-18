@@ -24,6 +24,8 @@ from boneio.webui.services.logs import is_running_as_service
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
 
+from boneio.core import system_ops
+
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["update"])
@@ -1246,47 +1248,33 @@ async def change_mqtt_password(request: MqttPasswordChangeRequest):
             "message": "Password must be at least 8 characters long"
         }
     
-    # Path to mosquitto password file
-    passwd_file = "/etc/mosquitto/passwd"
-    
     try:
-        # Check if mosquitto_passwd command exists
-        check_cmd = subprocess.run(
-            ["which", "mosquitto_passwd"],
-            capture_output=True,
-            text=True
+        # Through the helper, which reads the password from stdin. The rule
+        # this replaces was `mosquitto_passwd -b <file> <user> *`, so the new
+        # password sat in the process table — readable by every local account —
+        # for as long as the command ran. The helper also puts the file back to
+        # root:mosquitto 0640 afterwards, which mosquitto_passwd does not (F-11).
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None, system_ops.mqtt_password, request.username, request.new_password
         )
-        
-        if check_cmd.returncode != 0:
-            return {
-                "status": "error",
-                "message": "mosquitto_passwd command not found. Is Mosquitto installed?"
-            }
-        
-        # Use mosquitto_passwd to update password
-        # -b = batch mode (password on command line)
-        result = subprocess.run(
-            ["sudo", "mosquitto_passwd", "-b", passwd_file, request.username, request.new_password],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        _LOGGER.info(f"MQTT password changed for user: {request.username}")
-        
-        # Reload mosquitto to apply changes
-        try:
-            reload_result = subprocess.run(
-                ["sudo", "systemctl", "reload", "mosquitto"],
-                capture_output=True,
-                text=True,
-                check=True
+        if not result.ok:
+            message = result.stderr.strip() or "Failed to change the password"
+            _LOGGER.error(
+                "Failed to change MQTT password for %s: %s", request.username, message
             )
-            _LOGGER.info("Mosquitto service reloaded successfully")
-        except subprocess.CalledProcessError as e:
-            _LOGGER.warning(f"Failed to reload mosquitto service: {e.stderr}")
-            # Don't fail the whole operation if reload fails
-        
+            return {"status": "error", "message": message}
+
+        _LOGGER.info("MQTT password changed for user: %s", request.username)
+
+        reload_result = await loop.run_in_executor(None, system_ops.mqtt_reload)
+        if not reload_result.ok:
+            # Not fatal: the password is written, the broker just has not been
+            # told yet, and it will pick it up on its next start.
+            _LOGGER.warning(
+                "Could not reload mosquitto: %s", reload_result.stderr.strip()
+            )
+
         return {
             "status": "success",
             "message": f"Password changed successfully for user: {request.username}"

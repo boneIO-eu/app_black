@@ -99,13 +99,17 @@ def helper_available(recheck: bool = False) -> bool:
     return _available
 
 
-def run(verb: str, *arguments: str, timeout: int = 60) -> Result:
+def run(
+    verb: str, *arguments: str, timeout: int = 60, stdin: str | None = None
+) -> Result:
     """Perform one named system operation.
 
     Args:
         verb: One of the helper's verbs.
         *arguments: Its arguments; the helper validates them.
         timeout: Seconds to allow.
+        stdin: Text to feed the helper. Used for secrets, which must not travel
+            as arguments — the process table is readable by every local account.
 
     Returns:
         The outcome.
@@ -114,10 +118,11 @@ def run(verb: str, *arguments: str, timeout: int = 60) -> Result:
         return Result(1, "", _NOT_INSTALLED)
 
     argv = ["sudo", "-n", HELPER_PATH, verb, *(str(a) for a in arguments)]
+    # argv only, never stdin: that is where the secrets are.
     _LOGGER.info("system operation: %s", " ".join(argv[3:]))
     try:
         completed = subprocess.run(
-            argv, capture_output=True, text=True, timeout=timeout
+            argv, input=stdin, capture_output=True, text=True, timeout=timeout
         )
     except subprocess.TimeoutExpired:
         return Result(1, "", f"timed out after {timeout}s")
@@ -155,6 +160,29 @@ def overlay_get(timeout: int = 30) -> Result:
 def overlay_set(overlay: str, timeout: int = 30) -> Result:
     """Point uEnv.txt at one of the shipped overlays."""
     return run("overlay-set", overlay, timeout=timeout)
+
+
+def mqtt_password(account: str, password: str, timeout: int = 60) -> Result:
+    """Set a broker password for one of the managed accounts.
+
+    The password goes over stdin. The rule this replaces passed it to
+    ``mosquitto_passwd -b`` as an argument, where ``ps`` could read it for as
+    long as the command ran.
+
+    Args:
+        account: ``boneio``, ``homeassistant`` or ``mqtt``.
+        password: The new password.
+        timeout: Seconds to allow.
+
+    Returns:
+        The outcome.
+    """
+    return run("mqtt-password", account, timeout=timeout, stdin=f"{password}\n")
+
+
+def mqtt_reload(timeout: int = 30) -> Result:
+    """Have the broker re-read its password file."""
+    return run("mqtt-reload", timeout=timeout)
 
 
 def hostname_set(name: str, timeout: int = 30) -> Result:

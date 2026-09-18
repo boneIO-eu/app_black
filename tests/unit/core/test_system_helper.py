@@ -212,35 +212,45 @@ def test_the_verbs_are_listed(helper, capsys):
     assert json.loads(capsys.readouterr().out) == list(helper.VERBS)
 
 
-def test_nothing_here_handles_a_password(helper):
-    """The point of the helper: the sudoers rule is NOPASSWD because the
-    vocabulary is closed, so nothing needs to collect a password.
+def test_no_password_ever_reaches_an_argument_list(helper):
+    """The helper does handle one secret — the broker password — and reads it
+    from stdin on purpose.
 
-    Checked against code, not prose — the module explains at length why the
-    password paths went, so a plain word search would only find that.
+    What must never happen is a password in argv: the process table is readable
+    by every local account, which is exactly what `mosquitto_passwd -b <file>
+    <user> <password>` exposed. Checked against the syntax tree rather than the
+    prose, because the module explains at length why those paths went.
     """
     import ast
 
     tree = ast.parse(HELPER.read_text(encoding="utf-8"))
-    names = {
-        node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
-    } | {
-        arg.arg
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        for arg in node.args.args
-    }
-    assert not [name for name in names if "password" in name.lower()], (
-        "the helper has a password-shaped variable or parameter"
-    )
-    assert "getpass" not in names
-    # `sudo -S` is how a password gets piped to sudo.
     literals = {
         node.value
         for node in ast.walk(tree)
         if isinstance(node, ast.Constant) and isinstance(node.value, str)
     }
+    # `sudo -S` is how a password gets piped to sudo; -b is the form of
+    # mosquitto_passwd that takes it as an argument.
     assert "-S" not in literals
+    assert "-b" not in literals, "the batch form puts the password in argv"
+
+    names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    assert "getpass" not in names
+
+    # Every argv this module builds is a list of constants plus validated
+    # values; a password may only travel as `input=`.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "run"):
+            continue
+        argv = node.args[0] if node.args else None
+        if isinstance(argv, (ast.List, ast.Tuple)):
+            rendered = ast.unparse(argv)
+            assert "password" not in rendered.lower(), (
+                f"a password-shaped value is in an argument list: {rendered[:80]}"
+            )
 
 
 def test_no_route_pipes_a_password_to_sudo_any_more():
@@ -450,3 +460,107 @@ def test_recovery_needs_no_wider_grant_than_setup(helper):
     """
     assert "can-restart" in helper.VERBS
     assert set(helper.CAN_INTERFACES) == {"can0", "can1", "vcan0"}
+
+
+# ------------------------------------------------------------- broker passwords
+
+
+@pytest.fixture
+def passwd(tmp_path, helper, monkeypatch):
+    """A broker password file the helper will accept."""
+    path = tmp_path / "passwd"
+    path.write_text("boneio:$7$existing\n", encoding="utf-8")
+    os.chmod(path, 0o640)
+    monkeypatch.setattr(helper, "MOSQUITTO_PASSWD", path)
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    monkeypatch.setattr(helper, "_restore_passwd_permissions", lambda: None)
+    return path
+
+
+def _feed(monkeypatch, text: str) -> None:
+    class _Stdin:
+        def read(self) -> str:
+            return text
+
+    monkeypatch.setattr("sys.stdin", _Stdin())
+
+
+def test_the_password_is_read_from_stdin_not_the_argument_list(
+    helper, passwd, monkeypatch
+):
+    """The rule this replaces put the new password in the process table.
+
+    `mosquitto_passwd -b <file> <user> <password>` is readable by every local
+    account for as long as it runs, and by anything sampling ps.
+    """
+    import subprocess as sp
+
+    seen = {}
+
+    def _fake(argv, input=None, **kwargs):
+        seen["argv"] = list(argv)
+        seen["input"] = input
+        return sp.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(sp, "run", _fake)
+    _feed(monkeypatch, "hunter2\n")
+
+    assert helper.main(["mqtt-password", "boneio"]) == 0
+    assert "hunter2" not in " ".join(seen["argv"]), "the password reached argv"
+    assert "-b" not in seen["argv"], "the batch form takes the password as an argument"
+    assert seen["input"] == "hunter2\nhunter2\n"
+
+
+@pytest.mark.parametrize("account", ["root", "admin", "", "boneio2", "../boneio"])
+def test_only_the_managed_accounts_can_be_given_a_password(
+    helper, passwd, monkeypatch, account
+):
+    """Otherwise this becomes a way to add a broker login nobody asked for."""
+    _feed(monkeypatch, "hunter2\n")
+    assert helper.main(["mqtt-password", account]) == 1
+
+
+def test_every_account_the_sudoers_rule_allowed_is_still_accepted(helper):
+    assert set(helper.MQTT_ACCOUNTS) == {"boneio", "homeassistant", "mqtt"}
+
+
+@pytest.mark.parametrize("password", ["", "\n", "two\nlines\n"])
+def test_an_unusable_password_is_refused(helper, passwd, monkeypatch, password):
+    _feed(monkeypatch, password)
+    assert helper.main(["mqtt-password", "boneio"]) == 1
+
+
+def test_a_symlinked_password_file_is_refused(helper, tmp_path, monkeypatch):
+    """Otherwise the write follows it to any file root can reach."""
+    target = tmp_path / "elsewhere"
+    target.write_text("x\n", encoding="utf-8")
+    link = tmp_path / "passwd"
+    link.symlink_to(target)
+    monkeypatch.setattr(helper, "MOSQUITTO_PASSWD", link)
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    _feed(monkeypatch, "hunter2\n")
+    assert helper.main(["mqtt-password", "boneio"]) == 1
+
+
+def test_the_permissions_are_restored_after_a_write(helper, tmp_path, monkeypatch):
+    """mosquitto_passwd rewrites the file with a mode of its own.
+
+    It shipped 0644 and was seen at 0704, which let any local account take the
+    hashes for an offline crack (F-11).
+    """
+    import subprocess as sp
+
+    path = tmp_path / "passwd"
+    path.write_text("boneio:$7$existing\n", encoding="utf-8")
+    monkeypatch.setattr(helper, "MOSQUITTO_PASSWD", path)
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    monkeypatch.setattr(
+        sp, "run", lambda argv, **k: sp.CompletedProcess(argv, 0, stdout="", stderr="")
+    )
+    _feed(monkeypatch, "hunter2\n")
+
+    os.chmod(path, 0o704)
+    helper.main(["mqtt-password", "boneio"])
+    assert path.stat().st_mode & 0o777 == helper.MOSQUITTO_PASSWD_MODE
+    assert helper.MOSQUITTO_PASSWD_MODE & 0o040, "the broker must still be able to read it"
+    assert helper.MOSQUITTO_PASSWD_MODE & 0o007 == 0, "world still has access"

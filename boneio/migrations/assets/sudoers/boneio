@@ -1,13 +1,14 @@
-# Allow mosquitto_passwd command for password file (any password)
-boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd boneio *
-boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd homeassistant *
-boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd mqtt *
-
-# Allow mosquitto service reload
-boneio ALL=(ALL) NOPASSWD: /bin/systemctl reload mosquitto
-boneio ALL=(ALL) NOPASSWD: /usr/bin/hostnamectl set-hostname *
-
-# Allow CAN interface management
+# Passwordless operations for the boneIO service account.
+#
+# What is left here takes no argument that the caller chooses, or none at all.
+# The rules that did — mosquitto_passwd with the new password on the command
+# line, hostnamectl with any name, systemctl reload for one unit — moved to
+# /usr/sbin/boneio-system, which takes a verb from a fixed list and reads
+# secrets from stdin rather than from the process table.
+#
+# ip link keeps its rule for now: the CAN bring-up falls back to it on a
+# controller that has not yet installed that helper, and taking it away would
+# stop CAN on a device that has it today.
 boneio ALL=(ALL) NOPASSWD: /sbin/ip link set can0 *
 boneio ALL=(ALL) NOPASSWD: /sbin/ip link set can1 *
 
