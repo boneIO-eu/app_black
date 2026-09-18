@@ -32,7 +32,7 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => {
     // Auto-invalidate config cache on any mutating request to config endpoints.
-    // This covers UISettings, ConfigEditorUI, TeachMode, QuickActionSheet, etc.
+    // This covers UISettings, TeachMode, QuickActionSheet, etc.
     const method = response.config.method?.toLowerCase();
     const url = response.config.url || '';
     if (
