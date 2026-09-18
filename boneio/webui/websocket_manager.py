@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime
+from collections.abc import Callable
 from typing import Any
 
 from jose import jwt
@@ -23,13 +24,52 @@ class WebSocketDisconnectWithMessage(WebSocketDisconnect):
 
 
 class WebSocketManager:
-    def __init__(self, jwt_secret: str | None = None, auth_required: bool = False):
+    def __init__(
+        self,
+        jwt_secret: str | None = None,
+        auth_required: bool | Callable[[], bool] = False,
+    ):
+        """Track the open sockets and decide who may open one.
+
+        Args:
+            jwt_secret: Secret the connection tokens are signed with.
+            auth_required: Whether a token is needed — a callable when the
+                answer can change while the process runs, which it can: a
+                device boots with no account and gains one the moment somebody
+                finishes the first-run wizard.
+        """
         self.active_connections: list[WebSocket] = []
         self._lock = asyncio.Lock()
         self._closing = False
         self._cleanup_tasks: list[asyncio.Task] = []
         self._jwt_secret = jwt_secret
         self._auth_required = auth_required
+
+    @property
+    def auth_required(self) -> bool:
+        """Whether a connection needs a token right now.
+
+        Asked per connection rather than held from startup. Held, it made the
+        socket unusable for the whole life of the process on a device that was
+        claimed while running: the client learns from /api/init that auth is
+        required and offers its token as a subprotocol, the server still
+        believes the device is unclaimed and accepts without agreeing to one,
+        and the browser fails a handshake where it offered a subprotocol and
+        got none back. Every reconnect does the same, so the panel comes up
+        with no entities at all until the service is restarted.
+
+        Returns:
+            True when a token is required.
+        """
+        value = self._auth_required
+        if callable(value):
+            try:
+                return bool(value())
+            except Exception as err:  # noqa: BLE001
+                # Fail closed: a socket carries every entity on the device.
+                _LOGGER.error("Could not read the auth state, requiring a token: %s", err)
+                return True
+        return bool(value)
 
     async def _verify_token(self, websocket: WebSocket) -> bool:
         """Verify WebSocket token."""
@@ -72,7 +112,7 @@ class WebSocketManager:
             return False
 
         try:
-            if self._auth_required:
+            if self.auth_required:
                 if not await self._verify_token(websocket):
                     # Must accept before closing with custom code
                     await websocket.accept()

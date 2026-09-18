@@ -836,7 +836,13 @@ def init_app(
     app.state.web_server = web_server
     app.state.config_helper = config_helper
     app.state.user_store = user_store
-    app.state.websocket_manager = WebSocketManager(jwt_secret=jwt_secret, auth_required=auth_required)
+    # The function, not its value: this runs before anybody has an account on
+    # a fresh device, and the answer changes the moment the first-run wizard
+    # creates one. Passing the boolean left the socket refusing to negotiate
+    # the token subprotocol for the rest of the process's life.
+    app.state.websocket_manager = WebSocketManager(
+        jwt_secret=jwt_secret, auth_required=is_auth_required
+    )
 
     # Configure route modules with app state
     config_module.set_app_state(app.state)
