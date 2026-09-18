@@ -418,17 +418,25 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {CONDITION_TYPES.filter(
+              {CONDITION_TYPES.map((ct) => {
                 // A sun condition on a device with no coordinates can never be
-                // evaluated, so it is not offered — but a condition that is
-                // already one stays selectable, or the field would go blank on
-                // a device whose location was removed.
-                (ct) => ct !== 'sun' || hasLocation || condition.type === 'sun',
-              ).map((ct) => (
-                <SelectItem key={ct} value={ct}>
-                  {t(`event_form.condition_type_${ct}`)}
-                </SelectItem>
-              ))}
+                // evaluated. Greyed out rather than hidden: the option is worth
+                // seeing, and the hint below the field says what to do about
+                // it. One that is already selected stays selectable, or the
+                // field would go blank on a device whose location was removed.
+                const unavailable =
+                  ct === 'sun' && !hasLocation && condition.type !== 'sun';
+                return (
+                  <SelectItem key={ct} value={ct} disabled={unavailable}>
+                    {t(`event_form.condition_type_${ct}`)}
+                    {unavailable && (
+                      <span className="text-xs opacity-60">
+                        {' '}— {t('event_form.condition_sun_needs_location_short')}
+                      </span>
+                    )}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           {!hasLocation && (

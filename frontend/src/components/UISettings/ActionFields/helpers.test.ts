@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  applyActionUpdate,
   cleanActionFields,
   validateAction,
   validateCondition,
@@ -588,5 +589,42 @@ describe('TILT_ACTIONS', () => {
 
   it('has 3 entries', () => {
     expect(TILT_ACTIONS).toHaveLength(3);
+  });
+});
+
+describe('applyActionUpdate', () => {
+  it('sets a single field without touching the rest', () => {
+    const before = { action: 'output', boneio_output: 'out_01' };
+    const after = applyActionUpdate(before, 'action_output', 'ON');
+    expect(after).toEqual({ action: 'output', boneio_output: 'out_01', action_output: 'ON' });
+    expect(before).not.toHaveProperty('action_output');
+  });
+
+  it('applies every field of a __batch at once', () => {
+    // How the condition editor swaps between the single and multiple forms:
+    // one update, never a render where both are set.
+    const before: Record<string, unknown> = { condition: { type: 'time' } };
+    const after = applyActionUpdate(before, '__batch', {
+      conditions: { mode: 'and', list: [{ type: 'time' }, { type: 'date' }] },
+      condition: undefined,
+    });
+    expect(after).not.toHaveProperty('condition');
+    expect(after.conditions).toEqual({ mode: 'and', list: [{ type: 'time' }, { type: 'date' }] });
+  });
+
+  it('removes a key set to undefined rather than storing a null', () => {
+    const after = applyActionUpdate({ delay: '2min', action: 'output' }, 'delay', undefined);
+    expect(after).not.toHaveProperty('delay');
+    expect(after.action).toBe('output');
+  });
+
+  it('never writes the sentinel itself', () => {
+    // The regression this guards: treating __batch as a field name stored a
+    // junk key and dropped the update, so "Add condition" did nothing.
+    const after = applyActionUpdate({} as Record<string, unknown>, '__batch', {
+      condition: { type: 'sun' },
+    });
+    expect(after).not.toHaveProperty('__batch');
+    expect(after.condition).toEqual({ type: 'sun' });
   });
 });

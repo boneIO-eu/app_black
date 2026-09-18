@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import ActionFields from '../ActionFields';
 import ActionConditions from '../ActionFields/ActionConditions';
+import { applyActionUpdate } from '../ActionFields/helpers';
 import {
   SettingsPage,
   SettingsCard,
@@ -221,6 +222,7 @@ export default function ScheduleSection() {
     setDirty(true);
   };
 
+
   const updateTrigger = (index: number, field: keyof ScheduleTrigger, value: string | undefined) => {
     update(index, (entry) => {
       const trigger: ScheduleTrigger = { ...(entry.trigger || {}), [field]: value };
@@ -243,7 +245,13 @@ export default function ScheduleSection() {
         id: `schedule_${current.length + 1}`,
         name: '',
         enabled: true,
-        trigger: { type: 'sun', event: 'sunset', days: 'daily' },
+        // Sunset is the schedule people usually want, but only where the
+        // device knows when sunset is. Without coordinates a sun trigger can
+        // never resolve, so a new schedule starts as a clock time instead of
+        // opening on an option that is greyed out.
+        trigger: hasLocation
+          ? { type: 'sun', event: 'sunset', days: 'daily' }
+          : { type: 'time', at: '20:00', days: 'daily' },
         actions: [],
       },
     ]);
@@ -293,11 +301,16 @@ export default function ScheduleSection() {
           <Select value={kind} onValueChange={(value) => updateTrigger(index, 'type', value)}>
             <SelectTrigger className="w-full h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {/* Without coordinates a sun trigger can never resolve to a time,
-                  so it is not offered — unless this schedule already uses one. */}
-              {(hasLocation || kind === 'sun') && (
-                <SelectItem value="sun">{t('schedule.trigger_sun')}</SelectItem>
-              )}
+              {/* Greyed out rather than hidden without coordinates: seeing that
+                  the option exists, and being told why it is unavailable, beats
+                  wondering where it went. A schedule that already uses one stays
+                  selectable, or removing the location would blank the field. */}
+              <SelectItem value="sun" disabled={!hasLocation && kind !== 'sun'}>
+                {t('schedule.trigger_sun')}
+                {!hasLocation && kind !== 'sun' && (
+                  <span className="text-xs opacity-60"> — {t('schedule.needs_location_short')}</span>
+                )}
+              </SelectItem>
               <SelectItem value="time">{t('schedule.trigger_time')}</SelectItem>
             </SelectContent>
           </Select>
@@ -488,7 +501,9 @@ export default function ScheduleSection() {
                     action may still carry its own, edited below. */}
                 <ActionConditions
                   action={entry}
-                  onUpdate={(field, value) => update(index, (s) => ({ ...s, [field]: value }))}
+                  onUpdate={(field, value) =>
+                    update(index, (s) => applyActionUpdate(s, field, value))
+                  }
                   t={t}
                   allOutputs={entities.allOutputs}
                   allCovers={entities.allCovers}
@@ -507,7 +522,7 @@ export default function ScheduleSection() {
                       update(index, (s) => ({
                         ...s,
                         actions: (s.actions || []).map((a: ActionEntry, i: number) =>
-                          i === actionIndex ? { ...a, [field]: value } : a,
+                          i === actionIndex ? applyActionUpdate(a, field, value) : a,
                         ),
                       }))
                     }

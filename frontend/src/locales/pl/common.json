@@ -1473,7 +1473,8 @@
     "validation_condition_sun_mixed": "Użyj tylko jednego: okna, fazy albo wysokości.",
     "validation_condition_sun_range": "„Powyżej” musi być mniejsze niż „poniżej”.",
     "validation_condition_sun_degrees": "Wysokość musi mieścić się w zakresie od -90 do 90 stopni.",
-    "condition_sun_needs_location": "Warunek „Słońce” pojawi się po ustawieniu współrzędnych w Ustawienia → Urządzenie → Lokalizacja."
+    "condition_sun_needs_location": "Warunek „Słońce” pojawi się po ustawieniu współrzędnych w Ustawienia → Urządzenie → Lokalizacja.",
+    "condition_sun_needs_location_short": "wymaga lokalizacji"
   },
   "virtual_energy_sensor": {
     "title": "Wirtualne Sensory Energii",
@@ -2907,6 +2908,7 @@
     "run_needs_save": "Najpierw zapisz zmiany.",
     "ran": "Harmonogram odpalony.",
     "run_failed": "Nie udało się odpalić harmonogramu.",
-    "needs_location": "Wyzwalacze słoneczne są niedostępne, dopóki nie ustawisz współrzędnych w Ustawienia → Urządzenie → Lokalizacja. Wyzwalacz zegarowy działa bez nich."
+    "needs_location": "Wyzwalacze słoneczne są niedostępne, dopóki nie ustawisz współrzędnych w Ustawienia → Urządzenie → Lokalizacja. Wyzwalacz zegarowy działa bez nich.",
+    "needs_location_short": "wymaga lokalizacji"
   }
 }

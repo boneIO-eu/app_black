@@ -278,3 +278,37 @@ export const filterCoverActionsByTilt = (
   if (coverSupportsTilt(selectedCover)) return actionOptions;
   return actionOptions.filter(opt => !TILT_ACTIONS.includes(opt));
 };
+
+
+/**
+ * Apply one `onUpdate(field, value)` from a shared editor to an object.
+ *
+ * `__batch` is a sentinel the condition and action editors use to set several
+ * fields at once — it is how they swap between `condition` and `conditions`
+ * without a render in between where both are set. A consumer that treats it as
+ * an ordinary field name writes a junk `__batch` key and silently drops the
+ * update, which is what "Add condition" did in the schedules page until this
+ * became shared code rather than something each form re-implemented.
+ *
+ * An `undefined` value removes the key rather than storing it, so a cleared
+ * field does not end up in the YAML as a null.
+ *
+ * @param target - The object being edited. Not mutated.
+ * @param field - Field name, or `__batch`.
+ * @param value - The new value, or an object of them for `__batch`.
+ * @returns A new object with the change applied.
+ */
+export const applyActionUpdate = <T extends Record<string, unknown>>(
+  target: T,
+  field: string,
+  value: unknown,
+): T => {
+  const next: Record<string, unknown> = { ...target };
+  const changes =
+    field === '__batch' ? (value as Record<string, unknown>) : { [field]: value };
+  for (const [key, entry] of Object.entries(changes)) {
+    if (entry === undefined) delete next[key];
+    else next[key] = entry;
+  }
+  return next as T;
+};

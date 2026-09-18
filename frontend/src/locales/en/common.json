@@ -1472,7 +1472,8 @@
     "validation_condition_sun_mixed": "Use only one of: window, phase, or elevation.",
     "validation_condition_sun_range": "'Above' must be lower than 'below'.",
     "validation_condition_sun_degrees": "Elevation must be between -90 and 90 degrees.",
-    "condition_sun_needs_location": "The 'Sun' condition appears once coordinates are set in Settings → Device → Location."
+    "condition_sun_needs_location": "The 'Sun' condition appears once coordinates are set in Settings → Device → Location.",
+    "condition_sun_needs_location_short": "needs a location"
   },
   "virtual_energy_sensor": {
     "title": "Virtual Energy Sensors",
@@ -2908,6 +2909,7 @@
     "run_needs_save": "Save your changes first.",
     "ran": "Schedule fired.",
     "run_failed": "Failed to run the schedule.",
-    "needs_location": "Sun triggers are unavailable until you set the coordinates in Settings → Device → Location. A clock trigger works without them."
+    "needs_location": "Sun triggers are unavailable until you set the coordinates in Settings → Device → Location. A clock trigger works without them.",
+    "needs_location_short": "needs a location"
   }
 }
