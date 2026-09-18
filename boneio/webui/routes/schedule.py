@@ -1,0 +1,75 @@
+"""Schedule routes for the boneIO web UI.
+
+The ``schedule:`` section itself is edited like any other config section. What
+cannot be read out of the configuration is the part that matters when something
+does not work: whether a schedule is actually armed, and for when.
+
+A schedule is also the one kind of action nobody can test by pressing a button,
+which is why "run it now" is an endpoint.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from boneio.core.manager import Manager
+
+_LOGGER = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api", tags=["schedule"])
+
+
+def get_manager():
+    """Get manager instance - will be overridden by app initialization."""
+    raise NotImplementedError("Manager not initialized")
+
+
+@router.get("/schedule")
+async def get_schedule_status(manager: Manager = Depends(get_manager)):
+    """What is armed, and when each schedule fires next.
+
+    Returns:
+        Dict with a ``schedules`` list; ``next_fire`` is null for a schedule
+        that is disabled, has no firing in sight, or is waiting for the clock.
+    """
+    scheduler = getattr(manager, "scheduler", None)
+    if scheduler is None:
+        return {"schedules": []}
+    return {"schedules": scheduler.status()}
+
+
+@router.post("/schedule/{schedule_id}/run")
+async def run_schedule_now(schedule_id: str, manager: Manager = Depends(get_manager)):
+    """Run one schedule immediately, as if it had fired.
+
+    Its conditions still apply — a "run now" that ignored them would be testing
+    something other than the schedule. The armed timer is untouched, so the
+    next real firing still happens.
+
+    Args:
+        schedule_id: The schedule's id.
+        manager: Injected manager.
+
+    Returns:
+        Status response.
+
+    Raises:
+        HTTPException: 404 when no such schedule exists.
+    """
+    scheduler = getattr(manager, "scheduler", None)
+    entry = None
+    if scheduler is not None:
+        entry = next((e for e in scheduler._entries if e.id == schedule_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"No schedule with id {schedule_id!r}.")
+
+    _LOGGER.info("Schedule '%s' run manually from the web UI.", schedule_id)
+    await scheduler._run(entry)
+    return {
+        "status": "success",
+        "id": entry.id,
+        "last_fire": entry.last_fire.isoformat() if entry.last_fire else None,
+        "last_error": entry.last_error,
+    }

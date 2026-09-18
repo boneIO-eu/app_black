@@ -1,12 +1,20 @@
 """Conditional action execution logic.
 
 Provides condition evaluation for boneIO action system.
-Supports three condition types:
+Supports four condition types:
   - time: Check if current time is within a range (HH:MM, midnight crossover)
   - date: Check if current date is within a range (MM-DD, new year crossover)
   - state: Check if a boneIO entity is in a specific state
+  - sun: Check the position of the Sun (needs a configured location)
 
 Multiple conditions can be combined with AND/OR logic.
+
+The running device does not use this module: ``execute_actions`` goes through
+the pre-compiled fast path in :mod:`boneio.core.manager.action_conditions`.
+This is the straightforward reference implementation, kept for callers that
+have a dict and no compile step. Sun conditions are *delegated* to the compiled
+class rather than reimplemented here — the polar-day rules are subtle enough
+that a second copy would drift.
 
 Example usage:
     >>> from boneio.core.utils.conditions import evaluate_conditions
@@ -227,10 +235,42 @@ def _check_state_condition(
     return result
 
 
+def _check_sun_condition(
+    condition: dict,
+    sun_provider: Any | None = None,
+    now: datetime | None = None,
+) -> bool:
+    """Check the Sun's position against the condition.
+
+    Delegates to the compiled evaluator so the anchor, phase and polar-day
+    rules exist exactly once. The import is local because that module belongs
+    to the manager layer and this one does not depend on it otherwise.
+
+    Args:
+        condition: Dict with the sun condition's fields.
+        sun_provider: The manager's SunProvider, or None.
+        now: Optional aware datetime override for testing.
+
+    Returns:
+        True if the condition is met, or if the Sun's position is unknowable.
+    """
+    from boneio.core.manager.action_conditions import _compile_single
+
+    compiled = _compile_single(condition, sun_provider)
+    if compiled is None:
+        return True
+    if now is None:
+        now = datetime.now().astimezone()
+    elif now.tzinfo is None:
+        now = now.astimezone()
+    return compiled.evaluate(now)
+
+
 def check_single_condition(
     condition: dict,
     state_resolver: Callable[[str, str], Any] | None = None,
     now: datetime | None = None,
+    sun_provider: Any | None = None,
 ) -> bool:
     """Evaluate a single condition.
     
@@ -238,6 +278,7 @@ def check_single_condition(
         condition: Condition dictionary with 'type' key
         state_resolver: Callback to resolve entity states
         now: Optional datetime override for testing
+        sun_provider: SunProvider, required only by sun conditions
         
     Returns:
         True if condition is met
@@ -250,6 +291,8 @@ def check_single_condition(
         return _check_date_condition(condition, now=now)
     elif cond_type == "state":
         return _check_state_condition(condition, state_resolver=state_resolver)
+    elif cond_type == "sun":
+        return _check_sun_condition(condition, sun_provider=sun_provider, now=now)
     else:
         _LOGGER.error("Unknown condition type: %s", cond_type)
         return True  # Don't block on unknown condition
@@ -260,6 +303,7 @@ def evaluate_conditions(
     conditions: dict | None = None,
     state_resolver: Callable[[str, str], Any] | None = None,
     now: datetime | None = None,
+    sun_provider: Any | None = None,
 ) -> bool:
     """Evaluate action conditions.
     
@@ -270,6 +314,7 @@ def evaluate_conditions(
         conditions: Multiple conditions dict with 'mode' and 'list' keys
         state_resolver: Callback to resolve entity states for state conditions
         now: Optional datetime override for testing
+        sun_provider: SunProvider, required only by sun conditions
         
     Returns:
         True if conditions are met (or no conditions specified)
@@ -280,7 +325,9 @@ def evaluate_conditions(
     
     # Single condition
     if condition:
-        return check_single_condition(condition, state_resolver=state_resolver, now=now)
+        return check_single_condition(
+            condition, state_resolver=state_resolver, now=now, sun_provider=sun_provider
+        )
     
     # Multiple conditions
     mode = conditions.get("mode", "and")
@@ -291,12 +338,16 @@ def evaluate_conditions(
     
     if mode == "and":
         result = all(
-            check_single_condition(c, state_resolver=state_resolver, now=now)
+            check_single_condition(
+                c, state_resolver=state_resolver, now=now, sun_provider=sun_provider
+            )
             for c in cond_list
         )
     elif mode == "or":
         result = any(
-            check_single_condition(c, state_resolver=state_resolver, now=now)
+            check_single_condition(
+                c, state_resolver=state_resolver, now=now, sun_provider=sun_provider
+            )
             for c in cond_list
         )
     else:

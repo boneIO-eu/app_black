@@ -58,6 +58,9 @@ export const SECTION_GROUPS: { name: SectionGroup; icon: string; translationKey:
  */
 export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'areas', icon: '🏠', translationKey: 'sections.areas', group: 'device' },
+  // Coordinates, not hardware: everything sun-related reads them, and they
+  // hot-reload, so the section sits with Areas rather than under boneIO.
+  { name: 'location', icon: '📍', translationKey: 'sections.location', group: 'device' },
   { name: 'oled', icon: '🖥️', translationKey: 'sections.oled', group: 'device' },
 
   { name: 'local_inputs', icon: '📥', translationKey: 'sections.local_inputs', group: 'control' },
@@ -70,6 +73,9 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   // Irrigation is a template platform, edited inside this section.
   { name: 'template', icon: '🧩', translationKey: 'sections.template', group: 'control' },
   { name: 'binding_matrix', icon: '📊', translationKey: 'sections.binding_matrix', group: 'control' },
+  // Actions that fire on their own. Under Control rather than Device: it
+  // drives outputs and covers, it is not a fact about the hardware.
+  { name: 'schedule', icon: '⏰', translationKey: 'sections.schedule', group: 'control' },
 
   { name: 'modbus_devices', icon: '📱', translationKey: 'sections.modbus_devices', group: 'connections' },
   { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices', group: 'connections' },

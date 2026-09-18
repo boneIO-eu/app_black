@@ -54,6 +54,9 @@ dev = [
     "setuptools>=80.9.0",
 ]
 test = [
+    # Independent implementation used only to cross-check boneio.core.utils.sun.
+    # Deliberately not a runtime dependency — see the module docstring.
+    "astral>=3.2",
     "pytest>=9.0.1",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",

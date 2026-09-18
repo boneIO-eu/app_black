@@ -40,6 +40,8 @@ interface AppInitData {
   has_boneio: boolean;
   board_version: string | null;
   has_irrigation: boolean;
+  /** Whether latitude and longitude are configured. */
+  has_location: boolean;
 }
 
 interface AppInitContextType {

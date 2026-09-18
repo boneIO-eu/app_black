@@ -823,6 +823,99 @@ def ha_sensor_system_availabilty_message(
     return msg
 
 
+def ha_sun_sensor_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    unit_of_measurement: str | None = None,
+    device_class: str | None = None,
+    state_class: str | None = None,
+    icon: str | None = None,
+    **kwargs,
+):
+    """Discovery message for a sun sensor.
+
+    Deliberately not the system-sensor helper: those carry
+    ``entity_category: diagnostic``, which hides them from a dashboard. Where
+    the Sun is belongs on the dashboard, not in the device's diagnostics.
+
+    Args:
+        id: Sensor ID.
+        name: Sensor name.
+        config_helper: ConfigHelper instance.
+        unit_of_measurement: Unit, e.g. "°".
+        device_class: HA device class, e.g. "timestamp".
+        state_class: HA state class, e.g. "measurement".
+        icon: MDI icon.
+        **kwargs: Additional fields.
+
+    Returns:
+        HA discovery message dict.
+    """
+    msg = ha_availabilty_message(
+        device_type=SENSOR,
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        entity_type="sensor",
+        **kwargs,
+    )
+    msg["value_template"] = "{{ value_json.state }}"
+    state_topic = msg.get("state_topic", f"{config_helper.topic_prefix}/{SENSOR}/{id}")
+    msg["json_attributes_topic"] = state_topic
+    msg["json_attributes_template"] = "{{ value_json | tojson }}"
+    if unit_of_measurement:
+        msg["unit_of_measurement"] = unit_of_measurement
+    if device_class:
+        msg["device_class"] = device_class
+    if state_class:
+        msg["state_class"] = state_class
+    if icon:
+        msg["icon"] = icon
+    return msg
+
+
+def ha_sun_binary_sensor_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    icon: str | None = None,
+    **kwargs,
+):
+    """Discovery message for "the Sun is up", as a binary_sensor.
+
+    The value is published on an ordinary sensor topic — so it also shows up in
+    the panel's sensor list — and read back here through a value template. That
+    is why this does not reuse ``ha_binary_sensor_availabilty_message``, whose
+    pressed/released payloads belong to GPIO inputs.
+
+    Args:
+        id: Sensor ID, matching the topic the sensor publishes on.
+        name: Entity name.
+        config_helper: ConfigHelper instance.
+        icon: MDI icon.
+        **kwargs: Additional fields.
+
+    Returns:
+        HA discovery message dict.
+    """
+    msg = ha_availabilty_message(
+        device_type=SENSOR,
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        entity_type="binary_sensor",
+        **kwargs,
+    )
+    msg["state_topic"] = f"{config_helper.topic_prefix}/{SENSOR}/{id}"
+    msg["value_template"] = "{{ value_json.state }}"
+    msg["payload_on"] = "on"
+    msg["payload_off"] = "off"
+    if icon:
+        msg["icon"] = icon
+    return msg
+
+
 def modbus_availabilty_message(
     id: str,
     entity_id: str,

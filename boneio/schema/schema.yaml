@@ -24,6 +24,51 @@ areas:
             Display name for the area shown in Home Assistant.
             Example: "Living Room", "Kitchen", "Garaż"
 
+# Where the device is. Needed by everything that reasons about the Sun.
+location:
+  type: dict
+  required: False
+  meta:
+    label: "Geographic location of the controller. Required for sun-based conditions and for the sunrise/sunset times shown in the panel."
+  schema:
+    latitude:
+      type:
+        - float
+        - integer
+      required: True
+      min: -90
+      max: 90
+      meta:
+        label: Latitude
+        description: |
+          Degrees north, -90 to 90. Four decimal places (~11 m) is plenty;
+          nothing here is improved by more, and the value ends up in config
+          backups.
+    longitude:
+      type:
+        - float
+        - integer
+      required: True
+      min: -180
+      max: 180
+      meta:
+        label: Longitude
+        description: |
+          Degrees east, -180 to 180.
+    elevation:
+      type:
+        - float
+        - integer
+      required: False
+      default: 0
+      min: -500
+      max: 9000
+      meta:
+        label: Elevation above sea level (m)
+        description: |
+          Lowers the horizon: 110 m moves sunrise about two minutes earlier in
+          central Europe. Leave at 0 if you do not know it.
+
 # Remote devices - control outputs/covers on other devices via MQTT, CAN, etc.
 remote_devices: !include remote_devices.yaml
 
@@ -202,6 +247,32 @@ web:
       meta:
         label: Web security headers
       schema:
+        map_tiles:
+          type: boolean
+          required: False
+          default: False
+          meta:
+            label: Allow the location picker to load a map
+            description: |
+              Off by default. When on, the Location page can show an
+              OpenStreetMap map to pick the coordinates from, and the panel's
+              Content-Security-Policy gains the OpenStreetMap tile servers in
+              its `img-src` directive.
+
+              That is a real loosening, not a formality. An image URL is an
+              outbound channel: someone who already had script execution in the
+              panel could encode data into a tile path and read it out of
+              someone else's access log. The map is a convenience, so it is
+              opt-in and nobody pays for it who is not using it.
+
+              The tiles are fetched by your browser, not by the controller, so
+              this works on a device with no route to the internet — as long as
+              the computer you open the panel from has one. Without a map the
+              coordinates can still be typed in, or filled from the timezone.
+
+              Tiles come from openstreetmap.org, which sees the area you are
+              looking at. Map data © OpenStreetMap contributors.
+
         frame_ancestors:
           type:
             - list
@@ -2022,6 +2093,163 @@ template:
               allowed: ['daily', 'weekdays', 'weekend', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
               meta:
                 label: Days when this schedule is active.
+
+schedule:
+  type: list
+  required: False
+  meta:
+    label: "Time and sun driven schedules — run actions without anyone pressing anything."
+    description: |
+      Every other action in boneIO is started by a person or by an input. This
+      section is the exception: a schedule fires on its own, at a clock time or
+      at a moment defined by the Sun.
+
+      Example — close the covers a quarter of an hour before sunset, but only
+      in the dark half of the year:
+
+        schedule:
+          - id: covers_evening
+            name: Covers at dusk
+            trigger:
+              type: sun
+              event: sunset
+              offset: "-15min"
+            condition:
+              type: date
+              after: "10-01"
+              before: "04-30"
+            actions:
+              - action: cover
+                boneio_cover: living_room
+                action_cover: CLOSE
+
+      A sun trigger needs the `location:` section. See docs/SUN.md.
+  schema:
+    type: dict
+    check_with: schedule_shape
+    schema:
+      id: !include id.yaml
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display name for this schedule.
+      enabled:
+        type: boolean
+        required: False
+        default: True
+        meta:
+          label: Whether this schedule is armed.
+          description: |
+            A disabled schedule keeps its configuration and fires nothing.
+            Easier to reason about than commenting the entry out.
+      trigger:
+        type: dict
+        required: True
+        meta:
+          label: When this schedule fires.
+        schema:
+          type:
+            type: string
+            required: False
+            default: sun
+            allowed: ['sun', 'time']
+            meta:
+              label: Trigger type
+              description: |
+                - sun: a moment defined by the Sun, e.g. sunset or civil dusk
+                - time: a fixed clock time
+          event:
+            type: string
+            required: False
+            meta:
+              label: Sun event (sun triggers only)
+              description: |
+                A sun anchor: sunrise, sunset, civil_dawn, civil_dusk,
+                nautical_dawn, nautical_dusk, astronomical_dawn,
+                astronomical_dusk, solar_noon, solar_midnight, or one of the
+                golden/blue hour edges. The full list is in docs/SUN.md.
+          at:
+            type: string
+            required: False
+            regex: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+            meta:
+              label: Clock time in HH:MM (time triggers only)
+          offset:
+            type: float
+            required: False
+            coerce: sun_offset
+            min: -43200
+            max: 43200
+            meta:
+              label: Shift the moment
+              description: |
+                Negative is earlier: `event: sunset` with `offset: "-15min"`
+                fires a quarter of an hour before sunset. Accepts s, min and h;
+                a bare number means seconds. Limited to ±12 h.
+          jitter:
+            type: float
+            required: False
+            default: 0
+            coerce: sun_offset
+            min: 0
+            max: 21600
+            meta:
+              label: Random spread
+              description: |
+                Adds a random delay of up to this much, drawn once per firing.
+                Intended for presence simulation — without it every boneIO in
+                the street closes its covers in the same second.
+          days:
+            type: string
+            required: False
+            default: daily
+            allowed: ['daily', 'weekdays', 'weekend', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+            meta:
+              label: Days this schedule is active.
+      on_missed:
+        type: string
+        required: False
+        default: skip
+        allowed: ['skip', 'run']
+        meta:
+          label: What to do about a firing missed while the device was off.
+          description: |
+            The controller may be restarting, or may have been powered off,
+            when a schedule was due. `skip` (the default) forgets it. `run`
+            fires it on startup if it was due within `catch_up` — right for
+            "close the covers", wrong for "sound the doorbell".
+      catch_up:
+        type: float
+        required: False
+        default: 900
+        coerce: sun_offset
+        min: 0
+        max: 21600
+        meta:
+          label: How late a missed firing may still run (on_missed - run).
+          description: |
+            Default 15 minutes. A restart that takes a minute catches up; a
+            device that was off all day does not suddenly close the covers at
+            breakfast.
+      condition: !include condition.yaml
+      conditions:
+        type: dict
+        required: false
+        schema:
+          mode:
+            type: string
+            allowed: ['and', 'or']
+            default: 'and'
+            meta:
+              label: Condition mode
+          list:
+            type: list
+            required: true
+            schema: !include condition.yaml
+            meta:
+              label: List of conditions
+      actions: !include actions_switch.yaml
 
 irrigation:
   type: list

@@ -98,6 +98,32 @@ export const validateCondition = (condition: any, t: (key: string) => string): s
     }
   }
 
+  if (condition.type === 'sun') {
+    const hasWindow = Boolean(condition.after || condition.before);
+    const hasPhase = Boolean(condition.phase);
+    const hasElevation = condition.above !== undefined || condition.below !== undefined;
+    const chosen = [hasWindow, hasPhase, hasElevation].filter(Boolean).length;
+
+    if (chosen === 0) {
+      return t('event_form.validation_condition_sun_empty');
+    }
+    if (chosen > 1) {
+      // The backend refuses a mixture too; catching it here means the message
+      // arrives while the fields are still on screen.
+      return t('event_form.validation_condition_sun_mixed');
+    }
+    if (hasElevation && condition.above !== undefined && condition.below !== undefined
+        && condition.above >= condition.below) {
+      return t('event_form.validation_condition_sun_range');
+    }
+    for (const bound of ['above', 'below'] as const) {
+      const value = condition[bound];
+      if (value !== undefined && (isNaN(value) || Math.abs(value) > 90)) {
+        return t('event_form.validation_condition_sun_degrees');
+      }
+    }
+  }
+
   if (condition.type === 'state') {
     if (!condition.entity) {
       return t('event_form.validation_condition_entity_required');

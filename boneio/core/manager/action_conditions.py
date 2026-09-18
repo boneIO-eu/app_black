@@ -8,6 +8,8 @@ Optimisations over the generic conditions.py:
   - datetime.now() is called ONCE per execute_actions() batch
   - time/date strings are parsed once (at config load) rather than each press
   - state_resolver results can be cached within an evaluation cycle
+  - sun conditions hold the provider, which caches a day of anchors, so a
+    button press reads two datetimes instead of computing ephemerides
   - dedicated logger `boneio.action_conditions` for easy filtering
 
 Usage:
@@ -21,9 +23,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from datetime import time as dt_time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from boneio.core.utils import sun as sun_utils
+
+if TYPE_CHECKING:
+    from boneio.core.manager.sun import SunProvider
 
 _LOGGER = logging.getLogger("boneio.action_conditions")
 
@@ -88,6 +95,170 @@ class _DateCondition:
         if self.before:
             return current <= self.before
         return True
+
+
+class _SunCondition:
+    """Pre-parsed sun condition: a window between anchors, a phase, or an angle.
+
+    Nothing is computed here at compile time. Anchor *times* change every day,
+    so the only thing worth pre-resolving is which anchors were asked for; the
+    provider hands back a cached day at evaluation time.
+    """
+
+    __slots__ = (
+        "mode",
+        "after",
+        "after_offset",
+        "before",
+        "before_offset",
+        "phase",
+        "above",
+        "below",
+        "_provider",
+        "_warned",
+    )
+
+    def __init__(
+        self,
+        provider: SunProvider | None,
+        *,
+        after: str | None = None,
+        after_offset: float = 0.0,
+        before: str | None = None,
+        before_offset: float = 0.0,
+        phase: str | None = None,
+        above: float | None = None,
+        below: float | None = None,
+    ) -> None:
+        self._provider = provider
+        self._warned = False
+        self.after = after
+        self.after_offset = after_offset
+        self.before = before
+        self.before_offset = before_offset
+        self.phase = phase
+        self.above = above
+        self.below = below
+        if phase:
+            self.mode = "phase"
+        elif above is not None or below is not None:
+            self.mode = "elevation"
+        else:
+            self.mode = "window"
+
+    # -- anchor resolution ------------------------------------------------
+
+    def _resolve(
+        self,
+        name: str,
+        offset: float,
+        now: datetime,
+        anchors: dict[str, datetime | None],
+        day_start: datetime,
+        day_end: datetime,
+    ) -> datetime:
+        """Turn an anchor name into an instant, polar days included.
+
+        A missing anchor is not "unknown" — it means the Sun stayed on one side
+        of that angle all day, and which side decides whether the bound should
+        collapse to the start or the end of the day. Getting this backwards is
+        how a window meant to mean "while it is dark" ends up covering a polar
+        summer.
+        """
+        moment = anchors.get(name)
+        if moment is not None:
+            return moment + timedelta(seconds=offset)
+
+        threshold, rising = sun_utils.ANCHORS.get(name, (None, True))
+        if threshold is None or self._provider is None:
+            return day_end
+
+        # `now`, not the wall clock: the day being asked about is the one the
+        # anchors came from, which is not necessarily today.
+        state = self._provider.threshold_state(threshold, now)
+        if state == "always_above":
+            # The Sun is permanently past this angle: a crossing upward is
+            # behind us, a crossing downward is still ahead.
+            return day_start if rising else day_end
+        if state == "always_below":
+            return day_end if rising else day_start
+        return day_end
+
+    # -- evaluation -------------------------------------------------------
+
+    def evaluate(self, now: datetime) -> bool:
+        """Check *now* against this condition.
+
+        Returns:
+            True when the condition holds. Also True when the Sun's position
+            cannot be known — no ``location:``, or a clock that has not been
+            set — which matches how every other condition treats a
+            configuration error: it does not block the action. The web UI
+            refuses to save a sun condition without a location, so this path
+            means something changed underneath a running device.
+        """
+        provider = self._provider
+        if provider is None or not provider.ready(now):
+            if not self._warned:
+                self._warned = True
+                _LOGGER.error(
+                    "Sun condition cannot be evaluated (no location, or the "
+                    "clock is not set yet) — allowing the action."
+                )
+            return True
+
+        if self.mode == "phase":
+            return bool(provider.in_phase(self.phase, now))
+
+        if self.mode == "elevation":
+            elevation = provider.elevation(now)
+            if elevation is None:
+                return True
+            if self.above is not None and elevation <= self.above:
+                return False
+            return not (self.below is not None and elevation >= self.below)
+
+        anchors = provider.anchors(now)
+        if not anchors:
+            return True
+
+        local = now.astimezone(provider.timezone)
+        day_start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+
+        start = (
+            self._resolve(
+                self.after, self.after_offset, now, anchors, day_start, day_end
+            )
+            if self.after
+            else None
+        )
+        end = (
+            self._resolve(
+                self.before, self.before_offset, now, anchors, day_start, day_end
+            )
+            if self.before
+            else None
+        )
+
+        if start is not None and end is not None:
+            if start <= end:
+                return start <= now < end
+            # Crosses midnight, e.g. sunset → sunrise. Same rule as a time
+            # window, and the same rule that makes a polar-night window empty.
+            return now >= start or now < end
+        if start is not None:
+            return now >= start
+        if end is not None:
+            return now < end
+        return True
+
+    def __repr__(self) -> str:  # pragma: no cover - diagnostics only
+        if self.mode == "phase":
+            return f"<sun phase={self.phase}>"
+        if self.mode == "elevation":
+            return f"<sun above={self.above} below={self.below}>"
+        return f"<sun {self.after}+{self.after_offset:g}s .. {self.before}+{self.before_offset:g}s>"
 
 
 class _StateCondition:
@@ -190,7 +361,7 @@ class _ConditionGroup:
 
     def __init__(
         self,
-        items: list[_TimeCondition | _DateCondition | _StateCondition],
+        items: list[_TimeCondition | _DateCondition | _StateCondition | _SunCondition],
         use_all: bool,
     ) -> None:
         self.items = items
@@ -212,7 +383,7 @@ class _ConditionGroup:
 
 
 def _eval_single(
-    cond: _TimeCondition | _DateCondition | _StateCondition,
+    cond: _TimeCondition | _DateCondition | _StateCondition | _SunCondition,
     now: datetime,
     state_resolver: Callable[[str, str], Any] | None,
 ) -> bool:
@@ -220,6 +391,8 @@ def _eval_single(
     if isinstance(cond, _TimeCondition):
         return cond.evaluate(now)
     if isinstance(cond, _DateCondition):
+        return cond.evaluate(now)
+    if isinstance(cond, _SunCondition):
         return cond.evaluate(now)
     if isinstance(cond, _StateCondition):
         return cond.evaluate(state_resolver)
@@ -248,13 +421,32 @@ def _parse_date(s: str) -> tuple[int, int]:
     raise ValueError(f"Invalid date format: '{s}'")
 
 
-def _compile_single(raw: dict) -> _TimeCondition | _DateCondition | _StateCondition | None:
+def _compile_single(
+    raw: dict,
+    sun_provider: SunProvider | None = None,
+) -> _TimeCondition | _DateCondition | _StateCondition | _SunCondition | None:
     """Compile a single condition dict into a fast evaluator.
 
-    Returns None if the condition is invalid (logs a warning).
+    Args:
+        raw: One condition from the config.
+        sun_provider: The manager's provider, needed only by sun conditions.
+
+    Returns:
+        A compiled condition, or None if it is invalid (logs an error).
     """
     ctype = raw.get("type")
     try:
+        if ctype == "sun":
+            return _SunCondition(
+                sun_provider,
+                after=raw.get("after"),
+                after_offset=float(raw.get("after_offset") or 0.0),
+                before=raw.get("before"),
+                before_offset=float(raw.get("before_offset") or 0.0),
+                phase=raw.get("phase"),
+                above=None if raw.get("above") is None else float(raw["above"]),
+                below=None if raw.get("below") is None else float(raw["below"]),
+            )
         if ctype == "time":
             after = _parse_time(raw["after"]) if raw.get("after") else None
             before = _parse_time(raw["before"]) if raw.get("before") else None
@@ -283,7 +475,8 @@ def _compile_single(raw: dict) -> _TimeCondition | _DateCondition | _StateCondit
 
 def precompile_conditions(
     action_definition: dict,
-) -> _ConditionGroup | _TimeCondition | _DateCondition | _StateCondition | None:
+    sun_provider: SunProvider | None = None,
+) -> _ConditionGroup | _TimeCondition | _DateCondition | _StateCondition | _SunCondition | None:
     """Pre-compile conditions from a parsed action definition.
 
     Call this once (at config load / parse_actions time) and store the
@@ -292,6 +485,9 @@ def precompile_conditions(
     Args:
         action_definition: A single action dict that may contain
             ``condition`` (single) or ``conditions`` (group).
+        sun_provider: The manager's :class:`SunProvider`. Held by reference, so
+            reconfiguring the location reaches conditions that were compiled
+            before the change without recompiling them.
 
     Returns:
         A compiled condition object, or None if there are no conditions.
@@ -300,7 +496,7 @@ def precompile_conditions(
     multi = action_definition.get("conditions")
 
     if single:
-        return _compile_single(single)
+        return _compile_single(single, sun_provider)
 
     if multi:
         mode = multi.get("mode", "and")
@@ -309,7 +505,7 @@ def precompile_conditions(
             return None
         compiled = []
         for raw in cond_list:
-            item = _compile_single(raw)
+            item = _compile_single(raw, sun_provider)
             if item is not None:
                 compiled.append(item)
         if not compiled:
@@ -324,6 +520,7 @@ def should_execute_action(
     | _TimeCondition
     | _DateCondition
     | _StateCondition
+    | _SunCondition
     | None,
     now: datetime,
     state_resolver: Callable[[str, str], Any] | None = None,

@@ -3,7 +3,8 @@
 ## Overview
 
 The action conditions system allows boneIO actions (button presses, events) to execute
-conditionally based on **time**, **date**, or **entity state**.
+conditionally based on **time**, **date**, **entity state**, or the **position of the
+Sun**.
 
 ## Architecture
 
@@ -21,8 +22,12 @@ The compiled object is stored on the action dict as `_compiled_conditions`.
 
 At button-press time, conditions are evaluated via `should_execute_action()`:
 
-- `datetime.now()` is called **once** per `execute_actions` batch and shared
-  across all actions — avoids per-action overhead.
+- `datetime.now().astimezone()` is called **once** per `execute_actions` batch
+  and shared across all actions — avoids per-action overhead. It is *aware*:
+  sun anchors are born as aware UTC, and comparing them against a naive local
+  time would be ambiguous in the hour the clock goes back. `.time()` and
+  `.month` behave identically on an aware local datetime, so the time and date
+  conditions are unaffected.
 - Pre-compiled conditions skip all dict-based string parsing.
 - State conditions use a `state_resolver` callback.
 
@@ -67,6 +72,69 @@ condition:
 ```
 `state` values: `is_on`, `is_off`, `is_open`, `is_closed`.
 
+### Sun condition
+
+Needs the `location:` section — see `docs/SUN.md`. One of three shapes, never a
+mixture; the loader and the web UI both refuse a condition that mixes them.
+
+**A window between two sun anchors.** `after`/`before` name anchors instead of
+clock times, and each takes an optional offset (negative is earlier):
+
+```yaml
+condition:
+  type: sun
+  after: sunset
+  after_offset: "-15min"
+  before: civil_dawn
+```
+
+A `sunset → sunrise` window wraps past midnight, exactly as `22:00 → 06:00`
+does for a time condition.
+
+**A phase of the day:**
+
+```yaml
+condition:
+  type: sun
+  phase: golden_hour
+```
+
+`day`, `civil_twilight`, `nautical_twilight`, `astronomical_twilight`, `night`,
+plus the two photographic bands `golden_hour` (-4°…+6°) and `blue_hour`
+(-6°…-4°) which *overlap* the others rather than sitting between them.
+
+**An elevation band,** in degrees above the horizon:
+
+```yaml
+condition:
+  type: sun
+  above: 0
+  below: 10
+```
+
+#### Where an anchor does not exist
+
+Above roughly 60° of latitude the Sun may not cross a given angle at all on a
+given day, so the anchor has no time. The bound then collapses to the start or
+the end of the local day, chosen by which side the Sun stayed on:
+
+| Situation | `sunrise` resolves to | `sunset` resolves to | `sunrise → sunset` means |
+|---|---|---|---|
+| Polar day | start of day | end of day | the whole day |
+| Polar night | end of day | start of day | nothing |
+
+Which makes `sunset → sunrise` behave the other way round, as it should. The
+`horizon_state` field of `GET /api/sun/today` reports the same thing to the
+panel.
+
+#### When the Sun's position is unknown
+
+No `location:`, or a clock that has not been set yet (the board has no RTC):
+the condition evaluates to **true** and logs once. That matches how every other
+condition treats a configuration error — it does not block the action — but it
+does mean a sun condition can silently stop gating anything, which is why the
+web UI refuses to save one on a device with no coordinates.
+
 ### Multiple conditions (AND/OR)
 ```yaml
 conditions:
@@ -79,6 +147,20 @@ conditions:
       entity: output
       entity_id: lamp_hallway
       state: is_on
+```
+
+Sun conditions mix freely with the rest:
+
+```yaml
+conditions:
+  mode: and
+  list:
+    - type: sun
+      after: sunset
+      before: sunrise
+    - type: date
+      after: "10-01"
+      before: "04-30"
 ```
 
 ## Entity State Resolution
@@ -110,4 +192,17 @@ All lookups are **O(1) dict.get()** — no iteration.
 | `boneio/core/manager/manager.py` | Use pre-compiled conditions, `datetime.now()` once per batch |
 | `boneio/hardware/gpio/input/base.py` | **Bugfix** — added `is_active` property (was missing for binary sensors) |
 | `boneio/components/cover/cover.py` | **Bugfix** — added `is_open` property (was missing for covers) |
-| `boneio/core/utils/conditions.py` | Kept — still used for backend validation API |
+| `boneio/core/utils/conditions.py` | The straightforward reference implementation. The running device does not use it; sun conditions there *delegate* to the compiled class rather than reimplementing the polar rules |
+| `boneio/core/manager/sun.py` | `SunProvider` — the location, the timezone, and a day of cached anchors |
+| `boneio/core/utils/sun.py` | The solar maths. See `docs/SUN.md` |
+| `boneio/schema/condition.yaml` | `sun` type, anchors, offsets, phases, elevations, and the `condition_shape` check |
+| `boneio/core/config/yaml_util.py` | `sun_offset` coercion (signed, in seconds) and `_check_with_condition_shape` |
+| `boneio/webui/action_validation.py` | Refuses a sun condition on a device with no `location:` |
+
+## Performance
+
+A sun condition costs two dict lookups and two datetime comparisons on the hot
+path. The anchors it reads are computed once per local day by `SunProvider` and
+reused; elevation readings are cached for 60 s. The only case that computes
+anything per evaluation is a *missing* anchor at high latitude, which needs one
+`threshold_state` call to decide which way the window collapses.

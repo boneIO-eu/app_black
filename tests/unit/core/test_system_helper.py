@@ -267,3 +267,129 @@ def test_no_route_pipes_a_password_to_sudo_any_more():
         if "-S" in literals:
             offenders.append(path.name)
     assert not offenders, f"these routes pipe a password to sudo: {offenders}"
+
+
+# ----------------------------------------------------------------------- NTP
+#
+# The NTP verbs write into a file systemd parses as root. The value comes from
+# a web form, so the tests below are mostly about what the helper refuses: a
+# newline or a space in a "server name" would let the caller append directives
+# of their own to that file.
+
+
+@pytest.fixture
+def dropin(tmp_path, helper, monkeypatch) -> Path:
+    """Redirect the timesyncd drop-in into a temporary directory."""
+    path = tmp_path / "timesyncd.conf.d" / "boneio.conf"
+    monkeypatch.setattr(helper, "NTP_DROPIN", path)
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    return path
+
+
+@pytest.mark.parametrize(
+    "server",
+    [
+        "192.168.1.10",
+        "10.0.0.1",
+        "2001:db8::1",
+        "ntp",
+        "ntp.local",
+        "pool.ntp.org",
+        "tempus1.gum.gov.pl",
+    ],
+)
+def test_a_usable_ntp_server_is_accepted(helper, server):
+    assert helper._check_ntp_server(server) == server
+
+
+@pytest.mark.parametrize(
+    "server",
+    [
+        "192.168.1.10 rogue.example",  # a space starts a second server
+        "ntp.local\nNTP=attacker.example",  # a newline starts a new directive
+        "ntp.local\n[Time]",
+        "[Time]",
+        "-leading-hyphen.example",
+        "trailing-hyphen-.example",
+        "ntp.local;reboot",
+        "ntp..local",
+        "",
+        "a" * 254,
+    ],
+)
+def test_an_unusable_ntp_server_is_refused(helper, server):
+    with pytest.raises(helper.Refused):
+        helper._check_ntp_server(server)
+
+
+def test_more_servers_than_allowed_are_refused(helper):
+    with pytest.raises(helper.Refused):
+        helper._parse_ntp_servers(",".join(f"ntp{i}.local" for i in range(6)))
+
+
+def test_duplicate_servers_are_refused(helper):
+    with pytest.raises(helper.Refused):
+        helper._parse_ntp_servers("ntp.local,ntp.local")
+
+
+@pytest.mark.parametrize("argument", ["", "   ", "default", "DEFAULT", None])
+def test_the_defaults_are_spelled_as_an_empty_list(helper, argument):
+    assert helper._parse_ntp_servers(argument) == []
+
+
+def test_setting_servers_writes_a_drop_in_and_nudges_the_daemon(helper, dropin, ran):
+    assert helper._ntp_set("192.168.1.10,ntp.local") == 0
+
+    content = dropin.read_text(encoding="utf-8")
+    assert "[Time]" in content
+    assert "NTP=192.168.1.10 ntp.local" in content
+    # try-restart, not restart: changing the source must not switch
+    # synchronisation back on when the operator turned it off.
+    assert ran == [["systemctl", "try-restart", "systemd-timesyncd"]]
+
+
+def test_the_drop_in_is_world_readable_and_nothing_more(helper, dropin, ran):
+    helper._ntp_set("192.168.1.10")
+    assert oct(dropin.stat().st_mode & 0o777) == "0o644"
+
+
+def test_choosing_the_defaults_removes_the_drop_in(helper, dropin, ran):
+    helper._ntp_set("192.168.1.10")
+    assert dropin.exists()
+
+    assert helper._ntp_set("default") == 0
+    assert not dropin.exists()
+    # Removing it still has to reach the daemon, or the old servers stay live.
+    assert ran[-1] == ["systemctl", "try-restart", "systemd-timesyncd"]
+
+
+def test_removing_an_absent_drop_in_is_not_an_error(helper, dropin, ran):
+    assert helper._ntp_set("") == 0
+    assert not dropin.exists()
+
+
+def test_a_refused_server_leaves_the_previous_configuration_alone(helper, dropin, ran):
+    helper._ntp_set("192.168.1.10")
+    before = dropin.read_text(encoding="utf-8")
+
+    with pytest.raises(helper.Refused):
+        helper._ntp_set("192.168.1.11,bad server name")
+
+    assert dropin.read_text(encoding="utf-8") == before
+
+
+def test_the_servers_are_read_back(helper, dropin, ran, capsys):
+    helper._ntp_set("192.168.1.10,ntp.local")
+    capsys.readouterr()
+
+    assert helper._ntp_get() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["servers"] == ["192.168.1.10", "ntp.local"]
+    assert payload["dropin"] is True
+
+
+def test_reading_back_with_no_drop_in_reports_the_defaults(helper, dropin, capsys):
+    assert helper._ntp_get() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["servers"] == []
+    assert payload["dropin"] is False

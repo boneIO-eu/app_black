@@ -31,6 +31,8 @@ interface ConfigContextType {
   hasBoneioSection: boolean;
   /** Whether the 'irrigation' section exists and has entries */
   hasIrrigationSection: boolean;
+  /** Whether coordinates are configured — everything sun-related needs them */
+  hasLocation: boolean;
   /** Whether the config is still loading */
   isLoading: boolean;
   /** Hardware board version (e.g., '0.7') or null if not set */
@@ -64,6 +66,7 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
     return {
       hasBoneioSection: initData?.has_boneio ?? false,
       hasIrrigationSection: initData?.has_irrigation ?? false,
+      hasLocation: initData?.has_location ?? false,
       isLoading,
       boardVersion,
       canSupported: boardVersion ? CAN_SUPPORTED_VERSIONS.includes(boardVersion) : true,

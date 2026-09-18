@@ -84,7 +84,21 @@ _PERMISSIONS_POLICY = ", ".join(
 HSTS_MAX_AGE = 86400
 
 
-def build_csp(frame_ancestors: object = None) -> str:
+#: Tile servers the map picker may load images from, when it is switched on.
+#:
+#: Naming hosts in `img-src` is a real loosening, not a formality: an image URL
+#: is an outbound channel, so an attacker who already has script execution in
+#: the panel could encode a few hundred bytes per request into a tile path and
+#: read it out of someone else's access log. That is why this is off by default
+#: and has to be turned on per device — the map is a convenience, and nobody
+#: should pay for it who is not using it.
+MAP_TILE_SOURCES = (
+    "https://*.tile.openstreetmap.org",
+    "https://tile.openstreetmap.org",
+)
+
+
+def build_csp(frame_ancestors: object = None, map_tiles: bool = False) -> str:
     """Assemble the Content-Security-Policy header value.
 
     Args:
@@ -92,18 +106,31 @@ def build_csp(frame_ancestors: object = None) -> str:
             it — a list of plain tokens, or the single string earlier versions
             wrote. None means the device has not been configured and the secure
             default applies; ``["*"]`` lifts the restriction deliberately.
+        map_tiles: ``web.security.map_tiles``. When true, OpenStreetMap tile
+            servers are added to ``img-src`` so the location picker can show a
+            map. Off by default; see :data:`MAP_TILE_SOURCES`.
 
     Returns:
         The header value.
     """
     directives = list(_CSP_DIRECTIVES)
+    if map_tiles:
+        directives = [
+            f"{directive} {' '.join(MAP_TILE_SOURCES)}"
+            if directive.startswith("img-src ")
+            else directive
+            for directive in directives
+        ]
     tokens = framing.effective(frame_ancestors)
     directives.append(f"frame-ancestors {framing.to_csp(tokens)}")
     return "; ".join(directives)
 
 
 def apply_security_headers(
-    request: Request, response: Response, frame_ancestors: object = None
+    request: Request,
+    response: Response,
+    frame_ancestors: object = None,
+    map_tiles: bool = False,
 ) -> None:
     """Set the security headers on an outgoing response.
 
@@ -112,10 +139,11 @@ def apply_security_headers(
         response: Response to annotate, modified in place.
         frame_ancestors: Configured frame_ancestors value, or None for the
             default. See :func:`build_csp`.
+        map_tiles: Whether the map picker is enabled. See :func:`build_csp`.
     """
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"
-    response.headers["Content-Security-Policy"] = build_csp(frame_ancestors)
+    response.headers["Content-Security-Policy"] = build_csp(frame_ancestors, map_tiles)
     response.headers["Permissions-Policy"] = _PERMISSIONS_POLICY
 
     # Only meaningful over TLS. A proxy terminating TLS tells us via

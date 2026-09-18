@@ -84,6 +84,29 @@ function ConditionBadges({ action }: { action: any }) {
       if (cond.before) parts.push(cond.before);
       return `📅 ${parts.join('–') || '?'}`;
     }
+    if (cond.type === 'sun') {
+      if (cond.phase) return `☀ ${t(`sun.phase_${cond.phase}`)}`;
+      if (cond.above !== undefined || cond.below !== undefined) {
+        const above = cond.above !== undefined ? `>${cond.above}°` : '';
+        const below = cond.below !== undefined ? `<${cond.below}°` : '';
+        return `☀ ${[above, below].filter(Boolean).join(' ')}`;
+      }
+      // Offsets arrive as seconds from the backend; minutes is what anyone
+      // reading a badge wants, and the sign carries the direction.
+      const offset = (value: string | number | undefined) => {
+        if (value === undefined || value === null || value === '') return '';
+        const minutes = typeof value === 'number'
+          ? Math.round(value / 60)
+          : parseInt(String(value), 10);
+        if (!minutes || isNaN(minutes)) return '';
+        // A leading space and a real minus sign: "Sunset-15m" reads as one word.
+        return minutes > 0 ? ` +${minutes}m` : ` \u2212${Math.abs(minutes)}m`;
+      };
+      const parts: string[] = [];
+      if (cond.after) parts.push(`${t(`sun.anchor_${cond.after}`)}${offset(cond.after_offset)}`);
+      if (cond.before) parts.push(`${t(`sun.anchor_${cond.before}`)}${offset(cond.before_offset)}`);
+      return `☀ ${parts.join('–') || '?'}`;
+    }
     if (cond.type === 'state') {
       const entity = cond.entity_id || cond.entity || '?';
       const state = cond.state?.replace('is_', '') || '?';

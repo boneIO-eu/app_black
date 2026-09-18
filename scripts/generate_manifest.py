@@ -24,6 +24,16 @@ MANIFEST_PATH = ASSETS_DIR / "MANIFEST.sha256"
 # Files to skip in the manifest
 SKIP_FILES = {"MANIFEST.sha256"}
 
+# Directories whose contents are never assets. __pycache__ is the one that
+# matters: running the helpers locally (or py_compile on them) leaves .pyc files
+# next to the sources, and they were being hashed into the manifest. They are
+# excluded from the wheel by [tool.setuptools.exclude-package-data], so the
+# manifest listed files that do not ship — and their digests changed from one
+# machine to the next, which is the opposite of what an integrity manifest is
+# for.
+SKIP_DIRS = {"__pycache__"}
+SKIP_SUFFIXES = {".pyc", ".pyo"}
+
 
 def sha256_file(path: Path) -> str:
     """Return SHA-256 hex digest of file at path.
@@ -57,6 +67,10 @@ def generate_manifest() -> int:
         if not asset_path.is_file():
             continue
         if asset_path.name in SKIP_FILES:
+            continue
+        if asset_path.suffix in SKIP_SUFFIXES:
+            continue
+        if SKIP_DIRS.intersection(asset_path.parts):
             continue
 
         rel = asset_path.relative_to(ASSETS_DIR)

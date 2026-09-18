@@ -49,8 +49,10 @@ from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.remote import RemoteDeviceManager
+from boneio.core.manager.scheduler import Scheduler
 from boneio.core.manager.security_alert import SecurityAlertPublisher
 from boneio.core.manager.sensors import SensorManager
+from boneio.core.manager.sun import SunProvider
 from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.messaging import MessageBus
@@ -130,6 +132,8 @@ class Manager:
         irrigation: list[dict] | None = None,
         remote_devices: list[dict] | None = None,
         can: dict[str, Any] | None = None,
+        location: dict[str, Any] | None = None,
+        schedule: list[dict] | None = None,
         web_active: bool = False,
         web_port: int = 8090,
         early_oled_device: Any | None = None,
@@ -164,6 +168,11 @@ class Manager:
         self._config_helper = config_helper
         self._config_file_path = config_file_path
         self._topic_prefix = config_helper.topic_prefix
+
+        # Where the Sun is. Built even when `location:` is absent: an
+        # unconfigured provider answers "not ready" and says so once, which is
+        # what every caller has to handle anyway.
+        self.sun = SunProvider(location)
 
         # Reports outstanding security recommendations to Home Assistant.
         self.security_alert = SecurityAlertPublisher(self)
@@ -299,6 +308,13 @@ class Manager:
             manager=self,
             irrigation_config=merged_irrigation,
         )
+
+        # 13. Scheduler — actions that fire on their own. Built here because
+        # parsing its actions needs the outputs and covers to exist, and armed
+        # from a task because the first thing it does is look at the clock.
+        self.scheduler = Scheduler(manager=self, schedules=schedule or [])
+        if schedule:
+            self.append_task(coro=self.scheduler.start, name="scheduler")
 
         # Configure virtual energy sensors (must be after outputs are initialized)
         self.sensors.configure_virtual_energy_sensors()
@@ -613,6 +629,14 @@ class Manager:
             except Exception as e:
                 _LOGGER.debug("Error re-publishing sensor state %s: %s", sensor.id, e)
 
+        # Sun sensors. A broker that has just come back has no retained value
+        # for them, and the next scheduled update could be a minute away.
+        for sensor in self.sensors.get_sun_sensors():
+            try:
+                await sensor.async_update(timestamp)
+            except Exception as e:
+                _LOGGER.debug("Error re-publishing sensor state %s: %s", sensor.id, e)
+
     def publish_ha_discovery(
         self,
         id: str,
@@ -684,7 +708,7 @@ class Manager:
                 if action_definition.get(key) is not None:
                     parsed_action[key] = action_definition[key]
             # Pre-compile conditions for fast evaluation at action time
-            compiled = precompile_conditions(parsed_action)
+            compiled = precompile_conditions(parsed_action, self.sun)
             if compiled is not None:
                 parsed_action["_compiled_conditions"] = compiled
 
@@ -902,8 +926,12 @@ class Manager:
 
         duration_ms = (duration or 0) * 1000  # Convert to ms
 
-        # Compute datetime once for all condition evaluations in this batch
-        now_dt = datetime.now()
+        # Compute datetime once for all condition evaluations in this batch.
+        # Aware, not naive: sun anchors are born as aware UTC, and comparing
+        # them against a naive local time would be ambiguous in the hour the
+        # clock goes back. `.time()` and `.month` behave identically on an
+        # aware local datetime, so the time and date conditions are unaffected.
+        now_dt = datetime.now().astimezone()
 
         for idx, action_definition in enumerate(actions):
             is_repeat = action_definition.get("repeat", False)
@@ -1292,6 +1320,26 @@ class Manager:
             )
         finally:
             self._pending_tilt_restores.pop(task_key, None)
+
+    async def _reload_schedule(self) -> None:
+        """Adopt a new schedule section, disarming whatever was armed before."""
+        config = self._config_helper.get_config() or {}
+        await self.scheduler.reload(config.get("schedule") or [])
+        # A device that started with no schedules never started the supervisor.
+        await self.scheduler.start()
+
+    def _reload_location(self) -> None:
+        """Adopt new coordinates and drop every cached sun answer.
+
+        Cheap enough to be synchronous: the provider recomputes lazily, so this
+        is a configure call and three cache clears.
+        """
+        config = self._config_helper.get_config() or {}
+        self.sun.configure(config.get("location"))
+        # Coordinates may have just appeared, in which case the sun sensors
+        # were never built. Existing ones need nothing: they read the provider
+        # on every update, so new coordinates reach them by themselves.
+        self.sensors.configure_sun_sensors()
 
     def _reload_logger(self) -> None:
         """Reload logger configuration from config file.
@@ -1704,6 +1752,8 @@ class Manager:
             "irrigation": self.irrigation.reload_irrigation,  # Irrigation controllers
             "adc": self.sensors.reload_adc_sensors,  # ADC analog sensors
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
+            "location": self._reload_location,  # Coordinates for sun-based features
+            "schedule": self._reload_schedule,  # Time and sun driven schedules
             "oled": self.display.reload_oled,  # OLED display screens, screensaver
         }
 

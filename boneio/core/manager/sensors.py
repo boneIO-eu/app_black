@@ -84,6 +84,7 @@ class SensorManager:
         self._adc_sensors = []
         self._dallas_sensors: list[DallasSensor] = []
         self._system_sensors = []
+        self._sun_sensors = []
         self._virtual_energy_sensors = []
         self._virtual_energy_sensor_configs = sensors.get(VIRTUAL_ENERGY_SENSOR, [])
 
@@ -94,6 +95,7 @@ class SensorManager:
         self._configure_dallas_sensors(dallas=dallas, sensors=sensors.get(ONEWIRE))
         self._configure_adc(adc_list=adc)
         self._configure_system_sensors()
+        self.configure_sun_sensors()
         # Note: virtual_energy_sensors are configured after outputs are ready
 
         _LOGGER.info(
@@ -739,6 +741,14 @@ class SensorManager:
                 except Exception as e:
                     _LOGGER.debug("Error broadcasting sensor state %s: %s", sensor.id, e)
 
+        # Sun sensors — cheap to recompute and otherwise up to a minute stale
+        # in a panel that has just thrown its state away.
+        for sensor in self._sun_sensors:
+            try:
+                await sensor.async_update(timestamp)
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting sensor state %s: %s", sensor.id, e)
+
     async def reload_adc_sensors(self) -> None:
         """Reload ADC sensor configuration from file.
 
@@ -985,6 +995,88 @@ class SensorManager:
         _LOGGER.info(
             "Configured %d system sensors: %s", len(self._system_sensors), [s.id for s in self._system_sensors]
         )
+
+    def get_sun_sensors(self) -> list:
+        """Sensors derived from the Sun's position.
+
+        Returns:
+            The sun sensors, empty when no location is configured.
+        """
+        return self._sun_sensors
+
+    #: id → (unit, device_class, state_class, icon) for the discovery messages.
+    #: A table rather than six call sites: the only thing that differs between
+    #: these sensors is how Home Assistant should render them.
+    _SUN_SENSOR_PRESENTATION: dict[str, tuple] = {
+        "sun_elevation": ("°", None, "measurement", "mdi:sun-angle"),
+        "sun_azimuth": ("°", None, "measurement", "mdi:compass-outline"),
+        "sun_phase": (None, None, None, "mdi:theme-light-dark"),
+        "sun_next_sunrise": (None, "timestamp", None, "mdi:weather-sunset-up"),
+        "sun_next_sunset": (None, "timestamp", None, "mdi:weather-sunset-down"),
+    }
+
+    def configure_sun_sensors(self) -> None:
+        """Create the sun sensors, if the device knows where it is.
+
+        Safe to call again after the location is configured: it does nothing
+        when the sensors already exist, so a reload that adds coordinates can
+        bring them up without a restart.
+        """
+        from boneio.core.sensor.sun import build_sun_sensors
+
+        if self._sun_sensors:
+            return
+
+        sensors = build_sun_sensors(
+            manager=self._manager,
+            message_bus=self._manager._message_bus,
+            topic_prefix=self._manager._topic_prefix,
+        )
+        if not sensors:
+            _LOGGER.debug("No location configured, so no sun sensors.")
+            return
+
+        self._sun_sensors.extend(sensors)
+        self._publish_sun_discovery()
+        _LOGGER.info(
+            "Configured %d sun sensors: %s", len(sensors), [s.id for s in sensors]
+        )
+
+    def _publish_sun_discovery(self) -> None:
+        """Send Home Assistant discovery for every sun sensor."""
+        from boneio.integration.homeassistant import (
+            ha_sun_binary_sensor_message,
+            ha_sun_sensor_message,
+        )
+
+        for sensor in self._sun_sensors:
+            if sensor.id == "sun_above_horizon":
+                payload = ha_sun_binary_sensor_message(
+                    id=sensor.id,
+                    name=sensor.name,
+                    config_helper=self._manager._config_helper,
+                    icon="mdi:white-balance-sunny",
+                )
+                self._manager.publish_ha_discovery(
+                    id=sensor.id, ha_type="binary_sensor", payload=payload
+                )
+                continue
+
+            unit, device_class, state_class, icon = self._SUN_SENSOR_PRESENTATION.get(
+                sensor.id, (None, None, None, "mdi:weather-sunny")
+            )
+            payload = ha_sun_sensor_message(
+                id=sensor.id,
+                name=sensor.name,
+                config_helper=self._manager._config_helper,
+                unit_of_measurement=unit,
+                device_class=device_class,
+                state_class=state_class,
+                icon=icon,
+            )
+            self._manager.publish_ha_discovery(
+                id=sensor.id, ha_type=SENSOR, payload=payload
+            )
 
     def configure_virtual_energy_sensors(self) -> None:
         """Configure virtual energy sensors after outputs are initialized.
@@ -1493,6 +1585,10 @@ class SensorManager:
                 icon=_icon_map.get(sensor.id, "mdi:harddisk"),
             )
             self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
+
+        # Sun sensors — their own table; the loop above assumes a percentage
+        # and a disk icon, which is right for exactly none of them.
+        self._publish_sun_discovery()
 
         # Virtual energy sensors
         for sensor in self._virtual_energy_sensors:

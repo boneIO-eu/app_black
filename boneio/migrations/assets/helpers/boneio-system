@@ -15,6 +15,8 @@ This replaces both with named operations:
     overlay-get                    read the device-tree overlay from uEnv.txt
     overlay-set <basename>         change it, from a fixed list of overlays
     hostname-set <name>
+    ntp-get                        read the configured NTP servers
+    ntp-set <servers|default>      point systemd-timesyncd at given servers
 
 Every argument is checked against a closed set before anything runs, and the
 uEnv.txt edit is done here with a compiled pattern rather than by handing a
@@ -29,6 +31,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import logging
 import logging.handlers
@@ -77,8 +80,32 @@ _OVERLAY_LINE_RE = re.compile(
 #: A hostname: DNS label rules, which is stricter than hostnamectl's own.
 _HOSTNAME_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)$")
 
+#: Where the NTP servers chosen in the web UI are written. A drop-in rather than
+#: timesyncd.conf itself, so the distribution's file stays untouched and
+#: "use the defaults" is a file deletion rather than an edit that has to guess
+#: what the defaults were.
+NTP_DROPIN = Path("/etc/systemd/timesyncd.conf.d/boneio.conf")
+
+#: At most this many servers. systemd accepts more; the UI offers this many and
+#: a bounded list keeps the generated file a fixed, reviewable shape.
+NTP_MAX_SERVERS = 5
+
+#: One DNS name. Addresses are validated with :mod:`ipaddress` instead, so this
+#: only has to cover hostnames.
+#:
+#: The point of validating at all is not that systemd would choke on a bad name.
+#: It is that this value is written into a systemd configuration file: a space,
+#: a newline or a bracket in it would let the caller append directives of their
+#: own to a file parsed as root. The character set below has no way to express
+#: any of that.
+_NTP_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)"
+    r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$"
+)
+
 VERBS = (
     "can-up", "can-down", "overlay-get", "overlay-set", "hostname-set",
+    "ntp-get", "ntp-set",
 )
 
 
@@ -346,6 +373,154 @@ def _hostname_set(name: str | None) -> int:
     return _run(["hostnamectl", "set-hostname", name])
 
 
+# ------------------------------------------------------------------------ NTP
+
+
+def _check_ntp_server(value: str) -> str:
+    """Validate one NTP server: an IP address or a DNS name.
+
+    Args:
+        value: Candidate server.
+
+    Returns:
+        The value, unchanged.
+
+    Raises:
+        Refused: If it is neither a valid address nor a plausible DNS name.
+    """
+    try:
+        return str(ipaddress.ip_address(value))
+    except ValueError:
+        pass
+    if not _NTP_HOSTNAME_RE.match(value):
+        raise Refused(
+            f"not a usable NTP server: {value!r}. Give an IPv4 or IPv6 address, "
+            "or a DNS name made of letters, digits, hyphens and dots."
+        )
+    return value
+
+
+def _parse_ntp_servers(argument: str | None) -> list[str]:
+    """Split and validate the comma-separated server list.
+
+    Args:
+        argument: ``"a,b,c"``, or ``""``/``"default"`` to mean "no drop-in".
+
+    Returns:
+        The validated servers, possibly empty.
+
+    Raises:
+        Refused: On an invalid entry, a duplicate, or too many of them.
+    """
+    if argument is None or argument.strip().lower() in ("", "default"):
+        return []
+
+    servers: list[str] = []
+    for raw in argument.split(","):
+        entry = raw.strip()
+        if not entry:
+            continue
+        checked = _check_ntp_server(entry)
+        if checked in servers:
+            raise Refused(f"duplicate NTP server: {checked!r}")
+        servers.append(checked)
+
+    if len(servers) > NTP_MAX_SERVERS:
+        raise Refused(
+            f"too many NTP servers: {len(servers)}. At most {NTP_MAX_SERVERS}."
+        )
+    return servers
+
+
+def _read_ntp_dropin() -> list[str]:
+    """Return the servers currently in the drop-in, empty if there is none."""
+    try:
+        text = NTP_DROPIN.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("NTP="):
+            return stripped[4:].split()
+    return []
+
+
+def _ntp_get() -> int:
+    """Print the configured NTP servers as JSON.
+
+    Returns:
+        0 always; an absent drop-in is a valid state, not a failure.
+    """
+    print(
+        json.dumps(
+            {
+                "servers": _read_ntp_dropin(),
+                "dropin": NTP_DROPIN.exists(),
+                "path": str(NTP_DROPIN),
+            }
+        )
+    )
+    return 0
+
+
+def _ntp_set(argument: str | None) -> int:
+    """Write (or remove) the timesyncd drop-in naming the NTP servers.
+
+    An empty list removes the drop-in, which returns the device to whatever the
+    distribution configured — the only honest meaning of "use the defaults".
+
+    The daemon is restarted with ``try-restart``, not ``restart``: if NTP has
+    been switched off, changing which servers *would* be used must not quietly
+    switch synchronisation back on.
+
+    Args:
+        argument: Comma-separated servers, or ``""``/``"default"``.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: If any server is invalid.
+    """
+    servers = _parse_ntp_servers(argument)
+
+    if not servers:
+        if NTP_DROPIN.exists():
+            NTP_DROPIN.unlink()
+            _LOGGER.info("Removed %s; using the distribution defaults.", NTP_DROPIN)
+        else:
+            _LOGGER.info("No NTP drop-in to remove; already on the defaults.")
+        return _run(["systemctl", "try-restart", "systemd-timesyncd"], tolerate=True)
+
+    content = (
+        "# Written by boneio-system. Edits here are replaced on the next change\n"
+        "# from the boneIO web interface.\n"
+        "[Time]\n"
+        f"NTP={' '.join(servers)}\n"
+    )
+
+    NTP_DROPIN.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=NTP_DROPIN.parent, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+    ) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        os.chmod(tmp_path, 0o644)
+        if os.geteuid() == 0:
+            os.chown(tmp_path, 0, 0)
+        os.replace(tmp_path, NTP_DROPIN)
+    except OSError:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+    _LOGGER.info("NTP servers set to %s in %s", " ".join(servers), NTP_DROPIN)
+    return _run(["systemctl", "try-restart", "systemd-timesyncd"], tolerate=True)
+
+
 # ----------------------------------------------------------------- selftest
 
 
@@ -360,6 +535,8 @@ def selftest() -> int:
         problems.append("ip is not installed, so CAN cannot be configured")
     if shutil.which("hostnamectl") is None:
         problems.append("hostnamectl is not installed")
+    if shutil.which("systemctl") is None:
+        problems.append("systemctl is not installed, so NTP servers cannot be applied")
     try:
         _find_uenv()
     except Refused as exc:
@@ -423,6 +600,10 @@ def main(argv: list[str] | None = None) -> int:
             return _overlay_set(args.argument)
         if args.verb == "hostname-set":
             return _hostname_set(args.argument)
+        if args.verb == "ntp-get":
+            return _ntp_get()
+        if args.verb == "ntp-set":
+            return _ntp_set(args.argument)
         raise Refused(f"unknown verb {args.verb!r}. Allowed: {', '.join(VERBS)}")
     except Refused as exc:
         _LOGGER.error("REFUSED: %s", exc)

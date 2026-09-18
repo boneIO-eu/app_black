@@ -1,9 +1,10 @@
 # Condition schema for conditional action execution.
 #
-# Supports three condition types:
-#   - time: Check current time is within a range (supports midnight crossover)
-#   - date: Check current date is within a range (supports new year crossover)
-#   - state: Check state of a boneIO entity (binary_sensor, cover, output, light)
+# Four condition types:
+#   - time:  current time is within a range (supports midnight crossover)
+#   - date:  current date is within a range (supports new year crossover)
+#   - state: a boneIO entity is in a given state
+#   - sun:   the Sun is between two anchors, in a phase, or at an elevation
 #
 # Examples:
 #   condition:
@@ -12,18 +13,34 @@
 #     before: "22:00"
 #
 #   condition:
+#     type: sun
+#     after: sunset
+#     after_offset: "-15min"
+#     before: sunrise
+#
+#   condition:
+#     type: sun
+#     phase: golden_hour
+#
+#   condition:
 #     type: state
 #     entity: binary_sensor
 #     entity_id: motion_sensor
 #     state: is_on
+#
+# A sun condition uses exactly one of the three shapes: after/before, phase, or
+# above/below. Mixing them, naming an anchor that does not exist, or giving an
+# offset without its bound is rejected at load time by `condition_shape` —
+# at runtime the only symptom would be an action that silently never fires.
 
 type: dict
 required: false
+check_with: condition_shape
 schema:
   type:
     type: string
     required: true
-    allowed: ['time', 'date', 'state']
+    allowed: ['time', 'date', 'state', 'sun']
     meta:
       label: Condition type
       description: |
@@ -31,6 +48,7 @@ schema:
         - time: Check if current time is within a range (e.g. 05:00-22:00)
         - date: Check if current date is within a range (e.g. 11-01 to 03-31)
         - state: Check if a boneIO entity is in a specific state
+        - sun: Check the position of the Sun (needs the `location:` section)
   after:
     type: string
     required: false
@@ -39,6 +57,7 @@ schema:
       description: |
         For time: "HH:MM" format (e.g. "05:00", "22:30")
         For date: "MM-DD" format (e.g. "11-01" for November 1st)
+        For sun: a sun anchor, e.g. "sunrise", "civil_dusk", "solar_noon"
   before:
     type: string
     required: false
@@ -47,6 +66,75 @@ schema:
       description: |
         For time: "HH:MM" format (e.g. "22:00", "06:00")
         For date: "MM-DD" format (e.g. "03-31" for March 31st)
+        For sun: a sun anchor, e.g. "sunset", "civil_dawn"
+  after_offset:
+    type: float
+    required: false
+    coerce: sun_offset
+    min: -43200
+    max: 43200
+    meta:
+      label: Offset from the 'after' anchor (sun only)
+      description: |
+        Shifts the start of the window. Negative is earlier:
+        after: sunset with after_offset: "-15min" starts a quarter of an hour
+        before sunset. Accepts s, min and h; a bare number means seconds.
+        Limited to ±12 h — a larger offset is no longer a reference to that
+        anchor, and `type: time` says it more clearly.
+  before_offset:
+    type: float
+    required: false
+    coerce: sun_offset
+    min: -43200
+    max: 43200
+    meta:
+      label: Offset from the 'before' anchor (sun only)
+      description: |
+        Shifts the end of the window. Same format as after_offset.
+  phase:
+    type: string
+    required: false
+    allowed:
+      - day
+      - civil_twilight
+      - nautical_twilight
+      - astronomical_twilight
+      - night
+      - golden_hour
+      - blue_hour
+    meta:
+      label: Sun phase (sun only)
+      description: |
+        True while the Sun is in this phase.
+        - day: above the horizon
+        - civil_twilight / nautical_twilight / astronomical_twilight: -6/-12/-18°
+        - night: more than 18° below the horizon
+        - golden_hour: -4° to +6°, blue_hour: -6° to -4°
+        Golden and blue hour overlap the others — they are photographic bands,
+        not separate parts of the day.
+  above:
+    type:
+      - float
+      - integer
+    required: false
+    min: -90
+    max: 90
+    meta:
+      label: Sun elevation above (degrees, sun only)
+      description: |
+        True while the Sun is higher than this many degrees above the horizon.
+        Negative values are below it. Combine with `below` for a band.
+  below:
+    type:
+      - float
+      - integer
+    required: false
+    min: -90
+    max: 90
+    meta:
+      label: Sun elevation below (degrees, sun only)
+      description: |
+        True while the Sun is lower than this many degrees above the horizon.
   entity:
     type: string
     required: false

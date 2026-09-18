@@ -309,6 +309,7 @@ async def get_init(
     has_boneio = False
     board_version: str | None = None
     has_irrigation = False
+    has_location = False
     try:
         config = config_helper.get_config()
         has_boneio = "boneio" in config
@@ -326,6 +327,17 @@ async def get_init(
         has_irrigation = (
             (isinstance(irrigation_direct, list) and len(irrigation_direct) > 0)
             or len(irrigation_from_templates) > 0
+        )
+
+        # Everything sun-related is unusable without coordinates, and the panel
+        # hides those options rather than letting someone configure a condition
+        # that can never be evaluated. Both numbers, not just the section:
+        # `location: {}` is a section that tells us nothing.
+        location = config.get("location") or {}
+        has_location = (
+            isinstance(location, dict)
+            and location.get("latitude") is not None
+            and location.get("longitude") is not None
         )
     except Exception:
         pass
@@ -358,6 +370,7 @@ async def get_init(
         "has_boneio": has_boneio,
         "board_version": board_version,
         "has_irrigation": has_irrigation,
+        "has_location": has_location,
     }
 
 @router.get("/name")
@@ -814,8 +827,20 @@ class TimezoneRequest(BaseModel):
 
 
 class NtpRequest(BaseModel):
-    """Request model for NTP enable/disable."""
-    enabled: bool
+    """Request model for NTP synchronisation.
+
+    Both fields are optional so the UI can change one without restating the
+    other: a request with only ``servers`` changes where the time comes from and
+    leaves the on/off state alone.
+
+    Attributes:
+        enabled: Turn synchronisation on or off. None leaves it as it is.
+        servers: NTP servers to use. An empty list restores the distribution
+            defaults; None leaves the current choice alone.
+    """
+
+    enabled: bool | None = None
+    servers: list[str] | None = None
 
 
 def _parse_timedatectl() -> dict:
@@ -971,6 +996,80 @@ async def set_timezone(request: TimezoneRequest):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+#: How many servers the UI offers. Mirrors NTP_MAX_SERVERS in boneio-system;
+#: the helper enforces it, this only produces a better error message.
+_NTP_MAX_SERVERS = 5
+
+
+def _timesync_status() -> dict:
+    """Read which server the clock is actually following.
+
+    ``timedatectl show-timesync`` needs no privileges, so this does not go
+    through the helper. It answers the question the UI exists to answer: the
+    operator typed an address, did the device accept it?
+
+    Returns:
+        Dict with the server name and address, empty when unavailable.
+    """
+    try:
+        result = subprocess.run(
+            ["timedatectl", "show-timesync", "--all"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        return {}
+
+    info: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        if "=" in line:
+            key, _, value = line.partition("=")
+            info[key.strip()] = value.strip()
+
+    return {
+        "server_name": info.get("ServerName", ""),
+        "server_address": info.get("ServerAddress", ""),
+        "poll_interval_usec": info.get("PollIntervalUSec", ""),
+    }
+
+
+def _configured_ntp_servers() -> tuple[list[str], str]:
+    """Return the configured servers and where they came from.
+
+    Returns:
+        ``(servers, source)`` where source is ``"boneio"`` when boneIO wrote a
+        drop-in, ``"system"`` when the distribution's own configuration is in
+        force, and ``"unknown"`` when the helper is not installed yet.
+    """
+    result = system_ops.ntp_get()
+    if not result.ok:
+        return [], "unknown"
+    payload = result.json() or {}
+    servers = [str(entry) for entry in payload.get("servers", [])]
+    return servers, "boneio" if payload.get("dropin") else "system"
+
+
+@router.get("/ntp")
+async def get_ntp():
+    """Report NTP state: on/off, synchronised, configured and active servers.
+
+    Returns:
+        Dict describing the current time synchronisation setup.
+    """
+    info = _parse_timedatectl()
+    servers, source = _configured_ntp_servers()
+    return {
+        "enabled": info.get("NTP", "").lower() in ("yes", "active"),
+        "synchronized": info.get("NTPSynchronized", "").lower() == "yes",
+        "servers": servers,
+        "source": source,
+        "max_servers": _NTP_MAX_SERVERS,
+        **_timesync_status(),
+    }
+
+
 @router.post("/ntp")
 async def set_ntp(request: NtpRequest):
     """
@@ -982,24 +1081,63 @@ async def set_ntp(request: NtpRequest):
     Returns:
         Status response.
     """
-    action = "true" if request.enabled else "false"
-    try:
-        subprocess.run(
-            ["sudo", "timedatectl", "set-ntp", action],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        _LOGGER.info("NTP %s", "enabled" if request.enabled else "disabled")
-        return {"status": "success", "ntp_enabled": request.enabled}
-    except subprocess.CalledProcessError as e:
-        _LOGGER.error("Failed to set NTP: %s", e.stderr)
+    if request.enabled is None and request.servers is None:
         raise HTTPException(
-            status_code=500, detail=f"Failed to set NTP: {e.stderr}"
-        ) from e
-    except Exception as e:
-        _LOGGER.error("Error setting NTP: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+            status_code=400, detail="Nothing to change: give 'enabled', 'servers', or both."
+        )
+
+    # Servers first: switching synchronisation on should already point at the
+    # right source, not spend a poll interval on the public pool before the
+    # second request lands.
+    if request.servers is not None:
+        servers = [entry.strip() for entry in request.servers if entry and entry.strip()]
+        if len(servers) > _NTP_MAX_SERVERS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"At most {_NTP_MAX_SERVERS} NTP servers can be configured.",
+            )
+        if len(set(servers)) != len(servers):
+            raise HTTPException(status_code=400, detail="Duplicate NTP server in the list.")
+
+        result = system_ops.ntp_set(servers)
+        if not result.ok:
+            # The helper refuses invalid names; that is a bad request, not a
+            # server fault, and its message names the offending entry.
+            detail = (result.stderr or result.stdout).strip() or "Failed to set NTP servers"
+            status = 400 if "REFUSED" in detail or "not a usable" in detail else 500
+            _LOGGER.error("Failed to set NTP servers: %s", detail)
+            raise HTTPException(status_code=status, detail=detail)
+        _LOGGER.info(
+            "NTP servers set to: %s", ", ".join(servers) if servers else "system defaults"
+        )
+
+    if request.enabled is not None:
+        action = "true" if request.enabled else "false"
+        try:
+            subprocess.run(
+                ["sudo", "timedatectl", "set-ntp", action],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            _LOGGER.info("NTP %s", "enabled" if request.enabled else "disabled")
+        except subprocess.CalledProcessError as e:
+            _LOGGER.error("Failed to set NTP: %s", e.stderr)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to set NTP: {e.stderr}"
+            ) from e
+        except Exception as e:
+            _LOGGER.error("Error setting NTP: %s", e)
+            raise HTTPException(status_code=500, detail=str(e)) from e
+
+    servers_now, source = _configured_ntp_servers()
+    info = _parse_timedatectl()
+    return {
+        "status": "success",
+        "ntp_enabled": info.get("NTP", "").lower() in ("yes", "active"),
+        "servers": servers_now,
+        "source": source,
+    }
 
 
 @router.get("/timezones")

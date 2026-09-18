@@ -53,6 +53,19 @@ export const STANDALONE_SECTIONS: Record<string, StandaloneSection> = {
     component: lazySection(() => import('../../ConfigEditor') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
   },
 
+  // A config section with its own page rather than a generated form: three
+  // numbers are easy to mistype and impossible to sanity-check without seeing
+  // the times they produce, which is what this component adds.
+  location: {
+    component: lazySection(() => import('../SystemStateComponents/LocationSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
+  },
+
+  // A schedule is the only thing here nobody can test by pressing a button, so
+  // the page carries "next firing" and "run now" alongside the fields.
+  schedule: {
+    component: lazySection(() => import('../SystemStateComponents/ScheduleSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
+  },
+
   // Moved in from the System page.
   hostname: {
     component: lazySection(() => import('../SystemStateComponents/HostnameSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),

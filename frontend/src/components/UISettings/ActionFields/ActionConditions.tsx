@@ -1,21 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import type { OutputEntity, CoverEntity, BinarySensorEntity, AreaEntity } from '@/types/config';
 import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
+import { useConfig } from '@/contexts/ConfigContext';
 import { validateCondition } from './helpers';
 
 interface SingleCondition {
-  type: 'time' | 'date' | 'state';
+  type: 'time' | 'date' | 'state' | 'sun';
+  /** HH:MM for time, MM-DD for date, a sun anchor name for sun. */
   after?: string;
   before?: string;
+  /** Sun only. Read as seconds when it comes from the backend, written as "-30min". */
+  after_offset?: string | number;
+  before_offset?: string | number;
+  /** Sun only. */
+  phase?: string;
+  above?: number;
+  below?: number;
   entity?: string;
   entity_id?: string;
   state?: string;
@@ -44,7 +55,79 @@ interface ActionConditionsProps {
   excludeEntityId?: string;
 }
 
-const CONDITION_TYPES = ['time', 'date', 'state'] as const;
+const CONDITION_TYPES = ['time', 'date', 'state', 'sun'] as const;
+
+/**
+ * Sun anchors, grouped the way someone shopping for one thinks about them.
+ *
+ * Eighteen names in one flat list is unusable; four of them name the same two
+ * instants as their neighbours (the blue hour ends exactly where the golden
+ * hour begins) and belong next to each other.
+ */
+const SUN_ANCHOR_GROUPS: { label: string; anchors: string[] }[] = [
+  {
+    label: 'event_form.condition_sun_group_basic',
+    anchors: ['sunrise', 'sunset', 'solar_noon', 'solar_midnight'],
+  },
+  {
+    label: 'event_form.condition_sun_group_twilight',
+    anchors: [
+      'civil_dawn', 'civil_dusk',
+      'nautical_dawn', 'nautical_dusk',
+      'astronomical_dawn', 'astronomical_dusk',
+    ],
+  },
+  {
+    label: 'event_form.condition_sun_group_photographic',
+    anchors: [
+      'golden_hour_morning_start', 'golden_hour_morning_end',
+      'golden_hour_evening_start', 'golden_hour_evening_end',
+      'blue_hour_morning_start', 'blue_hour_morning_end',
+      'blue_hour_evening_start', 'blue_hour_evening_end',
+    ],
+  },
+];
+
+const SUN_PHASES = [
+  'day', 'civil_twilight', 'nautical_twilight', 'astronomical_twilight',
+  'night', 'golden_hour', 'blue_hour',
+] as const;
+
+type SunMode = 'window' | 'phase' | 'elevation';
+
+/** Which of the three shapes a stored sun condition already is. */
+function sunModeOf(condition: SingleCondition): SunMode {
+  if (condition.phase) return 'phase';
+  if (condition.above !== undefined || condition.below !== undefined) return 'elevation';
+  return 'window';
+}
+
+/**
+ * Read an offset as whole minutes.
+ *
+ * The backend coerces offsets to seconds, so a saved condition comes back as a
+ * number; a hand-written config comes back as "-30min". Both have to render in
+ * the same box.
+ */
+function offsetToMinutes(value: string | number | undefined): string {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value === 'number') return String(Math.round(value / 60));
+  const match = String(value).trim().match(/^([-+]?\d*\.?\d+)\s*(\w*)$/);
+  if (!match) return '';
+  const amount = parseFloat(match[1]);
+  const unit = (match[2] || 's').toLowerCase();
+  const seconds = unit.startsWith('h') ? amount * 3600 : unit.startsWith('m') ? amount * 60 : amount;
+  return String(Math.round(seconds / 60));
+}
+
+/** Write minutes back as "-30min", which is what a person reads in the YAML. */
+function minutesToOffset(minutes: string): string | undefined {
+  const trimmed = minutes.trim();
+  if (trimmed === '' || trimmed === '-') return undefined;
+  const value = parseInt(trimmed, 10);
+  if (isNaN(value) || value === 0) return undefined;
+  return `${value}min`;
+}
 const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'remote_output', 'remote_input'] as const;
 
 const STATE_OPTIONS: Record<string, string[]> = {
@@ -150,6 +233,23 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
         updated.entity = '';
         updated.entity_id = '';
         updated.state = '';
+      } else if (value === 'sun') {
+        // after/before mean anchor names here, so anything carried over from a
+        // time or date condition is not just stale, it is invalid.
+        delete updated.entity;
+        delete updated.entity_id;
+        delete updated.state;
+        updated.after = '';
+        updated.before = '';
+      }
+
+      // Sun-only fields never belong on another type.
+      if (value !== 'sun') {
+        delete updated.after_offset;
+        delete updated.before_offset;
+        delete updated.phase;
+        delete updated.above;
+        delete updated.below;
       }
     }
 
@@ -250,6 +350,34 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   };
 
   /**
+   * Which shape each sun condition is being edited as.
+   *
+   * Kept in component state rather than on the condition, because the config
+   * has no such field: the shape is implied by which fields are set, and
+   * storing a `mode` key would put UI bookkeeping into the user's YAML. State
+   * only matters while a half-filled condition has no fields to imply it from.
+   */
+  const { hasLocation } = useConfig();
+
+  const [sunModes, setSunModes] = useState<Record<number, SunMode>>({});
+
+  const setSunMode = (index: number, mode: SunMode) => {
+    setSunModes((current) => ({ ...current, [index]: mode }));
+    const newList = [...conditionsList];
+    const updated = { ...newList[index] };
+    // Only one shape may be present, so switching clears the others outright.
+    delete updated.phase;
+    delete updated.above;
+    delete updated.below;
+    delete updated.after_offset;
+    delete updated.before_offset;
+    updated.after = '';
+    updated.before = '';
+    newList[index] = updated;
+    updateConditions(newList);
+  };
+
+  /**
    * Renders a single condition row.
    */
   const renderCondition = (condition: SingleCondition, index: number) => {
@@ -290,13 +418,24 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {CONDITION_TYPES.map((ct) => (
+              {CONDITION_TYPES.filter(
+                // A sun condition on a device with no coordinates can never be
+                // evaluated, so it is not offered — but a condition that is
+                // already one stays selectable, or the field would go blank on
+                // a device whose location was removed.
+                (ct) => ct !== 'sun' || hasLocation || condition.type === 'sun',
+              ).map((ct) => (
                 <SelectItem key={ct} value={ct}>
                   {t(`event_form.condition_type_${ct}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {!hasLocation && (
+            <span className="text-xs opacity-60 mt-1">
+              {t('event_form.condition_sun_needs_location')}
+            </span>
+          )}
         </div>
 
         {/* Time condition fields */}
@@ -368,6 +507,175 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
             </div>
           </div>
         )}
+
+        {/* Sun condition fields */}
+        {condition.type === 'sun' && (() => {
+          const mode = sunModes[index] ?? sunModeOf(condition);
+          const anchorSelect = (field: 'after' | 'before') => (
+            <Select
+              value={condition[field] || ''}
+              onValueChange={(value) => updateSingleCondition(index, field, value)}
+            >
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder={t('event_form.condition_sun_anchor')} />
+              </SelectTrigger>
+              <SelectContent>
+                {SUN_ANCHOR_GROUPS.map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>{t(group.label)}</SelectLabel>
+                    {group.anchors.map((anchor) => (
+                      <SelectItem key={anchor} value={anchor}>
+                        {t(`sun.anchor_${anchor}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+
+          const offsetInput = (field: 'after_offset' | 'before_offset') => (
+            <label className="input input-bordered input-sm flex items-center gap-1 w-full">
+              <input
+                type="number"
+                className="grow min-w-0 bg-transparent outline-hidden"
+                placeholder="0"
+                step={5}
+                value={offsetToMinutes(condition[field])}
+                onChange={(e) =>
+                  updateSingleCondition(index, field, minutesToOffset(e.target.value))
+                }
+              />
+              <span className="text-xs opacity-60 shrink-0">{t('event_form.condition_sun_minutes')}</span>
+            </label>
+          );
+
+          return (
+            <>
+              <div className="form-control mb-2">
+                <label className="label py-1">
+                  <span className="label-text text-sm">{t('event_form.condition_sun_mode')}</span>
+                </label>
+                <Select value={mode} onValueChange={(value) => setSunMode(index, value as SunMode)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="window">{t('event_form.condition_sun_mode_window')}</SelectItem>
+                    <SelectItem value="phase">{t('event_form.condition_sun_mode_phase')}</SelectItem>
+                    <SelectItem value="elevation">{t('event_form.condition_sun_mode_elevation')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {mode === 'window' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-sm">{t('event_form.condition_after')}</span>
+                    </label>
+                    {anchorSelect('after')}
+                  </div>
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-sm">{t('event_form.condition_before')}</span>
+                    </label>
+                    {anchorSelect('before')}
+                  </div>
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-xs opacity-70">
+                        {t('event_form.condition_sun_offset')}
+                      </span>
+                    </label>
+                    {offsetInput('after_offset')}
+                  </div>
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-xs opacity-70">
+                        {t('event_form.condition_sun_offset')}
+                      </span>
+                    </label>
+                    {offsetInput('before_offset')}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs opacity-60">{t('event_form.condition_sun_window_hint')}</span>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'phase' && (
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text text-sm">{t('event_form.condition_sun_phase')}</span>
+                  </label>
+                  <Select
+                    value={condition.phase || ''}
+                    onValueChange={(value) => updateSingleCondition(index, 'phase', value)}
+                  >
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder={t('event_form.condition_sun_phase')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUN_PHASES.map((phase) => (
+                        <SelectItem key={phase} value={phase}>
+                          {t(`sun.phase_${phase}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs opacity-60 mt-1">{t('event_form.condition_sun_phase_hint')}</span>
+                </div>
+              )}
+
+              {mode === 'elevation' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-sm">{t('event_form.condition_sun_above')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered input-sm w-full"
+                      placeholder="-6"
+                      min={-90}
+                      max={90}
+                      value={condition.above ?? ''}
+                      onChange={(e) =>
+                        updateSingleCondition(
+                          index, 'above',
+                          e.target.value === '' ? undefined : parseFloat(e.target.value),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-sm">{t('event_form.condition_sun_below')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered input-sm w-full"
+                      placeholder="10"
+                      min={-90}
+                      max={90}
+                      value={condition.below ?? ''}
+                      onChange={(e) =>
+                        updateSingleCondition(
+                          index, 'below',
+                          e.target.value === '' ? undefined : parseFloat(e.target.value),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs opacity-60">{t('event_form.condition_sun_elevation_hint')}</span>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* State condition fields */}
         {condition.type === 'state' && (

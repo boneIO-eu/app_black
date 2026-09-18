@@ -73,8 +73,10 @@ from boneio.webui.routes import (
     outputs_router,
     remote_devices_router,
     diagnostics_router,
+    schedule_router,
     security_router,
     sensors_router,
+    sun_router,
     system_router,
     templates_router,
     tools_router,
@@ -193,6 +195,8 @@ app.include_router(templates_router)
 app.include_router(tools_router)
 app.include_router(migrations_router)
 app.include_router(mqtt_reference_router)
+app.include_router(sun_router)
+app.include_router(schedule_router)
 
 if os.environ.get("BONEIO_DEV"):
     app.include_router(dev_fake_device_router)
@@ -207,7 +211,9 @@ from boneio.webui.routes import modbus as modbus_module
 from boneio.webui.routes import mqtt_reference as mqtt_reference_module
 from boneio.webui.routes import outputs as outputs_module
 from boneio.webui.routes import remote_devices as remote_devices_module
+from boneio.webui.routes import schedule as schedule_module
 from boneio.webui.routes import sensors as sensors_module
+from boneio.webui.routes import sun as sun_module
 from boneio.webui.routes import templates as templates_module
 from boneio.webui.routes import tools as tools_module
 from boneio.webui.routes import update as update_module
@@ -225,6 +231,8 @@ app.dependency_overrides[migrations_module._get_manager] = get_manager
 app.dependency_overrides[templates_module.get_manager] = get_manager
 app.dependency_overrides[tools_module.get_manager] = get_manager
 app.dependency_overrides[mqtt_reference_module.get_manager] = get_manager
+app.dependency_overrides[sun_module.get_manager] = get_manager
+app.dependency_overrides[schedule_module.get_manager] = get_manager
 
 if os.environ.get("BONEIO_DEV"):
     from boneio.webui.routes import dev_fake_device as dev_fake_device_module
@@ -915,12 +923,15 @@ def init_app(
     # Passed through as configured — a list or, from an older config, a
     # string. build_csp reads both; joining here would only lose the shape.
     frame_ancestors = (web_security or {}).get("frame_ancestors")
+    # Off unless the operator asked for it: the map picker is the only thing
+    # that needs a third-party host in img-src, and most devices never open it.
+    map_tiles = bool((web_security or {}).get("map_tiles"))
 
     @app.middleware("http")
     async def security_headers_middleware(request, call_next):
         """Add security headers to all responses."""
         response = await call_next(request)
-        apply_security_headers(request, response, frame_ancestors)
+        apply_security_headers(request, response, frame_ancestors, map_tiles)
         return response
 
     # Add GZip compression

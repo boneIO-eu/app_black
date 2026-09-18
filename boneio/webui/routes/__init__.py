@@ -15,8 +15,10 @@ from boneio.webui.routes.mqtt_reference import router as mqtt_reference_router
 from boneio.webui.routes.outputs import router as outputs_router
 from boneio.webui.routes.remote_devices import router as remote_devices_router
 from boneio.webui.routes.diagnostics import router as diagnostics_router
+from boneio.webui.routes.schedule import router as schedule_router
 from boneio.webui.routes.security import router as security_router
 from boneio.webui.routes.sensors import router as sensors_router
+from boneio.webui.routes.sun import router as sun_router
 from boneio.webui.routes.system import router as system_router
 from boneio.webui.routes.templates import router as templates_router
 from boneio.webui.routes.tools import router as tools_router
@@ -41,8 +43,10 @@ __all__ = [
     "outputs_router",
     "remote_devices_router",
     "diagnostics_router",
+    "schedule_router",
     "security_router",
     "sensors_router",
+    "sun_router",
     "system_router",
     "tools_router",
     "templates_router",

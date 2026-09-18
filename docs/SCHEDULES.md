@@ -1,0 +1,171 @@
+# Schedules
+
+Actions that fire on their own — at a clock time, or at a moment the Sun
+defines. Everything else in boneIO starts with a person or an input; this is the
+exception, and that is both the point and the reason the runtime is careful.
+
+## Configuration
+
+```yaml
+schedule:
+  - id: covers_evening
+    name: Covers at dusk
+    enabled: true
+    trigger:
+      type: sun            # sun | time
+      event: sunset        # a sun anchor — see docs/SUN.md
+      offset: "-15min"     # negative is earlier
+      jitter: "10min"      # random spread, drawn per firing
+      days: daily          # daily | weekdays | weekend | mon…sun
+    on_missed: skip        # skip | run
+    catch_up: "15min"      # how late a missed firing may still run
+    condition:             # optional, same schema as an action's
+      type: date
+      after: "10-01"
+      before: "04-30"
+    actions:               # same actions a button can run
+      - action: cover
+        boneio_cover: living_room
+        action_cover: CLOSE
+```
+
+A clock trigger uses `at` instead of `event`:
+
+```yaml
+    trigger:
+      type: time
+      at: "23:30"
+      days: weekdays
+```
+
+Mixing them — `at` on a sun trigger, `event` on a time trigger, a sun event that
+does not exist, a schedule with no actions — is rejected when the config loads,
+by `condition_shape`'s sibling `schedule_shape` in `yaml_util.py`. The symptom
+of getting this wrong at runtime would be a schedule that quietly never fires,
+which is the hardest kind of misconfiguration to notice.
+
+A sun trigger needs the `location:` section. See `docs/SUN.md`.
+
+## What it refuses to guess at
+
+**A clock that has not been set.** The board has no battery-backed RTC, so
+between power-on and the first NTP reply it believes it is 1970. Nothing is
+armed until the date is plausible — arming a timer against 1970 would fire
+everything at once the moment NTP corrects it. See `docs/TIMEZONE_NTP.md` for
+pointing a device with no internet at a local NTP server.
+
+**A day when the Sun does not reach the angle.** Above about 60° of latitude
+`sunset` simply does not happen for weeks. The schedule skips forward to a day
+that has one rather than inventing a time, and says so once if there is none
+within 400 days.
+
+**A firing missed while the device was off.** `on_missed: skip` (the default)
+forgets it. `on_missed: run` fires it at startup *if* it was due within
+`catch_up` — right for "close the covers", wrong for "sound the doorbell". A
+controller that was off all day does not suddenly close the covers at breakfast.
+
+## How the timers stay right
+
+Every schedule's next firing is recomputed **every minute** from the current
+wall clock, and the armed timer is replaced only when the instant actually
+changed. That is not paranoia:
+
+- NTP steps the clock at boot, and a timer armed before the step points at the
+  wrong instant afterwards.
+- The local day ticks over, and tomorrow's sunset is not today's.
+- A timer can fire late if the loop was busy.
+
+Re-planning is idempotent, which is what makes running it that often safe —
+there is a test asserting that five consecutive plans arm exactly one timer.
+
+### Jitter is stable within a day
+
+`jitter` adds a random delay, drawn from a seed of `(schedule id, date)` rather
+than freshly each time. With a fresh draw every minute the firing would walk
+forwards and never arrive.
+
+It exists for presence simulation: without it, every boneIO on the street closes
+its covers in the same second.
+
+### The day filter applies to the day the firing lands on
+
+`at: "23:30"` with `offset: "1h"` on a Friday happens on Saturday, so
+`days: weekdays` excludes it. That is what someone reading "weekdays" expects.
+
+## Conditions
+
+A schedule can carry the same `condition` / `conditions` as any action, and each
+of its actions can carry its own on top. The schedule's own condition gates the
+whole firing; an action's gates just that action.
+
+```yaml
+    condition:
+      type: sun
+      phase: night
+```
+
+They also apply to **Run now** in the panel — a manual run that ignored them
+would be testing something other than the schedule.
+
+## API
+
+### `GET /api/schedule`
+
+What is armed, and for when. This is the only way to find out: a schedule is the
+one thing in boneIO nobody can test by pressing a button.
+
+```json
+{
+  "schedules": [
+    {
+      "id": "covers_evening",
+      "name": "Covers at dusk",
+      "enabled": true,
+      "trigger": {"type": "sun", "event": "sunset", "offset": -900.0, "days": "daily"},
+      "actions": 1,
+      "next_fire": "2026-09-18T18:31:39+02:00",
+      "last_fire": null,
+      "last_error": null
+    }
+  ]
+}
+```
+
+`next_fire` is null for a schedule that is disabled, has no firing in sight, or
+is waiting for the clock to be set.
+
+### `POST /api/schedule/{id}/run`
+
+Runs one schedule immediately, conditions included. The armed timer is left
+alone, so testing a schedule does not cost you its next real firing.
+
+## The panel
+
+Settings → Control → **Schedules**
+(`frontend/src/components/UISettings/SystemStateComponents/ScheduleSection.tsx`).
+
+Its own page rather than a generated form, for one reason: without "next firing"
+and "Run now" next to the fields, the only way to find out whether a schedule
+works is to wait until evening.
+
+The action editor is the same `ActionFields` component the input forms use, and
+the condition editor the same `ActionConditions`, so a schedule's actions
+support exactly what a button's do.
+
+## Files
+
+| File | Role |
+|---|---|
+| `boneio/core/manager/scheduler.py` | The runtime: planning, arming, catching up, firing |
+| `boneio/schema/schema.yaml` | The `schedule:` section |
+| `boneio/core/config/yaml_util.py` | `_check_with_schedule_shape` |
+| `boneio/webui/routes/schedule.py` | Status and run-now |
+| `tests/unit/core/test_scheduler.py` | 28 tests, mostly about when it should *not* fire |
+| `tests/unit/webui/test_schedule_routes.py` | The two endpoints |
+
+## Not here yet
+
+- **Sunrise-to-sunset spans.** A schedule is a moment, not an interval. "On at
+  dusk, off at dawn" is two schedules, which is also how it reads in the config.
+- **A calendar view.** The panel lists the next firing per schedule and nothing
+  more.

@@ -67,6 +67,7 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
         "ina219": [],
         "adc": [],
         "system": [],
+        "sun": [],
     }
     
     # Dallas sensors
@@ -143,7 +144,21 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
         if hasattr(sensor, "_attributes") and sensor._attributes:
             entry["attributes"] = sensor._attributes
         result["system"].append(entry)
-    
+
+    # Sun sensors — their own group rather than folded into "system": these are
+    # about the sky, not about the health of the controller, and the panel
+    # groups them differently.
+    for sensor in manager.sensors.get_sun_sensors():
+        entry = {
+            "id": sensor.id,
+            "name": sensor.name,
+            "state": sensor.state,
+            "unit": sensor.unit_of_measurement,
+        }
+        if getattr(sensor, "_attributes", None):
+            entry["attributes"] = sensor._attributes
+        result["sun"].append(entry)
+
     return result
 
 

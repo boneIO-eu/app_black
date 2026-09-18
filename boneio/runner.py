@@ -162,6 +162,8 @@ config_modules = [
     {"name": OUTPUT_GROUP, "default": []},
     {"name": TEMPLATE, "default": []},
     {"name": IRRIGATION, "default": []},
+    {"name": "location", "default": None},
+    {"name": "schedule", "default": []},
 ]
 
 

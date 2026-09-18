@@ -155,3 +155,18 @@ def overlay_set(overlay: str, timeout: int = 30) -> Result:
 def hostname_set(name: str, timeout: int = 30) -> Result:
     """Set the system hostname."""
     return run("hostname-set", name, timeout=timeout)
+
+
+def ntp_get(timeout: int = 30) -> Result:
+    """Read the NTP servers boneIO has configured, as JSON on stdout."""
+    return run("ntp-get", timeout=timeout)
+
+
+def ntp_set(servers: list[str], timeout: int = 60) -> Result:
+    """Point systemd-timesyncd at *servers*; an empty list restores the defaults.
+
+    The list is joined and passed through without being trusted here. Each entry
+    is validated inside the helper, because that is the side of the boundary
+    where it matters: the value is written into a file systemd parses as root.
+    """
+    return run("ntp-set", ",".join(servers) if servers else "default", timeout=timeout)

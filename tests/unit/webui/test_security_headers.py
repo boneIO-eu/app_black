@@ -8,12 +8,13 @@ from fastapi.testclient import TestClient
 
 from boneio.webui.security_headers import (
     HSTS_MAX_AGE,
+    MAP_TILE_SOURCES,
     apply_security_headers,
     build_csp,
 )
 
 
-def _app(frame_ancestors=None):
+def _app(frame_ancestors=None, map_tiles=False):
     app = FastAPI()
 
     @app.get("/api/anything")
@@ -23,7 +24,7 @@ def _app(frame_ancestors=None):
     @app.middleware("http")
     async def headers(request, call_next):
         response = await call_next(request)
-        apply_security_headers(request, response, frame_ancestors)
+        apply_security_headers(request, response, frame_ancestors, map_tiles)
         return response
 
     return TestClient(app)
@@ -136,3 +137,39 @@ def test_hsts_max_age_is_short_enough_to_recover_from():
     off — and fall back to self-signed on the same hostname. A year-long pin
     would leave the owner unable to click through; a day expires."""
     assert HSTS_MAX_AGE <= 86400
+
+
+# ------------------------------------------------------------------ map tiles
+#
+# The location picker can show an OpenStreetMap map, which needs a third-party
+# host in img-src. An image URL is an outbound channel, so that is a real
+# loosening and has to stay off unless someone asks for it.
+
+
+def _directive(policy: str, name: str) -> str:
+    return next(d for d in policy.split("; ") if d.startswith(f"{name} "))
+
+
+def test_no_third_party_images_by_default():
+    assert _directive(build_csp(), "img-src") == "img-src 'self' data: blob:"
+
+
+def test_the_tile_servers_are_added_only_when_asked_for():
+    directive = _directive(build_csp(map_tiles=True), "img-src")
+    assert directive.startswith("img-src 'self' data: blob:")
+    for source in MAP_TILE_SOURCES:
+        assert source in directive
+
+
+def test_enabling_the_map_loosens_nothing_else():
+    """Only img-src moves. If this ever fails, something widened a directive
+    that has nothing to do with showing a map."""
+    off = dict(d.split(" ", 1) for d in build_csp().split("; "))
+    on = dict(d.split(" ", 1) for d in build_csp(map_tiles=True).split("; "))
+    assert set(off) == set(on)
+    assert {k for k in off if off[k] != on[k]} == {"img-src"}
+
+
+def test_the_map_setting_reaches_the_response():
+    assert "openstreetmap" not in _headers(_app())["Content-Security-Policy"]
+    assert "openstreetmap" in _headers(_app(map_tiles=True))["Content-Security-Policy"]

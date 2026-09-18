@@ -404,7 +404,11 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     }
 
     if section in ("event", "binary_sensor") and isinstance(data, list):
-        errors = _validate_section_actions(section, data)
+        # A sun condition on a device with no coordinates fails open at
+        # runtime, so the action keeps firing and nothing looks broken. Save
+        # time is the only point where it is visible.
+        has_location = bool((_config_cache["data"] or {}).get("location"))
+        errors = _validate_section_actions(section, data, has_location=has_location)
         if errors:
             raise HTTPException(
                 status_code=422,

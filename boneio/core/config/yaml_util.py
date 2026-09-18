@@ -773,6 +773,179 @@ class CustomValidator(Validator):
         kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(unit_str)]
         return TimePeriod(**{kwarg: float(match.group(1))})
 
+    def _normalize_coerce_sun_offset(self, value) -> float:
+        """Parse a signed offset from a sun anchor into seconds.
+
+        Unlike ``positive_time_period`` this must accept negative values —
+        "half an hour before sunset" is the whole point — and it returns plain
+        seconds rather than a TimePeriod, because the only thing that ever
+        happens to it is being added to a datetime.
+
+        A bare number means **seconds**, not milliseconds. That differs from
+        ``positive_time_period`` deliberately: a sun offset measured in
+        milliseconds would be meaningless, and the frontend always sends a unit.
+
+        Args:
+            value: ``"-30min"``, ``"1h"``, ``"45s"``, or a number of seconds.
+
+        Returns:
+            The offset in seconds, negative for "before".
+
+        Raises:
+            ConfigurationException: If the value cannot be read as an offset.
+        """
+        if value is None or value == "":
+            return 0.0
+        if isinstance(value, bool):
+            raise ConfigurationException(f"Expected a sun offset, got {value!r}")
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        text = str(value).strip().lower()
+        if not text:
+            return 0.0
+
+        match = re.match(r"^([-+]?[0-9]*\.?[0-9]+)\s*(\w*)$", text)
+        if match is None:
+            raise ConfigurationException(
+                f"Expected an offset like '-30min', '15m' or '1h', got {value!r}"
+            )
+
+        unit_to_seconds = {
+            "": 1.0,
+            "s": 1.0,
+            "sec": 1.0,
+            "secs": 1.0,
+            "second": 1.0,
+            "seconds": 1.0,
+            "m": 60.0,
+            "min": 60.0,
+            "mins": 60.0,
+            "minute": 60.0,
+            "minutes": 60.0,
+            "h": 3600.0,
+            "hour": 3600.0,
+            "hours": 3600.0,
+        }
+        unit = match.group(2)
+        if unit not in unit_to_seconds:
+            raise ConfigurationException(
+                f"Unknown unit {unit!r} in sun offset {value!r}. Use s, min or h."
+            )
+        return float(match.group(1)) * unit_to_seconds[unit]
+
+    def _check_with_schedule_shape(self, field, value):
+        """Reject a schedule whose trigger does not match its own type.
+
+        Cerberus can require a dict and check each field on its own, but not
+        "a sun trigger needs an event and a time trigger needs a time". Left to
+        runtime the symptom is a schedule that quietly never fires, which is
+        the hardest kind of misconfiguration to notice.
+        """
+        if not isinstance(value, dict):
+            return
+
+        trigger = value.get("trigger") or {}
+        kind = trigger.get("type", "sun")
+
+        if kind == "sun":
+            from boneio.core.utils.sun import ANCHOR_NAMES
+
+            event = trigger.get("event")
+            if not event:
+                self._error(  # type: ignore[attr-defined]
+                    field, "A sun trigger needs an 'event', e.g. sunset or civil_dusk."
+                )
+            elif event not in ANCHOR_NAMES:
+                self._error(  # type: ignore[attr-defined]
+                    field,
+                    f"Unknown sun event {event!r}. "
+                    f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}.",
+                )
+            if trigger.get("at"):
+                self._error(  # type: ignore[attr-defined]
+                    field, "'at' belongs to a time trigger, not a sun trigger."
+                )
+        elif kind == "time":
+            if not trigger.get("at"):
+                self._error(  # type: ignore[attr-defined]
+                    field, "A time trigger needs 'at' in HH:MM."
+                )
+            if trigger.get("event"):
+                self._error(  # type: ignore[attr-defined]
+                    field, "'event' belongs to a sun trigger, not a time trigger."
+                )
+
+        if not value.get("actions"):
+            self._error(  # type: ignore[attr-defined]
+                field, "A schedule with no actions would fire and do nothing."
+            )
+
+    def _check_with_condition_shape(self, field, value):
+        """Reject a condition whose fields do not match its own type.
+
+        Cerberus can say "this is a dict of allowed keys" but not "a sun
+        condition is one of three shapes and never a mixture". Without this a
+        typo like ``type: sun`` with ``after: "05:00"`` reaches runtime, where
+        the only symptom is an action that silently never fires.
+        """
+        if not isinstance(value, dict):
+            return
+        if value.get("type") != "sun":
+            return
+
+        from boneio.core.utils.sun import ANCHOR_NAMES, PHASE_NAMES
+
+        window = [key for key in ("after", "before") if value.get(key)]
+        phase = value.get("phase")
+        elevation = [key for key in ("above", "below") if value.get(key) is not None]
+
+        modes = [bool(window), bool(phase), bool(elevation)]
+        if sum(modes) == 0:
+            self._error(  # type: ignore[attr-defined]
+                field,
+                "A sun condition needs one of: after/before (anchors), "
+                "phase, or above/below (elevation in degrees).",
+            )
+            return
+        if sum(modes) > 1:
+            self._error(  # type: ignore[attr-defined]
+                field,
+                "A sun condition must use only one of after/before, phase, or "
+                "above/below — not a mixture.",
+            )
+            return
+
+        for key in ("after", "before"):
+            anchor = value.get(key)
+            if anchor and anchor not in ANCHOR_NAMES:
+                self._error(  # type: ignore[attr-defined]
+                    field,
+                    f"Unknown sun anchor {anchor!r} in '{key}'. "
+                    f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}.",
+                )
+
+        for key, other in (("after_offset", "after"), ("before_offset", "before")):
+            if value.get(key) and not value.get(other):
+                self._error(  # type: ignore[attr-defined]
+                    field, f"'{key}' has no effect without '{other}'."
+                )
+
+        if phase and phase not in PHASE_NAMES:
+            self._error(  # type: ignore[attr-defined]
+                field,
+                f"Unknown sun phase {phase!r}. "
+                f"Expected one of: {', '.join(sorted(PHASE_NAMES))}.",
+            )
+
+        above, below = value.get("above"), value.get("below")
+        if above is not None and below is not None and above >= below:
+            self._error(  # type: ignore[attr-defined]
+                field,
+                f"'above' ({above}) must be lower than 'below' ({below}); "
+                "the pair describes a band of elevations.",
+            )
+
     def _lookup_field(self, path: str) -> tuple:
         """
         Implement relative paths with dot (.) notation, following Python
