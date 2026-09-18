@@ -1,0 +1,150 @@
+# Publish the component inventory for a release.
+#
+# The Cyber Resilience Act asks a manufacturer to know what its product is made
+# of. The question never arrives in the abstract: it arrives as "there is a
+# vulnerability in X, are your devices affected", and the answer has to be
+# available for a version that shipped months ago. That is what this attaches
+# to every release — one CycloneDX document per version, covering the Python
+# application and the frontend it serves.
+#
+# Nothing here reaches the device. It reads the same dependency set the release
+# was built from and writes a file next to it.
+
+name: SBOM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)generate the SBOM for"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sbom-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sbom:
+    name: Generate and attach
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Resolve version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      # The environment, not the manifest: what pip actually resolved, with the
+      # transitive dependencies a manifest does not list. A range in
+      # pyproject.toml becomes one concrete version here, which is the version
+      # somebody will be asking about.
+      - name: Install the application
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Generate the Python inventory
+        run: |
+          pip install 'cyclonedx-bom==7.4.0'
+          cyclonedx-py environment "$(python -c 'import sys; print(sys.prefix)')" \
+            --spec-version 1.6 --output-format JSON -o python.cdx.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+
+      # cdxgen rather than cyclonedx-npm: the latter shells out to `npm ls`,
+      # which cannot read a pnpm node_modules — the store is symlinked and npm
+      # reports it as a broken tree. cdxgen reads pnpm-lock.yaml directly.
+      # --required-only keeps it to what is actually served: the frontend is
+      # bundled by Vite, so build tooling never reaches a device.
+      - name: Generate the frontend inventory
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm dlx @cyclonedx/cdxgen@11 \
+            -t pnpm --spec-version 1.6 --required-only \
+            -o ../frontend.cdx.json .
+
+      - name: Merge
+        run: |
+          python scripts/merge_sbom.py python.cdx.json frontend.cdx.json \
+            --output "boneio-${{ steps.version.outputs.version }}.cdx.json" \
+            --name boneio \
+            --version "${{ steps.version.outputs.version }}" \
+            --purl "pkg:pypi/boneio@${{ steps.version.outputs.version }}"
+
+      # A truncated or empty inventory is worse than none: it reads as an
+      # answer. Fail the job rather than attach one.
+      - name: Check it says something
+        run: |
+          python - "boneio-${{ steps.version.outputs.version }}.cdx.json" <<'EOF'
+          import json, re, sys
+          bom = json.load(open(sys.argv[1]))
+          assert bom["bomFormat"] == "CycloneDX", "not a CycloneDX document"
+          # PyPI keeps the distribution's own spelling — PyYAML, not pyyaml —
+          # so compare the way PEP 503 does rather than on the literal name.
+          def key(name):
+              return re.sub(r"[-_.]+", "-", name).lower()
+          names = {key(c["name"]) for c in bom["components"]}
+          assert len(names) >= 20, f"only {len(names)} components — a generator failed"
+          for expected in ("fastapi", "PyYAML", "pymodbus", "react"):
+              assert key(expected) in names, f"{expected} missing from the inventory"
+          refs = {c.get("bom-ref") for c in bom["components"]}
+          edges = {d["ref"]: d["dependsOn"] for d in bom["dependencies"]}
+          root = bom["metadata"]["component"]["bom-ref"]
+          seen, stack = set(), list(edges.get(root, []))
+          while stack:
+              ref = stack.pop()
+              if ref in seen:
+                  continue
+              seen.add(ref)
+              stack.extend(edges.get(ref, []))
+          orphans = refs - seen
+          assert not orphans, f"unreachable from the root: {sorted(orphans)[:5]}"
+          print(f"{len(names)} components, none orphaned")
+          EOF
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+              gh release upload "${{ steps.version.outputs.tag }}" \
+                "boneio-${{ steps.version.outputs.version }}.cdx.json" --clobber
+              exit 0
+            fi
+            echo "Release not published yet, waiting (attempt $attempt)..."
+            sleep 10
+          done
+          echo "::error::The release for ${{ steps.version.outputs.tag }} never appeared."
+          exit 1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-${{ steps.version.outputs.version }}
+          path: |
+            boneio-*.cdx.json
+            python.cdx.json
+            frontend.cdx.json
