@@ -54,3 +54,23 @@ def test_anything_but_proxy_keeps_the_old_answer(expose):
     helper = _helper(expose=expose) if expose is not None else _helper()
     assert helper.web_configuration_port == 8090
     assert helper.http_proto == "http"
+
+
+def test_a_configured_proxy_port_is_still_honoured_though_the_panel_hides_it():
+    """The field left the interface; it did not leave the product.
+
+    Removing it from the schema would be worse than leaving it: the validator
+    purges unknown keys, so the next save would delete it from the config.yaml
+    of the few people who set one and move their Home Assistant link without
+    telling them.
+    """
+    import yaml
+
+    from pathlib import Path
+
+    helper = _helper(proxy_port=9443)
+    assert helper.web_configuration_port == 9443
+
+    schema = Path(__file__).resolve().parents[3] / "boneio" / "schema" / "schema.yaml"
+    text = schema.read_text(encoding="utf-8")
+    assert "proxy_port:" in text, "dropping it from the schema deletes it from configs"

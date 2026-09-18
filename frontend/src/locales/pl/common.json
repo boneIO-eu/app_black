@@ -1032,13 +1032,10 @@
   "webserver": {
     "port": "Port",
     "port_help": "Port do uruchomienia serwera web (domyślnie: 8090)",
-    "proxy_port": "Port reverse proxy",
-    "proxy_port_help": "Port, na którym serwuje reverse proxy stojące przed tym panelem. To pole go nie konfiguruje — wbudowane proxy tego urządzenia i tak serwuje HTTPS na 8443 — tylko mówi Home Assistantowi i temu panelowi, dokąd kierować odnośniki. Ustaw je, jeśli stawiasz przed panelem własne proxy na innym porcie.",
-    "proxy_port_placeholder": "Zostaw puste dla wbudowanego proxy na 8443",
     "auth": "Uwierzytelnianie (opcjonalnie)",
     "accounts_moved": "Logowanie do panelu nie jest już konfigurowane tutaj. Od wersji 1.6 konta mają hasła zapisane jako hash i role — zarządzasz nimi w zakładce",
     "builtin_proxy_title": "HTTPS już działa",
-    "builtin_proxy": "To urządzenie ma własne reverse proxy na porcie 8443, niezależnie od pola powyżej. Zostaw je puste, a Home Assistant dostanie odnośnik do portu samego panelu po zwykłym HTTP — chyba że panel jest osiągalny wyłącznie przez proxy, wtedy użyty zostanie 8443, bo nic innego by nie odpowiedziało.",
+    "builtin_proxy": "To urządzenie ma własne reverse proxy, które serwuje panel po HTTPS na porcie 8443. Home Assistant dostaje odnośnik do portu samego panelu po zwykłym HTTP — chyba że panel jest osiągalny wyłącznie przez proxy, wtedy użyty zostanie 8443, bo nic innego by nie odpowiedziało.",
     "expose_proxy": "Osiągalny tylko przez proxy",
     "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada wyłącznie na loopbacku i na mostku Dockera, czyli przez HTTPS albo przez tunel SSH. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
   },

@@ -1032,13 +1032,10 @@
   "webserver": {
     "port": "Port",
     "port_help": "Port to run web server (default: 8090)",
-    "proxy_port": "Reverse proxy port",
-    "proxy_port_help": "The port the reverse proxy in front of this panel serves on. It does not configure that proxy — this device's built-in one already serves HTTPS on 8443 — it tells Home Assistant and this panel where to link. Set it only if you put your own proxy in front on a different port.",
-    "proxy_port_placeholder": "Leave empty for the built-in proxy on 8443",
     "auth": "Authentication (optional)",
     "accounts_moved": "Panel sign-in is no longer configured here. From 1.6 accounts have hashed passwords and roles — manage them under",
     "builtin_proxy_title": "HTTPS is already being served",
-    "builtin_proxy": "This device runs its own reverse proxy on port 8443, whatever the field above says. Leave that field empty and Home Assistant is linked to the panel's own port over plain HTTP — unless the panel is reachable only through the proxy, when 8443 is used because nothing else would answer.",
+    "builtin_proxy": "This device runs its own reverse proxy, which serves the panel over HTTPS on port 8443. Home Assistant is linked to the panel's own port over plain HTTP unless the panel is reachable only through the proxy, when 8443 is used because nothing else would answer.",
     "expose_proxy": "Only reachable through the proxy",
     "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers only on the loopback and the Docker bridge — reachable over HTTPS, or through an SSH tunnel. Saving this is refused if the proxy is not already serving the panel, so the device cannot end up unreachable. Takes effect after a restart."
   },

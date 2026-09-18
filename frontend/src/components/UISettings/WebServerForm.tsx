@@ -14,7 +14,15 @@ interface WebServerFormProps {
 
 /**
  * Custom form for Web Server section configuration.
- * Fields: port, proxy port, cloud registration, PWA name.
+ * Fields: port, exposure, cloud registration, PWA name.
+ *
+ * The reverse proxy port is deliberately not among them. It only ever set the
+ * port in the link Home Assistant shows, the built-in proxy is on 8443 either
+ * way, and a device reachable only through that proxy now derives the port by
+ * itself — so the field asked a question almost nobody had, in a shape (a
+ * number) that could not answer it for the few who did. It stays in the schema
+ * and is still honoured: the validator purges unknown keys, so dropping it
+ * there would delete it from an existing config.yaml on the next save.
  *
  * Credentials are deliberately absent. From 1.6 accounts live in users.json
  * with hashed passwords and roles, managed by the Accounts section rendered
@@ -99,26 +107,6 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         placeholder="8090"
         help={t('webserver.port_help')}
       />
-
-      {/* The port the reverse proxy serves on. It does not configure that
-          proxy — the built-in one is on 8443 either way — it decides where
-          Home Assistant and this panel point. Named after nginx until 1.6,
-          which has not sat in front of this panel since 1.4.4. */}
-      <FormInputNumber
-        label={t('webserver.proxy_port')}
-        value={data?.proxy_port ?? ''}
-        onChange={(val) => {
-          if (val === '') {
-            const { proxy_port: _, ...rest } = data || {};
-            onChange(rest);
-            return;
-          }
-          handleChange('proxy_port', val);
-        }}
-        placeholder={t('webserver.proxy_port_placeholder')}
-        help={t('webserver.proxy_port_help')}
-      />
-
 
       <NoticeCallout
         variant="info"

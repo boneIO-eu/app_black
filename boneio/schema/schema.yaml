@@ -203,12 +203,18 @@ web:
       default: 8090
       meta:
         label: Port to run web server
+    # Not offered in the panel any more. It only ever chose the port in the
+    # link Home Assistant shows, the built-in proxy answers on 8443 either
+    # way, and a device reachable only through that proxy derives the port by
+    # itself. Kept here because the validator purges unknown keys: removing it
+    # would delete the setting from the config.yaml of the few people who have
+    # one, and change where their Home Assistant link points, silently.
     proxy_port:
       required: False
       type: integer
       nullable: True
       meta:
-        label: Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.
+        label: Reverse proxy port for the Home Assistant link. Advanced; set it only when your own proxy fronts this panel on another port.
     expose:
       required: False
       type: string
