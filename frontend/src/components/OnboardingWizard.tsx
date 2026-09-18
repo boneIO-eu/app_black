@@ -84,7 +84,7 @@ export default function OnboardingWizard() {
   const [isApplyingDevices, setIsApplyingDevices] = useState(false);
 
   const [cloudError, setCloudError] = useState<string | null>(null);
-  const [cloudDone, setCloudDone] = useState(false);
+  const [cloudDone, setCloudDone] = useState<'live' | 'deferred' | false>(false);
   const [isEnablingCloud, setIsEnablingCloud] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeStepRef = useRef<HTMLLIElement>(null);
@@ -313,8 +313,15 @@ export default function OnboardingWizard() {
       const { data: config } = await axios.get('/api/config');
       const web = (config?.web ?? {}) as Record<string, unknown>;
       const cloud = (web.cloud ?? {}) as Record<string, unknown>;
-      await axios.put('/api/config/web', { ...web, cloud: { ...cloud, enabled: true } });
-      setCloudDone(true);
+      const { data: saved } = await axios.put('/api/config/web', {
+        ...web,
+        cloud: { ...cloud, enabled: true },
+      });
+      // The backend starts registration where the change is made. It reports
+      // "unavailable" when it could not — no address yet, most likely — and
+      // then the next boot is what picks it up, which is worth saying rather
+      // than leaving somebody waiting for a certificate.
+      setCloudDone(saved?.cloud === 'unavailable' ? 'deferred' : 'live');
     } catch (err: unknown) {
       setCloudError(errorMessage(err, t('onboarding.cloud_failed')));
     } finally {
@@ -704,7 +711,11 @@ export default function OnboardingWizard() {
 
             {cloudDone && (
               <div className="alert alert-success text-sm animate-in fade-in zoom-in-95 duration-200">
-                <span>{t('onboarding.cloud_done')}</span>
+                <span>
+                  {t(cloudDone === 'deferred'
+                    ? 'onboarding.cloud_done_deferred'
+                    : 'onboarding.cloud_done')}
+                </span>
               </div>
             )}
 
@@ -716,7 +727,7 @@ export default function OnboardingWizard() {
               )}
               <button
                 className="btn btn-primary flex-1"
-                disabled={isEnablingCloud || cloudDone}
+                disabled={isEnablingCloud || cloudDone !== false}
                 onClick={handleEnableCloud}
               >
                 {isEnablingCloud && <span className="loading loading-spinner loading-sm" />}

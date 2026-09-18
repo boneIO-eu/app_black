@@ -2628,8 +2628,9 @@
     "cloud_caveat": "Rejestracja wysyła numer seryjny urządzenia do boneIO Cloud. Subdomena wskazuje na Twoje lokalne IP, więc urządzenie pozostaje dostępne tylko w Twojej sieci. Router nie może mieć włączonej ochrony przed DNS rebinding. Możesz to włączyć później w Ustawieniach → Serwer Web.",
     "cloud_enable": "Włącz rejestrację",
     "cloud_skip": "Pomiń",
-    "cloud_done": "Rejestracja włączona. Zacznie działać po restarcie urządzenia.",
-    "cloud_failed": "Nie udało się włączyć rejestracji w chmurze."
+    "cloud_done": "Rejestracja włączona. Nazwa i certyfikat są właśnie przygotowywane — to potrwa minutę lub dwie.",
+    "cloud_failed": "Nie udało się włączyć rejestracji w chmurze.",
+    "cloud_done_deferred": "Rejestracja zapisana. Uruchomi się przy następnym starcie urządzenia, bo jego adres nie był jeszcze znany."
   },
   "accounts": {
     "title": "Konta użytkowników",

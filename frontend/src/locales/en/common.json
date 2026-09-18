@@ -2629,8 +2629,9 @@
     "cloud_caveat": "Registration sends the device serial number to boneIO Cloud. The subdomain points at your local IP, so the device stays reachable only on your own network. Your router must not have DNS rebinding protection enabled. You can turn this on later under Settings → Web server.",
     "cloud_enable": "Enable registration",
     "cloud_skip": "Skip",
-    "cloud_done": "Registration enabled. It takes effect after the device restarts.",
-    "cloud_failed": "Could not enable cloud registration."
+    "cloud_done": "Registration is on. The name and certificate are being set up now — it takes a minute or two.",
+    "cloud_failed": "Could not enable cloud registration.",
+    "cloud_done_deferred": "Registration is saved. It starts the next time the device boots, because its address was not available yet."
   },
   "accounts": {
     "title": "User accounts",

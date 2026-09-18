@@ -637,3 +637,76 @@ class CloudRegistration:
             return "init-certs-cloud.sh" in content
         except Exception:
             return False
+
+
+async def set_enabled(config_helper, enabled: bool, local_ip: str | None = None) -> str:
+    """Turn cloud registration on or off on a running device.
+
+    Registration used to begin only in :mod:`boneio.runner`, so switching it on
+    from the panel wrote a line to config.yaml and asked for a restart —
+    on a controller whose whole point is that it is running. Everything the
+    change needs is already here: :meth:`CloudRegistration.start` does no more
+    than launch the loop that registers the name, fetches the certificate,
+    swaps the compose template and recreates Caddy.
+
+    Idempotent in both directions, because the panel can be open twice and a
+    save can be repeated.
+
+    Args:
+        config_helper: The live :class:`ConfigHelper`.
+        enabled: The state asked for.
+        local_ip: This device's address on the LAN. Read from the system when
+            not given.
+
+    Returns:
+        A short word for what happened: ``started``, ``stopped``, ``unchanged``
+        or ``unavailable``.
+    """
+    existing = getattr(config_helper, "_cloud_reg", None)
+
+    if not enabled:
+        config_helper._cloud_registration = False
+        if existing is None:
+            return "unchanged"
+        try:
+            await existing.stop()
+            # Put the plain template back, or Caddy keeps trying to serve a
+            # certificate for a name that is no longer being renewed.
+            await existing._restore_local_config()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Could not stop cloud registration cleanly: %s", err)
+        config_helper._cloud_reg = None
+        _LOGGER.info("Cloud registration stopped on request")
+        return "stopped"
+
+    if existing is not None:
+        config_helper._cloud_registration = True
+        return "unchanged"
+
+    serial = getattr(config_helper, "serial_number", None)
+    if not local_ip:
+        try:
+            from boneio.core.system.monitor import get_network_info
+
+            local_ip = (get_network_info() or {}).get("ip", "")
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Could not read this device's address: %s", err)
+            local_ip = ""
+
+    if not serial or not local_ip:
+        # The setting is saved either way; the next start picks it up. Saying
+        # so is better than reporting success for a service that did not begin.
+        _LOGGER.warning(
+            "Cloud registration is enabled but %s is not known yet; it will "
+            "start on the next boot.",
+            "the serial number" if not serial else "this device's address",
+        )
+        config_helper._cloud_registration = True
+        return "unavailable"
+
+    registration = CloudRegistration(serial_number=serial, local_ip=local_ip)
+    await registration.start()
+    config_helper._cloud_reg = registration
+    config_helper._cloud_registration = True
+    _LOGGER.info("Cloud registration started for %s (IP: %s)", serial, local_ip)
+    return "started"

@@ -385,6 +385,67 @@ def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -
             _LOGGER.info("Hot-applied entity labels for coordinator %s", device_id)
 
 
+def _cloud_enabled(section: object) -> bool:
+    """Whether a ``web`` section asks for cloud registration.
+
+    Args:
+        section: A ``web`` section, or anything else.
+
+    Returns:
+        True when ``cloud.enabled`` is set.
+    """
+    if not isinstance(section, dict):
+        return False
+    cloud = section.get("cloud")
+    return bool(isinstance(cloud, dict) and cloud.get("enabled"))
+
+
+def _web_changed_apart_from_cloud(previous: object, current: object) -> bool:
+    """Whether anything outside ``cloud`` differs between two web sections.
+
+    Args:
+        previous: The section as it was.
+        current: The section as saved.
+
+    Returns:
+        True when some other setting changed, so a restart is still needed.
+    """
+    before = {k: v for k, v in previous.items() if k != "cloud"} if isinstance(previous, dict) else {}
+    after = {k: v for k, v in current.items() if k != "cloud"} if isinstance(current, dict) else {}
+    return before != after
+
+
+async def _apply_cloud_toggle(app_state, previous: object, current: object) -> str | None:
+    """Start or stop cloud registration to match what was just saved.
+
+    Args:
+        app_state: Application state, for the live ConfigHelper.
+        previous: The ``web`` section before the save.
+        current: The ``web`` section after it.
+
+    Returns:
+        What happened, or None when the toggle did not move.
+    """
+    was, now = _cloud_enabled(previous), _cloud_enabled(current)
+    if was == now:
+        return None
+
+    helper = getattr(getattr(app_state, "manager", None), "config_helper", None)
+    if helper is None:
+        return None
+
+    try:
+        from boneio.core.cloud import set_enabled
+
+        return await set_enabled(helper, now)
+    except Exception as err:  # noqa: BLE001
+        # The setting is already written, so the next start will honour it.
+        # Failing the save would suggest otherwise.
+        _LOGGER.error("Could not apply the cloud registration change now: %s", err)
+        return "unavailable"
+
+
+
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
@@ -452,6 +513,10 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
 
     data = _strip_empty_strings(data)
 
+    # Captured before the write: the cloud toggle is acted on rather than
+    # merely stored, and afterwards there is nothing left to compare against.
+    previous_section = (_config_cache["data"] or {}).get(section)
+
     try:
         t_route_start = time.perf_counter()
         app_state = _get_app_state()
@@ -482,7 +547,23 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
 
         invalidate_config_cache(section=section, section_data=data)
 
-        if section in RESTART_REQUIRED_SECTIONS:
+        cloud_outcome = None
+        if section == "web":
+            cloud_outcome = await _apply_cloud_toggle(
+                app_state, previous_section, data
+            )
+            if cloud_outcome:
+                result["cloud"] = cloud_outcome
+
+        # A restart is what the other settings in this section need; the cloud
+        # toggle now takes effect where it is made. Asking for one anyway would
+        # tell somebody their device is half-configured when it is not.
+        needs_restart = section in RESTART_REQUIRED_SECTIONS and not (
+            section == "web"
+            and cloud_outcome in ("started", "stopped")
+            and not _web_changed_apart_from_cloud(previous_section, data)
+        )
+        if needs_restart:
             manager: Manager = app_state.manager
             manager.config_helper.set_restart_required(section)
             result["restart_required"] = True
