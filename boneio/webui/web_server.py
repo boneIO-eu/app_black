@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 import contextlib
 
+from boneio.webui.bind import Exposure, binds_for
 from boneio.core.config import ConfigHelper
 from boneio.core.manager import Manager
 
@@ -36,12 +37,15 @@ class WebServer:
         logger: dict = None,
         debug_level: int = 0,
         initial_config: dict | None = None,
+        expose: str = Exposure.ALL,
     ) -> None:
         """Initialize the web server.
 
         Args:
             initial_config: Pre-parsed config to populate cache (avoids slow first request)
+            expose: Which addresses to answer on — see :class:`Exposure`.
         """
+        self._expose = expose
         if logger is None:
             logger = {}
         if auth is None:
@@ -173,7 +177,7 @@ class WebServer:
 
         # Configure hypercorn (moved from __init__ for lazy loading)
         self._hypercorn_config = Config()
-        self._hypercorn_config.bind = [f"0.0.0.0:{self._port}"]
+        self._hypercorn_config.bind = binds_for(self._expose, self._port)
         self._hypercorn_config.use_reloader = False
         self._hypercorn_config.worker_class = "asyncio"
 

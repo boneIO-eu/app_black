@@ -209,6 +209,17 @@ web:
       nullable: True
       meta:
         label: Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.
+    expose:
+      required: False
+      type: string
+      default: all
+      allowed: ["all", "proxy"]
+      meta:
+        label: >-
+          Which addresses the panel answers on. 'all' serves it on every
+          interface, including in the clear on the LAN. 'proxy' limits it to
+          the loopback and the Docker bridge, so it is reachable over TLS on
+          the proxy port or through an SSH tunnel, and not otherwise.
     cloud:
       required: False
       type: dict

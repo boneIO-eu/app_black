@@ -351,6 +351,13 @@ async def async_run(
             logger=config.get("logger", {}),
             debug_level=debug,
             initial_config=config,  # Pre-populate cache for fast first request
+            # 'all' keeps the panel on every interface, which is what it has
+            # always done. 'proxy' takes it off the LAN and leaves it reachable
+            # over TLS through Caddy, or through an SSH tunnel — the answer to
+            # the pentest finding about the interface being served in the
+            # clear. Opt-in until it has been through a release on hardware:
+            # getting it wrong means a controller answering on nothing.
+            expose=web_config.get("expose", "all"),
         )
         web_server_task = asyncio.create_task(web_server.start_webserver())
         tasks.add(web_server_task)

@@ -20,6 +20,10 @@ services:
       - "${HTTPS_PORT:-8443}:443"
     environment:
       - HOST_HOSTNAME=${HOSTNAME}
+      # The port the host publishes 443 on. Caddy only sees 443 from
+      # inside the container, so a redirect built from what it sees
+      # would send browsers to a port nothing listens on.
+      - PUBLIC_HTTPS_PORT=${HTTPS_PORT:-8443}
     volumes:
       - ./caddy/502.html:/srv/502.html:ro
       - ./caddy/init-certs.sh:/init-certs.sh:ro
