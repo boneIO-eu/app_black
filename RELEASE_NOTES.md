@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev5` exists so that we can test the new system-migration chain on a
+`1.6.0.dev6` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -24,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev5 — internal test build
+# v1.6.0.dev6 — internal test build
 
 ## What this build is for
 
@@ -90,6 +90,33 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev5
+
+Nothing new, and four things that were wrong in what dev5 shipped.
+
+**One finding per finding.** The Security page listed the leftover pre-1.6
+credentials twice: a check with that id already existed and a second was added
+beside it rather than the first being improved.
+
+**In Polish.** The check about the panel being served in the clear had no
+translation at all, so it arrived as the backend's English with its remedy cut
+off mid-sentence. The ids are in Python and the text is in JSON and nothing
+connected them; a test does now, and it found both of these.
+
+**Whole sentences.** The card truncated the remedy. That was right when a
+remedy was a one-line shell command.
+
+**Where the setting lives.** Taking the panel off the local network was only a
+security finding, which is to say visible until it was dealt with and invisible
+to anyone looking for it afterwards. It is a switch in the Web Server section
+too. The port field next to it was named after nginx, which has not been what
+sits in front of this panel since 1.4.4, and read as "there is no proxy unless
+you fill this in" on a device whose proxy is always running.
+
+The panel also now shows the address worth using — the device's name rather
+than its address, which the next DHCP lease changes — and the certificate card
+no longer takes the Security page down when it is talking to an older device.
 
 ## Since dev4
 
