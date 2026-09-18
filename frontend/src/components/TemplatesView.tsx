@@ -16,6 +16,7 @@ import ThermostatCard from './templates/ThermostatCard';
 import AlarmCard from './templates/AlarmCard';
 import GateCard from './templates/GateCard';
 import IrrigationView from './IrrigationView';
+import { EntityPanel } from './EntityGrid';
 import { useConfig } from '../contexts/ConfigContext';
 
 /**
@@ -138,9 +139,11 @@ export default function TemplatesView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title mb-4">{t('templates.title')}</h2>
+      {/* No panel around the list: the page is a tinted field and the
+          entities are the cards on it. */}
+      <div>
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-bold tracking-tight mb-4">{t('templates.title')}</h2>
 
           {isEmpty && !hasIrrigationSection && (
             <div className="alert alert-info">
@@ -151,11 +154,15 @@ export default function TemplatesView() {
           {/* Thermostats */}
           {thermostats.length > 0 && (
             <>
-              <div className="divider">
-                <FaThermometerHalf className="text-orange-500" />
-                {t('templates.thermostats')}
-              </div>
-              <div className="flex flex-wrap gap-2">
+              <EntityPanel
+                title={
+                  <>
+                    <FaThermometerHalf className="text-orange-500" />
+                    {t('templates.thermostats')}
+                  </>
+                }
+              >
+                <div className="flex flex-wrap gap-2">
                 {thermostats.map((th) => (
                   <LongPressWrapper key={th.id} onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
                     <ThermostatCard
@@ -165,18 +172,23 @@ export default function TemplatesView() {
                     />
                   </LongPressWrapper>
                 ))}
-              </div>
+                </div>
+              </EntityPanel>
             </>
           )}
 
           {/* Alarms */}
           {alarms.length > 0 && (
             <>
-              <div className="divider">
-                <FaShieldAlt className="text-red-500" />
-                {t('templates.alarms')}
-              </div>
-              <div className="flex flex-wrap gap-2">
+              <EntityPanel
+                title={
+                  <>
+                    <FaShieldAlt className="text-red-500" />
+                    {t('templates.alarms')}
+                  </>
+                }
+              >
+                <div className="flex flex-wrap gap-2">
                 {alarms.map((al) => (
                   <LongPressWrapper key={al.id} onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
                     <AlarmCard
@@ -185,18 +197,23 @@ export default function TemplatesView() {
                     />
                   </LongPressWrapper>
                 ))}
-              </div>
+                </div>
+              </EntityPanel>
             </>
           )}
 
           {/* Gates */}
           {gates.length > 0 && (
             <>
-              <div className="divider">
-                <FaDoorOpen className="text-blue-500" />
-                {t('templates.gates')}
-              </div>
-              <div className="flex flex-wrap gap-2">
+              <EntityPanel
+                title={
+                  <>
+                    <FaDoorOpen className="text-blue-500" />
+                    {t('templates.gates')}
+                  </>
+                }
+              >
+                <div className="flex flex-wrap gap-2">
                 {gates.map((g) => (
                   <LongPressWrapper key={g.id} onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
                     <GateCard
@@ -205,18 +222,24 @@ export default function TemplatesView() {
                     />
                   </LongPressWrapper>
                 ))}
-              </div>
+                </div>
+              </EntityPanel>
             </>
           )}
 
           {/* Irrigation */}
           {hasIrrigationSection && (
             <>
-              <div className="divider">
-                <FaTint className="text-blue-400" />
-                {t('navigation.irrigation')}
-              </div>
-              <IrrigationView />
+              <EntityPanel
+                title={
+                  <>
+                    <FaTint className="text-blue-400" />
+                    {t('navigation.irrigation')}
+                  </>
+                }
+              >
+                <IrrigationView />
+              </EntityPanel>
             </>
           )}
         </div>

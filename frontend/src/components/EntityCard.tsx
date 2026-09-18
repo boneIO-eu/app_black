@@ -170,7 +170,7 @@ const EntityCard: React.FC<OutputItemProps> = ({
 
   return (
     <div
-      className={`bg-base-100 shadow-sm rounded-lg p-4 transition-all duration-500 select-none flex ${isGrid ? 'flex-col' : 'justify-between items-center'} ${isHighlighted ? 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]' : ''} ${onLongPress ? 'cursor-pointer' : ''}`}
+      className={`stg-inset ${onLongPress ? 'stg-inset-interactive' : ''} p-4 transition-all duration-500 select-none flex ${isGrid ? 'flex-col' : 'justify-between items-center'} ${isHighlighted ? 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]' : ''} ${onLongPress ? 'cursor-pointer' : ''}`}
       onMouseDown={handlePressStart}
       onMouseUp={handlePressEnd}
       onMouseLeave={handlePressEnd}

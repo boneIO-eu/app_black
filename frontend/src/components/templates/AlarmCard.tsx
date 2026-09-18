@@ -80,7 +80,7 @@ export default function AlarmCard({
   }, [pinDialogCommand]);
 
   return (
-    <div className="rounded-xl bg-base-100 shadow-sm px-4 py-6 max-w-xs w-full">
+    <div className="stg-inset px-4 py-6 max-w-xs w-full">
       {/* Header row: icon + name + state badge */}
       <div className="flex items-center gap-2">
         <FaShieldAlt className={`h-4 w-4 shrink-0 ${isArmed ? 'text-error' : 'text-success'}`} />

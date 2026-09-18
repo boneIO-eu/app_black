@@ -633,6 +633,26 @@ body {
 .stg-inset-strong {
   background-color: var(--stg-tint-strong);
 }
+/* The tint without the frame, for a tile that draws its own border — the
+   sensor and Modbus cards carry a coloured bar down their left edge, and
+   `.stg-inset`'s own `border` shorthand would silently win over the
+   `border-l-4 border-amber-500` utilities that draw it. */
+.stg-inset-bare {
+  background-color: var(--stg-tint);
+  border-radius: 0.75rem;
+}
+
+/* Hover for an inset you can press. It has to live here rather than as a
+   `hover:bg-*` utility: the surface classes are unlayered, so a layered
+   utility would lose to `.stg-inset`'s own background and nothing would
+   happen. */
+.stg-inset-interactive {
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.stg-inset-interactive:hover {
+  background-color: var(--stg-tint-strong);
+  border-color: var(--stg-line-strong);
+}
 
 /* Icon chip used in card headers and status tiles. */
 .stg-chip {

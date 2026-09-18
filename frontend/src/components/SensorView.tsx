@@ -111,10 +111,12 @@ export default function SensorView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
+      {/* No panel around the list: the page is a tinted field and the
+          entities are the cards on it. */}
+      <div>
+        <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">{t('sensors.view_title')}</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t('sensors.view_title')}</h2>
             <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
           </div>
 
@@ -126,14 +128,19 @@ export default function SensorView() {
             <>
               {sensorGroups.map(group => (
                 <section key={group.key}>
-                  <div className="divider">
-                    <span>{group.icon}</span>
-                    {group.label}
-                    <span className="text-xs font-normal text-base-content/50">
-                      ({group.sensors.length})
-                    </span>
-                  </div>
-                  <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
+                  <EntityGrid
+                    isGrid={isGrid}
+                    gridClassName={SENSOR_GRID_CLASS}
+                    title={
+                      <>
+                        <span>{group.icon}</span>
+                        {group.label}
+                        <span className="text-xs font-normal text-base-content/50">
+                          ({group.sensors.length})
+                        </span>
+                      </>
+                    }
+                  >
                     {group.sensors.map(sensor => (
                       <GraphCard
                         key={sensor.id}

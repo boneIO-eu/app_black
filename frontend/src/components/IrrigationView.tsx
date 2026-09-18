@@ -457,7 +457,7 @@ function ControllerCard({
   })();
 
   return (
-    <div className="card bg-base-100 shadow-sm border border-base-200 w-full">
+    <div className="stg-card w-full">
       <div className="card-body p-4 gap-3">
         {/* Header row */}
         <div className="flex items-center gap-2">

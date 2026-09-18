@@ -201,10 +201,12 @@ export default function ModbusView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
+      {/* No panel around the list: the page is a tinted field and the
+          entities are the cards on it. */}
+      <div>
+        <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">{t('modbus_view.title')}</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t('modbus_view.title')}</h2>
             <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
           </div>
 
@@ -222,10 +224,13 @@ export default function ModbusView() {
           ) : (
             sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
               return (
-                <section key={groupKey}>
-                  {/* Group header with name and polling toggle */}
-                  <div className="flex items-center gap-2">
-                    <div className="divider flex-1">{groupName}</div>
+                /* One panel per device: the thing you reason about here is
+                   "what is this meter doing", and its sensors and controls
+                   are two lists inside that, not two peers of it. */
+                <EntityPanel
+                  key={groupKey}
+                  title={groupName}
+                  action={
                     <label
                       className="flex items-center gap-1.5 cursor-pointer shrink-0"
                       title={pollingState[groupKey] === false ? t('modbus_view.polling_disabled') : t('modbus_view.polling_enabled')}
@@ -240,13 +245,16 @@ export default function ModbusView() {
                         onChange={(e) => handlePollingToggle(groupKey, e.target.checked)}
                       />
                     </label>
-                  </div>
+                  }
+                >
 
                   {/* Sensors Section */}
                   {sensors.length > 0 && (
                     <>
                       {writeable.length > 0 && (
-                        <div className="divider divider-start text-xs text-base-content/50">{t('modbus_view.sensors')}</div>
+                        <p className="text-xs font-medium text-base-content/50 mb-2">
+                          {t('modbus_view.sensors')}
+                        </p>
                       )}
                       <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
                         {sensors.map((device) => (
@@ -269,7 +277,9 @@ export default function ModbusView() {
                   {/* Writeable Entities Section */}
                   {writeable.length > 0 && (
                     <>
-                      <div className="divider divider-start text-xs text-base-content/50">{t('modbus_view.controls')}</div>
+                      <p className="text-xs font-medium text-base-content/50 mt-4 mb-2">
+                        {t('modbus_view.controls')}
+                      </p>
                       <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
                         {writeable.map((device) => (
                           <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
@@ -287,7 +297,7 @@ export default function ModbusView() {
                       </EntityGrid>
                     </>
                   )}
-                </section>
+                </EntityPanel>
               );
             })
           )}

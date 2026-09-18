@@ -395,8 +395,7 @@ export default function OutputsView({error}: {error: string | null}) {
     
     return (
       <div key={category}>
-        <div className="divider">{getCategoryLabel(category)}</div>
-        <EntityGrid isGrid={isGrid}>
+        <EntityGrid isGrid={isGrid} title={getCategoryLabel(category)}>
           {items.map((output) => (
             <EntityCard 
               key={output.id}
@@ -418,10 +417,13 @@ export default function OutputsView({error}: {error: string | null}) {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
+      {/* No panel around the list any more. The page is a tinted field and
+          the entities are the cards on it — one surface less to look
+          through, and the same rule the settings screens follow. */}
+      <div>
+        <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">{t('outputs.title')}</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t('outputs.title')}</h2>
             <div className="flex items-center gap-2">
               {/* Sort dropdown */}
               <div className="dropdown dropdown-end">
@@ -465,8 +467,11 @@ export default function OutputsView({error}: {error: string | null}) {
           {/* Covers */}
           {validCovers.length > 0 && (
             <>
-              <div className="divider">{getCategoryLabel('cover')}</div>
-              <EntityGrid isGrid={isGrid} gridClassName={cn(ENTITY_GRID_CLASS, "grid-cols-1")}>
+              <EntityGrid
+                isGrid={isGrid}
+                title={getCategoryLabel('cover')}
+                gridClassName={cn(ENTITY_GRID_CLASS, "grid-cols-1")}
+              >
                 {validCovers.map((cover) => (
                   <CoverItem 
                     key={cover.id}
@@ -484,8 +489,7 @@ export default function OutputsView({error}: {error: string | null}) {
           {/* Groups */}
           {validGroups.length > 0 && (
             <>
-              <div className="divider">{getCategoryLabel('group')}</div>
-              <EntityGrid isGrid={isGrid}>
+              <EntityGrid isGrid={isGrid} title={getCategoryLabel('group')}>
                 {validGroups.map((group) => (
                   <EntityCard 
                     key={group.id}
@@ -515,13 +519,15 @@ export default function OutputsView({error}: {error: string | null}) {
           {/* Remote Outputs */}
           {remoteOutputs.length > 0 && (
             <>
-              <div className="divider">
-                <span className="flex items-center gap-2">
-                  <FaWifi className="text-primary" />
-                  {t('sections.remote_outputs')}
-                </span>
-              </div>
-              <EntityGrid isGrid={isGrid}>
+              <EntityGrid
+                isGrid={isGrid}
+                title={
+                  <>
+                    <FaWifi className="text-primary" />
+                    {t('sections.remote_outputs')}
+                  </>
+                }
+              >
                 {remoteOutputs.map((output) => (
                   <EntityCard
                     key={output.id}

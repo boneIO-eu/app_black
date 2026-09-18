@@ -362,10 +362,12 @@ export default function InputsView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
+      {/* No panel around the list: the page is a tinted field and the
+          entities are the cards on it. */}
+      <div>
+        <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">{t('inputs.title')}</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t('inputs.title')}</h2>
             <div className="flex items-center gap-2">
               {/* Sort dropdown */}
               <div className="dropdown dropdown-end">
@@ -409,10 +411,10 @@ export default function InputsView() {
           {/* Local inputs section */}
           {localInputs.length > 0 && (
             <>
-              {hasBothSections && (
-                <div className="divider">{t('inputs.local_inputs')}</div>
-              )}
-              <EntityGrid isGrid={isGrid}>
+              <EntityGrid
+                isGrid={isGrid}
+                title={hasBothSections ? t('inputs.local_inputs') : null}
+              >
                 {localInputs.map((inputEvent: InputEvent) => (
                   <EntityCard
                     key={inputEvent.entity_id}
@@ -432,11 +434,15 @@ export default function InputsView() {
           {/* Remote inputs section */}
           {remoteInputs.length > 0 && (
             <>
-              <div className="divider">
-                <FaWifi className="w-4 h-4 text-purple-400" />
-                {t('inputs.remote_inputs')}
-              </div>
-              <EntityGrid isGrid={isGrid}>
+              <EntityGrid
+                isGrid={isGrid}
+                title={
+                  <>
+                    <FaWifi className="w-4 h-4 text-purple-400" />
+                    {t('inputs.remote_inputs')}
+                  </>
+                }
+              >
                 {remoteInputs.map((inputEvent: InputEvent) => (
                   <EntityCard
                     key={inputEvent.entity_id}

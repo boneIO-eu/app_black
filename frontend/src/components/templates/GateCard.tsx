@@ -15,7 +15,7 @@ export default function GateCard({
   const isOpenOnly = data.control_mode === 'open_only';
 
   return (
-    <div className="rounded-xl bg-base-100 shadow-sm px-4 py-6 max-w-xs w-full flex flex-col justify-between min-h-[120px]">
+    <div className="stg-inset px-4 py-6 max-w-xs w-full flex flex-col justify-between min-h-[120px]">
       {/* Header row: icon + name + state badge */}
       <div className="flex items-center gap-2">
         <FaDoorOpen className={`h-4 w-4 shrink-0 ${isOpen ? 'text-warning' : 'text-blue-500'}`} />

@@ -16,7 +16,7 @@ export default function ThermostatCard({
   const isHeating = data.action === 'heating';
 
   return (
-    <div className="rounded-xl bg-base-100 shadow-sm px-4 py-6 flex items-center gap-3 max-w-xs w-full">
+    <div className="stg-inset px-4 py-6 flex items-center gap-3 max-w-xs w-full">
       {/* Power toggle */}
       <button
         className={`btn btn-circle btn-sm ${isOff ? 'btn-ghost opacity-40' : isHeating ? 'btn-error' : 'btn-primary'}`}

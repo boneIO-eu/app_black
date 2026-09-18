@@ -69,7 +69,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
 
   return (
     <div
-      className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'} ${onLongPress ? 'cursor-pointer' : ''}`}
+      className={`stg-inset ${onLongPress ? 'stg-inset-interactive cursor-pointer' : ''} p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}
       onMouseDown={handlePressStart}
       onMouseUp={handlePressEnd}
       onMouseLeave={handlePressEnd}
