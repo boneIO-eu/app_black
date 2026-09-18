@@ -207,8 +207,11 @@ class TestConsoleIssue:
         assert "\\4{eth0}" in self._fragment()
         assert not re.search(r"\\4(?!\{)", self._fragment())
 
-    def test_it_says_where_the_panel_is(self):
-        assert "8090" in self._fragment()
+    def test_it_names_no_port(self):
+        """The panel's port is ``web.port`` from the operator's config, and
+        this file is frozen into a signed plan — a port written here is a
+        guess that cannot be corrected on the device that disproves it."""
+        assert not re.search(r"\d{2,5}", self._fragment())
 
     def test_it_ends_with_a_newline(self):
         """agetty concatenates the fragments; without it the next one runs on."""

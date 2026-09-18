@@ -1,1 +1,1 @@
-boneIO  eth0 \4{eth0}  panel http://\4{eth0}:8090  (Enter redraws)
+boneIO  eth0 \4{eth0}   (blank? press Enter to redraw)

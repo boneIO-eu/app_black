@@ -20,6 +20,14 @@ cabinet.
 It goes in ``/etc/issue.d`` rather than into ``/etc/issue``, which belongs to
 ``base-files`` and already carries text the board vendor put there.
 
+The line carries the address and nothing else — deliberately. A URL would have
+to name a port, and the panel's port is ``web.port`` from the operator's
+``config.yaml``, defaulting to 8090 but not fixed at it; there is also a TLS
+front on 8443 that some deployments use instead. A signed plan is frozen at
+release time and this file is static, so any port written here is a guess that
+cannot be corrected on the device that proves it wrong. The address is the
+thing somebody at the cabinet does not already know.
+
 To retry on a device, delete ``/var/lib/boneio/migrations.d/1.6.12.applied``
 and restart boneIO.
 """
