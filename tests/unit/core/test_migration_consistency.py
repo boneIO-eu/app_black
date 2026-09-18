@@ -8,6 +8,7 @@ migration for that controller.
 
 from __future__ import annotations
 
+import re
 import hashlib
 import importlib
 import pkgutil
@@ -184,3 +185,40 @@ class TestTheSecurityMigrations:
             assert version > "1.6.4", (
                 f"{version} sorts before 1.6.4, so hoisting it is pointless"
             )
+
+
+class TestConsoleIssue:
+    """The serial console banner added by 1.6.12.
+
+    Rendered by agetty, not by us, so what these check is the two things that
+    silently produce a useless line: an interface that is not the one a person
+    at the cabinet cares about, and an escape that never gets expanded.
+    """
+
+    @staticmethod
+    def _fragment() -> str:
+        from boneio.migrations.runner import ASSETS_DIR
+
+        return (ASSETS_DIR / "issue.d" / "10-boneio.issue").read_text()
+
+    def test_the_interface_is_named(self):
+        """A bare \\4 is "the first fully configured interface", and on this
+        device that can be a docker bridge holding a 172.17 address."""
+        assert "\\4{eth0}" in self._fragment()
+        assert not re.search(r"\\4(?!\{)", self._fragment())
+
+    def test_it_says_where_the_panel_is(self):
+        assert "8090" in self._fragment()
+
+    def test_it_ends_with_a_newline(self):
+        """agetty concatenates the fragments; without it the next one runs on."""
+        assert self._fragment().endswith("\n")
+
+    def test_the_migration_installs_it_where_agetty_looks(self):
+        from boneio.migrations.versions import v1_6_12_console_shows_ip as migration
+
+        actions = [a.to_dict() for a in migration.plan()]
+        assert len(actions) == 1
+        assert actions[0]["dst"].startswith("/etc/issue.d/")
+        # /etc/issue belongs to base-files and already carries the vendor's text.
+        assert actions[0]["dst"] != "/etc/issue"
