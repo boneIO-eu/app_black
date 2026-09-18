@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import shutil
+import socket
 import time
 from pathlib import Path
 
@@ -25,8 +26,12 @@ from boneio.core.config.yaml_patch import (
     set_block_list,
 )
 from boneio.core.config.yaml_util import load_yaml_file
-from boneio.core.security import framing
+from boneio.core import containers
+from boneio.core.security import certificate as certs, framing
+from boneio.core.security.certificate import ROOT_CA, device_addresses
+from boneio.core.system.monitor import get_network_info
 from boneio.core.security.posture import Posture, evaluate
+from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
 from boneio.webui.middleware.auth import (
     get_user_store,
     is_anonymous_allowed,
@@ -143,8 +148,6 @@ def _proxy_serving(config: dict) -> bool | None:
     now = time.time()
     if _proxy_probe and now - _proxy_probe[0] < _PROXY_PROBE_TTL:
         return _proxy_probe[1]
-
-    from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
 
     port = web.get("proxy_port")
     if not isinstance(port, int):
@@ -451,10 +454,6 @@ def _reached_by() -> list[str]:
     Returns:
         Its hostname, its mDNS name and its address on the local network.
     """
-    import socket
-
-    from boneio.core.security.certificate import device_addresses
-
     hostname = None
     try:
         hostname = socket.gethostname()
@@ -463,8 +462,6 @@ def _reached_by() -> list[str]:
 
     address = None
     try:
-        from boneio.core.system.monitor import get_network_info
-
         address = (get_network_info() or {}).get("ip")
     except Exception as err:  # noqa: BLE001
         _LOGGER.debug("Could not read this device's address: %s", err)
@@ -481,8 +478,6 @@ def get_certificate():
     Returns:
         The custom certificate's details, or that there is none.
     """
-    from boneio.core.security import certificate as certs
-
     info = certs.installed()
     config = _load_config()
     web = config.get("web") if isinstance(config.get("web"), dict) else {}
@@ -514,10 +509,6 @@ def _preferred_url(web: dict) -> str:
     Returns:
         An https URL, or an empty string when the hostname is unknown.
     """
-    import socket
-
-    from boneio.webui.bind import DEFAULT_PROXY_PORT
-
     try:
         hostname = socket.gethostname()
     except OSError:  # pragma: no cover - a host with no name
@@ -556,8 +547,6 @@ async def upload_certificate(
     Raises:
         HTTPException: If the material is unusable.
     """
-    from boneio.core.security import certificate as certs
-
     cert_pem = await certificate.read()
     key_pem = await key.read()
 
@@ -585,8 +574,6 @@ async def delete_certificate():
     Raises:
         HTTPException: If the files cannot be removed.
     """
-    from boneio.core.security import certificate as certs
-
     try:
         removed = certs.remove()
     except certs.CertificateError as err:
@@ -605,8 +592,6 @@ async def _restart_proxy() -> bool:
     Returns:
         True when the restart succeeded.
     """
-    from boneio.core import containers
-
     loop = asyncio.get_running_loop()
     try:
         result = await loop.run_in_executor(None, containers.restart_caddy)
@@ -638,8 +623,6 @@ def download_root_ca():
     Raises:
         HTTPException: If the proxy has not created one yet.
     """
-    from boneio.core.security.certificate import ROOT_CA
-
     try:
         body = ROOT_CA.read_bytes()
     except OSError as err:

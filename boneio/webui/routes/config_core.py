@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from starlette.datastructures import State
 
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
+from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
 from boneio.core.config.yaml_util import (
     clear_config_cache,
     load_config_from_file,
@@ -441,8 +442,6 @@ async def _guard_expose_change(previous: object, current: object) -> None:
     if now != "proxy" or was == "proxy":
         return
 
-    from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
-
     port = DEFAULT_PROXY_PORT
     if isinstance(current, dict) and isinstance(current.get("proxy_port"), int):
         port = current["proxy_port"]
@@ -479,6 +478,10 @@ async def _apply_cloud_toggle(app_state, previous: object, current: object) -> s
         return None
 
     try:
+        # Imported here, not at the top: cloud registration pulls in aiohttp
+        # and the runner defers it for the same reason — a device with the
+        # feature switched off should not pay for the import. This is the only
+        # place in this module that needs it, and only when the toggle moves.
         from boneio.core.cloud import set_enabled
 
         return await set_enabled(helper, now)

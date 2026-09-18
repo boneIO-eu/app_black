@@ -97,6 +97,14 @@ HOST = "host"
 USERNAME = "username"
 PASSWORD = "password"
 PORT = "port"
+
+#: The port the device's built-in reverse proxy publishes HTTPS on.
+#:
+#: Set in docker-compose.yaml as HTTPS_PORT and defaulted there too; this is
+#: the same number, for the parts of the application that need to name the
+#: proxy without reading the compose file. It lives here rather than beside the
+#: web server so that core can use it without importing the web layer.
+DEFAULT_PROXY_PORT = 8443
 ONLINE = "online"
 OFFLINE = "offline"
 TOPIC = "topic"

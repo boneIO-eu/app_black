@@ -14,11 +14,20 @@ import pytest
 from fastapi import HTTPException
 
 from boneio.webui import bind
+from boneio.webui.routes import config_core
+from boneio.webui.routes import security as security_route
 from boneio.webui.routes.config_core import _guard_expose_change
 
 
 @pytest.fixture
 def proxy(monkeypatch):
+    """Answer the proxy probe, wherever it is looked up.
+
+    Both modules import the function by name, so the object to replace is the
+    one bound in them — patching boneio.webui.bind would leave those names
+    pointing at the original.
+    """
+
     def answer(serving: bool, reason: str = "nothing is serving HTTPS"):
         calls: list[int] = []
 
@@ -26,7 +35,8 @@ def proxy(monkeypatch):
             calls.append(port)
             return (serving, "" if serving else reason)
 
-        monkeypatch.setattr(bind, "proxy_is_serving", check)
+        for module in (config_core, security_route):
+            monkeypatch.setattr(module, "proxy_is_serving", check)
         return calls
 
     return answer
@@ -161,7 +171,7 @@ def test_a_device_already_behind_the_proxy_is_not_probed(monkeypatch):
 
     monkeypatch.setattr(route, "_proxy_probe", None, raising=False)
     monkeypatch.setattr(
-        bind, "proxy_is_serving", lambda *a, **k: pytest.fail("probed anyway")
+        route, "proxy_is_serving", lambda *a, **k: pytest.fail("probed anyway")
     )
     assert route._proxy_serving({"web": {"expose": "proxy"}}) is None
 
@@ -173,7 +183,7 @@ def test_the_probe_answer_is_reused_briefly(monkeypatch):
     calls = []
     monkeypatch.setattr(route, "_proxy_probe", None, raising=False)
     monkeypatch.setattr(
-        bind, "proxy_is_serving", lambda *a, **k: calls.append(1) or (True, "")
+        route, "proxy_is_serving", lambda *a, **k: calls.append(1) or (True, "")
     )
     assert route._proxy_serving({}) is True
     assert route._proxy_serving({}) is True

@@ -15,6 +15,7 @@ from boneio.const import (
     ALARM_CONTROL_PANEL,
     BINARY_SENSOR,
     BONEIO,
+    DEFAULT_PROXY_PORT,
     BUTTON,
     CLIMATE,
     COVER,
@@ -209,8 +210,6 @@ class ConfigHelper:
         if self._proxy_port:
             return self._proxy_port
         if self._expose == "proxy":
-            from boneio.webui.bind import DEFAULT_PROXY_PORT
-
             return DEFAULT_PROXY_PORT
         return self._web_port
 

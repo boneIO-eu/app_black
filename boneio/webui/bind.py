@@ -18,7 +18,16 @@ belongs to Docker and an operator can change it in daemon.json.
 
 from __future__ import annotations
 
+import json
 import logging
+import ssl
+import time
+import urllib.error
+import urllib.request
+
+import psutil
+
+from boneio.const import DEFAULT_PROXY_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,8 +59,6 @@ def docker_bridge_addresses() -> list[str]:
     """
     addresses: list[str] = []
     try:
-        import psutil
-
         for name, addrs in psutil.net_if_addrs().items():
             if not name.startswith(_BRIDGE_PREFIXES):
                 continue
@@ -87,8 +94,6 @@ def _wait_for_a_bridge(timeout: float) -> list[str]:
     Returns:
         The addresses found, possibly empty.
     """
-    import time
-
     deadline = time.monotonic() + timeout
     waited = False
     while True:
@@ -140,10 +145,6 @@ def binds_for(exposure: str, port: int, wait: float = BRIDGE_WAIT_SECONDS) -> li
     return [f"{host}:{port}" for host in hosts]
 
 
-#: Where Caddy publishes HTTPS when nothing says otherwise.
-DEFAULT_PROXY_PORT = 8443
-
-
 def proxy_is_serving(port: int = DEFAULT_PROXY_PORT, timeout: float = 5.0) -> tuple[bool, str]:
     """Whether the reverse proxy is answering for this device right now.
 
@@ -163,11 +164,6 @@ def proxy_is_serving(port: int = DEFAULT_PROXY_PORT, timeout: float = 5.0) -> tu
     Returns:
         Whether it is serving, and a short reason when it is not.
     """
-    import json
-    import ssl
-    import urllib.error
-    import urllib.request
-
     # The certificate is the device's own, usually from Caddy's internal CA,
     # and this request never leaves the machine. What is being tested is
     # whether the proxy reaches the application, not who signed the key.

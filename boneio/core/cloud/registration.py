@@ -27,6 +27,7 @@ from boneio.core.cloud.secrets import MASTER_SECRET as DEFAULT_MASTER_SECRET
 from boneio.core.system.monitor import get_network_info
 
 from boneio.core import containers
+from boneio.core.system.monitor import get_network_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -688,8 +689,6 @@ async def set_enabled(config_helper, enabled: bool, local_ip: str | None = None)
     serial = getattr(config_helper, "serial_number", None)
     if not local_ip:
         try:
-            from boneio.core.system.monitor import get_network_info
-
             local_ip = (get_network_info() or {}).get("ip", "")
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Could not read this device's address: %s", err)

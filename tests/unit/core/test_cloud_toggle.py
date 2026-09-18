@@ -53,9 +53,9 @@ def cloud(monkeypatch):
 
     _Registration.instances.clear()
     monkeypatch.setattr(module, "CloudRegistration", _Registration)
-    monkeypatch.setattr(
-        "boneio.core.system.monitor.get_network_info", lambda: {"ip": "192.168.1.9"}
-    )
+    # Patched where registration looks it up: it imports the name, so
+    # replacing it on the monitor module would not be seen.
+    monkeypatch.setattr(module, "get_network_info", lambda: {"ip": "192.168.1.9"})
     return module
 
 
@@ -117,9 +117,7 @@ def test_enabling_twice_starts_one_service(cloud):
 def test_without_an_address_it_defers_rather_than_claiming_success(cloud, monkeypatch):
     """Reporting "started" for a service that did not start is the one answer
     that leaves somebody waiting for a certificate that is not coming."""
-    monkeypatch.setattr(
-        "boneio.core.system.monitor.get_network_info", lambda: {"ip": ""}
-    )
+    monkeypatch.setattr(cloud, "get_network_info", lambda: {"ip": ""})
     helper = _Helper()
     assert asyncio.run(cloud.set_enabled(helper, True)) == "unavailable"
     assert helper._cloud_registration is True, "the setting is still saved"
