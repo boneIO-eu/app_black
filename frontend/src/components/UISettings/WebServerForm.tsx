@@ -100,10 +100,10 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         help={t('webserver.port_help')}
       />
 
-      {/* The port Home Assistant is told about. Named after nginx until 1.6,
-          which has not been what sits in front of this panel since 1.4.4 —
-          and the old wording read as "no proxy unless you fill this in", on a
-          device whose built-in proxy is always there. */}
+      {/* The port the reverse proxy serves on. It does not configure that
+          proxy — the built-in one is on 8443 either way — it decides where
+          Home Assistant and this panel point. Named after nginx until 1.6,
+          which has not sat in front of this panel since 1.4.4. */}
       <FormInputNumber
         label={t('webserver.proxy_port')}
         value={data?.proxy_port ?? ''}

@@ -45,6 +45,7 @@ class ConfigHelper:
         is_web_active: bool = False,
         web_port: int = 8090,
         proxy_port: int | None = None,
+        expose: str = "all",
         config_file_path: str | None = None,
         send_boneio_autodiscovery: bool = True,
         receive_boneio_autodiscovery: bool = True,
@@ -98,6 +99,7 @@ class ConfigHelper:
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
+        self._expose = expose
         self._fetch_old_discovery = None
 
         self._autodiscovery_messages = {
@@ -183,12 +185,34 @@ class ConfigHelper:
 
     @property
     def http_proto(self) -> str:
-        return "https" if self._proxy_port else "http"
+        """The scheme anything linking to this panel should use."""
+        return "https" if self._behind_proxy else "http"
+
+    @property
+    def _behind_proxy(self) -> bool:
+        """Whether the panel is reached through the reverse proxy.
+
+        Either because somebody named its port, or because the panel's own
+        port has been taken off the network and the proxy is the only way in.
+        """
+        return bool(self._proxy_port) or self._expose == "proxy"
 
     @property
     def web_configuration_port(self) -> int:
-        """Get port for HA discovery URL. Uses proxy_port if set, otherwise web_port."""
-        return self._proxy_port if self._proxy_port else self._web_port
+        """The port to put in a link to this panel.
+
+        The configured proxy port when there is one. Otherwise the panel's own
+        port — unless that port has been taken off the network, in which case
+        it answers nothing and linking to it would hand Home Assistant a dead
+        address. Then it is the port the built-in proxy serves on.
+        """
+        if self._proxy_port:
+            return self._proxy_port
+        if self._expose == "proxy":
+            from boneio.webui.bind import DEFAULT_PROXY_PORT
+
+            return DEFAULT_PROXY_PORT
+        return self._web_port
 
     @property
     def topic_prefix(self) -> str:

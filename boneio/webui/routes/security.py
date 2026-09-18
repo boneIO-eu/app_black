@@ -485,6 +485,8 @@ def _preferred_url(web: dict) -> str:
     if not hostname:
         return ""
 
+    # The same answer Home Assistant is given, for the same reason: this is
+    # the one address that keeps working whichever way the panel is served.
     port = web.get("proxy_port")
     if not isinstance(port, int):
         port = DEFAULT_PROXY_PORT

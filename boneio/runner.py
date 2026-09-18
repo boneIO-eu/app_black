@@ -212,6 +212,7 @@ async def async_run(
         is_web_active=web_active,
         web_port=web_config.get("port", 8090),
         proxy_port=web_config.get("proxy_port"),
+        expose=web_config.get("expose", "all"),
         ha_discovery=mqtt_config.get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=mqtt_config.get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
         config_file_path=config_file,
