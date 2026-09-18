@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAuth } from '@/hooks/useAuth';
 import axios from '@/api/axios';
 import {
   FaPlay,
@@ -589,6 +590,7 @@ function ControllerCard({
 
 export default function IrrigationView() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<IrrigationController[]>([]);
   const [loading, setLoading] = useState(true);
@@ -671,8 +673,12 @@ export default function IrrigationView() {
   });
 
   const handleLongPress = useCallback((ctrl: IrrigationController) => {
+    // The dialog exists only to offer "edit in settings", and that route
+    // refuses a read-only account — so for a viewer the long press does
+    // nothing rather than opening a dialog that leads to a wall.
+    if (!isAdmin) return;
     setLongPressDialog({ open: true, ctrl });
-  }, []);
+  }, [isAdmin]);
 
   const handleGoToSettings = useCallback(() => {
     if (!longPressDialog.ctrl) return;

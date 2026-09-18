@@ -9,6 +9,7 @@ import type { EntityData } from './EntityCard';
 import { EntityGrid, ENTITY_GRID_CLASS } from './EntityGrid';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../hooks/useAuth';
 import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCog, FaWifi } from 'react-icons/fa';
 import { HiSignal } from 'react-icons/hi2';
 import MqttReferenceSheet from '@/components/MqttReferenceSheet';
@@ -37,6 +38,7 @@ function categorizeOutput(type: string | undefined): OutputCategory {
 
 export default function OutputsView({error}: {error: string | null}) {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [outputError, setError] = useState<string | null>(null);
   const { outputs, covers, groups } = useContext(WebSocketContext);
@@ -589,14 +591,18 @@ export default function OutputsView({error}: {error: string | null}) {
               <HiSignal className="w-5 h-5" />
               {t('mqtt_reference.button')}
             </button>
-            {/* Go to settings button */}
-            <button
-              className="btn btn-ghost btn-block gap-2 h-12"
-              onClick={handleGoToSettings}
-            >
-              <FaCog className="w-4 h-4" />
-              {t('outputs.go_to_settings')}
-            </button>
+            {/* Hidden for a read-only account: the route refuses it, and a
+                button that leads to "administrators only" is a button that
+                should not have been offered. */}
+            {isAdmin && (
+              <button
+                className="btn btn-ghost btn-block gap-2 h-12"
+                onClick={handleGoToSettings}
+              >
+                <FaCog className="w-4 h-4" />
+                {t('outputs.go_to_settings')}
+              </button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

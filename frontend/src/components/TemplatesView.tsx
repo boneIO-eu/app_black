@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAuth } from '@/hooks/useAuth';
 import axios from '@/api/axios';
 import { FaThermometerHalf, FaShieldAlt, FaDoorOpen, FaCog, FaTint } from 'react-icons/fa';
 import {
@@ -26,6 +27,7 @@ import { useConfig } from '../contexts/ConfigContext';
  */
 export default function TemplatesView() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const { hasIrrigationSection } = useConfig();
   const [data, setData] = useState<TemplatesData | null>(null);
@@ -40,8 +42,12 @@ export default function TemplatesView() {
   });
 
   const handleLongPress = useCallback((templateId: string, name: string) => {
+    // The dialog exists only to offer "edit in settings", and that route
+    // refuses a read-only account — so for a viewer the long press does
+    // nothing rather than opening a dialog that leads to a wall.
+    if (!isAdmin) return;
     setLongPressDialog({ open: true, templateId, name });
-  }, []);
+  }, [isAdmin]);
 
   const handleGoToSettings = useCallback(() => {
     if (!longPressDialog.templateId) return;

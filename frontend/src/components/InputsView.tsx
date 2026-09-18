@@ -6,6 +6,7 @@ import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../hooks/useAuth';
 import { copyToClipboard } from '@/utils/clipboard';
 import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi, FaBolt, FaGraduationCap } from 'react-icons/fa';
 import { HiSignal } from 'react-icons/hi2';
@@ -94,6 +95,7 @@ function InputTypeIcon({ type }: { type: string }) {
 
 export default function InputsView() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const { inputs } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
@@ -510,14 +512,19 @@ export default function InputsView() {
             </p>
           </DialogHeader>
           <div className="px-5 py-4 space-y-2">
-            {/* Quick Action button */}
-            <button
-              className="btn btn-primary btn-block gap-2 h-14 text-base"
-              onClick={handleOpenQuickAction}
-            >
-              <FaBolt className="w-5 h-5" />
-              {t('quick_action.title')}
-            </button>
+            {/* A quick action writes an input→output binding into the
+                configuration (POST /api/config/quick-action, admin-only), so a
+                read-only account is not offered it. The MQTT reference below
+                stays: it only describes what already exists. */}
+            {isAdmin && (
+              <button
+                className="btn btn-primary btn-block gap-2 h-14 text-base"
+                onClick={handleOpenQuickAction}
+              >
+                <FaBolt className="w-5 h-5" />
+                {t('quick_action.title')}
+              </button>
+            )}
             {/* MQTT Reference button */}
             <button
               className="btn btn-outline btn-block gap-2 h-12 text-base"
@@ -527,13 +534,18 @@ export default function InputsView() {
               {t('mqtt_reference.button')}
             </button>
             {/* Go to settings button */}
-            <button
-              className="btn btn-ghost btn-block gap-2 h-12"
-              onClick={handleGoToSettings}
-            >
-              <FaCog className="w-4 h-4" />
-              {t('inputs.go_to_settings')}
-            </button>
+            {/* Hidden for a read-only account: the route refuses it, and a
+                button that leads to "administrators only" is a button that
+                should not have been offered. */}
+            {isAdmin && (
+              <button
+                className="btn btn-ghost btn-block gap-2 h-12"
+                onClick={handleGoToSettings}
+              >
+                <FaCog className="w-4 h-4" />
+                {t('inputs.go_to_settings')}
+              </button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

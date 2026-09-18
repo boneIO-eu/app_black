@@ -5,10 +5,11 @@ import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
 import { isModbusDeviceEvent, ModbusDeviceState } from '../hooks/useWebSocket';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../hooks/useAuth';
 import ModbusDeviceItem from './ModbusDeviceItem';
 import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
-import { EntityGrid, SENSOR_GRID_CLASS } from './EntityGrid';
+import { EntityGrid, EntityPanel, SENSOR_GRID_CLASS } from './EntityGrid';
 import { FaCog, FaSyncAlt } from 'react-icons/fa';
 import {
   Dialog,
@@ -62,6 +63,7 @@ function compareDevices(a: ModbusDeviceState, b: ModbusDeviceState): number {
 
 export default function ModbusView() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const { modbus_devices } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
@@ -188,8 +190,12 @@ export default function ModbusView() {
   });
 
   const handleLongPress = useCallback((device: ModbusDeviceState) => {
+    // The dialog exists only to offer "edit in settings", and that route
+    // refuses a read-only account — so for a viewer the long press does
+    // nothing rather than opening a dialog that leads to a wall.
+    if (!isAdmin) return;
     setLongPressDialog({ open: true, device });
-  }, []);
+  }, [isAdmin]);
 
   const handleGoToSettings = useCallback(() => {
     if (!longPressDialog.device) return;

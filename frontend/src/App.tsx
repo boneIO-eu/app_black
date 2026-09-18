@@ -60,6 +60,8 @@ import SecurityUpdatePrompt from './components/SecurityUpdatePrompt';
 import Layout from './components/Layout';
 import { useWebSocket, requestStateResync, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, GroupEvent, isOutputEvent, isGroupEvent, isConfigReloadEvent } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { useTranslation } from './hooks/useTranslation';
+import { NoticeCallout, SettingsPage } from './components/UISettings/ui';
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import NotAvailable from './components/NotAvailable';
 import { ConfigProvider } from './contexts/ConfigContext';
@@ -83,9 +85,29 @@ export const WebSocketContext = createContext<{
   groups: [],
 });
 
-// Protected route component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading, isAuthRequired } = useAuth();
+/**
+ * Gate for an authenticated route, optionally an administrator-only one.
+ *
+ * `adminOnly` exists because hiding a navigation entry is not the same as
+ * closing a route. The Settings entry has always been hidden from a viewer,
+ * but the route stayed reachable — by a bookmark, by the /config and /system
+ * redirects that land on a settings section, and by the "edit in settings"
+ * shortcut behind a long press on an output, an input, a template, a Modbus
+ * device or an irrigation controller. Six call sites, and a seventh whenever
+ * somebody adds one; the durable place to decide is here.
+ *
+ * Every write behind Settings is refused by the auth middleware regardless, so
+ * this is not what keeps a viewer from changing the configuration. It keeps
+ * them from being handed a workspace whose every save fails.
+ */
+function ProtectedRoute({
+  children,
+  adminOnly = false,
+}: {
+  children: React.ReactNode;
+  adminOnly?: boolean;
+}) {
+  const { isAuthenticated, isLoading: authLoading, isAuthRequired, isAdmin, role } = useAuth();
   const { isApiAvailable, isLoading: initLoading, needsOnboarding } = useAppInit();
 
   // Read once per mount: the value cannot change while this render tree lives,
@@ -136,8 +158,47 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated && isAuthRequired) {
     return <LoginView />
   }
-  
+
+  if (adminOnly && isAuthRequired) {
+    // isLoading goes false as soon as the token is accepted, but the role
+    // arrives one request later — AuthProvider fires /api/account/me without
+    // awaiting it. So "not an admin" and "not known yet" look identical from
+    // isAdmin alone, and an administrator would be told they are not one for
+    // as long as that round trip takes. On a controller over the network that
+    // is long enough to read.
+    if (role === null) {
+      return (
+        <Layout>
+          <div className="flex items-center justify-center h-full min-h-[60vh]">
+            <span className="loading loading-spinner loading-lg text-primary"></span>
+          </div>
+        </Layout>
+      );
+    }
+    if (!isAdmin) {
+      return (
+        <Layout>
+          <AdminOnlyNotice />
+        </Layout>
+      );
+    }
+  }
+  // When auth is not required at all the middleware enforces no roles either,
+  // so there is nobody to refuse.
+
   return <>{children}</>;
+}
+
+/** Says why a page is empty, rather than drawing one that cannot work. */
+function AdminOnlyNotice() {
+  const { t } = useTranslation();
+  return (
+    <div className="settings-scope stg-canvas h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <SettingsPage width="wide">
+        <NoticeCallout variant="warning" message={t('settings.admin_only')} />
+      </SettingsPage>
+    </div>
+  );
 }
 
 function AppContent() {
@@ -432,14 +493,14 @@ function AppContent() {
         {/* ConfigEditor2 (UISettings) - Temporarily disabled due to JSON Schema issues */}
         {/* TODO: Re-enable when JSON Schema validation problems are resolved */}
         <Route path="/settings" element={
-          <ProtectedRoute>
+          <ProtectedRoute adminOnly>
             <Layout fullHeight>
               <UISettings />
             </Layout>
           </ProtectedRoute>
         } />
         <Route path="/settings/:section" element={
-          <ProtectedRoute>
+          <ProtectedRoute adminOnly>
             <Layout fullHeight>
               <UISettings />
             </Layout>

@@ -2,6 +2,7 @@ import React, { useState, useContext, useMemo, useCallback, useEffect, useRef } 
 import { useNavigate } from 'react-router-dom';
 import { WebSocketContext } from '@/App';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAuth } from '@/hooks/useAuth';
 import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';
 import { isInputEvent } from '@/hooks/useWebSocket';
 import type { EntityItem } from '@/components/UISettings/EntitySelectDropdown';
@@ -132,6 +133,7 @@ interface TeachModeProps {
  */
 const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const { inputs, outputs, covers } = useContext(WebSocketContext);
 
@@ -1317,14 +1319,18 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                   <div className="space-y-3">
                     <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2 flex items-center gap-2">
                       <span className="flex-1">{t('teach_mode.bindings_for', { name: detectedInput.state.name })}</span>
-                      <button
-                        className="btn btn-ghost btn-xs gap-1 text-primary normal-case font-semibold"
-                        onClick={handleGoToSettings}
-                        title={t('teach_mode.edit_in_settings')}
-                      >
-                        <FaExternalLinkAlt className="w-2.5 h-2.5" />
-                        {t('teach_mode.edit_in_settings')}
-                      </button>
+                      {/* The settings route refuses a read-only account, so
+                          offering the shortcut would lead to a wall. */}
+                      {isAdmin && (
+                        <button
+                          className="btn btn-ghost btn-xs gap-1 text-primary normal-case font-semibold"
+                          onClick={handleGoToSettings}
+                          title={t('teach_mode.edit_in_settings')}
+                        >
+                          <FaExternalLinkAlt className="w-2.5 h-2.5" />
+                          {t('teach_mode.edit_in_settings')}
+                        </button>
+                      )}
                     </p>
                     <div className="space-y-2">
                       {bindings.map((b) => {
