@@ -36,7 +36,7 @@ def proxy(monkeypatch):
             return (serving, "" if serving else reason)
 
         for module in (config_core, security_route):
-            monkeypatch.setattr(module, "proxy_is_serving", check)
+            monkeypatch.setattr(module, "proxy_is_serving_cached", check)
         return calls
 
     return answer
@@ -169,9 +169,8 @@ def test_a_device_already_behind_the_proxy_is_not_probed(monkeypatch):
     """Spending an HTTPS round trip to learn what is already true."""
     from boneio.webui.routes import security as route
 
-    monkeypatch.setattr(route, "_proxy_probe", None, raising=False)
     monkeypatch.setattr(
-        route, "proxy_is_serving", lambda *a, **k: pytest.fail("probed anyway")
+        route, "proxy_is_serving_cached", lambda *a, **k: pytest.fail("probed anyway")
     )
     assert route._proxy_serving({"web": {"expose": "proxy"}}) is None
 
@@ -181,10 +180,10 @@ def test_the_probe_answer_is_reused_briefly(monkeypatch):
     from boneio.webui.routes import security as route
 
     calls = []
-    monkeypatch.setattr(route, "_proxy_probe", None, raising=False)
+    monkeypatch.setattr(bind, "_last_probe", None, raising=False)
     monkeypatch.setattr(
-        route, "proxy_is_serving", lambda *a, **k: calls.append(1) or (True, "")
+        bind, "proxy_is_serving", lambda *a, **k: calls.append(1) or (True, "")
     )
-    assert route._proxy_serving({}) is True
-    assert route._proxy_serving({}) is True
-    assert len(calls) == 1
+    assert bind.proxy_is_serving_cached(8443)[0] is True
+    assert bind.proxy_is_serving_cached(8443)[0] is True
+    assert len(calls) == 1, "probed twice — the page's answer is not reused by the save"

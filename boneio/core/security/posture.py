@@ -214,6 +214,8 @@ def evaluate(
     auth_required: bool,
     cloud_active: bool,
     proxy_serving: bool | None = None,
+    custom_certificate: bool = False,
+    cloud_error: str | None = None,
 ) -> Posture:
     """Work out what is still unlocked.
 
@@ -225,6 +227,8 @@ def evaluate(
         cloud_active: Whether cloud registration is serving a real certificate.
         proxy_serving: Whether the reverse proxy is answering for this
             panel right now. None when nobody looked.
+        custom_certificate: Whether an uploaded certificate is installed.
+        cloud_error: What cloud registration last failed with, if anything.
 
     Returns:
         The full set of checks.
@@ -330,6 +334,7 @@ def evaluate(
     )
 
     web = config.get("web") if isinstance(config.get("web"), dict) else {}
+    cloud_enabled = bool((web.get("cloud") or {}).get("enabled"))
     has_legacy = _legacy_web_auth(config)
     checks.append(
         Check(
@@ -360,15 +365,41 @@ def evaluate(
             id="certificate",
             title="HTTPS certificate",
             severity=Severity.INFO,
-            state=State.OK if cloud_active else State.FAILED,
+            # Four states. This used to have two, and told an operator to
+            # enable cloud registration on a device where it was already on and
+            # failing with an error the application had in hand — while a
+            # second route to a trusted certificate, uploading one, had been
+            # added and this check knew nothing about it.
+            state=State.OK if (custom_certificate or cloud_active) else State.FAILED,
             detail=(
-                "Served with a certificate browsers trust."
+                "Served with the certificate you uploaded."
+                if custom_certificate
+                else "Served with a certificate browsers trust."
                 if cloud_active
-                else "Served with a self-signed certificate, so browsers warn "
-                "on every visit and people learn to click through the warning."
+                else (
+                    "Cloud registration is switched on but is not serving a "
+                    f"certificate: {cloud_error}. Until that clears, the panel "
+                    "is served with a self-signed certificate."
+                    if cloud_enabled and cloud_error
+                    else "Cloud registration is switched on but has not "
+                    "produced a certificate yet, so the panel is still served "
+                    "with a self-signed one."
+                    if cloud_enabled
+                    else "Served with a self-signed certificate, so browsers "
+                    "warn on every visit and people learn to click through the "
+                    "warning."
+                )
             ),
-            remedy="Enable boneIO Cloud registration to get a trusted certificate.",
-            settings_section="web",
+            remedy=(
+                ""
+                if custom_certificate or cloud_active
+                else "Sort out the registration error, or upload a certificate "
+                "of your own below."
+                if cloud_enabled
+                else "Enable boneIO Cloud registration, or upload a certificate "
+                "of your own below."
+            ),
+            settings_section="security",
         )
     )
 

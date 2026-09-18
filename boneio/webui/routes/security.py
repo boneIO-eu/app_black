@@ -31,7 +31,7 @@ from boneio.core.security import certificate as certs, framing
 from boneio.core.security.certificate import ROOT_CA, device_addresses
 from boneio.core.system.monitor import get_network_info
 from boneio.core.security.posture import Posture, evaluate
-from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
+from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.webui.middleware.auth import (
     get_user_store,
     is_anonymous_allowed,
@@ -120,15 +120,6 @@ def _invalidate_config_cache() -> None:
     _config_cache = None
 
 
-#: The last proxy probe, as ``(asked_at, answer)``.
-_proxy_probe: tuple[float, bool] | None = None
-
-#: How long a probe answer stands. Long enough that the three components asking
-#: for the posture on one page load share a single request; short enough that
-#: somebody who has just fixed their proxy sees the page change.
-_PROXY_PROBE_TTL = 30.0
-
-
 def _proxy_serving(config: dict) -> bool | None:
     """Whether the reverse proxy is answering for this panel.
 
@@ -139,21 +130,14 @@ def _proxy_serving(config: dict) -> bool | None:
     Returns:
         True or False, or None when it was not asked.
     """
-    global _proxy_probe
-
     web = config.get("web") if isinstance(config.get("web"), dict) else {}
     if web.get("expose") == "proxy":
         return None
 
-    now = time.time()
-    if _proxy_probe and now - _proxy_probe[0] < _PROXY_PROBE_TTL:
-        return _proxy_probe[1]
-
     port = web.get("proxy_port")
     if not isinstance(port, int):
         port = DEFAULT_PROXY_PORT
-    serving, _ = proxy_is_serving(port, timeout=3.0)
-    _proxy_probe = (now, serving)
+    serving, _ = proxy_is_serving_cached(port)
     return serving
 
 

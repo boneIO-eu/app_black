@@ -81,7 +81,16 @@ export default function SecurityView() {
     try {
       const { data: config } = await axios.get('/api/config');
       const web = (config?.web ?? {}) as Record<string, unknown>;
-      await axios.put('/api/config/web', { ...web, expose: 'proxy' });
+      // Longer than the default: the backend checks the proxy is really
+      // serving before it writes, and the first such check on a device can
+      // take seconds while Caddy mints itself a certificate. At the default
+      // the browser gave up first and reported a failure for a save that had
+      // gone through.
+      await axios.put(
+        '/api/config/web',
+        { ...web, expose: 'proxy' },
+        { timeout: 30000 },
+      );
       window.alert(t('security.move_behind_proxy_done'));
       invalidateSecurityPosture();
       await refresh();

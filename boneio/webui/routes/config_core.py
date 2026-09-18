@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from starlette.datastructures import State
 
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
-from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
+from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.core.config.yaml_util import (
     clear_config_cache,
     load_config_from_file,
@@ -447,7 +447,7 @@ async def _guard_expose_change(previous: object, current: object) -> None:
         port = current["proxy_port"]
 
     loop = asyncio.get_running_loop()
-    serving, reason = await loop.run_in_executor(None, proxy_is_serving, port)
+    serving, reason = await loop.run_in_executor(None, proxy_is_serving_cached, port)
     if not serving:
         raise HTTPException(
             status_code=409,

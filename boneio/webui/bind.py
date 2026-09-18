@@ -187,3 +187,44 @@ def proxy_is_serving(port: int = DEFAULT_PROXY_PORT, timeout: float = 5.0) -> tu
     if "version" not in body:
         return False, f"port {port} is serving something else"
     return True, ""
+
+
+#: The last probe, as ``(port, asked_at, answer)``.
+_last_probe: tuple[int, float, bool] | None = None
+
+#: How long an answer stands. Long enough that the security page's probe is
+#: still good when somebody reads it and presses the button; short enough that
+#: a proxy just repaired shows as repaired.
+PROBE_TTL = 30.0
+
+
+def proxy_is_serving_cached(port: int = DEFAULT_PROXY_PORT, max_age: float = PROBE_TTL) -> tuple[bool, str]:
+    """:func:`proxy_is_serving`, reusing a recent answer.
+
+    The first probe of a device's life is slow in a way the timeout alone
+    cannot fix: Caddy issues its internal certificates on demand, and a
+    connection to 127.0.0.1 carries no SNI, so the first one makes it mint a
+    certificate for that address before answering. On a BeagleBone that takes
+    seconds — long enough that the browser gave up on the save that was waiting
+    for it, while the save itself went through.
+
+    Sharing one answer between the page that displays the posture and the save
+    that acts on it means the slow probe happens while somebody is reading,
+    not while they are waiting for a button.
+
+    Args:
+        port: The port the proxy publishes HTTPS on.
+        max_age: How old an answer may be and still be used.
+
+    Returns:
+        Whether it is serving, and a short reason when it is not.
+    """
+    global _last_probe
+
+    now = time.monotonic()
+    if _last_probe and _last_probe[0] == port and now - _last_probe[1] < max_age:
+        return (_last_probe[2], "" if _last_probe[2] else "the proxy was not serving a moment ago")
+
+    serving, reason = proxy_is_serving(port)
+    _last_probe = (port, now, serving)
+    return serving, reason
