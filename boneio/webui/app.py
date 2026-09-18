@@ -24,6 +24,7 @@ from boneio.const import COVER, NONE
 from boneio.core.auth.migration import migrate_legacy_auth
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.core.config import ConfigHelper
+from boneio.core.config.provenance import was_configured_before
 from boneio.core.events import GracefulExit
 from boneio.core.manager import Manager
 from boneio.models import (
@@ -785,14 +786,22 @@ def init_app(
                 "username": migration.username,
                 "used_secret_file": migration.used_secret_file,
             }
-        # A web.auth block means this device was configured under a pre-1.6
-        # release, whether or not the credentials in it were usable. The
-        # factory config ships web: with ports and no auth, so its presence is
-        # what separates an upgraded controller from a fresh one — and the
-        # first-run wizard must not offer to import a configuration, or to
-        # generate input bindings, on a device that already has both.
+        # Whether the first-run wizard may offer the steps that assume a blank
+        # device — the import, and the one that replaces the whole event
+        # section.
+        #
+        # This used to be read off the web.auth block alone, which was wrong in
+        # the direction that costs the owner their configuration: most 1.5.x
+        # controllers never had web authentication, so an upgraded device with
+        # a full config.yaml looked exactly like a fresh one. Freshness is now
+        # something that has to be shown, not assumed — see
+        # boneio.core.config.provenance.
         onboarding_module.set_configured_before(
-            bool(migration) or migration.reason == "incomplete_legacy_auth"
+            was_configured_before(
+                yaml_config_file,
+                had_legacy_auth=bool(migration)
+                or migration.reason == "incomplete_legacy_auth",
+            )
         )
     except UserStoreError as err:
         # Refusing to start would brick the UI over a file the user can fix,
