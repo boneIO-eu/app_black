@@ -28,6 +28,25 @@ fi
 # Save current hostname
 echo "$CURRENT_HOSTNAME" > "$HOSTNAME_FILE"
 
+# Which certificate to serve.
+#
+# An operator who does not want cloud registration can upload their own, and
+# it is read from Caddy's data directory, which is already mounted. Anything
+# else falls back to
+# Caddy's own authority, issuing on demand: the device's address is not known
+# here and changes with the lease, so there is no fixed name to ask for.
+CUSTOM_CERT=/data/custom/fullchain.pem
+CUSTOM_KEY=/data/custom/privkey.pem
+if [ -f "$CUSTOM_CERT" ] && [ -f "$CUSTOM_KEY" ]; then
+        echo "Serving the uploaded certificate from $CUSTOM_CERT"
+        TLS_DIRECTIVE="tls $CUSTOM_CERT $CUSTOM_KEY"
+else
+        echo "Serving Caddy's own certificate (no uploaded one found)"
+        TLS_DIRECTIVE="tls internal {
+                on_demand
+        }"
+fi
+
 # Generate Caddyfile with actual hostname
 cat > /tmp/Caddyfile << EOF
 {
@@ -50,9 +69,7 @@ cat > /tmp/Caddyfile << EOF
 
 # HTTPS with self-signed certificate (catch-all for hostname and IP access)
 https:// {
-        tls internal {
-                on_demand
-        }
+        ${TLS_DIRECTIVE}
 
         handle_errors {
                 @502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504

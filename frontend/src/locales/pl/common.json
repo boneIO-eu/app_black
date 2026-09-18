@@ -2759,7 +2759,29 @@
     "move_behind_proxy": "Schowaj za proxy",
     "move_behind_proxy_confirm": "Przestać udostępniać panel w sieci lokalnej?\n\nBędzie odpowiadał tylko przez szyfrowane proxy oraz przez tunel SSH na 127.0.0.1.\n\nZmiana zostanie odrzucona, jeśli proxy jeszcze nie serwuje tego panelu, więc urządzenie nie może zostać odcięte. Zadziała po restarcie.",
     "move_behind_proxy_done": "Zapisane. Zadziała po restarcie urządzenia.",
-    "move_behind_proxy_failed": "Nie zmieniono: {{error}}"
+    "move_behind_proxy_failed": "Nie zmieniono: {{error}}",
+    "cert": {
+      "title": "Certyfikat",
+      "using_internal": "Panel jest serwowany certyfikatem wystawionym przez samo urządzenie, któremu przeglądarki nie ufają.",
+      "using_custom": "Panel jest serwowany certyfikatem, który wgrałeś.",
+      "issuer": "Wystawca",
+      "valid_for": "Ważny dla",
+      "expires": "Wygasa",
+      "uncovered": "Nie obejmuje: {{names}} — przy wejściu w ten sposób przeglądarka nadal ostrzeże.",
+      "reached_by": "To urządzenie jest osiągalne pod: {{names}}",
+      "file_cert": "Certyfikat",
+      "file_cert_help": "PEM. Najlepiej pełny łańcuch, żeby przeglądarka mogła dojść do wystawcy.",
+      "file_key": "Klucz prywatny",
+      "file_key_help": "PEM, bez hasła — proxy startuje bez obsługi i nie ma kogo o nie zapytać.",
+      "upload": "Wgraj i używaj",
+      "remove": "Usuń i wróć",
+      "remove_confirm": "Usunąć wgrany certyfikat?\n\nPanel wróci do certyfikatu wystawianego przez samo urządzenie i przeglądarki znów będą ostrzegać.",
+      "removed": "Usunięty. Panel wrócił do własnego certyfikatu urządzenia.",
+      "installed": "Zainstalowany. Proxy zostało zrestartowane.",
+      "installed_uncovered": "Zainstalowany, ale nie obejmuje {{names}} — wejście w ten sposób nadal wywoła ostrzeżenie.",
+      "download_root_ca": "Pobierz urząd tego urządzenia",
+      "root_ca_help": "Zainstaluj go na komputerach, z których otwierasz panel, a ostrzeżenie zniknie — bez domeny i bez wystawiania czegokolwiek do internetu. Pamiętaj, że komputer ufający temu urzędowi uwierzy mu w sprawie dowolnej nazwy, nie tylko tego urządzenia."
+    }
   },
   "login": {
     "title": "Zaloguj się do",

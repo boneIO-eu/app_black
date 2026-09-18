@@ -7,6 +7,7 @@ module enforces that; this route does not repeat the check.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -14,7 +15,7 @@ import shutil
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from boneio.core.config.yaml_patch import (
@@ -399,3 +400,178 @@ async def remove_legacy_auth():
         backup,
     )
     return {"removed": True, "backup": str(backup)}
+
+
+# --------------------------------------------------------- the TLS certificate
+
+
+def _reached_by() -> list[str]:
+    """The names this device is likely to be opened by in a browser.
+
+    Returns:
+        Its hostname, its mDNS name and its address on the local network.
+    """
+    import socket
+
+    from boneio.core.security.certificate import device_addresses
+
+    hostname = None
+    try:
+        hostname = socket.gethostname()
+    except OSError:  # pragma: no cover - a host with no name
+        pass
+
+    address = None
+    try:
+        from boneio.core.system.monitor import get_network_info
+
+        address = (get_network_info() or {}).get("ip")
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.debug("Could not read this device's address: %s", err)
+
+    return device_addresses(hostname, address)
+
+
+@router.get("/certificate")
+def get_certificate():
+    """Describe the TLS certificate this device serves.
+
+    Deliberately a plain ``def``: it reads and parses files.
+
+    Returns:
+        The custom certificate's details, or that there is none.
+    """
+    from boneio.core.security import certificate as certs
+
+    info = certs.installed()
+    return {
+        "custom": info is not None,
+        "certificate": info.to_dict() if info else None,
+        "reached_by": _reached_by(),
+        "root_ca_available": certs.ROOT_CA.exists(),
+    }
+
+
+@router.post("/certificate")
+async def upload_certificate(
+    certificate: UploadFile = File(...),
+    key: UploadFile = File(...),
+):
+    """Install a certificate and key for the proxy to serve.
+
+    For an operator who does not want cloud registration: a company CA, or a
+    Let's Encrypt certificate obtained on a machine that can actually answer
+    the challenge. The device never talks to an ACME server itself — doing so
+    from behind a router would mean making it reachable from the internet,
+    which is a far larger hole than the browser warning it would close.
+
+    Args:
+        certificate: The certificate, or preferably the full chain, as PEM.
+        key: Its unencrypted private key, as PEM.
+
+    Returns:
+        What was installed, including any address it does not cover.
+
+    Raises:
+        HTTPException: If the material is unusable.
+    """
+    from boneio.core.security import certificate as certs
+
+    cert_pem = await certificate.read()
+    key_pem = await key.read()
+
+    try:
+        info = certs.inspect(cert_pem, key_pem, reached_by=_reached_by())
+    except certs.CertificateError as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
+
+    try:
+        certs.install(cert_pem, key_pem)
+    except certs.CertificateError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+    restarted = await _restart_proxy()
+    return {"certificate": info.to_dict(), "proxy_restarted": restarted}
+
+
+@router.delete("/certificate")
+async def delete_certificate():
+    """Remove the custom certificate, returning the proxy to its own.
+
+    Returns:
+        Whether anything was removed.
+
+    Raises:
+        HTTPException: If the files cannot be removed.
+    """
+    from boneio.core.security import certificate as certs
+
+    try:
+        removed = certs.remove()
+    except certs.CertificateError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+    restarted = await _restart_proxy() if removed else False
+    return {"removed": removed, "proxy_restarted": restarted}
+
+
+async def _restart_proxy() -> bool:
+    """Restart Caddy so it reads the certificate that is there now.
+
+    The configuration is written by the container's start script, so a reload
+    would re-read a file that has not changed. Only a restart regenerates it.
+
+    Returns:
+        True when the restart succeeded.
+    """
+    from boneio.core import containers
+
+    loop = asyncio.get_running_loop()
+    try:
+        result = await loop.run_in_executor(None, containers.restart_caddy)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.error("Could not restart the proxy: %s", err)
+        return False
+    if not result.ok:
+        # The files are already in place, so the next restart picks them up.
+        # Failing the request would suggest the upload did not happen.
+        _LOGGER.error("The proxy did not restart: %s", result.stderr.strip())
+    return result.ok
+
+
+@router.get("/root-ca")
+def download_root_ca():
+    """Serve this device's own certificate authority.
+
+    The cheapest route to a panel browsers accept: no domain, no DNS
+    credentials, nothing reachable from outside. Install it once on the
+    machines that open this panel.
+
+    It is offered with the cost stated rather than as the obvious thing to do.
+    A machine that trusts this authority will believe it about any name, not
+    only this device's, and Caddy's internal CA sets no name constraints.
+
+    Returns:
+        The root certificate as a file download.
+
+    Raises:
+        HTTPException: If the proxy has not created one yet.
+    """
+    from boneio.core.security.certificate import ROOT_CA
+
+    try:
+        body = ROOT_CA.read_bytes()
+    except OSError as err:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "This device has no certificate authority of its own yet. It "
+                "is created the first time the proxy starts."
+            ),
+        ) from err
+
+    return Response(
+        content=body,
+        media_type="application/x-pem-file",
+        headers={"Content-Disposition": 'attachment; filename="boneio-root-ca.crt"'},
+    )

@@ -2760,7 +2760,29 @@
     "move_behind_proxy": "Move behind the proxy",
     "move_behind_proxy_confirm": "Stop serving the panel on the local network?\n\nIt will answer only through the encrypted proxy, and over an SSH tunnel to 127.0.0.1.\n\nThe change is refused if the proxy is not already serving this panel, so the device cannot end up unreachable. It takes effect after a restart.",
     "move_behind_proxy_done": "Saved. It takes effect when the device restarts.",
-    "move_behind_proxy_failed": "Not changed: {{error}}"
+    "move_behind_proxy_failed": "Not changed: {{error}}",
+    "cert": {
+      "title": "Certificate",
+      "using_internal": "The panel is served with a certificate this device issued itself, which browsers do not trust.",
+      "using_custom": "The panel is served with a certificate you uploaded.",
+      "issuer": "Issued by",
+      "valid_for": "Valid for",
+      "expires": "Expires",
+      "uncovered": "Does not cover: {{names}} — browsers will still warn when the panel is opened that way.",
+      "reached_by": "This device is reached by: {{names}}",
+      "file_cert": "Certificate",
+      "file_cert_help": "PEM. The full chain if you have one, so browsers can build a path to the issuer.",
+      "file_key": "Private key",
+      "file_key_help": "PEM, without a passphrase — the proxy starts unattended and has nobody to ask.",
+      "upload": "Upload and use",
+      "remove": "Remove and go back",
+      "remove_confirm": "Remove the uploaded certificate?\n\nThe panel goes back to the certificate this device issues itself, and browsers will warn again.",
+      "removed": "Removed. The panel is back on this device's own certificate.",
+      "installed": "Installed. The proxy has been restarted.",
+      "installed_uncovered": "Installed, but it does not cover {{names}} — opening the panel that way will still warn.",
+      "download_root_ca": "Download this device's authority",
+      "root_ca_help": "Install it on the machines that open this panel and the warning stops, with no domain and nothing exposed to the internet. Note that a machine trusting this authority will believe it about any name, not only this device's."
+    }
   },
   "login": {
     "title": "Sign in to your",

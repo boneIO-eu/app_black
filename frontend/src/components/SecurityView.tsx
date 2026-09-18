@@ -9,6 +9,7 @@ import {
 } from '../hooks/useSecurityPosture';
 import { invalidateSecurityPosture } from '../api/securityPostureCache';
 import { checkText as checkTextOf, fixRoute } from '../utils/securityPosture';
+import CertificateCard from './CertificateCard';
 import FrameAncestorsCard from './FrameAncestorsCard';
 import { SettingsPage, SecurityFindingCard, NoticeCallout } from './UISettings/ui';
 
@@ -220,6 +221,8 @@ export default function SecurityView() {
       )}
 
       {/* Frame ancestors card */}
+      <CertificateCard />
+
       <FrameAncestorsCard onSaved={() => void refresh()} />
 
       {/* Passed checks folded away */}
