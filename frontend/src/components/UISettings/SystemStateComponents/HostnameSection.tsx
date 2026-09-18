@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { FaCheck, FaSpinner, FaGlobe } from 'react-icons/fa';
+import { FaGlobe } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import {
@@ -7,8 +7,8 @@ import {
   SettingsCard,
   StatusTile,
   FormField,
-  FormActions,
   NoticeCallout,
+  useSectionSave,
 } from '../ui';
 
 /**
@@ -60,33 +60,22 @@ export default function HostnameSection() {
     }
   };
 
+  useSectionSave(
+    {
+      dirty: newHostname.trim() !== '' && newHostname !== currentHostname,
+      saving: isChangingHostname,
+      label: t('settings.change_hostname'),
+    },
+    () => void changeHostname(),
+  );
+
   return (
     <SettingsPage>
       {/* No card header: the page header above already names this page, and
           repeating it inside the only card on it is noise. */}
-      <SettingsCard
-        footer={
-          <FormActions hint={t('settings.hostname_hint')}>
-            <button
-              className="btn btn-primary btn-sm gap-2"
-              onClick={changeHostname}
-              disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
-            >
-              {isChangingHostname ? (
-                <>
-                  <FaSpinner className="animate-spin" />
-                  {t('settings.changing_hostname')}
-                </>
-              ) : (
-                <>
-                  <FaCheck />
-                  {t('settings.change_hostname')}
-                </>
-              )}
-            </button>
-          </FormActions>
-        }
-      >
+      {/* No footer either: the save is registered with the shell and drawn in
+          the action bar at the bottom of the pane, like every other section. */}
+      <SettingsCard>
         <div className="space-y-4">
           {/* Current hostname displayed as a clean status tile */}
           <StatusTile
@@ -118,6 +107,8 @@ export default function HostnameSection() {
               disabled={isChangingHostname}
             />
           </FormField>
+
+          <p className="text-xs opacity-60 max-w-md">{t('settings.hostname_hint')}</p>
 
           {hostnameResult && (
             <NoticeCallout

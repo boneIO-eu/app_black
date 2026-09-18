@@ -21,9 +21,8 @@ export interface SettingsActionBarProps {
     unsaved: string;
   };
   /**
-   * Match the content column this bar belongs to, so the buttons line up
-   * with the right edge of the cards above them instead of floating off at
-   * the window edge.
+   * The content column this bar closes, so the button lands on the same
+   * vertical as the right edge of the cards above it.
    */
   width?: SettingsPageWidth;
   className?: string;
@@ -38,12 +37,17 @@ export interface SettingsActionBarProps {
  * bar at the bottom on phones. Same-looking pages, three different answers to
  * "where do I click save".
  *
- * This is that one answer, in the same place at every width: pinned to the
- * bottom of the content column, where the form ends. Per-item operations —
- * changing one broker password, rebooting, creating a backup — stay in their
- * own card's footer, because they act on that card rather than on the
- * section; they are right-aligned there, so everything that does something
- * still lives in the bottom-right corner of whatever it applies to.
+ * This is that one answer: the bottom-right corner of the content column, at
+ * every width. The column centres itself past its cap, so on a wide window
+ * that corner is where the form visibly ends rather than where the window
+ * does — pinning the button to the pane's own edge instead put it out in the
+ * empty band to the right, hundreds of pixels from the card it saves.
+ *
+ * Per-item operations — changing one broker password, rebooting, creating a
+ * backup — stay in their own card's footer, because they act on that card
+ * rather than on the section; they are right-aligned there, so everything
+ * that does something still lives in the bottom-right corner of whatever it
+ * applies to.
  */
 export const SettingsActionBar: React.FC<SettingsActionBarProps> = ({
   dirty,
@@ -59,16 +63,15 @@ export const SettingsActionBar: React.FC<SettingsActionBarProps> = ({
     <div
       className={cn(
         // Sticky inside the scrolling pane rather than a sibling below it.
-        // A sibling sits outside the scroll container, so whenever the
-        // content was long enough to scroll it was a scrollbar's width wider
-        // than the cards and the button no longer lined up with their right
-        // edge. In here it shares their content box, so it lines up whether
-        // or not a scrollbar is present.
+        // A sibling sits outside the scroll container, so it was a
+        // scrollbar's width wider than the content whenever the section was
+        // long enough to scroll. In here it shares the pane's content box.
         //
         // The negative side margins let the glass span the pane's full width
-        // while the row inside keeps the content column's own padding. The
-        // pane deliberately has no bottom padding — this bar is what closes
-        // it — so there is nothing to cancel underneath.
+        // while the row inside is centred on the same column as the content,
+        // so the bar reads as the pane's floor and the button as the form's
+        // last control. The pane deliberately has no bottom padding — this
+        // bar is what closes it — so there is nothing to cancel underneath.
         //
         // The content above is a flex child that grows, so this sits at the
         // bottom edge however short the section is; `sticky` keeps it there
@@ -81,7 +84,7 @@ export const SettingsActionBar: React.FC<SettingsActionBarProps> = ({
     >
       <div
         className={cn(
-          'w-full flex items-center justify-between gap-3',
+          'w-full mx-auto flex items-center justify-between gap-3',
           SETTINGS_PAGE_WIDTHS[width],
         )}
       >

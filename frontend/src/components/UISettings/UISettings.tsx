@@ -16,7 +16,14 @@ import { STANDALONE_SECTIONS } from '@/components/UISettings/constants/standalon
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
-import { SettingsActionBar } from './ui';
+import {
+  SettingsActionBar,
+  SectionSaveContext,
+  SectionColumnContext,
+  type SectionSaveRegistration,
+  type SettingsPageWidth,
+} from './ui';
+import { cn } from '@/lib/utils';
 import { useOverlayCheck } from './hooks/useOverlayCheck';
 import OverlayChangeDialog from './components/OverlayChangeDialog';
 
@@ -1195,6 +1202,42 @@ export default function UISettings() {
     activeSection !== 'yaml_editor' &&
     Boolean(activeSection_data);
 
+  /**
+   * The column the header and the action bar centre themselves on.
+   *
+   * The open page reports its own column through SectionColumnContext, which
+   * is the only thing that knows it for certain. The guess below is what the
+   * header uses for the frame before the page has mounted — right for every
+   * section that does not say otherwise, so nothing visibly settles into
+   * place on arrival.
+   */
+  const [pageWidth, setPageWidth] = useState<SettingsPageWidth | null>(null);
+  const reportSectionColumn = useCallback(
+    (width: SettingsPageWidth | null) => setPageWidth(width),
+    [],
+  );
+  const guessedWidth: SettingsPageWidth =
+    activeSection === 'binding_matrix'
+      ? 'full'
+      : ARRAY_SECTIONS.includes(activeSection as (typeof ARRAY_SECTIONS)[number])
+        ? 'wide'
+        : 'form';
+  const sectionWidth = pageWidth ?? guessedWidth;
+
+  /**
+   * The save published by a hand-written page, if it has one.
+   *
+   * Those pages are not committed by the machinery above — they hold their
+   * own state and call their own endpoint — but the button belongs in the
+   * same place as everyone else's, so they register it and the shell draws
+   * it. Withdrawn on unmount, which is what changing section does.
+   */
+  const [standaloneSave, setStandaloneSave] = useState<SectionSaveRegistration | null>(null);
+  const registerSectionSave = useCallback(
+    (registration: SectionSaveRegistration | null) => setStandaloneSave(registration),
+    [],
+  );
+
   const sectionDirty =
     activeSection === 'mqtt'
       ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
@@ -1321,6 +1364,9 @@ export default function UISettings() {
       />
 
       {/* Main content area */}
+      {/* Whatever the open page draws, it tells the shell how wide its column
+          is from in here, so the header and the action bar can sit on it. */}
+      <SectionColumnContext.Provider value={reportSectionColumn}>
       <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0 pb-14 lg:pb-0">
         {/* Render header for all sections except yaml_editor (which is a full-height code editor) */}
         {activeSection !== 'yaml_editor' && (
@@ -1328,6 +1374,7 @@ export default function UISettings() {
             sectionName={activeSection}
             sectionTitle={activeSectionTitle}
             sectionDescription={activeSectionDescription}
+            width={sectionWidth}
           />
         )}
 
@@ -1340,11 +1387,39 @@ export default function UISettings() {
           </Suspense>
         ) : StandaloneComponent ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
-            <div className="stg-canvas flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-              {/* The page decides its own column width through SettingsPage —
-                  the shell only supplies the canvas and the outer padding. */}
-              <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />
-            </div>
+            <SectionSaveContext.Provider value={registerSectionSave}>
+              {/* The same column as the schema-driven branch below, and the
+                  same shape whether or not a bar appears: swapping the
+                  wrapper would remount the page, which would withdraw the
+                  registration that asked for the bar in the first place. */}
+              <div
+                className={cn(
+                  'stg-canvas flex-1 overflow-y-auto flex flex-col px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8',
+                  !standaloneSave && 'pb-4 sm:pb-6 lg:pb-8',
+                )}
+              >
+                {/* The page decides its own column width through SettingsPage —
+                    the shell only supplies the canvas and the outer padding. */}
+                <div className={cn('flex-1', standaloneSave && 'pb-5')}>
+                  <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />
+                </div>
+
+                {standaloneSave && (
+                  <SettingsActionBar
+                    dirty={standaloneSave.dirty}
+                    saving={standaloneSave.saving}
+                    saveDisabled={standaloneSave.disabled}
+                    width={standaloneSave.width ?? sectionWidth}
+                    onSave={standaloneSave.onSave}
+                    labels={{
+                      save: standaloneSave.label ?? t('settings.save'),
+                      restore: t('settings.restore'),
+                      unsaved: t('settings.unsaved_changes'),
+                    }}
+                  />
+                )}
+              </div>
+            </SectionSaveContext.Provider>
           </Suspense>
         ) : activeSection === 'binding_matrix' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
@@ -1391,11 +1466,7 @@ export default function UISettings() {
                 saveDisabled={
                   activeSection === 'mqtt' && unsavedChanges['lox_udp'] && !loxFormValid
                 }
-                width={
-                  ARRAY_SECTIONS.includes(activeSection as (typeof ARRAY_SECTIONS)[number])
-                    ? 'full'
-                    : 'form'
-                }
+                width={sectionWidth}
                 onSave={() => void saveActiveSection()}
                 onRestore={restoreActiveSection}
                 labels={{
@@ -1409,6 +1480,7 @@ export default function UISettings() {
         )}
 
       </div>
+      </SectionColumnContext.Provider>
     </div>
   );
 }

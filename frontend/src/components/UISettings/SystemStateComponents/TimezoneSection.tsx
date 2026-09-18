@@ -1,22 +1,21 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  FaCheck,
   FaExclamationTriangle,
   FaSearch,
-  FaSpinner,
   FaSync,
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import FixTimezoneSudoers from '../FixTimezoneSudoers';
+import NtpServersField from './NtpServersField';
 import {
   SettingsPage,
   SettingsCard,
   StatGrid,
   FormField,
-  FormActions,
   ToggleRow,
   NoticeCallout,
+  useSectionSave,
 } from '../ui';
 
 interface TimezoneInfo {
@@ -205,37 +204,24 @@ export default function TimezoneSection() {
     ? filteredTimezones
     : filteredTimezones.filter((tz) => !popularTimezones.includes(tz));
 
+  useSectionSave(
+    {
+      dirty: selectedTimezone.trim() !== '' && selectedTimezone !== info?.timezone,
+      saving: isSaving,
+      label: t('timezone.save_timezone'),
+    },
+    () => void changeTimezone(),
+  );
+
   return (
     <SettingsPage>
       {/* Sudoers check — its own card, because it is a precondition for the
           controls below rather than one of them. */}
       <FixTimezoneSudoers />
 
-      <SettingsCard
-        footer={
-          <FormActions
-            hint={`${timezones.length} ${t('timezone.timezones_available')}`}
-          >
-            <button
-              className="btn btn-primary btn-sm gap-2"
-              onClick={changeTimezone}
-              disabled={isSaving || !selectedTimezone.trim() || selectedTimezone === info?.timezone}
-            >
-              {isSaving ? (
-                <>
-                  <FaSpinner className="animate-spin" />
-                  {t('timezone.saving')}
-                </>
-              ) : (
-                <>
-                  <FaCheck />
-                  {t('timezone.save_timezone')}
-                </>
-              )}
-            </button>
-          </FormActions>
-        }
-      >
+      {/* No footer: the save is registered with the shell and drawn in the
+          action bar at the bottom of the pane, like every other section. */}
+      <SettingsCard>
         <div className="space-y-4">
           {/* Current status */}
           <StatGrid
@@ -306,6 +292,9 @@ export default function TimezoneSection() {
                   ))}
                 </optgroup>
               </select>
+              <p className="text-xs opacity-60">
+                {timezones.length} {t('timezone.timezones_available')}
+              </p>
             </div>
           </FormField>
 
@@ -318,6 +307,11 @@ export default function TimezoneSection() {
             label={t('timezone.ntp_sync')}
             description={t('timezone.ntp_hint')}
           />
+
+          {/* Which servers that synchronisation uses. Separate from the toggle
+              because it stays meaningful while synchronisation is off: the
+              choice is remembered and applied when it is switched back on. */}
+          <NtpServersField onChanged={fetchTimezoneInfo} />
 
           {/* Result */}
           {result && (

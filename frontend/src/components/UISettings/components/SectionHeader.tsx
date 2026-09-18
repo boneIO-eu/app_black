@@ -12,11 +12,18 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ALL_SECTIONS } from '../constants/sectionDefinitions';
+import { SETTINGS_PAGE_WIDTHS, type SettingsPageWidth } from '../ui';
+import { cn } from '@/lib/utils';
 
 interface SectionHeaderProps {
   sectionName: string;
   sectionTitle: string;
   sectionDescription?: string;
+  /**
+   * The content column below, so the title sits on the same axis as the
+   * cards it names rather than off at the pane's left edge.
+   */
+  width?: SettingsPageWidth;
   children?: React.ReactNode;
 }
 
@@ -26,6 +33,10 @@ interface SectionHeaderProps {
  * It used to carry Save and Restore in its top right. They moved to
  * SettingsActionBar at the bottom of the content column, which is the one
  * place every section is now committed from — see the note there.
+ *
+ * The glass spans the pane, the row inside it is centred on the same column
+ * as the content: header, cards and action bar are three bands of one
+ * document rather than three things each measured from a different edge.
  *
  * Glass over the scrolling canvas rather than a flat `bg-base-200` bar: in
  * the light theme base-200 is 98% lightness, so the old header was a slightly
@@ -37,6 +48,7 @@ export default function SectionHeader({
   sectionName,
   sectionTitle,
   sectionDescription,
+  width = 'form',
   children,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
@@ -48,8 +60,13 @@ export default function SectionHeader({
     || t('settings.configure_settings').replace('{section}', sectionTitle);
 
   return (
-    <div className="stg-header px-4 py-3.5 lg:px-6 lg:py-4 shrink-0 z-20">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+    <div className="stg-header px-4 py-3.5 sm:px-6 lg:px-8 lg:py-4 shrink-0 z-20">
+      <div
+        className={cn(
+          'w-full mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3',
+          SETTINGS_PAGE_WIDTHS[width],
+        )}
+      >
         <div className="flex items-start gap-3.5 min-w-0">
           {icon && (
             <div className="stg-chip w-11 h-11 rounded-xl hidden sm:flex items-center justify-center text-xl shrink-0">

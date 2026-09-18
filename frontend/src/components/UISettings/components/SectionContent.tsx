@@ -224,7 +224,12 @@ export default function SectionContent({
     }
 
     return (
-      <SettingsPage width="full">
+      /* Centred like every other section, on the wider of the two columns:
+         a table of thirty-two outputs earns more room than a form, but not
+         the whole pane — on a 4K panel that smeared eight columns across
+         3400px, and it put the page title 900px from where the previous
+         section had it. */
+      <SettingsPage width="wide">
         <SettingsCard>
           <ArraySectionContent
             activeSection={activeSection}

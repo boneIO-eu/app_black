@@ -6,7 +6,7 @@ import {
   FaArrowLeft, FaArrowRight, FaCopy, FaCheck,
   FaRedo,
 } from 'react-icons/fa';
-import { SettingsCard, SelectableCard, NoticeCallout } from './UISettings/ui';
+import { SettingsPage, SettingsCard, SelectableCard, NoticeCallout } from './UISettings/ui';
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
@@ -328,14 +328,18 @@ export default function HaDashboardWizard() {
 
   if (error) {
     return (
-      <div className="max-w-3xl">
+      <SettingsPage width="narrow">
         <NoticeCallout variant="error" message={error} />
-      </div>
+      </SettingsPage>
     );
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    /* `narrow`, because a wizard asks one thing at a time and a row of
+       checkboxes stretched to a form's full width reads as a spreadsheet.
+       Going through SettingsPage rather than a max-w of its own is what
+       tells the shell to put the page header over this column. */
+    <SettingsPage width="narrow">
       <SettingsCard>
         {/* Steps indicator */}
         <ul className="steps steps-horizontal w-full mb-8">
@@ -603,6 +607,6 @@ export default function HaDashboardWizard() {
           </div>
         )}
       </SettingsCard>
-    </div>
+    </SettingsPage>
   );
 }

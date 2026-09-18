@@ -9,6 +9,7 @@
  */
 export * from './SettingsPage';
 export * from './SettingsActionBar';
+export * from './SectionSaveContext';
 export * from './SettingsCard';
 export * from './CardSection';
 export * from './StatusTile';
