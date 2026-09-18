@@ -363,6 +363,20 @@ async def scan_wled_network(timeout: float = 3.0):
     return result
 
 
+# Must stay above "/{device_id}": Starlette matches in registration order,
+# so the catch-all would otherwise bind device_id="wled_info" and 404.
+@router.get("/wled_info")
+async def get_all_wled_info() -> dict[str, dict[str, Any]]:
+    """Get cached WLED metadata for all devices.
+
+    Returns:
+        Dict mapping device_id to {effects, palettes, segments}.
+    """
+    from boneio.core.remote.wled_cache import get_all_metadata
+
+    return get_all_metadata()
+
+
 @router.get("/{device_id}")
 async def get_remote_device(device_id: str, manager: Manager = Depends(get_manager)):
     """
@@ -548,18 +562,6 @@ async def get_wled_device_info(device_id: str) -> dict[str, Any]:
             detail=f"No cached WLED metadata for device '{device_id}'",
         )
     return metadata
-
-
-@router.get("/wled_info")
-async def get_all_wled_info() -> dict[str, dict[str, Any]]:
-    """Get cached WLED metadata for all devices.
-
-    Returns:
-        Dict mapping device_id to {effects, palettes, segments}.
-    """
-    from boneio.core.remote.wled_cache import get_all_metadata
-
-    return get_all_metadata()
 
 
 @router.post("/{device_id}/refresh_wled_cache")

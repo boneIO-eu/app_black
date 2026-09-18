@@ -186,7 +186,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
     if (wledDevices.length === 0) return;
 
     let cancelled = false;
-    axios.get<Record<string, WledCacheData>>('/api/remote_devices/wled_info')
+    axios.get<Record<string, WledCacheData>>('/api/remote-devices/wled_info')
       .then(res => { if (!cancelled) setWledCache(res.data); })
       .catch(() => { /* WLED cache not available — segments stay empty */ });
     return () => { cancelled = true; };
