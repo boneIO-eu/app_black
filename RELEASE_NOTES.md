@@ -2,9 +2,10 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev3` exists so that we can test the new system-migration chain on a
-development controller. The chain has been run end to end exactly once, on one
-device upgraded from 1.5.1 — that is the entire body of evidence behind it.
+`1.6.0.dev4` exists so that we can test the new system-migration chain on a
+development controller. The chain has been run end to end on two devices, one
+upgraded from 1.5.1 and one from 1.5.2 — that is the entire body of evidence
+behind it.
 
 It changes how boneIO obtains root privileges, installs new system helpers,
 rewrites sudo rules, takes ownership of `docker-compose.yaml` and removes the
@@ -23,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev3 — internal test build
+# v1.6.0.dev4 — internal test build
 
 ## What this build is for
 
@@ -89,6 +90,30 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev3
+
+**An upgraded device is recognised as upgraded.** The first-run wizard decided
+whether a controller was new by looking for a pre-1.6 `web.auth` block — which
+detects "this device had a password on the panel", not "this device has a
+configuration". Most 1.5.x controllers never had web authentication, so an
+upgraded device was shown the full wizard, including the step that replaces the
+whole `event` section. Freshness now has to be demonstrated rather than
+assumed, and the two ways of being wrong are treated as what they are: showing
+one step too few costs nothing, showing one too many costs a configuration.
+
+**The serial console shows the device's address.** `agetty` fills it in when it
+draws the prompt, so it is current rather than whatever DHCP had managed during
+boot; a blank field means the lease had not arrived and Enter redraws it.
+
+**Every release carries a component inventory.** A CycloneDX SBOM covering the
+Python application and the frontend is attached to the release, so "there is a
+vulnerability in X, are you affected" has an answer for a version that shipped
+months ago.
+
+**There is a vulnerability disclosure policy.** `SECURITY.md`: where to report,
+what happens next, disclosure timelines, and a safe-harbour commitment for
+research done in good faith.
 
 ## What is deliberately not done yet
 
