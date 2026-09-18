@@ -5,6 +5,8 @@
  * section exists, and which group it belongs to, is a fact about the section
  * rather than about the component that draws the list.
  */
+import type { SettingsPageWidth } from './UISettings/ui';
+
 export interface DiagnosticsSectionDef {
   name: string;
   icon: string;
@@ -14,6 +16,12 @@ export interface DiagnosticsSectionDef {
   descriptionKey: string;
   /** Which sidebar group this belongs to. */
   group: DiagnosticsGroup;
+  /**
+   * The column the page header lines up with. Defaults to the readable cap;
+   * a section that fills the pane says `full` so its title sits over the
+   * left edge of its content instead of floating in the middle of it.
+   */
+  width?: SettingsPageWidth;
   /** Needs a board with a CAN transceiver. */
   requiresCan?: boolean;
 }
@@ -39,7 +47,7 @@ export const DIAGNOSTICS_GROUPS: { name: DiagnosticsGroup; icon: string; titleKe
 ];
 
 export const DIAGNOSTICS_SECTIONS: DiagnosticsSectionDef[] = [
-  { name: 'log', icon: '📜', titleKey: 'diagnostics.section_log', descriptionKey: 'diagnostics.section_log_desc', group: 'log' },
+  { name: 'log', icon: '📜', titleKey: 'diagnostics.section_log', descriptionKey: 'diagnostics.section_log_desc', group: 'log', width: 'full' },
   { name: 'support', icon: '🛟', titleKey: 'diagnostics.section_support', descriptionKey: 'diagnostics.section_support_desc', group: 'log' },
 
   { name: 'modbus', icon: '🔌', titleKey: 'diagnostics.section_modbus', descriptionKey: 'diagnostics.section_modbus_desc', group: 'buses' },

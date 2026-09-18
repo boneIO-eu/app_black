@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../hooks/useAuth';
 import { useConfig } from '@/contexts/ConfigContext';
-import { SettingsPage, NoticeCallout } from './UISettings/ui';
+import { SettingsPage, NoticeCallout, SETTINGS_PAGE_WIDTHS } from './UISettings/ui';
+import { cn } from '@/lib/utils';
 import DiagnosticsSidebar from './DiagnosticsSidebar';
 import {
   DIAGNOSTICS_SECTIONS,
@@ -89,8 +90,16 @@ export default function DiagnosticsView() {
       />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 pb-14 lg:pb-0">
-        <div className="stg-header shrink-0 px-4 py-3.5 lg:px-6 lg:py-4 z-20">
-          <div className="flex items-start gap-3.5 min-w-0">
+        <div className="stg-header shrink-0 px-4 py-3.5 sm:px-6 lg:px-8 lg:py-4 z-20">
+          {/* Centred on the same column as the content below, the way the
+              settings header is: title, cards and the pane's floor are three
+              bands of one document rather than three different edges. */}
+          <div
+            className={cn(
+              'w-full mx-auto flex items-start gap-3.5 min-w-0',
+              SETTINGS_PAGE_WIDTHS[active.width ?? 'form'],
+            )}
+          >
             <div className="stg-chip w-11 h-11 rounded-xl hidden sm:flex items-center justify-center text-xl shrink-0">
               <span aria-hidden="true">{active.icon}</span>
             </div>
@@ -108,8 +117,13 @@ export default function DiagnosticsView() {
         {/* The log brings its own chrome and fills the pane; the scans are
             ordinary content on the canvas. */}
         {activeSection === 'log' ? (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <LogViewer />
+          /* The log is a window too, not a sheet of text bolted to the pane.
+             It fills the space and scrolls inside itself, so the card has to
+             hold the height and clip the corners for it. */
+          <div className="stg-canvas flex-1 min-h-0 overflow-hidden p-4 sm:p-6 lg:p-8">
+            <div className="stg-card h-full overflow-hidden">
+              <LogViewer />
+            </div>
           </div>
         ) : activeSection === 'support' ? (
           <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
@@ -117,7 +131,7 @@ export default function DiagnosticsView() {
           </div>
         ) : (
           <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
-            <div className="w-full max-w-5xl 2xl:max-w-6xl">
+            <div className="w-full mx-auto max-w-5xl 2xl:max-w-6xl">
               {canBlocked ? (
                 <CANNotSupported boardVersion={boardVersion} />
               ) : (
