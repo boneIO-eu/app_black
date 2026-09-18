@@ -213,6 +213,20 @@ class TestConsoleIssue:
         guess that cannot be corrected on the device that disproves it."""
         assert not re.search(r"\d{2,5}", self._fragment())
 
+    def test_it_names_the_host_as_well_as_the_address(self):
+        """The address is what changes; the name is what to write down.
+
+        A new DHCP lease moves the address, and a certificate naming one goes
+        stale with it. mDNS resolves the hostname on the same network and the
+        proxy issues a matching certificate for it by itself.
+        """
+        assert "\\n.local" in self._fragment()
+
+    def test_it_is_plain_ascii(self):
+        """Serial consoles are not reliably UTF-8; a decorative separator
+        arrives there as mojibake."""
+        self._fragment().encode("ascii")
+
     def test_it_ends_with_a_newline(self):
         """agetty concatenates the fragments; without it the next one runs on."""
         assert self._fragment().endswith("\n")

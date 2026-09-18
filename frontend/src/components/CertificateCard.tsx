@@ -17,7 +17,47 @@ interface CertificateState {
   custom: boolean;
   certificate: CertificateDetails | null;
   reached_by: string[];
+  /** The address to hand people: a name, which survives a new DHCP lease. */
+  preferred_url: string;
+  /** Whether the panel's own port still answers on the local network. */
+  exposed_on_lan: boolean;
   root_ca_available: boolean;
+}
+
+/**
+ * Accept only a payload that actually looks like a certificate state.
+ *
+ * The dev server answers an unknown /api path with index.html at status 200,
+ * so a panel talking to a device that predates this endpoint gets HTML where
+ * it expected JSON — `reached_by` arrives undefined, `.join` throws during
+ * render, and the whole Security page goes blank. FrameAncestorsCard learned
+ * this first; the same guard belongs here.
+ */
+function normalize(raw: unknown): CertificateState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Partial<CertificateState>;
+  if (typeof data.custom !== 'boolean') return null;
+  return {
+    custom: data.custom,
+    certificate: normalizeDetails(data.certificate),
+    reached_by: Array.isArray(data.reached_by) ? data.reached_by : [],
+    preferred_url: typeof data.preferred_url === 'string' ? data.preferred_url : '',
+    exposed_on_lan: data.exposed_on_lan !== false,
+    root_ca_available: Boolean(data.root_ca_available),
+  };
+}
+
+function normalizeDetails(raw: unknown): CertificateDetails | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Partial<CertificateDetails>;
+  return {
+    subject: String(data.subject ?? ''),
+    issuer: String(data.issuer ?? ''),
+    not_after: String(data.not_after ?? ''),
+    days_left: Number(data.days_left ?? 0),
+    names: Array.isArray(data.names) ? data.names : [],
+    uncovered: Array.isArray(data.uncovered) ? data.uncovered : [],
+  };
 }
 
 /**
@@ -41,8 +81,8 @@ export default function CertificateCard() {
 
   const load = useCallback(async () => {
     try {
-      const { data } = await axios.get<CertificateState>('/api/security/certificate');
-      setState(data);
+      const { data } = await axios.get('/api/security/certificate');
+      setState(normalize(data));
     } catch {
       setState(null);
     }
@@ -152,8 +192,24 @@ export default function CertificateCard() {
         </dl>
       )}
 
+      {state.preferred_url && (
+        <p className="text-xs mt-2">
+          <span className="font-semibold">{t('security.cert.use_this')}: </span>
+          <a className="link break-all" href={state.preferred_url}>
+            {state.preferred_url}
+          </a>
+          <span className="block text-base-content/60">{t('security.cert.use_this_why')}</span>
+        </p>
+      )}
+
       <p className="text-xs text-base-content/60 mt-2">
         {t('security.cert.reached_by', { names: state.reached_by.join(', ') })}
+      </p>
+
+      <p className="text-xs mt-1">
+        <span className={state.exposed_on_lan ? 'text-warning' : 'text-success'}>
+          {t(state.exposed_on_lan ? 'security.cert.on_lan' : 'security.cert.proxy_only')}
+        </span>
       </p>
 
       {error && <div className="alert alert-error text-sm mt-3">{error}</div>}

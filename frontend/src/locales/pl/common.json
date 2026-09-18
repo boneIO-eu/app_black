@@ -2780,7 +2780,11 @@
       "installed": "Zainstalowany. Proxy zostało zrestartowane.",
       "installed_uncovered": "Zainstalowany, ale nie obejmuje {{names}} — wejście w ten sposób nadal wywoła ostrzeżenie.",
       "download_root_ca": "Pobierz urząd tego urządzenia",
-      "root_ca_help": "Zainstaluj go na komputerach, z których otwierasz panel, a ostrzeżenie zniknie — bez domeny i bez wystawiania czegokolwiek do internetu. Pamiętaj, że komputer ufający temu urzędowi uwierzy mu w sprawie dowolnej nazwy, nie tylko tego urządzenia."
+      "root_ca_help": "Zainstaluj go na komputerach, z których otwierasz panel, a ostrzeżenie zniknie — bez domeny i bez wystawiania czegokolwiek do internetu. Pamiętaj, że komputer ufający temu urzędowi uwierzy mu w sprawie dowolnej nazwy, nie tylko tego urządzenia.",
+      "use_this": "Otwieraj panel pod",
+      "use_this_why": "Nazwa, nie adres: przy następnej dzierżawie DHCP adres się zmieni, a certyfikat, który go wymienia, zwietrzeje razem z nim.",
+      "on_lan": "Panel odpowiada też czystym tekstem w sieci lokalnej. Kontrole bezpieczeństwa powyżej proponują to wyłączyć.",
+      "proxy_only": "Panel odpowiada wyłącznie przez to proxy, nie czystym tekstem w sieci lokalnej."
     }
   },
   "login": {

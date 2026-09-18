@@ -444,12 +444,51 @@ def get_certificate():
     from boneio.core.security import certificate as certs
 
     info = certs.installed()
+    config = _load_config()
+    web = config.get("web") if isinstance(config.get("web"), dict) else {}
+
     return {
         "custom": info is not None,
         "certificate": info.to_dict() if info else None,
         "reached_by": _reached_by(),
+        "preferred_url": _preferred_url(web),
+        # Answers "is this device still answering in the clear on the LAN"
+        # where somebody is already looking at how it is served, rather than
+        # only as a finding that disappears once it is dealt with.
+        "exposed_on_lan": web.get("expose") != "proxy",
         "root_ca_available": certs.ROOT_CA.exists(),
     }
+
+
+def _preferred_url(web: dict) -> str:
+    """The address worth handing to a person, which is a name.
+
+    An address is what everyone reaches a new controller by and the worst thing
+    to write down: the next DHCP lease invalidates it, and a certificate naming
+    it goes stale with it. The hostname does not move, mDNS resolves it on the
+    local network, and the proxy issues a certificate matching it by itself.
+
+    Args:
+        web: The parsed ``web`` section.
+
+    Returns:
+        An https URL, or an empty string when the hostname is unknown.
+    """
+    import socket
+
+    from boneio.webui.bind import DEFAULT_PROXY_PORT
+
+    try:
+        hostname = socket.gethostname()
+    except OSError:  # pragma: no cover - a host with no name
+        return ""
+    if not hostname:
+        return ""
+
+    port = web.get("proxy_port")
+    if not isinstance(port, int):
+        port = DEFAULT_PROXY_PORT
+    return f"https://{hostname}.local:{port}"
 
 
 @router.post("/certificate")

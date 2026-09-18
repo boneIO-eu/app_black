@@ -2781,7 +2781,11 @@
       "installed": "Installed. The proxy has been restarted.",
       "installed_uncovered": "Installed, but it does not cover {{names}} — opening the panel that way will still warn.",
       "download_root_ca": "Download this device's authority",
-      "root_ca_help": "Install it on the machines that open this panel and the warning stops, with no domain and nothing exposed to the internet. Note that a machine trusting this authority will believe it about any name, not only this device's."
+      "root_ca_help": "Install it on the machines that open this panel and the warning stops, with no domain and nothing exposed to the internet. Note that a machine trusting this authority will believe it about any name, not only this device's.",
+      "use_this": "Open the panel at",
+      "use_this_why": "A name, not an address: the next DHCP lease changes the address, and a certificate naming one goes stale with it.",
+      "on_lan": "The panel also answers in the clear on the local network. The Security checks above offer to stop that.",
+      "proxy_only": "The panel answers only through this proxy, not in the clear on the local network."
     }
   },
   "login": {

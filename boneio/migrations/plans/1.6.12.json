@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/etc/issue.d/10-boneio.issue","expected_sha256":"485d37182fe6a1261b472cbc6b6e922d30e690333c27672497a7b13dc775499c","group":"root","mode":420,"owner":"root","src":"issue.d/10-boneio.issue","template_vars":{}}]
+[{"action":"install_file","dst":"/etc/issue.d/10-boneio.issue","expected_sha256":"f316c778b3125e4e992942c889c4082f8a12f578a6d68c4e7c79fa80e4cc94a1","group":"root","mode":420,"owner":"root","src":"issue.d/10-boneio.issue","template_vars":{}}]
