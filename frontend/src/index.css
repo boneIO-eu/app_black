@@ -535,8 +535,20 @@ body {
 
    One field behind both panes fixes both: the panes are transparent, so the
    gradient is continuous across the seam and stays put while they scroll. */
-.settings-scope {
-  background-color: color-mix(in oklab, var(--color-base-content) 3%, var(--color-base-100));
+/* Shared with the rest of the app through `.stg-backdrop`: the dashboards
+   read as the same product as the settings screens, and a white card only
+   looks like a card when the thing behind it is not also white.
+
+   Mixed from base-300 rather than from base-content like the tints above it,
+   because this one has to stay *behind* the cards and base-content flips
+   with the theme. Measured: base-content 3% gave L 0.976 under a 1.000 card
+   in light — correct — and L 0.275 under a 0.253 card in dark, which is the
+   canvas sitting on top of the cards. base-200 and base-300 are a step down
+   from base-100 in both themes, so the hierarchy holds either way and any
+   theme added later inherits it. */
+.settings-scope,
+.stg-backdrop {
+  background-color: color-mix(in oklab, var(--color-base-300) 60%, var(--color-base-100));
   background-image:
     radial-gradient(64rem 26rem at 6% -6%, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 70%),
     radial-gradient(44rem 20rem at 100% 0%, color-mix(in oklab, var(--color-accent) 7%, transparent), transparent 70%);

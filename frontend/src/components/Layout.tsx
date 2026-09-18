@@ -30,7 +30,15 @@ export default function Layout({ children, fullHeight = false }: LayoutProps) {
         <AnonymousAccessBanner />
         <StartupBanner />
         <MigrationBanner />
-        <main className={clsx("flex-1 bg-base-100", fullHeight ? "overflow-hidden" : "overflow-y-auto")}>
+        {/* The tinted field the cards sit on. Settings and Diagnostics paint
+            their own inside `.settings-scope`, so this is for everything
+            else — and `bg-base-100` here would have covered theirs. */}
+        <main
+          className={clsx(
+            "flex-1",
+            fullHeight ? "overflow-hidden" : "overflow-y-auto stg-backdrop",
+          )}
+        >
           {children}
         </main>
       </div>
