@@ -93,6 +93,7 @@ export default function Navigation() {
             onClick={logout}
             className="btn btn-ghost btn-circle"
             title="Logout"
+            aria-label="Logout"
           >
             <FaSignOutAlt className="h-5 w-5" />
           </button>

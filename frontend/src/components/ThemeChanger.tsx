@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FaSun, FaMoon } from 'react-icons/fa';
+import { useTranslation } from '../hooks/useTranslation';
 
 /**
  * Returns the localStorage key for theme.
@@ -39,6 +40,7 @@ function getUrlTheme(): string | null {
 }
 
 export default function ThemeChanger() {
+  const { t } = useTranslation();
   const storageKey = getThemeStorageKey();
 
   const [theme, setTheme] = useState(() => {
@@ -69,9 +71,19 @@ export default function ThemeChanger() {
     localStorage.setItem(storageKey, newTheme);
   };
 
+  // Says what the click does, not what the theme is. The button next to it
+  // signs you out, and neither carried a label of any kind — an icon you
+  // have to click to find out what it does is how you sign out by accident.
+  const label = theme === 'dark' ? t('common.switch_to_light') : t('common.switch_to_dark');
+
   return (
 <div className='flex-none items-center lg:block '>
-    <button className="btn btn-ghost font-normal" onClick={() => handleThemeChange()}>
+    <button
+      className="btn btn-ghost font-normal"
+      onClick={() => handleThemeChange()}
+      title={label}
+      aria-label={label}
+    >
       {theme === 'dark' ? (
       <FaSun className="w-5 h-5" />
     ) : (

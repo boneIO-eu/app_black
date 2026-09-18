@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 
 const LanguageSelector: React.FC = () => {
-  const { language, changeLanguage, availableLanguages } = useTranslation();
+  const { t, language, changeLanguage, availableLanguages } = useTranslation();
 
   const handleLanguageChange = (langCode: string) => {
     changeLanguage(langCode);
@@ -15,9 +15,22 @@ const LanguageSelector: React.FC = () => {
   const currentLang = availableLanguages.find((lang: any) => lang.code === language);
   const CurrentFlag = currentLang?.flag;
 
+  // The flag alone is a coloured circle in a row of bare circles, one of
+  // which signs you out. Name the control, and name the language it is
+  // currently set to.
+  const label = currentLang?.name
+    ? `${t('common.language')}: ${currentLang.name}`
+    : t('common.language');
+
   return (
     <div className="dropdown dropdown-end">
-      <div tabIndex={0} role="button" className="btn btn-ghost btn-circle">
+      <div
+        tabIndex={0}
+        role="button"
+        className="btn btn-ghost btn-circle"
+        title={label}
+        aria-label={label}
+      >
         <span className="text-lg">
           {CurrentFlag ? <CurrentFlag className="w-5 h-5" /> : '🌐'}
         </span>

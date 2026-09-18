@@ -1057,6 +1057,8 @@
     "yes": "Yes",
     "no": "No",
     "language": "Language",
+    "switch_to_light": "Switch to light theme",
+    "switch_to_dark": "Switch to dark theme",
     "default": "Default",
     "filter_placeholder": "Filter by name or ID...",
     "showing": "Showing",
