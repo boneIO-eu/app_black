@@ -2710,7 +2710,7 @@
         "title": "HTTPS certificate",
         "detail": "Served with a self-signed certificate, so browsers warn on every visit and people learn to click through the warning.",
         "ok": "Served with a certificate browsers trust.",
-        "remedy": "Enable boneIO Cloud registration to get a trusted certificate."
+        "remedy": "Enable boneIO Cloud registration, or upload a certificate of your own below."
       },
       "frame_ancestors": {
         "title": "Embedding in other sites",

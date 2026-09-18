@@ -9,6 +9,14 @@ export interface SecurityFindingCardProps {
   detail: React.ReactNode;
   /** Technical remedy or manual instructions */
   remedy?: React.ReactNode;
+  /**
+   * A fact about this device, shown as the backend sent it.
+   *
+   * Title, detail and remedy are replaced by the panel's own wording, so
+   * anything the backend varies at runtime — the error a service reported —
+   * would be translated away. This is not.
+   */
+  context?: React.ReactNode;
   /** Localized label for severity (e.g. 'Krytyczne') */
   severityLabel: string;
   /** Fix button action */
@@ -30,6 +38,7 @@ export const SecurityFindingCard: React.FC<SecurityFindingCardProps> = ({
   title,
   detail,
   remedy,
+  context,
   severityLabel,
   onFix,
   fixLabel,
@@ -78,6 +87,10 @@ export const SecurityFindingCard: React.FC<SecurityFindingCardProps> = ({
           </div>
         </div>
       </div>
+
+      {context && (
+        <p className="mt-2 text-xs font-mono text-error break-words">{context}</p>
+      )}
 
       {/* The remedy wraps rather than truncating. It started out holding
           one-line shell commands, where an ellipsis cost nothing; several

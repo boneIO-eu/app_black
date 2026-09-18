@@ -2707,9 +2707,9 @@
       },
       "certificate": {
         "title": "Certyfikat HTTPS",
-        "detail": "Panel działa na certyfikacie samopodpisanym, więc przeglądarka ostrzega przy każdej wizycie — a ludzie uczą się to ostrzeżenie klikać.",
-        "ok": "Panel działa na certyfikacie, któremu przeglądarki ufają.",
-        "remedy": "Włącz rejestrację w boneIO Cloud, żeby dostać zaufany certyfikat."
+        "detail": "Panel jest serwowany certyfikatem samopodpisanym, więc przeglądarka ostrzega przy każdym wejściu, a ludzie uczą się klikać przez to ostrzeżenie.",
+        "ok": "Panel jest serwowany certyfikatem, któremu przeglądarki ufają.",
+        "remedy": "Włącz rejestrację w boneIO Cloud albo wgraj poniżej własny certyfikat."
       },
       "frame_ancestors": {
         "title": "Osadzanie w innych stronach",

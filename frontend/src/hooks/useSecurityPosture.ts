@@ -27,6 +27,8 @@ export interface SecurityCheck {
   state: CheckState;
   detail: string;
   remedy: string;
+  /** A device-specific fact, shown as sent — never translated. */
+  context?: string;
   /** Bare name = Settings section; `system:<anchor>` = System page. */
   settings_section: string | null;
 }

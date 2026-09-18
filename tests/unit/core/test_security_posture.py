@@ -254,3 +254,64 @@ def test_the_mqtt_remedy_points_at_a_section_that_exists():
     """
     check = _check(_posture({"mqtt": {"password": DEFAULT_MQTT_PASSWORD}}), "mqtt_password")
     assert check.settings_section == "mosquitto"
+
+
+# ------------------------------------------------- the certificate, in full
+#
+# This check had two states and told an operator to switch on cloud
+# registration, on a device where it was already on and failing with an error
+# the application was holding — while a second route to a trusted certificate,
+# uploading one, had been added and the check knew nothing about it.
+
+
+def _certificate(config=None, **kwargs):
+    posture = evaluate(
+        config or {},
+        is_provisioned=True,
+        anonymous_allowed=False,
+        auth_required=True,
+        **{"cloud_active": False, **kwargs},
+    )
+    return next(c for c in posture.checks if c.id == "certificate")
+
+
+_CLOUD_ON = {"web": {"cloud": {"enabled": True}}}
+
+
+def test_an_uploaded_certificate_passes():
+    check = _certificate(custom_certificate=True)
+    assert check.state is State.OK
+    assert "uploaded" in check.detail
+
+
+def test_cloud_registration_serving_passes():
+    assert _certificate(cloud_active=True).state is State.OK
+
+
+def test_a_failing_registration_says_what_failed():
+    """The message an operator actually needs, instead of advice to do the
+    thing they have already done."""
+    check = _certificate(_CLOUD_ON, cloud_error="DNS registration failed (HTTP 401)")
+    assert check.state is State.FAILED
+    # In context, not in the prose: the panel replaces detail with its own
+    # translation, which would drop the one part that says what went wrong.
+    assert "HTTP 401" in check.context
+    assert "HTTP 401" not in check.detail
+    assert "Enable boneIO Cloud registration" not in check.remedy
+
+
+def test_registration_on_but_not_finished_yet_says_so():
+    check = _certificate(_CLOUD_ON)
+    assert "has not produced a certificate yet" in check.detail
+
+
+def test_with_cloud_off_both_routes_are_offered():
+    check = _certificate()
+    assert "Enable boneIO Cloud registration" in check.remedy
+    assert "upload" in check.remedy
+
+
+def test_it_points_at_the_section_holding_the_certificate():
+    """The card that uploads one is in Security; the check used to send people
+    to the Web Server settings, where there is nothing to do about it."""
+    assert _certificate().settings_section == "security"

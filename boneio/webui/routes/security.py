@@ -153,12 +153,16 @@ def current_posture() -> Posture:
     """
     config = _load_config()
     cloud_active = False
+    cloud_error: str | None = None
 
     try:
         helper = getattr(_app_state, "config_helper", None)
         cloud_reg = getattr(helper, "_cloud_reg", None) if helper else None
         if cloud_reg is not None:
             cloud_active = bool(cloud_reg.is_cloud_config_active())
+            # Why it is not working, so the check can say it instead of
+            # telling somebody to switch on what is already on.
+            cloud_error = cloud_reg.last_error or None
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not read cloud state for the security check: %s", err)
 
@@ -175,6 +179,8 @@ def current_posture() -> Posture:
         auth_required=is_auth_required(),
         cloud_active=cloud_active,
         proxy_serving=_proxy_serving(config),
+        custom_certificate=certs.installed() is not None,
+        cloud_error=cloud_error,
     )
 
 

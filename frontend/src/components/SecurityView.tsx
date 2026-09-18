@@ -201,6 +201,7 @@ export default function SecurityView() {
               title={checkText(check.id, 'title', check.title)}
               detail={checkText(check.id, 'detail', check.detail)}
               remedy={checkText(check.id, 'remedy', check.remedy)}
+              context={check.context}
               severityLabel={t(`security.severity.${check.severity}`)}
               {...fixActionFor(check)}
             />
@@ -222,6 +223,7 @@ export default function SecurityView() {
               title={checkText(check.id, 'title', check.title)}
               detail={checkText(check.id, 'detail', check.detail)}
               remedy={checkText(check.id, 'remedy', check.remedy)}
+              context={check.context}
               severityLabel={t(`security.severity.${check.severity}`)}
               {...fixActionFor(check)}
             />

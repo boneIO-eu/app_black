@@ -217,8 +217,13 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
             />
           )}
 
-          {/* Cloud error */}
-          {cloudError && composeWritable && (
+          {/* Why registration is not working, shown whatever else is true.
+              This used to be gated on the compose file being writable, from
+              when an unwritable compose was the usual explanation. Since 1.6
+              that file is root-owned on every device on purpose, so the gate
+              was permanently false and the real reason — a registration the
+              cloud is refusing, say — was never shown to anyone. */}
+          {cloudError && (
             <NoticeCallout
               variant="error"
               title={t('boneio_config.cloud_error_title') || 'Cloud configuration error'}

@@ -64,6 +64,14 @@ class Check:
     state: State
     detail: str
     remedy: str = ""
+    #: A fact about this device that belongs with the finding and must not be
+    #: translated away: the error a service reported, a name, a path.
+    #:
+    #: The panel replaces title, detail and remedy with its own wording, keyed
+    #: by check id — so anything the backend varies at runtime is lost the
+    #: moment somebody writes a translation for it. This is shown verbatim
+    #: underneath instead.
+    context: str = ""
     #: Where in the panel this is fixed, when it can be fixed there. A bare
     #: name is a Settings section; ``system:<anchor>`` is the System page.
     #: None means there is no control — the remedy is a file or a shell.
@@ -82,6 +90,7 @@ class Check:
             "state": str(self.state),
             "detail": self.detail,
             "remedy": self.remedy,
+            "context": self.context,
             "settings_section": self.settings_section,
         }
 
@@ -378,8 +387,8 @@ def evaluate(
                 if cloud_active
                 else (
                     "Cloud registration is switched on but is not serving a "
-                    f"certificate: {cloud_error}. Until that clears, the panel "
-                    "is served with a self-signed certificate."
+                    "certificate, so the panel is still served with a "
+                    "self-signed one."
                     if cloud_enabled and cloud_error
                     else "Cloud registration is switched on but has not "
                     "produced a certificate yet, so the panel is still served "
@@ -399,6 +408,7 @@ def evaluate(
                 else "Enable boneIO Cloud registration, or upload a certificate "
                 "of your own below."
             ),
+            context=cloud_error or "",
             settings_section="security",
         )
     )
