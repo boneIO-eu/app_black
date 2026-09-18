@@ -2755,7 +2755,11 @@
     "remove_legacy_auth_confirm": "Usunąć stary blok web.auth z config.yaml?\n\nNajpierw obok zapisywana jest kopia obecnego pliku. Samo konto pozostaje bez zmian — zostało przeniesione do magazynu kont przy aktualizacji tego urządzenia i logujesz się dokładnie tak jak teraz.\n\nJeśli tego hasła używasz gdzieś jeszcze, zmień je również tam.",
     "remove_legacy_auth_done": "Usunięte. Kopia poprzedniego pliku jest w {{backup}}.",
     "remove_legacy_auth_absent": "Nie było już czego usuwać.",
-    "remove_legacy_auth_failed": "Nie udało się usunąć: {{error}}"
+    "remove_legacy_auth_failed": "Nie udało się usunąć: {{error}}",
+    "move_behind_proxy": "Schowaj za proxy",
+    "move_behind_proxy_confirm": "Przestać udostępniać panel w sieci lokalnej?\n\nBędzie odpowiadał tylko przez szyfrowane proxy oraz przez tunel SSH na 127.0.0.1.\n\nZmiana zostanie odrzucona, jeśli proxy jeszcze nie serwuje tego panelu, więc urządzenie nie może zostać odcięte. Zadziała po restarcie.",
+    "move_behind_proxy_done": "Zapisane. Zadziała po restarcie urządzenia.",
+    "move_behind_proxy_failed": "Nie zmieniono: {{error}}"
   },
   "login": {
     "title": "Zaloguj się do",

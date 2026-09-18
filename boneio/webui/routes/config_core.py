@@ -415,6 +415,50 @@ def _web_changed_apart_from_cloud(previous: object, current: object) -> bool:
     return before != after
 
 
+async def _guard_expose_change(previous: object, current: object) -> None:
+    """Refuse to take the panel off the network when nothing else serves it.
+
+    Setting ``web.expose: proxy`` is the fix for the panel being served in the
+    clear, and it is also the one setting here whose failure mode is a
+    controller answering on no port at all. It is only safe while the reverse
+    proxy is actually serving this panel — not merely listening, which it does
+    whether or not it can reach the application behind it.
+
+    So the proxy is asked, over the loopback, for something only the
+    application can answer, and the save is refused if the answer does not come
+    back. A hand-edited config.yaml still goes through: somebody at a console
+    who has decided to do this deserves to be able to.
+
+    Args:
+        previous: The ``web`` section before the save.
+        current: The ``web`` section being saved.
+
+    Raises:
+        HTTPException: If the proxy is not serving this panel.
+    """
+    was = (previous or {}).get("expose") if isinstance(previous, dict) else None
+    now = (current or {}).get("expose") if isinstance(current, dict) else None
+    if now != "proxy" or was == "proxy":
+        return
+
+    from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
+
+    port = DEFAULT_PROXY_PORT
+    if isinstance(current, dict) and isinstance(current.get("proxy_port"), int):
+        port = current["proxy_port"]
+
+    loop = asyncio.get_running_loop()
+    serving, reason = await loop.run_in_executor(None, proxy_is_serving, port)
+    if not serving:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Not moving the panel behind the proxy: {reason}. It would "
+                "leave this device reachable on no port at all."
+            ),
+        )
+
+
 async def _apply_cloud_toggle(app_state, previous: object, current: object) -> str | None:
     """Start or stop cloud registration to match what was just saved.
 
@@ -516,6 +560,11 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     # Captured before the write: the cloud toggle is acted on rather than
     # merely stored, and afterwards there is nothing left to compare against.
     previous_section = (_config_cache["data"] or {}).get(section)
+
+    # Before the write, and outside the try below: that one turns every
+    # exception into a 500, and this refusal has a reason worth reading.
+    if section == "web":
+        await _guard_expose_change(previous_section, data)
 
     try:
         t_route_start = time.perf_counter()

@@ -174,6 +174,22 @@ def _legacy_web_auth(config: dict) -> bool:
     return bool(auth.get("password") or auth.get("username"))
 
 
+def _web_exposure(config: dict) -> str:
+    """How much of the network the panel's own port answers on.
+
+    Args:
+        config: Parsed configuration.
+
+    Returns:
+        ``"proxy"`` when it is limited to the loopback and the Docker bridges,
+        ``"all"`` otherwise.
+    """
+    web = config.get("web")
+    if not isinstance(web, dict):
+        return "all"
+    return "proxy" if web.get("expose") == "proxy" else "all"
+
+
 def _mqtt_password(config: dict) -> str | None:
     """The configured MQTT password, if there is one.
 
@@ -245,6 +261,30 @@ def evaluate(
             ),
             remedy="Create an account, and remove allow_anonymous from web.auth in config.yaml.",
             settings_section="web",
+        )
+    )
+
+    behind_proxy = _web_exposure(config) == "proxy"
+    checks.append(
+        Check(
+            id="web_exposed_in_clear",
+            title="Panel served in the clear",
+            severity=Severity.WARNING,
+            state=State.OK if behind_proxy else State.FAILED,
+            detail=(
+                "The panel answers on its own port on every network interface, "
+                "without TLS. Anyone who can see the traffic sees the login "
+                "form, the token it hands back, and a configuration that "
+                "carries passwords."
+                if not behind_proxy
+                else "The panel is reachable only through the encrypted proxy."
+            ),
+            remedy=(
+                "Move it behind the proxy from the Security section. The panel "
+                "then answers on https and through an SSH tunnel, and not on "
+                "the local network in the clear."
+            ),
+            settings_section="security",
         )
     )
 

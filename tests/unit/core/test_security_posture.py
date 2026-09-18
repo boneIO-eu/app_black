@@ -13,7 +13,13 @@ from boneio.core.security.posture import (
 
 SECURE = {
     "mqtt": {"host": "localhost", "password": "wlasne-haslo"},
-    "web": {"port": 8090, "security": {"frame_ancestors": ["self"]}},
+    "web": {
+        "port": 8090,
+        # Behind the proxy, so the panel is not answering in the clear on
+        # every interface. A hardened device has this set.
+        "expose": "proxy",
+        "security": {"frame_ancestors": ["self"]},
+    },
 }
 
 
@@ -160,7 +166,7 @@ def test_info_findings_do_not_drive_the_badge():
     anything.
     """
     posture = evaluate(
-        {"mqtt": {"password": "changed"}},
+        {"mqtt": {"password": "changed"}, "web": {"expose": "proxy"}},
         is_provisioned=True,
         anonymous_allowed=False,
         auth_required=True,
@@ -174,7 +180,7 @@ def test_info_findings_do_not_drive_the_badge():
 def test_a_real_problem_is_actionable():
     """Critical and warning findings do drive it."""
     posture = evaluate(
-        {"mqtt": {"password": DEFAULT_MQTT_PASSWORD}},
+        {"mqtt": {"password": DEFAULT_MQTT_PASSWORD}, "web": {"expose": "proxy"}},
         is_provisioned=True,
         anonymous_allowed=False,
         auth_required=True,

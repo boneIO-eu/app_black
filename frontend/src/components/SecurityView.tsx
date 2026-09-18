@@ -64,8 +64,44 @@ export default function SecurityView() {
     }
   };
 
+  const [movingBehindProxy, setMovingBehindProxy] = useState(false);
+
+  /**
+   * Take the panel off the local network, leaving the encrypted proxy.
+   *
+   * The backend refuses this unless the proxy is demonstrably serving the
+   * panel already, so the failure people would otherwise discover — a
+   * controller answering on no port at all — arrives here as a message
+   * instead.
+   */
+  const moveBehindProxy = async () => {
+    if (!window.confirm(t('security.move_behind_proxy_confirm'))) return;
+    setMovingBehindProxy(true);
+    try {
+      const { data: config } = await axios.get('/api/config');
+      const web = (config?.web ?? {}) as Record<string, unknown>;
+      await axios.put('/api/config/web', { ...web, expose: 'proxy' });
+      window.alert(t('security.move_behind_proxy_done'));
+      invalidateSecurityPosture();
+      await refresh();
+    } catch (err) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        (err as Error).message;
+      window.alert(t('security.move_behind_proxy_failed', { error: detail }));
+    } finally {
+      setMovingBehindProxy(false);
+    }
+  };
+
   /** The action a card offers, which is usually a route and occasionally not. */
   const fixActionFor = (check: SecurityCheck) => {
+    if (check.id === 'web_exposed_in_clear') {
+      return {
+        onFix: movingBehindProxy ? undefined : () => void moveBehindProxy(),
+        fixLabel: t('security.move_behind_proxy'),
+      };
+    }
     if (check.id === 'legacy_web_auth') {
       return {
         onFix: removingLegacyAuth ? undefined : () => void removeLegacyAuth(),

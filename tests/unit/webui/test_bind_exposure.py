@@ -64,12 +64,48 @@ def test_every_bridge_is_covered(bridges):
 
 
 def test_no_bridge_still_produces_a_usable_bind(bridges, caplog):
-    """Docker removed, or not started yet. Binding nothing would be worse than
-    binding the loopback, and the log says how to reach it."""
+    """Docker removed for good. Binding nothing would be worse than binding
+    the loopback, and the log says how to reach it."""
     bridges([])
-    binds = binds_for(Exposure.PROXY, 8090)
+    binds = binds_for(Exposure.PROXY, 8090, wait=0)
     assert binds == ["127.0.0.1:8090"]
     assert "ssh -L" in caplog.text
+
+
+def test_a_bridge_that_arrives_late_is_still_used(monkeypatch):
+    """The cold-boot case.
+
+    boneIO does not start after docker.service — it drives relays, and waiting
+    for a container runtime first is the wrong trade. So on a cold boot the
+    panel can be ready before dockerd has made its bridge, and binding then
+    would miss the only address the proxy can reach us on.
+    """
+    answers = [[], [], ["172.17.0.1"]]
+    monkeypatch.setattr(bind, "docker_bridge_addresses", lambda: answers.pop(0) if answers else [])
+    monkeypatch.setattr(bind, "_BRIDGE_POLL_SECONDS", 0)
+
+    assert binds_for(Exposure.PROXY, 8090, wait=5) == [
+        "127.0.0.1:8090",
+        "172.17.0.1:8090",
+    ]
+
+
+def test_waiting_does_not_delay_the_usual_case(monkeypatch):
+    """A device that has been up for a while already has its bridge."""
+    calls = []
+    monkeypatch.setattr(
+        bind, "docker_bridge_addresses", lambda: calls.append(1) or ["172.17.0.1"]
+    )
+    binds_for(Exposure.PROXY, 8090, wait=60)
+    assert len(calls) == 1, "polled again when the answer was there the first time"
+
+
+def test_all_never_waits_for_docker(monkeypatch):
+    """Nothing about serving on every interface needs a bridge."""
+    monkeypatch.setattr(
+        bind, "docker_bridge_addresses", lambda: pytest.fail("looked for a bridge")
+    )
+    assert binds_for(Exposure.ALL, 8090) == ["0.0.0.0:8090"]
 
 
 def test_the_port_is_carried_through(bridges):

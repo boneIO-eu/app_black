@@ -83,7 +83,7 @@ async def test_clean_device_reports_off(tmp_path):
     config = tmp_path / "config.yaml"
     config.write_text(
         "mqtt:\n  host: localhost\n  password: something-else\n"
-        "web:\n  security:\n    frame_ancestors: 'self'\n",
+        "web:\n  expose: proxy\n  security:\n    frame_ancestors: 'self'\n",
         encoding="utf-8",
     )
     users = tmp_path / "users.json"
@@ -184,7 +184,13 @@ async def test_advice_alone_does_not_raise_the_problem_sensor(tmp_path):
     controller. A problem sensor that is ON everywhere gets automated around.
     """
     config = tmp_path / "config.yaml"
-    config.write_text("mqtt:\n  host: localhost\n  password: changed\n", encoding="utf-8")
+    # Behind the proxy as well. Serving the panel in the clear is a warning,
+    # not advice: it is fixable with one button, unlike the self-signed
+    # certificate this test is really about.
+    config.write_text(
+        "mqtt:\n  host: localhost\n  password: changed\nweb:\n  expose: proxy\n",
+        encoding="utf-8",
+    )
     (tmp_path / "users.json").write_text(
         json.dumps(
             {

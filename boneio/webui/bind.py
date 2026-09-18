@@ -66,12 +66,54 @@ def docker_bridge_addresses() -> list[str]:
     return sorted(set(addresses))
 
 
-def binds_for(exposure: str, port: int) -> list[str]:
+#: How long to wait for a Docker bridge to appear before giving up on it.
+#:
+#: boneIO deliberately does not start after docker.service — it drives relays,
+#: and waiting for a container runtime to come up first is the wrong trade on a
+#: controller. So on a cold boot the panel can be ready before dockerd has
+#: created its bridge, and binding then would miss the address the proxy
+#: arrives on. The web server already shows a loading page on this port while
+#: it starts, so a short wait costs nothing visible.
+BRIDGE_WAIT_SECONDS = 60.0
+_BRIDGE_POLL_SECONDS = 2.0
+
+
+def _wait_for_a_bridge(timeout: float) -> list[str]:
+    """Poll for Docker bridges until one appears or the time runs out.
+
+    Args:
+        timeout: Seconds to wait in total.
+
+    Returns:
+        The addresses found, possibly empty.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    waited = False
+    while True:
+        found = docker_bridge_addresses()
+        if found or time.monotonic() >= deadline:
+            if waited and found:
+                _LOGGER.info("Docker bridge appeared; binding the panel to it.")
+            return found
+        if not waited:
+            _LOGGER.info(
+                "Waiting up to %.0fs for a Docker bridge — the panel is behind "
+                "the proxy and the proxy arrives on one.",
+                timeout,
+            )
+            waited = True
+        time.sleep(_BRIDGE_POLL_SECONDS)
+
+
+def binds_for(exposure: str, port: int, wait: float = BRIDGE_WAIT_SECONDS) -> list[str]:
     """The ``host:port`` strings to hand to the server.
 
     Args:
         exposure: One of :class:`Exposure`.
         port: The port to listen on.
+        wait: Seconds to wait for a Docker bridge, when one is needed.
 
     Returns:
         Bind strings, never empty.
@@ -79,7 +121,7 @@ def binds_for(exposure: str, port: int) -> list[str]:
     if exposure != Exposure.PROXY:
         return [f"0.0.0.0:{port}"]
 
-    hosts = [LOOPBACK, *docker_bridge_addresses()]
+    hosts = [LOOPBACK, *_wait_for_a_bridge(wait)]
     if len(hosts) == 1:
         # No bridge found. Binding the loopback alone would leave the panel
         # unreachable from anywhere but the device itself, so this says what
@@ -96,3 +138,56 @@ def binds_for(exposure: str, port: int) -> list[str]:
             ", ".join(hosts),
         )
     return [f"{host}:{port}" for host in hosts]
+
+
+#: Where Caddy publishes HTTPS when nothing says otherwise.
+DEFAULT_PROXY_PORT = 8443
+
+
+def proxy_is_serving(port: int = DEFAULT_PROXY_PORT, timeout: float = 5.0) -> tuple[bool, str]:
+    """Whether the reverse proxy is answering for this device right now.
+
+    Asked before the panel is taken off the LAN, because that change is only
+    safe if there is something else to reach it through. It is not enough that
+    a port is open: Caddy answers on 8443 whether or not it can reach the
+    application behind it, and a 502 there would mean a controller that has
+    just closed its own front door onto an empty corridor.
+
+    So this asks the proxy for something only the application can answer, over
+    the loopback, and looks at what comes back.
+
+    Args:
+        port: The port the proxy publishes HTTPS on.
+        timeout: Seconds to allow.
+
+    Returns:
+        Whether it is serving, and a short reason when it is not.
+    """
+    import json
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    # The certificate is the device's own, usually from Caddy's internal CA,
+    # and this request never leaves the machine. What is being tested is
+    # whether the proxy reaches the application, not who signed the key.
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+
+    url = f"https://127.0.0.1:{port}/api/init"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout, context=context) as response:
+            if response.status != 200:
+                return False, f"the proxy answered {response.status} on port {port}"
+            body = json.loads(response.read(65536).decode("utf-8", "replace"))
+    except urllib.error.HTTPError as err:
+        return False, f"the proxy answered {err.code} on port {port}"
+    except (urllib.error.URLError, OSError) as err:
+        return False, f"nothing is serving HTTPS on port {port}: {err}"
+    except (ValueError, json.JSONDecodeError):
+        return False, f"port {port} answered with something that is not this panel"
+
+    if "version" not in body:
+        return False, f"port {port} is serving something else"
+    return True, ""

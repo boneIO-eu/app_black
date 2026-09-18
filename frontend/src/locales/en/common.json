@@ -2756,7 +2756,11 @@
     "remove_legacy_auth_confirm": "Remove the old web.auth block from config.yaml?\n\nA copy of the current file is saved next to it first. The account itself is not affected — it was moved into the account store when this device was upgraded, and you keep signing in exactly as you do now.\n\nIf that password is one you use anywhere else, change it there too.",
     "remove_legacy_auth_done": "Removed. A copy of the previous file is at {{backup}}.",
     "remove_legacy_auth_absent": "There was nothing left to remove.",
-    "remove_legacy_auth_failed": "Could not remove it: {{error}}"
+    "remove_legacy_auth_failed": "Could not remove it: {{error}}",
+    "move_behind_proxy": "Move behind the proxy",
+    "move_behind_proxy_confirm": "Stop serving the panel on the local network?\n\nIt will answer only through the encrypted proxy, and over an SSH tunnel to 127.0.0.1.\n\nThe change is refused if the proxy is not already serving this panel, so the device cannot end up unreachable. It takes effect after a restart.",
+    "move_behind_proxy_done": "Saved. It takes effect when the device restarts.",
+    "move_behind_proxy_failed": "Not changed: {{error}}"
   },
   "login": {
     "title": "Sign in to your",
