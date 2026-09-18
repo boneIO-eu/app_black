@@ -1032,11 +1032,15 @@
   "webserver": {
     "port": "Port",
     "port_help": "Port do uruchomienia serwera web (domyślnie: 8090)",
-    "proxy_port": "Port Proxy Nginx",
-    "proxy_port_help": "Port używany w URL autodiscovery Home Assistant. Ustaw jeśli używasz nginx reverse proxy (np. dla integracji Node-RED).",
+    "proxy_port": "Port dla Home Assistanta",
+    "proxy_port_help": "Port w odnośniku, który Home Assistant pokazuje dla tego urządzenia. Zostaw puste, a dostanie port samego panelu po zwykłym HTTP. Wpisz 8443 — tam, gdzie wbudowane proxy tego urządzenia i tak już serwuje HTTPS — a dostanie ten adres.",
     "proxy_port_placeholder": "Zostaw puste aby użyć portu serwera web",
     "auth": "Uwierzytelnianie (opcjonalnie)",
-    "accounts_moved": "Logowanie do panelu nie jest już konfigurowane tutaj. Od wersji 1.6 konta mają hasła zapisane jako hash i role — zarządzasz nimi w zakładce"
+    "accounts_moved": "Logowanie do panelu nie jest już konfigurowane tutaj. Od wersji 1.6 konta mają hasła zapisane jako hash i role — zarządzasz nimi w zakładce",
+    "builtin_proxy_title": "HTTPS już działa",
+    "builtin_proxy": "To urządzenie ma własne reverse proxy, które serwuje panel po HTTPS na porcie 8443 niezależnie od pola powyżej. Tamto pole decyduje wyłącznie o tym, co zostanie powiedziane Home Assistantowi.",
+    "expose_proxy": "Osiągalny tylko przez proxy",
+    "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada wyłącznie na loopbacku i na mostku Dockera, czyli przez HTTPS albo przez tunel SSH. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
   },
   "common": {
     "save": "Zapisz",
@@ -2700,9 +2704,9 @@
       },
       "legacy_web_auth": {
         "title": "Stare dane logowania w config.yaml",
-        "detail": "W config.yaml został blok web.auth sprzed 1.6, z hasłem zapisanym otwartym tekstem. Nie jest już używany.",
+        "detail": "W config.yaml został blok web.auth sprzed 1.6, z hasłem zapisanym otwartym tekstem. Nic go już nie czyta, ale to nadal hasło — i jest w każdej kopii zapasowej oraz w każdym zgłoszeniu diagnostycznym zrobionym od tamtej pory.",
         "ok": "W config.yaml nie ma zapisanych danych logowania.",
-        "remedy": "Usuń username i password z sekcji web.auth w config.yaml."
+        "remedy": "Usuń go poniżej; kopia config.yaml zostanie zapisana wcześniej. Jeśli tego hasła używasz gdzieś jeszcze, zmień je również tam."
       },
       "certificate": {
         "title": "Certyfikat HTTPS",
@@ -2721,6 +2725,12 @@
         "detail": "Ustawione jest BONEIO_DEV: działają trasy deweloperskie, a CORS wpuszcza lokalne serwery dev.",
         "ok": "Tryb deweloperski wyłączony.",
         "remedy": "Usuń BONEIO_DEV na każdym urządzeniu, które nie jest płytką deweloperską."
+      },
+      "web_exposed_in_clear": {
+        "title": "Panel serwowany otwartym tekstem",
+        "detail": "Panel odpowiada na swoim porcie na każdym interfejsie sieciowym, bez TLS. Kto widzi ten ruch, widzi formularz logowania, wydawany token i konfigurację z hasłami.",
+        "ok": "Panel jest osiągalny wyłącznie przez szyfrowane proxy.",
+        "remedy": "Schowaj go za proxy. Będzie wtedy odpowiadał przez HTTPS i przez tunel SSH, a nie otwartym tekstem w sieci lokalnej."
       }
     },
     "after_update": {

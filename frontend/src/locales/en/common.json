@@ -1032,11 +1032,15 @@
   "webserver": {
     "port": "Port",
     "port_help": "Port to run web server (default: 8090)",
-    "proxy_port": "Nginx Proxy Port",
-    "proxy_port_help": "Port used in Home Assistant discovery URL. Set this if you use nginx reverse proxy (e.g. for Node-RED integration).",
-    "proxy_port_placeholder": "Leave empty to use web server port",
+    "proxy_port": "Port Home Assistant should use",
+    "proxy_port_help": "The port in the link Home Assistant shows for this device. Leave it empty and Home Assistant is given the panel's own port over plain HTTP. Set it to 8443 — where this device's built-in proxy already serves HTTPS — and it is given that instead.",
+    "proxy_port_placeholder": "Leave empty to use the web server port",
     "auth": "Authentication (optional)",
-    "accounts_moved": "Panel sign-in is no longer configured here. From 1.6 accounts have hashed passwords and roles — manage them under"
+    "accounts_moved": "Panel sign-in is no longer configured here. From 1.6 accounts have hashed passwords and roles — manage them under",
+    "builtin_proxy_title": "HTTPS is already being served",
+    "builtin_proxy": "This device runs its own reverse proxy, which serves the panel over HTTPS on port 8443 whatever the field above says. That field only decides what Home Assistant is told.",
+    "expose_proxy": "Only reachable through the proxy",
+    "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers only on the loopback and the Docker bridge — reachable over HTTPS, or through an SSH tunnel. Saving this is refused if the proxy is not already serving the panel, so the device cannot end up unreachable. Takes effect after a restart."
   },
   "common": {
     "save": "Save",
@@ -2701,9 +2705,9 @@
       },
       "legacy_web_auth": {
         "title": "Old credentials in config.yaml",
-        "detail": "config.yaml still holds the pre-1.6 web.auth block, with the password in clear text. It is no longer read.",
+        "detail": "config.yaml still holds the pre-1.6 web.auth block with the password in clear text. Nothing reads it any more, but it is still a password — and it is in every backup and diagnostic bundle taken since.",
         "ok": "No credentials are stored in config.yaml.",
-        "remedy": "Delete the web.auth username and password from config.yaml."
+        "remedy": "Remove it below; a copy of config.yaml is kept first. If that password is one you use anywhere else, change it there too."
       },
       "certificate": {
         "title": "HTTPS certificate",
@@ -2722,6 +2726,12 @@
         "detail": "BONEIO_DEV is set: development routes are mounted and CORS accepts local dev servers.",
         "ok": "Development mode is off.",
         "remedy": "Unset BONEIO_DEV on any device that is not a development board."
+      },
+      "web_exposed_in_clear": {
+        "title": "Panel served in the clear",
+        "detail": "The panel answers on its own port on every network interface, without TLS. Anyone who can see the traffic sees the login form, the token it hands back, and a configuration that carries passwords.",
+        "ok": "The panel is reachable only through the encrypted proxy.",
+        "remedy": "Move it behind the proxy. It then answers over HTTPS and through an SSH tunnel, and not on the local network in the clear."
       }
     },
     "after_update": {

@@ -79,10 +79,14 @@ export const SecurityFindingCard: React.FC<SecurityFindingCardProps> = ({
         </div>
       </div>
 
+      {/* The remedy wraps rather than truncating. It started out holding
+          one-line shell commands, where an ellipsis cost nothing; several
+          remedies are sentences now, and half a sentence in a monospace box
+          is worse than no remedy at all. */}
       {(onFix || remedy) && (
         <div className="mt-3 pt-3 border-t border-base-content/8 flex flex-wrap items-center justify-between gap-3">
           {remedy && (
-            <code className="text-xs font-mono text-base-content/70 bg-base-content/5 px-2 py-1 rounded max-w-xl truncate">
+            <code className="text-xs font-mono text-base-content/70 bg-base-content/5 px-2 py-1 rounded max-w-xl whitespace-pre-wrap break-words">
               {remedy}
             </code>
           )}

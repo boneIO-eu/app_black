@@ -100,7 +100,10 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         help={t('webserver.port_help')}
       />
 
-      {/* Nginx Proxy Port */}
+      {/* The port Home Assistant is told about. Named after nginx until 1.6,
+          which has not been what sits in front of this panel since 1.4.4 —
+          and the old wording read as "no proxy unless you fill this in", on a
+          device whose built-in proxy is always there. */}
       <FormInputNumber
         label={t('webserver.proxy_port')}
         value={data?.proxy_port ?? ''}
@@ -116,6 +119,31 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         help={t('webserver.proxy_port_help')}
       />
 
+
+      <NoticeCallout
+        variant="info"
+        title={t('webserver.builtin_proxy_title')}
+        message={t('webserver.builtin_proxy')}
+      />
+
+      {/* Whether the panel's own port answers on the network at all. The
+          Security section offers the same switch with a check that the proxy
+          is really serving first; here it is simply the setting, so somebody
+          looking for it finds it where the other web settings are. */}
+      <div className="form-control flex flex-col gap-2">
+        <label className="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            className="toggle toggle-primary shrink-0"
+            checked={data?.expose === 'proxy'}
+            onChange={(e) =>
+              handleChange('expose', e.target.checked ? 'proxy' : 'all')
+            }
+          />
+          <span className="label-text font-medium">{t('webserver.expose_proxy')}</span>
+        </label>
+        <HelpLabel className="pt-0">{t('webserver.expose_proxy_help')}</HelpLabel>
+      </div>
 
       {/* Where the username/password fields used to be, so nobody hunts for
           the web password that moved to hashed accounts in 1.6. */}

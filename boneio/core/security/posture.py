@@ -288,31 +288,6 @@ def evaluate(
         )
     )
 
-    legacy_auth = _legacy_web_auth(config)
-    checks.append(
-        Check(
-            id="legacy_web_auth",
-            title="Old login left in config.yaml",
-            severity=Severity.WARNING,
-            state=State.FAILED if legacy_auth else State.OK,
-            detail=(
-                "The pre-1.6 web.auth block is still in config.yaml with the "
-                "password in plain text. Nothing reads it any more — the "
-                "account was copied into the hashed store when this device "
-                "was upgraded — but it is still a password, and it is in "
-                "every backup and diagnostic bundle taken since."
-                if legacy_auth
-                else "No plain-text login is left in the configuration."
-            ),
-            remedy=(
-                "Remove it from the Security section, which keeps a copy of "
-                "config.yaml first. If the password is one you use anywhere "
-                "else, change it there too."
-            ),
-            settings_section="security",
-        )
-    )
-
     mqtt_password = _mqtt_password(config)
     if mqtt_password is None:
         mqtt_state, mqtt_detail = State.OK, "No MQTT broker is configured."
@@ -337,8 +312,7 @@ def evaluate(
     )
 
     web = config.get("web") if isinstance(config.get("web"), dict) else {}
-    legacy_auth = web.get("auth") if isinstance(web.get("auth"), dict) else {}
-    has_legacy = bool(legacy_auth.get("username") or legacy_auth.get("password"))
+    has_legacy = _legacy_web_auth(config)
     checks.append(
         Check(
             id="legacy_web_auth",
@@ -347,12 +321,19 @@ def evaluate(
             state=State.FAILED if has_legacy else State.OK,
             detail=(
                 "config.yaml still holds the pre-1.6 web.auth block, with the "
-                "password in clear text. It is no longer read."
+                "password in clear text. Nothing reads it any more — the "
+                "account was copied into the hashed store when this device was "
+                "upgraded — but it is still a password, and it is in every "
+                "backup and diagnostic bundle taken since."
                 if has_legacy
                 else "No credentials are stored in config.yaml."
             ),
-            remedy="Delete the web.auth username and password from config.yaml.",
-            settings_section="web",
+            remedy=(
+                "Remove it from the Security section, which keeps a copy of "
+                "config.yaml first. If that password is one you use anywhere "
+                "else, change it there too."
+            ),
+            settings_section="security",
         )
     )
 
