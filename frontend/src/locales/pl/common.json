@@ -2588,6 +2588,7 @@
     "devices_failed": "Nie udało się zapisać konfiguracji wejść.",
     "devices_targets_failed": "Nie udało się odczytać konfiguracji wyjść sterownika.",
     "step_done": "Gotowe",
+    "welcome_intro_upgraded": "To urządzenie ma już swoją konfigurację — po aktualizacji brakuje mu tylko konta administratora. Kreator je utworzy; nic poza tym nie zostanie zmienione.",
     "welcome_intro": "To urządzenie nie ma jeszcze konta administratora. Kreator przeprowadzi Cię przez jego utworzenie i pozwoli zaimportować konfigurację z poprzedniego boneIO.",
     "welcome_why": "Urządzenie nie ma jeszcze właściciela: kreator jest otwarty dla każdego w Twojej sieci, więc kto pierwszy go przejdzie, ten przejmie sterownik. Reszta API jest już zablokowana. Zajmie to chwilę.",
     "legacy_migrated": "Znaleziono stare dane logowania w config.yaml i przeniesiono konto „{{username}}” do bezpiecznego magazynu (hasło jest teraz hashowane). Usuń sekcję web.auth z config.yaml — nie jest już używana, a wciąż zawiera hasło otwartym tekstem.",

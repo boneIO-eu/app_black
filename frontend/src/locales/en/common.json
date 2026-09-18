@@ -2589,6 +2589,7 @@
     "devices_failed": "Could not save the input configuration.",
     "devices_targets_failed": "Could not read the device output configuration.",
     "step_done": "Done",
+    "welcome_intro_upgraded": "This device already has its configuration — the update only left it without an administrator account. The wizard creates one; nothing else is touched.",
     "welcome_intro": "This device does not have an administrator account yet. This wizard will create one and can import the configuration from your previous boneIO.",
     "welcome_why": "This device has no owner yet: the wizard is open to anyone on your network, so whoever completes it first takes control of the controller. The rest of the API is already refusing requests. This only takes a moment.",
     "legacy_migrated": "Old credentials were found in config.yaml and the account “{{username}}” has been moved into secure storage (the password is hashed now). Please delete the web.auth section from config.yaml — it is no longer used and still holds your password in plain text.",

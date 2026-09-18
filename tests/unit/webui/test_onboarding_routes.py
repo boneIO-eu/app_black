@@ -253,3 +253,47 @@ def test_auth_required_follows_provisioning(client, store):
     assert client.get("/api/auth/required").json()["required"] is False
     store.add_user("pawel", "dobre-haslo", Role.ADMIN)
     assert client.get("/api/auth/required").json()["required"] is True
+
+
+# ------------------------------------- telling an upgraded device from a fresh one
+
+
+def test_status_reports_whether_the_device_was_configured_before():
+    """The wizard drops steps on an upgraded controller, so it has to be told.
+
+    The dangerous one is the devices step: POST /api/config/input-bindings
+    replaces the whole `event` section, so running it on a controller with
+    fifty configured inputs deletes them.
+    """
+    from boneio.webui.routes import onboarding
+
+    onboarding.set_configured_before(True)
+    try:
+        assert onboarding._configured_before is True
+    finally:
+        onboarding.set_configured_before(False)
+
+
+def test_a_fresh_device_is_not_marked_as_configured():
+    from boneio.webui.routes import onboarding
+
+    assert onboarding._configured_before is False
+
+
+def test_the_signal_is_the_presence_of_web_auth_not_its_validity():
+    """A pre-1.6 device whose web.auth was incomplete is still a pre-1.6 device.
+
+    The factory configuration ships `web:` with ports and no `auth`, so the
+    block's presence is what separates an upgraded controller from a fresh one
+    — whether or not the credentials in it could be migrated.
+    """
+    import inspect
+
+    from boneio.webui import app as webui_app
+
+    source = inspect.getsource(webui_app)
+    assert "incomplete_legacy_auth" in source, (
+        "app.py no longer treats an unusable web.auth block as evidence of an "
+        "upgraded device"
+    )
+    assert "set_configured_before" in source

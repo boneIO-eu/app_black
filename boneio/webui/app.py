@@ -785,6 +785,15 @@ def init_app(
                 "username": migration.username,
                 "used_secret_file": migration.used_secret_file,
             }
+        # A web.auth block means this device was configured under a pre-1.6
+        # release, whether or not the credentials in it were usable. The
+        # factory config ships web: with ports and no auth, so its presence is
+        # what separates an upgraded controller from a fresh one — and the
+        # first-run wizard must not offer to import a configuration, or to
+        # generate input bindings, on a device that already has both.
+        onboarding_module.set_configured_before(
+            bool(migration) or migration.reason == "incomplete_legacy_auth"
+        )
     except UserStoreError as err:
         # Refusing to start would brick the UI over a file the user can fix,
         # but the store must not be silently treated as empty either — that

@@ -33,6 +33,10 @@ _user_store: UserStore | None = None
 # Set by init_app when a pre-1.6 web.auth block was moved into users.json, so
 # the UI can tell the owner to delete it from config.yaml.
 _legacy_migration: dict | None = None
+#: Whether this controller was configured under a pre-1.6 release. Set from the
+#: presence of a ``web.auth`` block, which the factory configuration does not
+#: ship. The wizard uses it to drop the steps that assume a blank device.
+_configured_before: bool = False
 
 
 def set_user_store(store: UserStore) -> None:
@@ -43,6 +47,16 @@ def set_user_store(store: UserStore) -> None:
     """
     global _user_store
     _user_store = store
+
+
+def set_configured_before(value: bool) -> None:
+    """Record whether this device was set up under an earlier release.
+
+    Args:
+        value: True when the configuration carries a pre-1.6 ``web.auth`` block.
+    """
+    global _configured_before
+    _configured_before = value
 
 
 def set_legacy_migration(info: dict | None) -> None:
@@ -101,6 +115,10 @@ async def onboarding_status():
         "needs_onboarding": not provisioned,
         "version": __version__,
         "legacy_migration": _legacy_migration,
+        # The wizard skips the import and device-binding steps when this is
+        # true: the device already has a configuration, and offering to import
+        # one reads as "yours is gone".
+        "configured_before": _configured_before,
     }
 
 

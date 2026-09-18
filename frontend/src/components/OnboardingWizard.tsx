@@ -5,6 +5,7 @@ import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useAppInit } from '@/contexts/AppInitContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { type Step, stepsFor, previousStepFor, stepAfterImport } from '@/utils/onboardingSteps';
 import { checkImportFile, interpretRestoreResponse } from '@/utils/onboardingImport';
 import {
   MIN_PASSWORD_LENGTH,
@@ -26,45 +27,6 @@ type ApiError = AxiosError<{ detail?: string }>;
  */
 function errorMessage(err: unknown, fallback: string): string {
   return (err as ApiError)?.response?.data?.detail || fallback;
-}
-
-type Step = 'welcome' | 'account' | 'import' | 'devices' | 'cloud' | 'done';
-
-const STEP_ORDER: Step[] = ['welcome', 'account', 'import', 'devices', 'cloud', 'done'];
-
-/**
- * Where the back button goes from each step.
- *
- * `import` is absent on purpose: by the time it renders the admin account
- * exists and POST /api/onboarding/admin answers 409, so there is nothing to
- * go back to. `welcome` is the first screen and has no predecessor.
- *
- * @param importRestored - Whether the import step actually restored a config.
- *   When it did, `devices` and `cloud` are skipped on the way forward, so
- *   going back from `done` has to return to `import` rather than to a step
- *   the user never saw.
- */
-function previousStepFor(step: Step, importRestored: boolean): Step | undefined {
-  const map: Partial<Record<Step, Step>> = {
-    account: 'welcome',
-    devices: 'import',
-    cloud: 'devices',
-    done: importRestored ? 'import' : 'cloud',
-  };
-  return map[step];
-}
-
-/**
- * Where the import step goes next.
- *
- * A restored configuration already decides both of the things the next two
- * steps would set: the devices step replaces every input action, and the
- * cloud step writes back a `web` section that came from the other device
- * (restore unpacks config.yaml too, so `web.cloud` is the old device's).
- * Neither is ours to overwrite, so both are skipped.
- */
-function stepAfterImport(importRestored: boolean): Step {
-  return importRestored ? 'done' : 'devices';
 }
 
 /** Mirrors INPUT_MODES in boneio/core/config/input_bindings.py. */
@@ -128,7 +90,9 @@ export default function OnboardingWizard() {
   const activeStepRef = useRef<HTMLLIElement>(null);
 
   const legacy = initData?.legacy_migration ?? null;
-  const stepIndex = STEP_ORDER.indexOf(step);
+  const configuredBefore = initData?.configured_before ?? false;
+  const steps = stepsFor(configuredBefore);
+  const stepIndex = steps.indexOf(step);
 
   // Shown under the password field once there is something to judge. The
   // backend enforces the same rules, so this only saves a round trip — and
@@ -166,7 +130,7 @@ export default function OnboardingWizard() {
     activeStepRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [step]);
 
-  const previousStep = previousStepFor(step, importDone);
+  const previousStep = previousStepFor(step, importDone, configuredBefore);
 
   // On a phone the step's primary buttons already fill the row, so the back
   // button drops onto its own line underneath rather than squeezing them into
@@ -174,7 +138,7 @@ export default function OnboardingWizard() {
   const backButtonClass = 'btn btn-outline basis-full order-last sm:basis-auto sm:order-first';
 
   const goTo = (next: Step) => {
-    setDirection(STEP_ORDER.indexOf(next) < stepIndex ? 'back' : 'forward');
+    setDirection(steps.indexOf(next) < stepIndex ? 'back' : 'forward');
     setStep(next);
   };
 
@@ -216,7 +180,9 @@ export default function OnboardingWizard() {
       // say) should not cost the user both passwords as well.
       setPassword('');
       setConfirmPassword('');
-      goTo('import');
+      // On an upgraded device there is nothing to import and nothing to wire:
+      // the account was the only thing missing.
+      goTo(configuredBefore ? 'done' : 'import');
     } catch (err: unknown) {
       if ((err as ApiError)?.response?.status === 409) {
         // Somebody else finished the wizard between page load and submit.
@@ -395,7 +361,7 @@ export default function OnboardingWizard() {
             how far along the wizard is, and nothing gets clipped. */}
         <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
           <ul className="steps wizard-steps text-xs w-full">
-            {STEP_ORDER.map((name, index) => (
+            {steps.map((name, index) => (
               <li
                 key={name}
                 ref={index === stepIndex ? activeStepRef : undefined}
@@ -410,7 +376,7 @@ export default function OnboardingWizard() {
         <div className="sm:hidden text-center text-xs opacity-70 -mt-3">
           {t('onboarding.step_counter', {
             current: stepIndex + 1,
-            total: STEP_ORDER.length,
+            total: steps.length,
           })}{' '}
           · {t(`onboarding.step_${step}`)}
         </div>
@@ -427,7 +393,11 @@ export default function OnboardingWizard() {
         <div className="min-h-[32rem] sm:min-h-[24rem] flex">
         {step === 'welcome' && (
           <div className={`space-y-4 flex-1 flex flex-col ${stepEnter}`}>
-            <p className="text-sm opacity-80">{t('onboarding.welcome_intro')}</p>
+            <p className="text-sm opacity-80">
+              {/* An upgraded device keeps its configuration; saying otherwise
+                  reads as though the update threw it away. */}
+              {t(configuredBefore ? 'onboarding.welcome_intro_upgraded' : 'onboarding.welcome_intro')}
+            </p>
 
             <div className="alert alert-warning text-sm">
               <span>{t('onboarding.welcome_why')}</span>
