@@ -50,6 +50,9 @@ def plan() -> list[MigrationAction]:
             # it: the file names no HostKey, so sshd falls back to the defaults
             # under /etc/ssh, which exist by first boot.
             validate_cmd="sshd -t -f",
+            # Both spellings: the legacy helper reads validate_cmd, v2 reads
+            # the named validator and refuses to run a command string.
+            validate="sshd",
             # Only when the file actually changed — the helper skips the write
             # when the hash already matches, and a reload then has no purpose.
             on_change=SystemctlReload(unit="ssh"),

@@ -418,6 +418,53 @@ def test_the_validator_inventory_covers_what_migrations_use(helper):
     assert helper.VALIDATORS["sshd"] == ["sshd", "-t", "-f"]
 
 
+def _every_action():
+    """Every action of every migration in the tree, with its version."""
+    import importlib
+    import pkgutil
+
+    from boneio.migrations import versions
+
+    for info in pkgutil.iter_modules(versions.__path__):
+        module = importlib.import_module(f"{versions.__name__}.{info.name}")
+        if not hasattr(module, "plan"):
+            continue
+        for action in module.plan():
+            yield module.VERSION, action.to_dict()
+
+
+def test_the_helper_accepts_every_action_in_the_tree(helper):
+    """The check that was missing.
+
+    The old test asked whether the helper's own vocabulary was well formed,
+    which it always was, and never whether the migrations were written in it.
+    Three were not: 1.3.0, 1.4.0 and 1.6.4 carried only ``validate_cmd``, which
+    v2 refuses by design — that refusal is the F-04 fix. On a device they were
+    refused one by one, and a refusal stops the queue, so a controller stalled
+    at 1.6.4 with six later migrations behind it and no boneio-system.
+
+    Every action is put through the helper's own gate rather than a copy of its
+    rules, so this cannot drift from what the helper actually does.
+    """
+    problems = []
+    for version, action in _every_action():
+        if action["action"] not in helper.ALLOWED_ACTIONS:
+            problems.append(f"{version}: unknown action {action['action']!r}")
+            continue
+        try:
+            helper._validator_for(action)
+        except helper.Refused as err:
+            problems.append(f"{version}: {err}")
+
+    assert not problems, "migrations this helper would refuse:\n  " + "\n  ".join(problems)
+
+
+def test_a_validator_name_the_helper_does_not_have_is_caught(helper):
+    """Guards the test above: it has to fail when something is wrong."""
+    with pytest.raises(helper.Refused):
+        helper._validator_for({"action": "install_file", "validate": "rspec"})
+
+
 # ---------------------------------------------------------------- asset digest
 
 

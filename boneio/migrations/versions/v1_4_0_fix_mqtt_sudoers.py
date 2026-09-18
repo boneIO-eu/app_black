@@ -31,5 +31,8 @@ def plan() -> list[MigrationAction]:
             dst="/etc/sudoers.d/boneio",
             mode=0o440,
             validate_cmd="visudo -cf",
+            # Both spellings: the legacy helper reads validate_cmd, v2 reads
+            # the named validator and refuses to run a command string.
+            validate="sudoers",
         ),
     ]

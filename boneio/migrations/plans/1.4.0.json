@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/etc/sudoers.d/boneio","expected_sha256":"6c994908ea9d8d0cb85501480b7a6236a31310012deebe6ee3d034da2dc2d4e9","group":"root","mode":288,"owner":"root","src":"sudoers/boneio","template_vars":{},"validate_cmd":"visudo -cf"}]
+[{"action":"install_file","dst":"/etc/sudoers.d/boneio","expected_sha256":"6c994908ea9d8d0cb85501480b7a6236a31310012deebe6ee3d034da2dc2d4e9","group":"root","mode":288,"owner":"root","src":"sudoers/boneio","template_vars":{},"validate":"sudoers","validate_cmd":"visudo -cf"}]
