@@ -91,3 +91,90 @@ def test_a_first_ever_web_section_is_still_guarded(proxy):
     proxy(serving=False)
     with pytest.raises(HTTPException):
         _guard(None, {"expose": "proxy"})
+
+
+# --------------------------------------- advice that matches what we will do
+
+
+class _Posture:
+    """The exposure check, evaluated with a given view of the proxy."""
+
+    @staticmethod
+    def check(proxy_serving):
+        from boneio.core.security.posture import evaluate
+
+        posture = evaluate(
+            {},
+            is_provisioned=True,
+            anonymous_allowed=False,
+            auth_required=True,
+            cloud_active=False,
+            proxy_serving=proxy_serving,
+        )
+        return next(c for c in posture.checks if c.id == "web_exposed_in_clear")
+
+
+def test_a_working_proxy_makes_it_a_warning():
+    from boneio.core.security.posture import Severity
+
+    assert _Posture.check(True).severity is Severity.WARNING
+
+
+def test_a_proxy_that_is_not_serving_makes_it_advice():
+    """Otherwise the panel recommends a change the save would refuse, and the
+    operator finds that out by clicking."""
+    from boneio.core.security.posture import Severity
+
+    check = _Posture.check(False)
+    assert check.severity is Severity.INFO
+    assert "reachable on nothing" in check.detail
+    assert "proxy serving this panel first" in check.remedy
+
+
+def test_not_having_looked_still_warns():
+    """The Home Assistant sensor derives the posture without the web layer, so
+    it cannot probe. Something unlocked is still something unlocked."""
+    from boneio.core.security.posture import Severity
+
+    assert _Posture.check(None).severity is Severity.WARNING
+
+
+def test_a_device_behind_the_proxy_passes_whatever_the_probe_says():
+    from boneio.core.security.posture import State, evaluate
+
+    for probe in (True, False, None):
+        posture = evaluate(
+            {"web": {"expose": "proxy"}},
+            is_provisioned=True,
+            anonymous_allowed=False,
+            auth_required=True,
+            cloud_active=False,
+            proxy_serving=probe,
+        )
+        check = next(c for c in posture.checks if c.id == "web_exposed_in_clear")
+        assert check.state is State.OK
+
+
+def test_a_device_already_behind_the_proxy_is_not_probed(monkeypatch):
+    """Spending an HTTPS round trip to learn what is already true."""
+    from boneio.webui.routes import security as route
+
+    monkeypatch.setattr(route, "_proxy_probe", None, raising=False)
+    monkeypatch.setattr(
+        bind, "proxy_is_serving", lambda *a, **k: pytest.fail("probed anyway")
+    )
+    assert route._proxy_serving({"web": {"expose": "proxy"}}) is None
+
+
+def test_the_probe_answer_is_reused_briefly(monkeypatch):
+    """Three components ask for the posture on one page load."""
+    from boneio.webui.routes import security as route
+
+    calls = []
+    monkeypatch.setattr(route, "_proxy_probe", None, raising=False)
+    monkeypatch.setattr(
+        bind, "proxy_is_serving", lambda *a, **k: calls.append(1) or (True, "")
+    )
+    assert route._proxy_serving({}) is True
+    assert route._proxy_serving({}) is True
+    assert len(calls) == 1

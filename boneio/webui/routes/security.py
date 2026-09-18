@@ -115,6 +115,45 @@ def _invalidate_config_cache() -> None:
     _config_cache = None
 
 
+#: The last proxy probe, as ``(asked_at, answer)``.
+_proxy_probe: tuple[float, bool] | None = None
+
+#: How long a probe answer stands. Long enough that the three components asking
+#: for the posture on one page load share a single request; short enough that
+#: somebody who has just fixed their proxy sees the page change.
+_PROXY_PROBE_TTL = 30.0
+
+
+def _proxy_serving(config: dict) -> bool | None:
+    """Whether the reverse proxy is answering for this panel.
+
+    Only asked when the answer changes what the panel says — a device already
+    behind the proxy is being served by it by definition, and probing there
+    would spend an HTTPS round trip to learn nothing.
+
+    Returns:
+        True or False, or None when it was not asked.
+    """
+    global _proxy_probe
+
+    web = config.get("web") if isinstance(config.get("web"), dict) else {}
+    if web.get("expose") == "proxy":
+        return None
+
+    now = time.time()
+    if _proxy_probe and now - _proxy_probe[0] < _PROXY_PROBE_TTL:
+        return _proxy_probe[1]
+
+    from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving
+
+    port = web.get("proxy_port")
+    if not isinstance(port, int):
+        port = DEFAULT_PROXY_PORT
+    serving, _ = proxy_is_serving(port, timeout=3.0)
+    _proxy_probe = (now, serving)
+    return serving
+
+
 def current_posture() -> Posture:
     """Evaluate this controller's security posture.
 
@@ -148,6 +187,7 @@ def current_posture() -> Posture:
         anonymous_allowed=is_anonymous_allowed(),
         auth_required=is_auth_required(),
         cloud_active=cloud_active,
+        proxy_serving=_proxy_serving(config),
     )
 
 

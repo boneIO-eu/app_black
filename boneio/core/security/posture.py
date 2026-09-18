@@ -213,6 +213,7 @@ def evaluate(
     anonymous_allowed: bool,
     auth_required: bool,
     cloud_active: bool,
+    proxy_serving: bool | None = None,
 ) -> Posture:
     """Work out what is still unlocked.
 
@@ -222,6 +223,8 @@ def evaluate(
         anonymous_allowed: Whether the anonymous opt-out is set.
         auth_required: Whether requests currently need a token.
         cloud_active: Whether cloud registration is serving a real certificate.
+        proxy_serving: Whether the reverse proxy is answering for this
+            panel right now. None when nobody looked.
 
     Returns:
         The full set of checks.
@@ -269,20 +272,35 @@ def evaluate(
         Check(
             id="web_exposed_in_clear",
             title="Panel served in the clear",
-            severity=Severity.WARNING,
+            # Three states, not two. Telling somebody to move the panel behind
+            # a proxy that is not serving it is advice we would then refuse to
+            # carry out, and they would find that out by clicking. Where the
+            # proxy is not answering this drops to advice and points at the
+            # proxy instead of at the panel.
+            severity=Severity.WARNING if proxy_serving is not False else Severity.INFO,
             state=State.OK if behind_proxy else State.FAILED,
             detail=(
-                "The panel answers on its own port on every network interface, "
-                "without TLS. Anyone who can see the traffic sees the login "
-                "form, the token it hands back, and a configuration that "
-                "carries passwords."
-                if not behind_proxy
-                else "The panel is reachable only through the encrypted proxy."
+                "The panel is reachable only through the encrypted proxy."
+                if behind_proxy
+                else (
+                    "The panel answers on its own port on every network "
+                    "interface, without TLS. Anyone who can see the traffic "
+                    "sees the login form, the token it hands back, and a "
+                    "configuration that carries passwords."
+                    if proxy_serving is not False
+                    else "The panel answers on its own port on every network "
+                    "interface, without TLS — and the proxy that would replace "
+                    "it is not serving this panel, so closing that port now "
+                    "would leave the device reachable on nothing."
+                )
             ),
             remedy=(
-                "Move it behind the proxy from the Security section. The panel "
-                "then answers on https and through an SSH tunnel, and not on "
-                "the local network in the clear."
+                "Move it behind the proxy. It then answers over HTTPS and "
+                "through an SSH tunnel, and not on the local network in the "
+                "clear."
+                if proxy_serving is not False
+                else "Get the proxy serving this panel first — check that "
+                "HTTPS answers on its port — and this becomes one click."
             ),
             settings_section="security",
         )
