@@ -81,10 +81,21 @@ export function promptDecision(input: {
   seenVersion: string | null;
   posture: SecurityPosture | null;
   dismissed: boolean;
+  /**
+   * Whether the first-run wizard is still on screen.
+   *
+   * The wizard adopts a token the moment it creates the account, so from the
+   * second step onwards an administrator is signed in and everything gated on
+   * that starts firing — over a wizard that is still running. Whatever this
+   * has to say keeps until the wizard is done, and the wizard reloads the page
+   * when it finishes, so nothing is lost by waiting.
+   */
+  onboarding?: boolean;
 }): PromptDecision {
-  const { isAdmin, version, seenVersion, posture, dismissed } = input;
+  const { isAdmin, version, seenVersion, posture, dismissed, onboarding } = input;
   const knownUpgrade = Boolean(seenVersion) && seenVersion !== version;
 
+  if (onboarding) return { show: false, knownUpgrade };
   if (!isAdmin || !version || !posture || dismissed) return { show: false, knownUpgrade };
   if (posture.summary.actionable === 0) return { show: false, knownUpgrade };
   if (seenVersion === version) return { show: false, knownUpgrade };

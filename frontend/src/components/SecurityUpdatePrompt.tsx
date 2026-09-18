@@ -59,6 +59,7 @@ export default function SecurityUpdatePrompt() {
   // now means it will not prompt later for this one either. That is the point:
   // the notice is about the gap, not about the release.
   useEffect(() => {
+    if (appInit.needsOnboarding) return;
     if (!isAdmin || !version || !posture) return;
     if (posture.summary.actionable === 0) {
       // Only the stored value changes. React state is left alone on purpose:
@@ -66,9 +67,16 @@ export default function SecurityUpdatePrompt() {
       // would re-render for no visible reason.
       writeSeenVersion(version);
     }
-  }, [isAdmin, version, posture]);
+  }, [isAdmin, version, posture, appInit.needsOnboarding]);
 
-  const decision = promptDecision({ isAdmin, version, seenVersion, posture, dismissed });
+  const decision = promptDecision({
+    isAdmin,
+    version,
+    seenVersion,
+    posture,
+    dismissed,
+    onboarding: appInit.needsOnboarding,
+  });
   if (!decision.show || !version || !posture) return null;
 
   const close = () => {

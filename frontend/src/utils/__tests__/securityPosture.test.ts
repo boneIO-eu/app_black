@@ -199,3 +199,31 @@ describe('the prompt and the section agree on wording', () => {
     );
   });
 });
+
+describe('promptDecision during the first-run wizard', () => {
+  const base = {
+    isAdmin: true,
+    version: '1.6.0',
+    seenVersion: '1.5.2',
+    posture: {
+      checks: [],
+      summary: { failed: 1, actionable: 1, critical: 0, warning: 1, info: 0, worst: 'warning' },
+    },
+    dismissed: false,
+  } as Parameters<typeof promptDecision>[0];
+
+  it('stays out of the way while the wizard is on screen', () => {
+    // The wizard adopts a token as soon as it creates the account, so from its
+    // second step an administrator is signed in and this used to open over a
+    // wizard the user was halfway through.
+    expect(promptDecision({ ...base, onboarding: true }).show).toBe(false);
+  });
+
+  it('appears once the wizard is done', () => {
+    expect(promptDecision({ ...base, onboarding: false }).show).toBe(true);
+  });
+
+  it('treats an absent flag as "no wizard"', () => {
+    expect(promptDecision(base).show).toBe(true);
+  });
+});
