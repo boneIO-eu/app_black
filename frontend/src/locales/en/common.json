@@ -2750,7 +2750,12 @@
       "save_failed": "Could not save the setting.",
       "add_origin": "Add an address",
       "remove_origin": "Remove address"
-    }
+    },
+    "remove_legacy_auth": "Remove it",
+    "remove_legacy_auth_confirm": "Remove the old web.auth block from config.yaml?\n\nA copy of the current file is saved next to it first. The account itself is not affected — it was moved into the account store when this device was upgraded, and you keep signing in exactly as you do now.\n\nIf that password is one you use anywhere else, change it there too.",
+    "remove_legacy_auth_done": "Removed. A copy of the previous file is at {{backup}}.",
+    "remove_legacy_auth_absent": "There was nothing left to remove.",
+    "remove_legacy_auth_failed": "Could not remove it: {{error}}"
   },
   "login": {
     "title": "Sign in to your",

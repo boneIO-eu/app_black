@@ -150,6 +150,30 @@ class Posture:
         }
 
 
+def _legacy_web_auth(config: dict) -> bool:
+    """Whether a pre-1.6 ``web.auth`` credential is still in the file.
+
+    Accounts moved to a hashed store in 1.6, and the block is no longer read.
+    Startup copies it across rather than deleting it, because rewriting
+    somebody's configuration during an upgrade is not a surprise worth
+    springing on a controller in a cabinet — so the password stays in plain
+    text until it is taken out deliberately.
+
+    Args:
+        config: Parsed configuration.
+
+    Returns:
+        True when a username or password is still present under ``web.auth``.
+    """
+    web = config.get("web")
+    if not isinstance(web, dict):
+        return False
+    auth = web.get("auth")
+    if not isinstance(auth, dict):
+        return False
+    return bool(auth.get("password") or auth.get("username"))
+
+
 def _mqtt_password(config: dict) -> str | None:
     """The configured MQTT password, if there is one.
 
@@ -221,6 +245,31 @@ def evaluate(
             ),
             remedy="Create an account, and remove allow_anonymous from web.auth in config.yaml.",
             settings_section="web",
+        )
+    )
+
+    legacy_auth = _legacy_web_auth(config)
+    checks.append(
+        Check(
+            id="legacy_web_auth",
+            title="Old login left in config.yaml",
+            severity=Severity.WARNING,
+            state=State.FAILED if legacy_auth else State.OK,
+            detail=(
+                "The pre-1.6 web.auth block is still in config.yaml with the "
+                "password in plain text. Nothing reads it any more — the "
+                "account was copied into the hashed store when this device "
+                "was upgraded — but it is still a password, and it is in "
+                "every backup and diagnostic bundle taken since."
+                if legacy_auth
+                else "No plain-text login is left in the configuration."
+            ),
+            remedy=(
+                "Remove it from the Security section, which keeps a copy of "
+                "config.yaml first. If the password is one you use anywhere "
+                "else, change it there too."
+            ),
+            settings_section="security",
         )
     )
 

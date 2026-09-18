@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaRedo } from 'react-icons/fa';
+import axios from '@/api/axios';
 import { useTranslation } from '../hooks/useTranslation';
 import {
   useSecurityPosture,
   type SecurityCheck,
 } from '../hooks/useSecurityPosture';
+import { invalidateSecurityPosture } from '../api/securityPostureCache';
 import { checkText as checkTextOf, fixRoute } from '../utils/securityPosture';
 import FrameAncestorsCard from './FrameAncestorsCard';
 import { SettingsPage, SecurityFindingCard, NoticeCallout } from './UISettings/ui';
@@ -24,6 +27,54 @@ export default function SecurityView() {
   const goToFix = (check: SecurityCheck) => {
     const route = fixRoute(check, SELF_ROUTE);
     if (route) navigate(route);
+  };
+
+  const [removingLegacyAuth, setRemovingLegacyAuth] = useState(false);
+
+  /**
+   * Take the pre-1.6 web.auth block out of config.yaml.
+   *
+   * The one check that is fixed here rather than somewhere else, so it gets an
+   * action instead of a route. Confirmed first because it edits a file the
+   * owner may maintain by hand — the confirmation says what is kept, what is
+   * not affected, and the one thing the device cannot do for them: change that
+   * password wherever else they used it.
+   */
+  const removeLegacyAuth = async () => {
+    if (!window.confirm(t('security.remove_legacy_auth_confirm'))) return;
+    setRemovingLegacyAuth(true);
+    try {
+      const { data } = await axios.delete<{ removed: boolean; backup: string | null }>(
+        '/api/security/legacy-auth',
+      );
+      window.alert(
+        data.removed
+          ? t('security.remove_legacy_auth_done', { backup: data.backup ?? '' })
+          : t('security.remove_legacy_auth_absent'),
+      );
+      invalidateSecurityPosture();
+      await refresh();
+    } catch (err) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        (err as Error).message;
+      window.alert(t('security.remove_legacy_auth_failed', { error: detail }));
+    } finally {
+      setRemovingLegacyAuth(false);
+    }
+  };
+
+  /** The action a card offers, which is usually a route and occasionally not. */
+  const fixActionFor = (check: SecurityCheck) => {
+    if (check.id === 'legacy_web_auth') {
+      return {
+        onFix: removingLegacyAuth ? undefined : () => void removeLegacyAuth(),
+        fixLabel: t('security.remove_legacy_auth'),
+      };
+    }
+    return fixRoute(check, SELF_ROUTE)
+      ? { onFix: () => goToFix(check), fixLabel: t('security.fix') }
+      : {};
   };
 
   if (loading && !posture) {
@@ -105,8 +156,7 @@ export default function SecurityView() {
               detail={checkText(check.id, 'detail', check.detail)}
               remedy={checkText(check.id, 'remedy', check.remedy)}
               severityLabel={t(`security.severity.${check.severity}`)}
-              onFix={fixRoute(check, SELF_ROUTE) ? () => goToFix(check) : undefined}
-              fixLabel={t('security.fix')}
+              {...fixActionFor(check)}
             />
           ))}
         </div>
@@ -127,8 +177,7 @@ export default function SecurityView() {
               detail={checkText(check.id, 'detail', check.detail)}
               remedy={checkText(check.id, 'remedy', check.remedy)}
               severityLabel={t(`security.severity.${check.severity}`)}
-              onFix={fixRoute(check, SELF_ROUTE) ? () => goToFix(check) : undefined}
-              fixLabel={t('security.fix')}
+              {...fixActionFor(check)}
             />
           ))}
         </div>

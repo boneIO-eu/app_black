@@ -10,12 +10,19 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from boneio.core.config.yaml_patch import YamlPatchError, set_block_list
+from boneio.core.config.yaml_patch import (
+    YamlPatchError,
+    has_section,
+    remove_section,
+    set_block_list,
+)
 from boneio.core.config.yaml_util import load_yaml_file
 from boneio.core.security import framing
 from boneio.core.security.posture import Posture, evaluate
@@ -319,3 +326,76 @@ async def set_frame_ancestors(payload: FrameAncestorsRequest):
 
     _LOGGER.info("frame-ancestors set to %s", tokens)
     return {**_describe(tokens), "restart_required": True}
+
+
+# ------------------------------------------------- the pre-1.6 login block
+
+
+@router.delete("/legacy-auth")
+async def remove_legacy_auth():
+    """Take the pre-1.6 ``web.auth`` block out of config.yaml.
+
+    Startup copies that account into the hashed store and deliberately leaves
+    the file alone — rewriting somebody's configuration during an upgrade is
+    not a surprise to spring on a controller in a cabinet. The consequence is
+    a password sitting in plain text in a block nothing reads, in the file and
+    in every backup taken since, until somebody removes it on purpose. This is
+    that purpose, asked for by an administrator who can see what it will do.
+
+    A copy of the file is written first, next to it. The block can carry
+    comments and the removal takes the ones directly above it, so an owner who
+    wanted them has somewhere to look.
+
+    Returns:
+        What happened, and where the copy went.
+
+    Raises:
+        HTTPException: If no configuration is loaded, or the file cannot be
+            read or written.
+    """
+    config_file = getattr(_app_state, "yaml_config_file", None)
+    if not config_file:
+        raise HTTPException(status_code=503, detail="No configuration file is loaded.")
+
+    path = Path(config_file)
+
+    # Asked before anything is written. A second call used to copy the
+    # already-cleaned file over the backup made by the first — destroying the
+    # only remaining copy of the block — and then delete it as unneeded.
+    try:
+        if not has_section(path, ("web", "auth")):
+            return {"removed": False, "backup": None}
+    except OSError as err:
+        raise HTTPException(
+            status_code=500, detail=f"Could not read the configuration: {err}"
+        ) from err
+
+    backup = path.with_name(f"{path.name}.pre-1.6-auth.bak")
+    try:
+        shutil.copy2(path, backup)
+    except OSError as err:
+        # Without the copy this is an irreversible edit to a file we do not
+        # own, so the edit does not happen.
+        raise HTTPException(
+            status_code=500, detail=f"Could not write a copy first: {err}"
+        ) from err
+
+    try:
+        removed = remove_section(path, ("web", "auth"))
+    except YamlPatchError as err:
+        raise HTTPException(status_code=409, detail=str(err)) from err
+    except OSError as err:
+        raise HTTPException(status_code=500, detail=str(err)) from err
+
+    if not removed:  # pragma: no cover - has_section already answered this
+        return {"removed": False, "backup": None}
+
+    _invalidate_config_cache()
+    _LOGGER.warning(
+        "Removed the pre-1.6 web.auth block from %s on an administrator's "
+        "request. A copy of the previous file is at %s. If that password is "
+        "used anywhere else, it should be changed there.",
+        path,
+        backup,
+    )
+    return {"removed": True, "backup": str(backup)}

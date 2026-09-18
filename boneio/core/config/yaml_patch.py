@@ -260,3 +260,124 @@ def ensure_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
     file_path.write_text("".join(lines), encoding="utf-8")
     _LOGGER.info("Created section '%s' in %s", ".".join(path), file_path)
     return True
+
+
+def _find_section_line(lines: list[str], path: tuple[str, ...]) -> int | None:
+    """Index of the line declaring a nested key, or None if it is not there.
+
+    Args:
+        lines: File lines.
+        path: Section path, outermost first.
+
+    Returns:
+        The index of the key's own line, or None.
+    """
+    depth = 0
+    for index, line in enumerate(lines):
+        parsed = _line_key(line)
+        if parsed is None:
+            continue
+        key, indent, _ = parsed
+        if depth and indent <= (depth - 1) * len(INDENT):
+            return None
+        if key == path[depth] and indent == depth * len(INDENT):
+            depth += 1
+            if depth == len(path):
+                return index
+    return None
+
+
+def has_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
+    """Whether a nested key is present in the file.
+
+    Separate from :func:`remove_section` so a caller can find out before doing
+    anything irreversible — such as writing a backup copy over the one it made
+    the last time it was asked.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Section path, outermost first.
+
+    Returns:
+        True when the key is there.
+
+    Raises:
+        YamlPatchError: If the path is empty.
+    """
+    if not path:
+        raise YamlPatchError("No section path given.")
+    lines = Path(config_file).read_text(encoding="utf-8").splitlines(keepends=True)
+    return _find_section_line(lines, path) is not None
+
+
+def remove_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
+    """Delete a nested mapping key and everything under it.
+
+    Written for one job: taking the pre-1.6 ``web.auth`` block out of a
+    configuration after its account has been migrated into the hashed store.
+    Nothing reads it any more, and it still holds the owner's password in
+    plain text — in the file, and in every backup and diagnostic bundle made
+    since.
+
+    Line-based rather than a parse-and-dump, for the usual reason: the file
+    belongs to the owner, and round-tripping it through a YAML library would
+    return their comments, ordering and ``!include`` directives as something
+    they did not write.
+
+    Comment lines immediately above the key are removed with it. They describe
+    the block, and leaving them behind stranded over an unrelated setting is
+    worse than taking one comment too many.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Section path, outermost first, e.g. ``("web", "auth")``.
+
+    Returns:
+        True if something was removed, False if the key was not there.
+
+    Raises:
+        YamlPatchError: If the path is empty.
+    """
+    if not path:
+        raise YamlPatchError("No section path given.")
+
+    file_path = Path(config_file)
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    start = _find_section_line(lines, path)
+    if start is None:
+        return False
+    key_indent = len(lines[start]) - len(lines[start].lstrip())
+
+    # Everything indented under the key belongs to it, blank lines included
+    # while more indented content follows.
+    end = start + 1
+    while end < len(lines):
+        line = lines[end]
+        if not line.strip():
+            following = next(
+                (i for i in range(end + 1, len(lines)) if lines[i].strip()), None
+            )
+            if following is None:
+                break
+            next_indent = len(lines[following]) - len(lines[following].lstrip())
+            if next_indent <= key_indent:
+                break
+            end += 1
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= key_indent:
+            break
+        end += 1
+
+    # Take the comment block sitting directly on top of it.
+    while start > 0:
+        above = lines[start - 1].strip()
+        if above.startswith("#"):
+            start -= 1
+            continue
+        break
+
+    del lines[start:end]
+    file_path.write_text("".join(lines), encoding="utf-8")
+    return True
