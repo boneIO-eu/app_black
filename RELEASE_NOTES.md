@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev6` exists so that we can test the new system-migration chain on a
+`1.6.0.dev7` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -24,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev6 — internal test build
+# v1.6.0.dev7 — internal test build
 
 ## What this build is for
 
@@ -90,6 +90,37 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev6
+
+Corrections, most of them found by using the thing on a controller.
+
+**The panel says why cloud registration is not working.** One device had it
+switched on and was being told to switch it on, while the reason sat in the
+application unread: the cloud was refusing the device outright. The error was
+being fetched and rendered all along, behind a condition — the compose file
+being writable — that 1.6 makes permanently false on every device.
+
+**The certificate check tells the truth about all four cases**, including an
+uploaded certificate, which it did not know existed.
+
+**Closing the panel's own port is only recommended when the proxy can take
+over.** It was advice we would have refused to carry out, and the operator
+would have discovered that by clicking.
+
+**Pressing that button no longer reports a failure for a save that worked.**
+The check it makes can take seconds the first time — Caddy mints itself a
+certificate before answering — and the browser was giving up at the same moment
+the write completed.
+
+**Home Assistant is no longer linked to a port that has been closed**, and the
+panel shows the address that was actually published rather than describing the
+rule for deriving it.
+
+**The reverse proxy port is gone from the settings.** It only ever chose that
+port in the Home Assistant link, the built-in proxy answers on 8443 regardless,
+and anyone fronting the device with their own proxy is setting a full URL in
+the dashboard add-on. Existing configurations keep working.
 
 ## Since dev5
 
