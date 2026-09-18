@@ -1,0 +1,151 @@
+# Security Policy
+
+boneIO Black is a DIN-rail controller for building automation. It runs relays,
+covers, irrigation and access logic in houses and small installations, often on
+a network the owner does not administer and in a cabinet nobody visits for
+years. We would rather hear about a problem from you than from a customer.
+
+This policy describes how to report a vulnerability, what happens next, and
+what we commit to in return.
+
+## Reporting a vulnerability
+
+**Please do not open a public issue for a security problem.**
+
+Use one of these, in order of preference:
+
+1. **GitHub private vulnerability reporting** — on
+   <https://github.com/boneIO-eu/app_bbb>, go to the **Security** tab and
+   choose *Report a vulnerability*. The report stays private between you and
+   us, and it is the channel we watch most closely.
+2. **Email** — <pszafer@gmail.com>, with `SECURITY` in the subject. Say up
+   front if the contents are sensitive and we will move to an encrypted
+   channel before you send details.
+
+If you get no response within **5 working days**, assume the message went
+missing and try the other channel. That is not a brush-off — this is a small
+team, and mail does get lost.
+
+### What helps us
+
+Anything you can give us, in whatever form you have it:
+
+- the version (`boneIO` panel → *About*, or `pip show boneio`), and whether the
+  device was freshly imaged or upgraded in place
+- what an attacker has to start with: network access only, an account on the
+  panel, the `boneio` SSH account, physical access to the terminals
+- the steps, ideally as commands or requests rather than a description
+- what it gets them — reading a secret, changing a state, code execution, root
+- anything you already know about mitigation
+
+A report we can reproduce is worth far more than a polished write-up we cannot.
+Send a rough one rather than none.
+
+### If you are not sure it is a vulnerability
+
+Send it anyway. Deciding is our job, not yours, and we would rather triage ten
+non-issues than miss one.
+
+## What we do
+
+| When | What |
+|---|---|
+| Within 5 working days | We acknowledge the report and tell you who is handling it. |
+| Within 10 working days | We tell you whether we reproduced it, how we rate it, and roughly when a fix will land. |
+| While we work | We keep you updated at least every two weeks, and we tell you if a date slips. |
+| At release | We publish the fix, credit you as you asked, and tell you before it goes public. |
+
+Severity is assessed with CVSS. Critical and high-severity issues are handled
+ahead of feature work; the practical limit on the fix is usually verification
+on real hardware, not development.
+
+### Disclosure
+
+We work to **coordinated disclosure**. The default embargo is **90 days** from
+our acknowledgement, or until a fix is released — whichever is sooner. If we
+need longer we will say so and explain why, and we will not ask for silence
+indefinitely.
+
+We request a CVE identifier for anything that affects a released version, so
+that operators can match what they run against what is published. You are
+credited by the name or handle you choose, or not at all if you prefer.
+
+If a vulnerability is being **actively exploited**, we are required under the
+EU Cyber Resilience Act (Regulation (EU) 2024/2847) to report it to ENISA and
+the relevant CSIRT — an early warning within 24 hours, a notification within
+72 hours, and a final report within 14 days of a corrective measure being
+available. That reporting is about the vulnerability, not about you, and your
+name is not part of it.
+
+### Safe harbour
+
+We will not pursue legal action, or ask anyone else to, over research carried
+out in good faith under this policy — meaning: on your own device, without
+accessing or altering data belonging to other people, without degrading a
+service others rely on, and giving us a reasonable chance to fix the problem
+before it is made public.
+
+If you are unsure whether something is in bounds, ask first. We would rather
+answer a question than argue afterwards.
+
+We do not run a paid bug bounty.
+
+## Scope
+
+**In scope**
+
+- the boneIO application in this repository: the web panel, its API,
+  authentication and roles, the MQTT and Modbus paths, the configuration
+  handling, and the privileged system helpers
+- the boneIO Black system image and its provisioning scripts
+  (<https://github.com/boneIO-eu/black_debian_images>)
+- the migration mechanism, the signing of migration plans, and the trust
+  anchors pinned on the device
+- default configuration and anything the device ships with out of the box
+
+**Out of scope**
+
+- Node-RED flows, automations and configurations written by the operator
+- third-party components in their own right — report those upstream. If an
+  upstream problem is made worse by how boneIO ships or configures it, that
+  part is ours and we want to hear about it.
+- attacks that require physical disassembly of the device or access to the
+  serial console on the board
+- reports generated by a scanner with no demonstrated impact, missing headers
+  on endpoints that serve nothing sensitive, and self-XSS
+- social engineering of boneIO staff or customers
+
+## Supported versions
+
+Security fixes go to the current stable release line. Older lines get a fix
+only where the upgrade path itself is the problem.
+
+| Version | Status |
+|---|---|
+| 1.6.x | In development — security fixes applied as they are found |
+| 1.5.x | Supported |
+| 1.4.x and earlier | Unsupported — please upgrade |
+
+Pre-release builds (`.devN`) are for testing and are not supported in
+production. They are marked as pre-releases and are never offered as an
+automatic update.
+
+## Support period
+
+Under the Cyber Resilience Act, security updates are provided for **at least
+five years** from the date a device is placed on the market, or for the
+expected lifetime of the device where that is longer. Updates that fix
+vulnerabilities are free, and are delivered through the panel's update
+mechanism.
+
+Migration plans that change the system are signed at release time with a key
+that is not held by the build pipeline, and are verified on the device against
+public keys pinned outside the application's reach. A compromised release
+pipeline cannot, on its own, produce something a controller will run as root.
+
+## How we tell you about fixes
+
+- release notes in this repository, naming what was fixed
+- GitHub Security Advisories, with the CVE where one has been assigned
+- for issues that need an operator to act rather than just update, a notice on
+  <https://boneio.eu>
