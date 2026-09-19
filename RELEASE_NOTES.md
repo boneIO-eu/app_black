@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev8` exists so that we can test the new system-migration chain on a
+`1.6.0.dev9` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -24,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev8 — internal test build
+# v1.6.0.dev9 — internal test build
 
 ## What this build is for
 
@@ -90,6 +90,21 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev8
+
+**The dependency advisories that reach a controller are closed.** aiohttp,
+python-multipart and requests are bumped. anyio needed more than a bump: it is
+not a direct dependency, it arrives through starlette, and pip's default
+upgrade strategy leaves a satisfied dependency alone — so a device imaged with
+an old one would have kept it through every update it ever received, including
+this one. A floor in the requirements is what moves it, and the batch's only
+critical advisory was against anyio.
+
+**Tokens are signed with PyJWT.** python-jose was carrying ecdsa, rsa, pyasn1
+and six for algorithms this panel does not use — it signs one kind of token,
+HS256 with a secret it holds — and ecdsa's advisory has no fixed version and no
+prospect of one. Four dependencies leave with it.
 
 ## Since dev7
 
