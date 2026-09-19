@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev7` exists so that we can test the new system-migration chain on a
+`1.6.0.dev8` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -24,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev7 — internal test build
+# v1.6.0.dev8 — internal test build
 
 ## What this build is for
 
@@ -90,6 +90,31 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev7
+
+**The device's own certificate lasts six months rather than twelve hours.**
+Caddy's internal issuer defaults to half a day, which for a certificate nobody
+trusts until they decide to means the decision is undone daily: click through
+the warning, or add an exception, or install this device's authority on your
+laptop, and by the evening you meet a fresh unknown certificate. The
+intermediate goes to a year alongside it, because Caddy refuses to start when a
+leaf would outlive the intermediate that signs it — and that failure takes the
+panel with it, so both were tried against a real Caddy before either was
+written down.
+
+Migration 1.6.14 carries it. Nothing restarts the proxy for it: the certificate
+in use is valid, and swapping a working one for a longer-lived one is not worth
+an interruption nobody asked for.
+
+**A migration can now declare that a later one replaces it.** A file installed
+by one and replaced by the next is written once per revision on a device
+applying them from scratch, each write a signature check and a validator run
+through the privileged helper. Whole migrations are skipped, never parts of one
+— the helper is handed a version string and reads its plan from a signed file,
+and that is what keeps the application out of deciding what runs as root. The
+claim is checked rather than trusted: every effect of the older migration has
+to be an effect of the newer.
 
 ## Since dev6
 
