@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import axios from '@/api/axios';
 import { fetchConfig } from '@/api/configCache';
+import { buildLocalInputsSchema, withFilteredInputs } from './helpers/inputSchema';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
 import {
@@ -345,11 +346,9 @@ export default function UISettings() {
           );
 
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
-            // Virtual sections use the event schema as base (superset of binary_sensor)
-            const schemaKey = sectionConfig.name === 'local_inputs'
-              ? 'event'
-              : sectionConfig.name;
-            let sectionSchema = mainSchema.properties?.[schemaKey];
+            let sectionSchema = sectionConfig.name === 'local_inputs'
+              ? buildLocalInputsSchema(mainSchema, allowedInputs)
+              : mainSchema.properties?.[sectionConfig.name];
 
             // Debug for cover section
             if (sectionConfig.name === 'cover') {
@@ -382,26 +381,10 @@ export default function UISettings() {
               }
             }
 
-            // Filter boneio_input enum for event/binary_sensor/local_inputs based on board version
-            if (
-              (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor' || sectionConfig.name === 'local_inputs') &&
-              sectionSchema?.items?.properties?.boneio_input?.enum
-            ) {
-              sectionSchema = {
-                ...sectionSchema,
-                items: {
-                  ...sectionSchema.items,
-                  properties: {
-                    ...sectionSchema.items.properties,
-                    boneio_input: {
-                      ...sectionSchema.items.properties.boneio_input,
-                      enum: sectionSchema.items.properties.boneio_input.enum.filter(
-                        (v: string) => allowedInputs.includes(v)
-                      ),
-                    },
-                  },
-                },
-              };
+            // Filter boneio_input enum based on board version.
+            // local_inputs is already filtered inside buildLocalInputsSchema().
+            if (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor') {
+              sectionSchema = withFilteredInputs(sectionSchema, allowedInputs);
             }
 
             return {
