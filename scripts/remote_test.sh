@@ -186,11 +186,11 @@ chk "login role is admin"  "admin" "$(curl -fsS --max-time 15 -X POST "$BASE/api
 # --- roles: a viewer operates, an admin configures --------------------
 vcode=$(code -X POST "$BASE/api/accounts" -H "Authorization: Bearer $tok" \
   -H 'Content-Type: application/json' \
-  -d '{"username":"gosc","password":"haslo-goscia","role":"viewer"}')
+  -d '{"username":"gosc","password":"ZupelnieInneHaslo-42","role":"viewer"}')
 chk "admin creates a viewer account" "201" "$vcode"
 
 vtok=$(curl -fsS --max-time 30 -X POST "$BASE/api/login" -H 'Content-Type: application/json' \
-  -d '{"username":"gosc","password":"haslo-goscia"}' | field token)
+  -d '{"username":"gosc","password":"ZupelnieInneHaslo-42"}' | field token)
 [ -n "$vtok" ] && emit PASS "viewer can sign in" || emit FAIL "viewer could not sign in"
 VH="Authorization: Bearer $vtok"
 
@@ -204,7 +204,7 @@ chk "viewer may NOT create an account" "403" \
      -d '{"username":"wlasny","password":"dobre-haslo","role":"admin"}')"
 chk "viewer MAY change their own password" "200" \
   "$(code -X PUT "$BASE/api/account/password" -H "$VH" -H 'Content-Type: application/json' \
-     -d '{"current_password":"haslo-goscia","new_password":"nowe-haslo-123"}')"
+     -d '{"current_password":"ZupelnieInneHaslo-42","new_password":"nowe-haslo-123"}')"
 chk "admin may restart" "200" \
   "$(code -X POST "$BASE/api/restart" -H "Authorization: Bearer $tok")"
 
