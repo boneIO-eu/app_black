@@ -9,7 +9,7 @@ authors = [
 dependencies = [
     "smbus2==0.4.3",
     "aiomqtt==2.4.0",
-    "aiohttp==3.14.1",
+    "aiohttp==3.14.3",
     "Cerberus==1.3.7",
     "colorlog==6.9.0",
     "luma-core==2.5.1",
@@ -24,14 +24,20 @@ dependencies = [
     "hypercorn==0.18.0",
     "websockets==15.0.1",
     "python-jose[cryptography]==3.5.0",
-    "python-multipart==0.0.22",
+    "python-multipart==0.0.31",
     "qrcode==8.2",
     "gpiod==2.3.0",
-    "requests==2.32.5",
+    "requests==2.33.0",
     "packaging==25.0",
     "aioesphomeapi>=45.0.0",
     "zeroconf>=0.148.0",
     "canopen-asyncio>=2.4.1",
+    # Not used directly. It arrives through starlette, which accepts anything
+    # from 3.6.2 upwards, and pip's default upgrade strategy leaves a
+    # satisfied dependency alone — so a controller that has carried an old
+    # anyio since it was imaged would keep it through every update. The floor
+    # is what makes the fix reach a device already in the field.
+    "anyio>=4.14.2",
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }
