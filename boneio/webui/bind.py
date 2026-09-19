@@ -36,6 +36,17 @@ _LOGGER = logging.getLogger(__name__)
 #: is a bridge created for a compose project.
 _BRIDGE_PREFIXES = ("docker0", "br-")
 
+#: The USB gadget link — a cable between this controller and one computer,
+#: carrying 192.168.7.2 by default.
+#:
+#: Kept when the panel is taken off the network, because it is not the network:
+#: it is a cable somebody has plugged into the device, which is physical access
+#: they already have. It is also how the factory station reaches a board that
+#: has no other address yet, and how anyone recovers a controller whose
+#: Ethernet is misconfigured. Closing it would take away the way back and
+#: protect nothing.
+_USB_PREFIXES = ("usb",)
+
 LOOPBACK = "127.0.0.1"
 
 
@@ -57,10 +68,37 @@ def docker_bridge_addresses() -> list[str]:
     Returns:
         Addresses, in a stable order, or an empty list when none can be found.
     """
+    return _addresses_of(_BRIDGE_PREFIXES)
+
+
+def usb_gadget_addresses() -> list[str]:
+    """IPv4 addresses of the USB gadget link, when a cable is connected.
+
+    systemd-networkd only applies the address once the link comes up, so this
+    is empty on a controller with nothing plugged in — which is most of them,
+    most of the time. A device switched to proxy-only therefore answers over
+    USB when it was started with the cable in, as it is on the factory
+    station, and after a restart otherwise.
+
+    Returns:
+        Addresses, or an empty list when no cable is connected.
+    """
+    return _addresses_of(_USB_PREFIXES)
+
+
+def _addresses_of(prefixes: tuple[str, ...]) -> list[str]:
+    """IPv4 addresses of every interface whose name starts with one of these.
+
+    Args:
+        prefixes: Interface name prefixes to match.
+
+    Returns:
+        Addresses, sorted, without duplicates.
+    """
     addresses: list[str] = []
     try:
         for name, addrs in psutil.net_if_addrs().items():
-            if not name.startswith(_BRIDGE_PREFIXES):
+            if not name.startswith(prefixes):
                 continue
             for addr in addrs:
                 if getattr(addr, "family", None) is not None and addr.address:
@@ -69,7 +107,7 @@ def docker_bridge_addresses() -> list[str]:
                     if int(addr.family) == 2:
                         addresses.append(addr.address)
     except Exception as err:  # noqa: BLE001
-        _LOGGER.warning("Could not enumerate Docker bridges: %s", err)
+        _LOGGER.warning("Could not enumerate network interfaces: %s", err)
     return sorted(set(addresses))
 
 
@@ -126,7 +164,7 @@ def binds_for(exposure: str, port: int, wait: float = BRIDGE_WAIT_SECONDS) -> li
     if exposure != Exposure.PROXY:
         return [f"0.0.0.0:{port}"]
 
-    hosts = [LOOPBACK, *_wait_for_a_bridge(wait)]
+    hosts = [LOOPBACK, *_wait_for_a_bridge(wait), *usb_gadget_addresses()]
     if len(hosts) == 1:
         # No bridge found. Binding the loopback alone would leave the panel
         # unreachable from anywhere but the device itself, so this says what

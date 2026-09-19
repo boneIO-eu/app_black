@@ -1037,7 +1037,7 @@
     "builtin_proxy_title": "HTTPS is already being served",
     "builtin_proxy": "This device runs its own reverse proxy, which serves the panel over HTTPS on port 8443. The Security section shows the address Home Assistant is given and the one worth handing to people.",
     "expose_proxy": "Only reachable through the proxy",
-    "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers only on the loopback and the Docker bridge — reachable over HTTPS, or through an SSH tunnel. Saving this is refused if the proxy is not already serving the panel, so the device cannot end up unreachable. Takes effect after a restart."
+    "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers on the loopback, the Docker bridge and the USB cable — reachable over HTTPS, through an SSH tunnel, or by plugging a computer into the device. Saving this is refused if the proxy is not already serving the panel, so it cannot end up unreachable. Takes effect after a restart."
   },
   "common": {
     "save": "Save",

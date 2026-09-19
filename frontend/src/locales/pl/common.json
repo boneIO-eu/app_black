@@ -1037,7 +1037,7 @@
     "builtin_proxy_title": "HTTPS już działa",
     "builtin_proxy": "To urządzenie ma własne reverse proxy, które serwuje panel po HTTPS na porcie 8443. W sekcji Bezpieczeństwo zobaczysz adres przekazany Home Assistantowi oraz ten, który warto podawać ludziom.",
     "expose_proxy": "Osiągalny tylko przez proxy",
-    "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada wyłącznie na loopbacku i na mostku Dockera, czyli przez HTTPS albo przez tunel SSH. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
+    "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada na loopbacku, na mostku Dockera i na kablu USB, czyli przez HTTPS, przez tunel SSH albo po podłączeniu komputera do urządzenia. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
   },
   "common": {
     "save": "Zapisz",

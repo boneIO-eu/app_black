@@ -135,3 +135,61 @@ def test_bridge_discovery_survives_a_missing_psutil(monkeypatch):
 
     monkeypatch.setattr("psutil.net_if_addrs", boom)
     assert bind.docker_bridge_addresses() == []
+
+
+# ------------------------------------------------------- the USB gadget link
+
+
+@pytest.fixture
+def usb(monkeypatch):
+    def use(addresses):
+        monkeypatch.setattr(bind, "usb_gadget_addresses", lambda: list(addresses))
+
+    return use
+
+
+def test_proxy_keeps_the_usb_cable(bridges, usb):
+    """A cable is not the network.
+
+    Somebody who has plugged one in already has physical access, and this is
+    how the factory station reaches a board with no other address and how a
+    controller with broken Ethernet is recovered. Closing it takes away the way
+    back and protects nothing.
+    """
+    bridges(["172.17.0.1"])
+    usb(["192.168.7.2"])
+    assert "192.168.7.2:8090" in binds_for(Exposure.PROXY, 8090)
+
+
+def test_no_cable_is_not_an_error(bridges, usb):
+    """Most controllers have nothing plugged in, most of the time."""
+    bridges(["172.17.0.1"])
+    usb([])
+    assert binds_for(Exposure.PROXY, 8090) == ["127.0.0.1:8090", "172.17.0.1:8090"]
+
+
+def test_all_does_not_need_the_cable_enumerated(monkeypatch):
+    monkeypatch.setattr(
+        bind, "usb_gadget_addresses", lambda: pytest.fail("looked for a cable")
+    )
+    assert binds_for(Exposure.ALL, 8090) == ["0.0.0.0:8090"]
+
+
+def test_the_gadget_interface_is_matched_by_name(monkeypatch):
+    """usb0 and usb1 on a BeagleBone; nothing else should match."""
+
+    class _Addr:
+        def __init__(self, address):
+            self.family = 2
+            self.address = address
+
+    monkeypatch.setattr(
+        "psutil.net_if_addrs",
+        lambda: {
+            "usb0": [_Addr("192.168.7.2")],
+            "usb1": [_Addr("192.168.6.2")],
+            "eth0": [_Addr("192.168.50.220")],
+            "lo": [_Addr("127.0.0.1")],
+        },
+    )
+    assert bind.usb_gadget_addresses() == ["192.168.6.2", "192.168.7.2"]
