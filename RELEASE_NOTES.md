@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev9` exists so that we can test the new system-migration chain on a
+`1.6.0.dev10` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -24,7 +24,7 @@ will be announced as such, and it will not look like this notice.
 
 ---
 
-# v1.6.0.dev9 — internal test build
+# v1.6.0.dev10 — internal test build
 
 ## What this build is for
 
@@ -90,6 +90,27 @@ needs it. The helper checks for itself that the replacement is installed and
 root-owned before it removes anything, and a device whose migration helper
 never arrived defers the step instead of failing it. Fresh images no longer
 grant the group at all.
+
+## Since dev9
+
+**Taking the panel off the network keeps the USB cable.** It was binding the
+loopback and the Docker bridges and nothing else, which would have closed the
+link the factory station uses to reach a board with no other address, and the
+one anybody uses to recover a controller whose Ethernet is wrong. A cable is
+not the network: whoever plugged it in has physical access already.
+
+**fastapi 0.141.1**, which unblocks starlette — four advisories were sitting on
+the version fastapi==0.118.0 held it at. starlette and cryptography get floors
+for the same reason anyio did: both are indirect, nothing pins them, and pip
+leaves a satisfied dependency alone, so a device keeps whatever it was imaged
+with. One controller here was still running cryptography 46.0.4.
+
+Everything else since dev9 is development tooling and changes nothing on a
+device: the deployment script now says when a controller is not running the
+versions the project declares, and there is a check that asks a live device
+whether the socket still delivers entities, migrations are all applied and
+nothing failed to initialise — the three things that were wrong in earlier
+builds while every test was green.
 
 ## Since dev8
 
