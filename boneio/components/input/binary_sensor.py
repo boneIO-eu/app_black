@@ -57,6 +57,41 @@ class GpioInputBinarySensor(GpioBaseClass):
         if kwargs.get("initial_send", False):
             gpio_manager.register_on_start_callback(self._send_initial_state)
 
+    def update_inverted(self, inverted: bool) -> bool:
+        """Apply a new ``inverted`` setting to a running sensor.
+
+        Polarity is decided in ``__init__`` and baked into the detector, so a
+        config reload alone used to leave the running sensor on the old
+        polarity until the application was restarted.
+
+        Args:
+            inverted: New inverted flag from the reloaded config.
+
+        Returns:
+            True if the polarity actually changed (caller should re-publish
+            the state), False if it was already set that way.
+        """
+        inverted = bool(inverted)
+        if inverted == self._inverted:
+            return False
+
+        self._inverted = inverted
+        self._click_type = (RELEASED, PRESSED) if inverted else (PRESSED, RELEASED)
+
+        # Re-read the pin and re-anchor the detector with the new polarity.
+        gpio_manager = get_gpio_manager(loop=self._loop)
+        current_value = gpio_manager.read_value(self._pin)
+        is_pressed = current_value if inverted else not current_value
+        self._detector.resync(inverted=inverted, current_state=is_pressed)
+
+        _LOGGER.info(
+            "Binary sensor %s (%s): inverted changed to %s without restart",
+            self._name,
+            self._pin,
+            inverted,
+        )
+        return True
+
     def _send_initial_state(self) -> None:
         """Send initial state after setup."""
         self.send_current_state()
