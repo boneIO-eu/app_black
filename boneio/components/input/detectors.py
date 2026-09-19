@@ -135,6 +135,14 @@ class MultiClickDetector:
                         self._delay_click_types.add(first)
                         break
 
+    def set_debounce(self, debounce_seconds: float) -> None:
+        """Change the debounce window on a running detector.
+
+        Only the window is replaced; timestamps already recorded stay valid
+        and are simply compared against the new window from now on.
+        """
+        self._debounce_seconds = debounce_seconds
+
     def _finalize_clicks(self) -> None:
         """Finalize a multi-click sequence."""
         count = self._state.click_count
@@ -846,6 +854,33 @@ class BinarySensorDetector:
         self._name = name
         self._pin = pin
         self._state = BinarySensorState()
+
+    def set_debounce(self, debounce_seconds: float) -> None:
+        """Change the debounce window on a running detector.
+
+        Only the window is replaced; timestamps already recorded stay valid
+        and are simply compared against the new window from now on.
+        """
+        self._debounce_seconds = debounce_seconds
+
+    def resync(self, inverted: bool, current_state: bool) -> None:
+        """Apply a new polarity to a running detector.
+
+        Called when ``inverted`` is changed in the config and reloaded, so the
+        user does not have to restart the application for it to take effect.
+
+        Args:
+            inverted: New inverted flag.
+            current_state: Pressed state as read from the pin right now, already
+                interpreted with the *new* polarity. Without re-anchoring it the
+                cached state would still describe the old polarity and the next
+                edge would be dropped by the "state unchanged" guard.
+        """
+        self._inverted = bool(inverted)
+        self._state.current_state = bool(current_state)
+        # Drop the debounce anchor — the pending window belongs to the old
+        # polarity and would swallow the first edge after the change.
+        self._state.last_press_ts = None
 
     def handle_event(self, event: gpiod.EdgeEvent) -> None:
         """Process a GPIO edge event for binary sensor.

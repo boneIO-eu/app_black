@@ -296,6 +296,7 @@ class InputManager:
                     enable_triple_click=gpio.get("enable_triple_click"),
                     long_press_mqtt_mode=gpio.get("long_press_mqtt_mode"),
                     max_long_press_duration=gpio.get("max_long_press_duration"),
+                    bounce_time=gpio.get("bounce_time"),
                 )
 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area, mqtt_sequences)
@@ -410,6 +411,14 @@ class InputManager:
                 # Update device_class from new config
                 existing_input._device_class = gpio.get(DEVICE_CLASS)
 
+                # Apply polarity live — 'inverted' is baked into the detector at
+                # construction, so without this the change only took effect after
+                # an application restart.
+                inverted_changed = existing_input.update_inverted(gpio.get("inverted", False))
+
+                # Same story for the debounce window.
+                existing_input.update_bounce_time(gpio.get("bounce_time"))
+
                 # Re-send HA discovery only if HA-relevant fields changed (name, area)
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
@@ -422,9 +431,11 @@ class InputManager:
                         area=area,
                     )
 
-                # Send current state if initial_send is enabled (so user doesn't need to restart)
-                if gpio.get("initial_send", False):
-                    _LOGGER.debug(f"Sending current state for {input_id} after reload (initial_send=True)")
+                # Publish the current state when polarity flipped (the reported
+                # state is now the opposite one) or when initial_send asks for it,
+                # so the user doesn't need to restart.
+                if inverted_changed or gpio.get("initial_send", False):
+                    _LOGGER.debug(f"Sending current state for {input_id} after reload")
                     existing_input.send_current_state()
 
                 return existing_input

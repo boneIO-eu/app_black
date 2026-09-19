@@ -8,11 +8,17 @@ from typing import cast
 
 from boneio.components.input.detectors import BinarySensorDetector
 from boneio.const import PRESSED, RELEASED, BinaryStateTypes, ClickTypes
+from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 from boneio.models import InputState
 from boneio.models.events import InputEvent
 
 _LOGGER = logging.getLogger(__name__)
+
+# Matches the binary_sensor bounce_time default in schema.yaml. Needed on the
+# hot-reload path, which reads the YAML without running Cerberus, so an
+# omitted bounce_time arrives as None rather than as the schema default.
+DEFAULT_BOUNCE_TIME_MS = 120
 
 
 class GpioInputBinarySensor(GpioBaseClass):
@@ -56,6 +62,71 @@ class GpioInputBinarySensor(GpioBaseClass):
         # Send initial state if requested - register callback to run after GPIO manager starts
         if kwargs.get("initial_send", False):
             gpio_manager.register_on_start_callback(self._send_initial_state)
+
+    def update_inverted(self, inverted: bool) -> bool:
+        """Apply a new ``inverted`` setting to a running sensor.
+
+        Polarity is decided in ``__init__`` and baked into the detector, so a
+        config reload alone used to leave the running sensor on the old
+        polarity until the application was restarted.
+
+        Args:
+            inverted: New inverted flag from the reloaded config.
+
+        Returns:
+            True if the polarity actually changed (caller should re-publish
+            the state), False if it was already set that way.
+        """
+        inverted = bool(inverted)
+        if inverted == self._inverted:
+            return False
+
+        self._inverted = inverted
+        self._click_type = (RELEASED, PRESSED) if inverted else (PRESSED, RELEASED)
+
+        # Re-read the pin and re-anchor the detector with the new polarity.
+        gpio_manager = get_gpio_manager(loop=self._loop)
+        current_value = gpio_manager.read_value(self._pin)
+        is_pressed = current_value if inverted else not current_value
+        self._detector.resync(inverted=inverted, current_state=is_pressed)
+
+        _LOGGER.info(
+            "Binary sensor %s (%s): inverted changed to %s without restart",
+            self._name,
+            self._pin,
+            inverted,
+        )
+        return True
+
+    def update_bounce_time(self, bounce_time) -> bool:
+        """Apply a new debounce window to a running sensor.
+
+        Like ``inverted``, ``bounce_time`` is read in ``__init__`` and handed to
+        the detector, so a config reload used to leave the old window in place
+        until the application was restarted.
+
+        Args:
+            bounce_time: Value straight from the reloaded config — a TimePeriod
+                at startup, but a bare number of milliseconds (WebUI) or a string
+                such as "120ms" (hand-written YAML) on the hot-reload path, which
+                skips Cerberus coercion. ``None`` means the schema default.
+
+        Returns:
+            True if the window actually changed.
+        """
+        seconds = parse_time_to_ms(bounce_time, DEFAULT_BOUNCE_TIME_MS) / 1000.0
+        if seconds == self._bounce_time:
+            return False
+
+        self._bounce_time = seconds
+        self._detector.set_debounce(seconds)
+        _LOGGER.info(
+            "Binary sensor %s (%s): bounce_time changed to %.0fms without restart",
+            self._name,
+            self._pin,
+            seconds * 1000,
+        )
+        return True
 
     def _send_initial_state(self) -> None:
         """Send initial state after setup."""

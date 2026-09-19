@@ -20,6 +20,7 @@ import BoardSensorsForm from '../BoardSensorsForm';
 import RemoteInputForm from '../RemoteInputForm';
 import RemoteOutputForm from '../RemoteOutputForm';
 import InputTypeSwitcher from './InputTypeSwitcher';
+import { pickInputVariantSchema } from '../helpers/inputSchema';
 
 interface FormRendererProps {
   sectionType: string;
@@ -97,6 +98,13 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
   // Merged local inputs — show type switcher + delegate to correct form
   if (sectionType === 'local_inputs') {
     const currentType = editingItem._type === 'binary_sensor' ? 'binary_sensor' : 'event';
+    // local_inputs carries both item schemas — hand each form the one for its own
+    // type, otherwise the binary sensor would be offered the event device classes
+    // (button/doorbell/motion) and the event action types.
+    const formProps = {
+      ...inputFormProps(props),
+      schema: pickInputVariantSchema(schema, currentType),
+    };
     return (
       <div className="space-y-4">
         <InputTypeSwitcher
@@ -105,8 +113,8 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           onSwitch={props.onChange}
         />
         {currentType === 'binary_sensor'
-          ? <BinarySensorForm {...inputFormProps(props)} />
-          : <EventForm {...inputFormProps(props)} />}
+          ? <BinarySensorForm {...formProps} />
+          : <EventForm {...formProps} />}
       </div>
     );
   }
