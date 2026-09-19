@@ -31,6 +31,13 @@ VERSION = "1.6.13"
 DESCRIPTION = "Allow an uploaded TLS certificate"
 REQUIRES_ROOT = True
 
+#: 1.6.14 installs the same file with a later revision of it. A device applying
+#: both from scratch would write it twice, each write a signature check, a
+#: digest check and a validator run through the privileged helper — so this one
+#: is skipped when the other is going to run anyway. A test checks the claim:
+#: everything this migration does has to be something 1.6.14 also does.
+SUPERSEDED_BY = "1.6.14"
+
 _BONEIO_HOME = "/home/boneio"
 _BONEIO_USER = "boneio"
 

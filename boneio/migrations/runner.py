@@ -116,12 +116,15 @@ class MigrationInfo:
         module_name: Full dotted module path.
         description: Human-readable description.
         requires_root: Whether ``boneio-migrate`` helper is needed.
+        superseded_by: A later migration that redoes everything this one does,
+            so a device applying both from scratch can skip this one.
     """
 
     version: str
     module_name: str
     description: str
     requires_root: bool = True
+    superseded_by: str | None = None
 
     def version_tuple(self) -> tuple[int, ...]:
         """Return version as comparable integer tuple."""
@@ -576,6 +579,7 @@ class MigrationRunner:
                 version = getattr(mod, "VERSION", None)
                 description = getattr(mod, "DESCRIPTION", module_name)
                 requires_root = getattr(mod, "REQUIRES_ROOT", True)
+                superseded_by = getattr(mod, "SUPERSEDED_BY", None)
 
                 if version is None:
                     _LOGGER.warning("Migration module %s has no VERSION, skipping.", full_name)
@@ -587,6 +591,7 @@ class MigrationRunner:
                         module_name=full_name,
                         description=description,
                         requires_root=requires_root,
+                        superseded_by=superseded_by,
                     )
                 )
             except Exception as exc:
@@ -607,8 +612,49 @@ class MigrationRunner:
         _LOGGER.debug("Applied migrations: %s", applied)
 
     def _get_pending(self) -> list[MigrationInfo]:
-        """Return migrations not yet applied."""
-        return [m for m in self._all_migrations if m.version not in self._applied]
+        """Return migrations not yet applied, and not made pointless by a later one.
+
+        A file installed by one migration and replaced by a later one is
+        written twice on a device that applies both from scratch — three times
+        by the third revision, and so on. Each write is a signature check, a
+        digest check and a validator run through the privileged helper, which
+        on a controller is seconds, and each is another step that can fail on
+        the way to a result the next step throws away.
+
+        Only whole migrations are ever skipped, never individual actions. The
+        helper reads the plan from a signed file and is given nothing but a
+        version string; letting the application say which parts to run would
+        put it back in charge of what happens as root, which is the hole this
+        protocol exists to close. Choosing not to apply something can only ever
+        do less, so it is safe here.
+
+        A migration is skipped only when the one that supersedes it is itself
+        about to run or has already run — otherwise the work would be dropped
+        rather than deferred. ``test_migration_consistency`` checks that every
+        declared supersession really does cover everything the older migration
+        did, because getting that wrong loses a change silently.
+
+        Returns:
+            The migrations to apply, in version order.
+        """
+        pending = [m for m in self._all_migrations if m.version not in self._applied]
+        known = {m.version for m in self._all_migrations}
+        pending_versions = {m.version for m in pending}
+
+        kept = []
+        for migration in pending:
+            successor = migration.superseded_by
+            if successor and successor in known and (
+                successor in pending_versions or successor in self._applied
+            ):
+                _LOGGER.info(
+                    "Skipping %s: %s does everything it does.",
+                    migration.version,
+                    successor,
+                )
+                continue
+            kept.append(migration)
+        return kept
 
     def _apply_pending(
         self,

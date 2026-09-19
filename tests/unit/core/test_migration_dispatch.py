@@ -407,3 +407,50 @@ def _module_name(version: str) -> str:
         if getattr(module, "VERSION", None) == version:
             return f"{versions.__name__}.{info.name}"
     raise AssertionError(f"no migration module declares VERSION {version!r}")
+
+
+# ----------------------------------------- migrations a later one makes moot
+
+
+def _superseded(version, successor):
+    info = _info(version)
+    info.superseded_by = successor
+    return info
+
+
+def test_a_superseded_migration_is_skipped_when_its_successor_will_run(runner):
+    """A device applying both from scratch writes the file once, not twice."""
+    runner._all_migrations = [_superseded("1.6.13", "1.6.14"), _info("1.6.14")]
+    runner._applied = set()
+    assert [m.version for m in runner._get_pending()] == ["1.6.14"]
+
+
+def test_it_is_skipped_when_its_successor_is_already_applied(runner):
+    """Nothing left to do: the newer content is on the device."""
+    runner._all_migrations = [_superseded("1.6.13", "1.6.14"), _info("1.6.14")]
+    runner._applied = {"1.6.14"}
+    assert runner._get_pending() == []
+
+
+def test_it_still_runs_when_the_successor_is_not_in_this_release(runner):
+    """Otherwise the work is dropped rather than deferred — a device on an
+    older package would simply never get it."""
+    runner._all_migrations = [_superseded("1.6.13", "1.6.14")]
+    runner._applied = set()
+    assert [m.version for m in runner._get_pending()] == ["1.6.13"]
+
+
+def test_a_chain_of_supersessions_leaves_only_the_last(runner):
+    runner._all_migrations = [
+        _superseded("1.6.13", "1.6.14"),
+        _superseded("1.6.14", "1.6.20"),
+        _info("1.6.20"),
+    ]
+    runner._applied = set()
+    assert [m.version for m in runner._get_pending()] == ["1.6.20"]
+
+
+def test_an_ordinary_migration_is_untouched(runner):
+    runner._all_migrations = [_info("1.6.13"), _info("1.6.14")]
+    runner._applied = set()
+    assert [m.version for m in runner._get_pending()] == ["1.6.13", "1.6.14"]

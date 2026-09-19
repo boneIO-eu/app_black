@@ -281,3 +281,90 @@ class TestCertificateLifetime:
             assert re.search(r"issuer internal \{[^}]*lifetime", script, re.S), (
                 "lifetime is not inside an issuer block"
             )
+
+
+class TestSupersession:
+    """A migration may declare that a later one makes it pointless.
+
+    The runner then skips it on a device applying both from scratch, which
+    stops the same file being written once per revision as the chain grows.
+    Only whole migrations are skipped — never parts of one — because the
+    privileged helper reads its plan from a signed file and is handed nothing
+    but a version string, and it must stay that way.
+
+    The danger is a claim that is not true: a migration that also did something
+    else would have that something silently dropped. So the claim is checked
+    here rather than trusted.
+    """
+
+    @staticmethod
+    def _effects(module) -> set:
+        """What a migration changes, as comparable keys.
+
+        Args:
+            module: A migration module.
+
+        Returns:
+            One key per action: the file it writes, the unit it touches, or
+            the whole action for anything this does not model.
+        """
+        effects = set()
+        for action in (a.to_dict() for a in module.plan()):
+            kind = action.get("action")
+            if kind in ("install_file", "set_file_permissions", "remove_file"):
+                effects.add(("file", action.get("dst") or action.get("path")))
+            elif kind and kind.startswith("systemctl_"):
+                effects.add(("unit", kind, action.get("unit")))
+            else:
+                effects.add((kind, tuple(sorted(map(str, action.items())))))
+        return effects
+
+    @staticmethod
+    def _modules() -> dict:
+        import importlib
+        import pkgutil
+
+        from boneio.migrations import versions
+
+        found = {}
+        for info in pkgutil.iter_modules(versions.__path__):
+            module = importlib.import_module(f"{versions.__name__}.{info.name}")
+            if hasattr(module, "VERSION"):
+                found[module.VERSION] = module
+        return found
+
+    def test_every_supersession_names_a_migration_that_exists(self):
+        modules = self._modules()
+        for version, module in modules.items():
+            successor = getattr(module, "SUPERSEDED_BY", None)
+            if successor is not None:
+                assert successor in modules, (
+                    f"{version} says {successor} replaces it, and there is no {successor}"
+                )
+
+    def test_the_successor_really_does_everything_the_older_one_did(self):
+        """The whole risk of the mechanism, in one assertion."""
+        modules = self._modules()
+        for version, module in modules.items():
+            successor = getattr(module, "SUPERSEDED_BY", None)
+            if successor is None:
+                continue
+            missing = self._effects(module) - self._effects(modules[successor])
+            assert not missing, (
+                f"{version} claims {successor} replaces it, but {successor} does "
+                f"not do: {sorted(map(str, missing))}"
+            )
+
+    def test_a_migration_cannot_be_replaced_by_an_earlier_one(self):
+        """Skipping would then drop the work rather than defer it."""
+        from boneio.migrations.runner import MigrationInfo
+
+        for version, module in self._modules().items():
+            successor = getattr(module, "SUPERSEDED_BY", None)
+            if successor is None:
+                continue
+            older = MigrationInfo(version=version, module_name="", description="")
+            newer = MigrationInfo(version=successor, module_name="", description="")
+            assert newer.version_tuple() > older.version_tuple(), (
+                f"{version} is superseded by {successor}, which comes before it"
+            )
