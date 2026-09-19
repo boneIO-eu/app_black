@@ -239,3 +239,45 @@ class TestConsoleIssue:
         assert actions[0]["dst"].startswith("/etc/issue.d/")
         # /etc/issue belongs to base-files and already carries the vendor's text.
         assert actions[0]["dst"] != "/etc/issue"
+
+
+class TestCertificateLifetime:
+    """The device's own certificate lasts long enough to be worth trusting.
+
+    Caddy's internal issuer defaults to twelve hours. Somebody who installs
+    this device's authority on their laptop, or clicks through the warning
+    once, is back to an unknown certificate the same evening.
+    """
+
+    @staticmethod
+    def _scripts() -> list[str]:
+        from boneio.migrations.runner import ASSETS_DIR
+
+        root = ASSETS_DIR.parents[1]
+        return [
+            (ASSETS_DIR / "docker" / "nodered" / "caddy" / "init-certs.sh").read_text(),
+            (root / "core" / "cloud" / "data" / "init-certs-cloud.sh").read_text(),
+        ]
+
+    def test_both_generators_set_a_leaf_lifetime(self):
+        """Cloud mode serves a real certificate from a file, but falls back to
+        this issuer — and a fallback that expires by dinner is not one."""
+        for script in self._scripts():
+            assert "lifetime 180d" in script
+
+    def test_the_intermediate_outlives_the_leaves(self):
+        """Caddy refuses to start otherwise, which would take the panel with
+        it — the failure is at boot, not at issuance."""
+        for script in self._scripts():
+            assert "intermediate_lifetime 365d" in script
+
+    def test_the_lifetime_is_set_on_the_issuer(self):
+        """`tls internal { lifetime ... }` is not valid Caddyfile — it adapts
+        to "unknown subdirective" and the container never starts. It belongs
+        inside `issuer internal`."""
+        import re
+
+        for script in self._scripts():
+            assert re.search(r"issuer internal \{[^}]*lifetime", script, re.S), (
+                "lifetime is not inside an issuer block"
+            )

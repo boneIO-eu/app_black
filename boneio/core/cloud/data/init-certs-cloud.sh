@@ -74,6 +74,13 @@ fi
 # Generate Caddyfile
 cat > /tmp/Caddyfile << EOF
 {
+        # Six months, not the twelve hours Caddy defaults to — see the
+        # non-cloud script. The intermediate has to outlive the leaves.
+        pki {
+                ca local {
+                        intermediate_lifetime 365d
+                }
+        }
         # Global options - empty for internal issuer
 }
 
@@ -91,7 +98,10 @@ ${CLOUD_BLOCK}
 
 # HTTPS with self-signed certificate (catch-all for hostname and IP access)
 https:// {
-        tls internal {
+        tls {
+                issuer internal {
+                        lifetime 180d
+                }
                 on_demand
         }
 

@@ -42,7 +42,10 @@ if [ -f "$CUSTOM_CERT" ] && [ -f "$CUSTOM_KEY" ]; then
         TLS_DIRECTIVE="tls $CUSTOM_CERT $CUSTOM_KEY"
 else
         echo "Serving Caddy's own certificate (no uploaded one found)"
-        TLS_DIRECTIVE="tls internal {
+        TLS_DIRECTIVE="tls {
+                issuer internal {
+                        lifetime 180d
+                }
                 on_demand
         }"
 fi
@@ -50,7 +53,17 @@ fi
 # Generate Caddyfile with actual hostname
 cat > /tmp/Caddyfile << EOF
 {
-        # Global options - empty for internal issuer
+        # The device's own certificate authority issues for six months rather
+        # than the twelve hours Caddy defaults to. Nobody trusts this authority
+        # until they choose to, and when they do — by installing the root on
+        # their own machines, or by clicking through once — a certificate that
+        # expires the same evening undoes that daily. The intermediate has to
+        # outlive the leaves it signs, or Caddy refuses to start.
+        pki {
+                ca local {
+                        intermediate_lifetime 365d
+                }
+        }
 }
 
 # HTTP — redirect to HTTPS.
