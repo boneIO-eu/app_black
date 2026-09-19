@@ -176,7 +176,9 @@ class TestApiDocsAreClosed:
     def test_the_app_ships_without_docs_routes(self):
         from boneio.webui.app import app
 
-        paths = {route.path for route in app.routes}
+        from .route_paths import all_paths
+
+        paths = all_paths(app)
         assert "/docs" not in paths
         assert "/redoc" not in paths
         assert "/openapi.json" not in paths

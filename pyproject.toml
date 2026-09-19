@@ -19,7 +19,12 @@ dependencies = [
     "PyYAML==6.0.3",
     "psutil==7.2.2",
     "w1thermsensor[async]==2.3.0",
-    "fastapi==0.118.0",
+    "fastapi==0.141.1",
+    # Not used directly, and fastapi only asks for >=0.46.0 — which the
+    # version carrying the advisory satisfies, so pip's default strategy would
+    # leave an old one in place on a device that already has it. Same reason as
+    # the anyio floor below.
+    "starlette>=1.3.1",
     "pydantic==2.11.9",
     "hypercorn==0.18.0",
     "websockets==15.0.1",
@@ -43,6 +48,15 @@ dependencies = [
     # anyio since it was imaged would keep it through every update. The floor
     # is what makes the fix reach a device already in the field.
     "anyio>=4.14.2",
+    # Also indirect — aioesphomeapi, noiseprotocol and PyJWT's backend all
+    # want it, none with an upper bound on Linux. The advisory needs 50.0.0,
+    # and without a floor pip leaves whatever a device was imaged with: one
+    # here is still carrying 46.0.4.
+    #
+    # Marked for Linux because aioesphomeapi caps it below 49 on Intel macOS,
+    # and a floor without the marker makes the resolution unsatisfiable there
+    # rather than simply not applying. boneIO ships on Linux.
+    "cryptography>=50.0.0; platform_system == 'Linux'",
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }

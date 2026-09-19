@@ -38,7 +38,9 @@ def test_the_password_endpoint_is_gone(client):
 
 def test_no_route_accepts_a_sudo_password_for_timezone(client):
     """A renamed endpoint would defeat the point of removing this one."""
-    paths = [route.path for route in client.app.routes]
+    from .route_paths import all_paths
+
+    paths = all_paths(client.app)
     assert not [p for p in paths if "sudoers" in p and "fix" in p]
 
 
