@@ -7,7 +7,10 @@
 # filesystem — the things a laptop harness can only fake.
 #
 # Phases (safe by default):
-#   deploy   rsync app_black to the controller (editable install, no reinstall)
+#   deploy   rsync app_black to the controller (editable install, no reinstall).
+#            Reports it when the venv has drifted from pyproject.toml.
+#   deps     reinstall the dependencies there, so the device runs the versions
+#            the project declares rather than whatever pip last resolved on it
 #   harness  run the isolated web-UI harness in the device venv on a spare port
 #            and assert the auth/onboarding behaviour over HTTP. Does NOT touch
 #            the production service, config.yaml or the hardware.
@@ -102,6 +105,72 @@ phase_deploy() {
   local ver
   ver=$("${SSH[@]}" "$REMOTE" "$VENV/bin/python -c 'from boneio.version import __version__;print(__version__)'" 2>/dev/null | tr -d '\r')
   info "editable boneio now resolves to version: ${ver:-unknown}"
+
+  # Reported, not fixed: installing packages is a slow, network-bound thing to
+  # do behind a command somebody ran to copy code. `deps` does it on request.
+  local drift
+  drift=$(_drift_report)
+  if [ -n "$drift" ]; then
+    info "the device venv has drifted from pyproject.toml — run: $0 deps"
+    printf '%s\n' "$drift" | sed 's/^/      /'
+  fi
+}
+
+# Which declared dependencies the device does not actually have.
+#
+# rsync copies code, not packages, so an editable install drifts: the venv
+# keeps whatever pip last resolved there, however old. That is how a fastapi
+# upgrade came to be tested against a combination no device would ever get —
+# the laptop had moved on and the controller had not.
+_drift_report() {
+  "${SSH[@]}" "$REMOTE" "$VENV/bin/pip list --format=freeze" 2>/dev/null \
+    | python3 -c '
+import re, sys, tomllib
+from packaging.version import Version
+
+def norm(name):  # PEP 503 — luma.core and luma-core are the same package
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+with open(sys.argv[1], "rb") as handle:
+    declared = tomllib.load(handle)["project"]["dependencies"]
+
+pins = {}
+for req in declared:
+    m = re.match(r"^([A-Za-z0-9_.\-\[\]]+?)(\[[^\]]+\])?\s*([=><!~]+)\s*([0-9][^;,\s]*)", req)
+    if m:
+        pins[norm(m.group(1))] = (m.group(3), m.group(4))
+
+have = {}
+for line in sys.stdin:
+    if "==" in line:
+        name, version = line.strip().split("==", 1)
+        have[norm(name)] = version
+
+for name, (op, want) in sorted(pins.items()):
+    got = have.get(name)
+    if got is None:
+        print(f"{name} missing (wants {op}{want})")
+        continue
+    try:
+        ok = Version(got) == Version(want) if op == "==" else Version(got) >= Version(want)
+    except Exception:
+        ok = True
+    if not ok:
+        print(f"{name} {got} (wants {op}{want})")
+' "$REPO_ROOT/pyproject.toml" 2>/dev/null
+}
+
+phase_deps() {
+  section "deps"
+  info "bringing the device venv in line with pyproject.toml"
+  if "${SSH[@]}" "$REMOTE" "cd $REMOTE_APP && $VENV/bin/pip install -e . 2>&1 | tail -3"; then
+    ok "pip install -e . completed"
+  else
+    bad "pip install -e . failed"
+  fi
+  local left
+  left=$(_drift_report)
+  if [ -z "$left" ]; then ok "every declared dependency matches"; else bad "still adrift: $left"; fi
 }
 
 phase_harness() {
@@ -316,7 +385,7 @@ for a in "$@"; do
   case "$a" in
     --full) FULL=1 ;;
     --with-frontend) WITH_FRONTEND=1 ;;
-    deploy|harness|pytest|live|smoke|all) PHASES+=("$a") ;;
+    deploy|deps|harness|pytest|live|smoke|all) PHASES+=("$a") ;;
     *) echo "unknown argument: $a" >&2; exit 2 ;;
   esac
 done
@@ -327,6 +396,7 @@ for p in "${PHASES[@]}"; do
   case "$p" in
     all)     phase_deploy; phase_harness; phase_pytest ;;
     deploy)  phase_deploy ;;
+    deps)    phase_deps ;;
     harness) phase_harness ;;
     pytest)  phase_pytest ;;
     live)    phase_live ;;
