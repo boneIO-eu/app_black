@@ -11,6 +11,10 @@
 #            Reports it when the venv has drifted from pyproject.toml.
 #   deps     reinstall the dependencies there, so the device runs the versions
 #            the project declares rather than whatever pip last resolved on it
+#   verify   ask the live service whether it still works: the socket delivers
+#            entities, migrations are applied, nothing failed to initialise.
+#            Needs DEV_USER and DEV_PASSWORD for anything behind a token; a
+#            viewer account is enough. Read-only.
 #   harness  run the isolated web-UI harness in the device venv on a spare port
 #            and assert the auth/onboarding behaviour over HTTP. Does NOT touch
 #            the production service, config.yaml or the hardware.
@@ -171,6 +175,27 @@ phase_deps() {
   local left
   left=$(_drift_report)
   if [ -z "$left" ]; then ok "every declared dependency matches"; else bad "still adrift: $left"; fi
+}
+
+# The real service, over the API a browser uses.
+#
+# The harness below builds a small application out of the auth middleware
+# alone, because the real one needs hardware and a Manager. That is why it was
+# green through a socket that refused every connection, a migration chain
+# stopped six short, and a panel with no entities in it: none of those are
+# reachable without the real application running on a real device.
+phase_verify() {
+  section "verify → the live service on $REMOTE_HOST:$SERVICE_PORT"
+  local args=("$REMOTE_HOST" --port "$SERVICE_PORT")
+  [ -n "${DEV_USER:-}" ] && args+=(--user "$DEV_USER")
+  if [ -z "${DEV_PASSWORD:-}" ]; then
+    info "DEV_USER/DEV_PASSWORD unset — the socket and migration checks will be skipped"
+  fi
+  if python3 "$REPO_ROOT/scripts/verify_device.py" "${args[@]}"; then
+    ok "the live service answers for everything asked of it"
+  else
+    bad "the live service failed a check (see above)"
+  fi
 }
 
 phase_harness() {
@@ -385,7 +410,7 @@ for a in "$@"; do
   case "$a" in
     --full) FULL=1 ;;
     --with-frontend) WITH_FRONTEND=1 ;;
-    deploy|deps|harness|pytest|live|smoke|all) PHASES+=("$a") ;;
+    deploy|deps|harness|verify|pytest|live|smoke|all) PHASES+=("$a") ;;
     *) echo "unknown argument: $a" >&2; exit 2 ;;
   esac
 done
@@ -398,8 +423,9 @@ for p in "${PHASES[@]}"; do
     deploy)  phase_deploy ;;
     deps)    phase_deps ;;
     harness) phase_harness ;;
+    verify)  phase_verify ;;
     pytest)  phase_pytest ;;
-    live)    phase_live ;;
+    live)    phase_live; phase_verify ;;
     smoke)   phase_smoke ;;
   esac
 done
