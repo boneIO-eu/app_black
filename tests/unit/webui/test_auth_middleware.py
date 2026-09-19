@@ -132,7 +132,7 @@ def test_expired_or_foreign_token_is_rejected(client, store):
     store.add_user("pawel", "dobre-haslo", Role.ADMIN)
     token = create_token({"sub": "pawel", "role": "admin"})
 
-    set_jwt_secret("a-completely-different-secret")
+    set_jwt_secret("a-completely-different-secret-----------")
     try:
         response = client.get(
             "/api/protected", headers={"Authorization": f"Bearer {token}"}
@@ -154,7 +154,7 @@ def test_token_ttl_matches_the_configured_lifetime():
 
     from boneio.webui.middleware.auth import TOKEN_TTL_DAYS, create_token, verify_token
 
-    set_jwt_secret("test-secret-for-ttl")
+    set_jwt_secret("test-secret-for-ttl---------------------")
     payload = verify_token(create_token({"sub": "pawel", "role": "admin"}))
     assert payload is not None
 

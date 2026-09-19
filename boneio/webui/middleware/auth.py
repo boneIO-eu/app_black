@@ -8,8 +8,8 @@ import secrets
 from datetime import UTC, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from jose import jwt
-from jose.exceptions import JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse

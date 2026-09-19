@@ -28,7 +28,7 @@ from boneio.webui.routes.auth import router as auth_router
 def store(tmp_path):
     store = UserStore(tmp_path / USERS_FILENAME)
     store.load()
-    set_jwt_secret("test-secret-for-rate-limit")
+    set_jwt_secret("test-secret-for-rate-limit--------------")
     set_auth_config({})
     set_allow_anonymous(False)
     set_user_store(store)

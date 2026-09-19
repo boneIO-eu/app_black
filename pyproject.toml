@@ -23,7 +23,12 @@ dependencies = [
     "pydantic==2.11.9",
     "hypercorn==0.18.0",
     "websockets==15.0.1",
-    "python-jose[cryptography]==3.5.0",
+    # PyJWT rather than python-jose. The panel signs one kind of token —
+    # HS256 with a secret it holds — and python-jose brought ecdsa, rsa,
+    # pyasn1 and six along for algorithms nothing here uses. ecdsa carries an
+    # advisory with no fixed version and its maintainers have said there will
+    # not be one, so the dependency could only ever be carried, not resolved.
+    "PyJWT==2.14.0",
     "python-multipart==0.0.31",
     "qrcode==8.2",
     "gpiod==2.3.0",

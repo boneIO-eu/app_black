@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from collections.abc import Callable
 from typing import Any
 
-from jose import jwt
-from jose.exceptions import JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
 from boneio.models.events import Event

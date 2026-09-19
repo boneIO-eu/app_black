@@ -23,7 +23,7 @@ from boneio.webui.routes.accounts import router as accounts_router
 def store(tmp_path):
     store = UserStore(tmp_path / USERS_FILENAME)
     store.load()
-    set_jwt_secret("test-secret-for-account-tests")
+    set_jwt_secret("test-secret-for-account-tests-----------")
     set_auth_config({})
     set_allow_anonymous(False)
     set_user_store(store)
@@ -296,7 +296,7 @@ def test_whoami_reports_anonymous_on_an_unprovisioned_device(tmp_path):
     empty = UserStore(tmp_path / "empty" / USERS_FILENAME)
     empty.path.parent.mkdir(parents=True, exist_ok=True)
     empty.load()
-    set_jwt_secret("test-secret-for-account-tests")
+    set_jwt_secret("test-secret-for-account-tests-----------")
     set_auth_config({})
     set_user_store(empty)
     set_allow_anonymous(True)

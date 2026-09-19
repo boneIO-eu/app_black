@@ -61,7 +61,7 @@ def _init(config_file, auth_config=None, monkeypatch=None, dev=False):
         yaml_config_file=str(config_file),
         config_helper=MagicMock(),
         auth_config=auth_config or {},
-        jwt_secret="smoke-test-secret",
+        jwt_secret="smoke-test-secret-----------------------",
     )
 
 
