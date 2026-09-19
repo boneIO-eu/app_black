@@ -135,6 +135,14 @@ class MultiClickDetector:
                         self._delay_click_types.add(first)
                         break
 
+    def set_debounce(self, debounce_seconds: float) -> None:
+        """Change the debounce window on a running detector.
+
+        Only the window is replaced; timestamps already recorded stay valid
+        and are simply compared against the new window from now on.
+        """
+        self._debounce_seconds = debounce_seconds
+
     def _finalize_clicks(self) -> None:
         """Finalize a multi-click sequence."""
         count = self._state.click_count
@@ -846,6 +854,14 @@ class BinarySensorDetector:
         self._name = name
         self._pin = pin
         self._state = BinarySensorState()
+
+    def set_debounce(self, debounce_seconds: float) -> None:
+        """Change the debounce window on a running detector.
+
+        Only the window is replaced; timestamps already recorded stay valid
+        and are simply compared against the new window from now on.
+        """
+        self._debounce_seconds = debounce_seconds
 
     def resync(self, inverted: bool, current_state: bool) -> None:
         """Apply a new polarity to a running detector.

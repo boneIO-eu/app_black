@@ -296,6 +296,7 @@ class InputManager:
                     enable_triple_click=gpio.get("enable_triple_click"),
                     long_press_mqtt_mode=gpio.get("long_press_mqtt_mode"),
                     max_long_press_duration=gpio.get("max_long_press_duration"),
+                    bounce_time=gpio.get("bounce_time"),
                 )
 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area, mqtt_sequences)
@@ -414,6 +415,9 @@ class InputManager:
                 # construction, so without this the change only took effect after
                 # an application restart.
                 inverted_changed = existing_input.update_inverted(gpio.get("inverted", False))
+
+                # Same story for the debounce window.
+                existing_input.update_bounce_time(gpio.get("bounce_time"))
 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area)
                 # Actions are internal to the controller and don't need HA update

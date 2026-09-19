@@ -1,8 +1,8 @@
-"""Regression tests for changing 'inverted' on a running binary sensor.
+"""Regression tests for input settings that only took effect after a restart.
 
-'inverted' is decided in GpioInputBinarySensor.__init__ and baked into the
-detector, so a config reload used to leave the sensor on the old polarity until
-the whole application was restarted.
+'inverted' and 'bounce_time' are read in __init__ and baked into the detector,
+so a config reload used to leave the running input on the old values until the
+whole application was restarted.
 """
 
 from __future__ import annotations
@@ -165,6 +165,83 @@ class TestUpdateInverted:
         assert sensor._detector._state.current_state is False
 
 
+# ── bounce_time ──────────────────────────────────────────────────────────────
+
+
+class TestUpdateBounceTime:
+    """update_bounce_time() resizes the debounce window without a restart."""
+
+    @pytest.fixture
+    def gpio_manager(self):
+        gm = MagicMock()
+        gm.read_value.return_value = False
+        return gm
+
+    @pytest.fixture
+    def sensor(self, gpio_manager):
+        return _make_sensor(False, gpio_manager)
+
+    def test_bare_number_is_read_as_milliseconds(self, sensor):
+        """The WebUI writes a plain number of milliseconds."""
+        assert sensor.update_bounce_time(250) is True
+        assert sensor._bounce_time == pytest.approx(0.25)
+        assert sensor._detector._debounce_seconds == pytest.approx(0.25)
+
+    def test_string_with_a_unit_is_parsed(self, sensor):
+        """Hand-written YAML keeps the unit, and the reload skips coercion."""
+        assert sensor.update_bounce_time("250ms") is True
+        assert sensor._detector._debounce_seconds == pytest.approx(0.25)
+
+    def test_timeperiod_is_accepted(self, sensor):
+        """At startup the value has already been coerced by Cerberus."""
+        from boneio.core.utils import TimePeriod
+
+        assert sensor.update_bounce_time(TimePeriod(milliseconds=250)) is True
+        assert sensor._detector._debounce_seconds == pytest.approx(0.25)
+
+    def test_missing_value_falls_back_to_the_schema_default(self, sensor):
+        """The WebUI drops the key when it equals the default."""
+        sensor.update_bounce_time(250)
+        assert sensor.update_bounce_time(None) is True
+        assert sensor._detector._debounce_seconds == pytest.approx(0.120)
+
+    def test_unchanged_value_is_a_no_op(self, sensor):
+        sensor.update_bounce_time(250)
+        assert sensor.update_bounce_time(250) is False
+
+
+class TestEventBounceTime:
+    """The same field on an event input goes through update_timings()."""
+
+    @pytest.fixture
+    def button(self):
+        from boneio.components.input.event import GpioEventButton
+        from boneio.core.utils import TimePeriod
+
+        with (
+            patch("asyncio.get_running_loop", return_value=MagicMock()),
+            patch("boneio.components.input.event.get_gpio_manager", return_value=MagicMock()),
+        ):
+            return GpioEventButton(
+                pin="P8_34",
+                name="Switch",
+                id="switch",
+                actions={},
+                input_type="input",
+                event_bus=MagicMock(),
+                bounce_time=TimePeriod(milliseconds=30),
+            )
+
+    def test_update_timings_resizes_the_window(self, button):
+        button.update_timings(bounce_time="80ms")
+        assert button._detector._debounce_seconds == pytest.approx(0.080)
+
+    def test_missing_value_falls_back_to_the_schema_default(self, button):
+        button.update_timings(bounce_time="80ms")
+        button.update_timings()
+        assert button._detector._debounce_seconds == pytest.approx(0.030)
+
+
 # ── InputManager reload path ─────────────────────────────────────────────────
 
 
@@ -198,6 +275,16 @@ class TestBinarySensorReloadAppliesInverted:
                 existing_input=existing,
             )
         existing.update_inverted.assert_called_once_with(True)
+
+    def test_reload_pushes_bounce_time_to_the_running_sensor(self, input_manager):
+        existing = self._existing(changed=False)
+        with patch.object(input_manager, "_publish_input_ha_discovery"):
+            input_manager._configure_binary_sensor(
+                gpio={"id": "door", "bounce_time": 250},
+                pin="P8_34",
+                existing_input=existing,
+            )
+        existing.update_bounce_time.assert_called_once_with(250)
 
     def test_state_is_republished_when_polarity_flips(self, input_manager):
         """The reported state is now the opposite one — say so straight away."""

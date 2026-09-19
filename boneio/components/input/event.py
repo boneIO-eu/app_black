@@ -8,6 +8,7 @@ import time
 from boneio.components.input.detectors import MultiClickDetector
 from boneio.const import ClickTypes
 from boneio.core.utils import TimePeriod
+from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,6 +17,10 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_DOUBLE_CLICK_DURATION_MS = 220
 DEFAULT_LONG_PRESS_DURATION_MS = 400
 DEFAULT_SEQUENCE_WINDOW_MS = 500
+# Matches the event bounce_time default in schema.yaml. Needed on the hot-reload
+# path, which reads the YAML without running Cerberus, so an omitted bounce_time
+# arrives as None rather than as the schema default.
+DEFAULT_BOUNCE_TIME_MS = 30
 
 
 def _to_milliseconds(value, default_ms: int) -> int:
@@ -173,6 +178,7 @@ class GpioEventButton(GpioBaseClass):
         enable_triple_click: bool | None = None,
         long_press_mqtt_mode: str | None = None,
         max_long_press_duration: int | float | None = None,
+        bounce_time: object | None = None,
     ) -> None:
         """Update timing parameters for click detection.
 
@@ -189,6 +195,9 @@ class GpioEventButton(GpioBaseClass):
             enable_triple_click: Enable triple click detection
             long_press_mqtt_mode: 'single' or 'periodic' for MQTT long press events
             max_long_press_duration: Safety timeout for long press in ms (default: 120000ms)
+            bounce_time: Debounce window — a TimePeriod at startup, but a bare
+                number of milliseconds or a string such as "30ms" on the
+                hot-reload path, which skips Cerberus coercion
         """
         from boneio.const import CLICK_SEQUENCES
 
@@ -260,3 +269,16 @@ class GpioEventButton(GpioBaseClass):
         if long_press_mqtt_mode is not None:
             self._long_press_mqtt_mode = long_press_mqtt_mode
             _LOGGER.debug("Updated long_press_mqtt_mode to %s for %s", long_press_mqtt_mode, self._name)
+
+        # bounce_time is handed to the detector in __init__, so it needs pushing
+        # through explicitly — None here means "back to the schema default".
+        seconds = parse_time_to_ms(bounce_time, DEFAULT_BOUNCE_TIME_MS) / 1000.0
+        if seconds != self._bounce_time:
+            self._bounce_time = seconds
+            self._detector.set_debounce(seconds)
+            _LOGGER.info(
+                "Event input %s (%s): bounce_time changed to %.0fms without restart",
+                self._name,
+                self._pin,
+                seconds * 1000,
+            )
