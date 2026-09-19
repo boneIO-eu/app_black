@@ -4,6 +4,95 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.3 (2026-09-19)
+
+Hotfix release on top of `v1.5.2`. Two input-configuration bugs reported from
+the field, plus three more found in the same code while fixing them — all of
+which made the WebUI disagree with the running device.
+
+### 🐛 Bug Fixes — input settings that needed an application restart
+
+Reported after flipping **Inverted** on a binary sensor in Settings → Inputs:
+the value was saved to YAML and the hot reload ran, but the input went on
+reporting the old polarity until `systemctl restart boneio`.
+
+The reload machinery itself was fine — the WebUI does `PUT /api/config/...`
+followed by `POST /api/config/reload`, and the manager routes that to
+`InputManager.reload_inputs()`. The gap was one level down: rather than
+rebuilding an existing input, the reload updates it in place, and it updated
+exactly four things — actions, name, area and device_class. Everything read in
+`__init__` and baked into the GPIO detector was left on its old value, which is
+why restarting the service fixed it and reloading did not.
+
+- **`inverted` is applied to the running sensor.** `update_inverted()` swaps
+  the sensor's click types, re-reads the pin and re-anchors the detector.
+- **The first edge after a polarity change is no longer swallowed.** The
+  detector's cached state still described the old polarity, so the next edge
+  looked like "state unchanged" and was dropped; the pending debounce window
+  belonged to the old polarity too. Both are reset with the change.
+- **The state is republished straight away.** After a flip the reported state
+  is the opposite one, so MQTT, Home Assistant and the WebUI are told at once
+  instead of waiting for the next physical edge.
+- **`bounce_time` is applied too**, for binary sensors and event inputs alike.
+
+`gpio_mode` is deliberately untouched: it is deprecated, ignored at runtime
+(the kernel overlay handles it) and never set from the interface.
+
+### 🐛 Bug Fixes — time values lost on the hot-reload path
+
+All three of the following come from one root cause. Time fields are declared
+in the schema with a `positive_time_period` coercion, so at startup they reach
+the input as `TimePeriod` objects. The hot-reload path deliberately skips
+Cerberus validation for speed, so on a reload the very same fields arrive as
+whatever the YAML holds — a bare number of milliseconds where the WebUI wrote
+one (`BinarySensorForm`), or a string such as `"300ms"` where it wrote that
+(`EventForm`, and any hand-written config). The code that consumed them only
+understood `TimePeriod`.
+
+- **Custom click timings no longer reset on every reload.**
+  `double_click_duration`, `long_press_duration`, `sequence_window_duration`
+  and `max_long_press_duration` silently fell back to 220/400/500 ms and 120 s
+  each time the config was reloaded, because the helper that converted them
+  returned the default for any string. A fresh boot honoured the configured
+  values, so the timings changed under the user without anything in the log.
+- **Adding an input no longer risks aborting the reload.**
+  `GpioBaseClass.__init__` called `.total_in_seconds` straight on the value,
+  which raises `AttributeError` on a number or a string. The only handler
+  around that call catches `GPIOInputException`, so the exception escaped the
+  reload instead of being reported against the offending input.
+- **`bounce_time` resolves the same way everywhere.** An absent key means the
+  WebUI stripped it as a default, so it resolves to that input type's schema
+  default — 120 ms for a binary sensor, 30 ms for an event.
+
+Every one of these now goes through `parse_time_to_ms`, which reads
+`TimePeriod`, bare milliseconds and strings with a unit alike, and still falls
+back to the documented default for a value it cannot parse.
+
+### 🐛 Bug Fixes — binary sensors offered the wrong device classes
+
+Reported from Settings → Inputs: the **Device class** list held only Button,
+Doorbell and Motion regardless of input type. Those are the Home Assistant
+*event* device classes; a binary sensor should be offered door, window,
+opening, moisture, smoke, gas, occupancy, vibration, tamper and the rest.
+
+- **Each input form now gets its own schema.** The merged `local_inputs`
+  section used the event schema as its base, on the stated assumption that
+  event is a superset of binary_sensor. It is not: `device_class`, `actions`
+  and `bounce_time` differ, and `initial_send` exists only on binary_sensor.
+  `BinarySensorForm` reads its options straight from the schema, so it was
+  handed the event list. The section schema now carries the union of both
+  property sets plus each item schema under `x-variants`, and the form renderer
+  picks the variant for the type being edited.
+- **Side effects of the same fix.** `BinarySensorForm` now also gets the
+  pressed/released action types and the binary-sensor `bounce_time` default
+  from the schema instead of falling back to hardcoded lists.
+
+The backend schemas were already correct — `binary_sensor.schema.json` has all
+27 device classes and `event.schema.json` the three event ones. Nothing in
+config.yaml needs changing.
+
+---
+
 ## v1.5.2 (2026-09-10)
 
 Hotfix release. Branched from `v1.5.1` and carries the fixes that had accumulated

@@ -1,3 +1,59 @@
+# v1.5.3
+
+Hotfix release on top of `v1.5.2`. Two input-configuration bugs reported from the
+field, plus three more found in the same code while fixing them.
+
+## 🐛 Bug Fixes — input settings that needed an application restart
+
+Flipping **Inverted** on a binary sensor saved the value and reloaded the config,
+but the input kept reporting the old polarity until the service was restarted.
+The reload itself always ran; it just updated only actions, name, area and
+device_class on the running input, leaving everything baked into the GPIO
+detector at construction on its old value.
+
+- **`inverted` applied live** — `update_inverted()` swaps the sensor's click
+  types, re-reads the pin and re-anchors the detector, so no restart is needed.
+- **First edge no longer swallowed** — the detector's cached state and pending
+  debounce window belonged to the old polarity and are now reset with it.
+- **State republished immediately** — after a flip the reported state is the
+  opposite one, so MQTT, Home Assistant and the WebUI hear about it at once.
+- **`bounce_time` applied live too**, on binary sensors and event inputs.
+
+`gpio_mode` is untouched — deprecated, ignored at runtime, never set from the UI.
+
+## 🐛 Bug Fixes — time values lost on the hot-reload path
+
+Time fields reach an input as `TimePeriod` at startup, because the schema
+coerces them. The hot reload skips that validation for speed, so the same fields
+arrive as a bare number of milliseconds or a string like `"300ms"` — and the
+code that read them only understood `TimePeriod`.
+
+- **Custom click timings survive a reload** — `double_click_duration`,
+  `long_press_duration`, `sequence_window_duration` and
+  `max_long_press_duration` used to snap back to 220/400/500 ms and 120 s on
+  every reload, silently.
+- **Adding an input cannot abort the reload** — the constructor called
+  `.total_in_seconds` on the raw value, raising `AttributeError` past the only
+  handler in that path.
+- **`bounce_time` resolves consistently**, falling back to the schema default
+  for its input type when the key is absent.
+
+## 🐛 Bug Fixes — binary sensors offered the wrong device classes
+
+The **Device class** list in Settings → Inputs held only Button / Doorbell /
+Motion — the Home Assistant *event* classes — whatever the input type.
+
+- **Each form gets its own schema** — the merged `local_inputs` section was built
+  on the event schema, which is not a superset of binary_sensor. It now carries
+  both item schemas, and binary sensors get door, window, opening, moisture,
+  smoke, gas, occupancy, vibration, tamper and the rest.
+- **Also fixed by the same change** — the pressed/released action types and the
+  binary-sensor `bounce_time` default now come from the schema.
+
+Backend schemas were already correct; no config.yaml change is needed.
+
+---
+
 # v1.5.2
 
 Hotfix release branched from `v1.5.1`. Carries the bug fixes and performance work
