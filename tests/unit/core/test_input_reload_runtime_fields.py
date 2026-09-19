@@ -242,6 +242,55 @@ class TestEventBounceTime:
         assert button._detector._debounce_seconds == pytest.approx(0.030)
 
 
+class TestConstructorAcceptsRawBounceTime:
+    """A new input added while the app runs skips Cerberus coercion."""
+
+    @pytest.fixture
+    def gpio_manager(self):
+        gm = MagicMock()
+        gm.read_value.return_value = False
+        return gm
+
+    def _sensor_with(self, bounce_time, gpio_manager):
+        from boneio.components.input.binary_sensor import GpioInputBinarySensor
+
+        with (
+            patch("asyncio.get_running_loop", return_value=MagicMock()),
+            patch(
+                "boneio.components.input.binary_sensor.get_gpio_manager",
+                return_value=gpio_manager,
+            ),
+        ):
+            return GpioInputBinarySensor(
+                pin="P8_34",
+                name="Door",
+                id="door",
+                actions={},
+                input_type="sensor",
+                event_bus=MagicMock(),
+                bounce_time=bounce_time,
+            )
+
+    def test_string_with_a_unit_does_not_raise(self, gpio_manager):
+        """Used to blow up on TimePeriod.total_in_seconds against a str."""
+        sensor = self._sensor_with("250ms", gpio_manager)
+        assert sensor._bounce_time == pytest.approx(0.25)
+
+    def test_bare_number_is_read_as_milliseconds(self, gpio_manager):
+        sensor = self._sensor_with(250, gpio_manager)
+        assert sensor._bounce_time == pytest.approx(0.25)
+
+    def test_timeperiod_still_works(self, gpio_manager):
+        from boneio.core.utils import TimePeriod
+
+        sensor = self._sensor_with(TimePeriod(milliseconds=250), gpio_manager)
+        assert sensor._bounce_time == pytest.approx(0.25)
+
+    def test_absent_value_uses_the_base_fallback(self, gpio_manager):
+        sensor = self._sensor_with(None, gpio_manager)
+        assert sensor._bounce_time == pytest.approx(0.050)
+
+
 # ── InputManager reload path ─────────────────────────────────────────────────
 
 
