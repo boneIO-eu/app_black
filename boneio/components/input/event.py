@@ -7,7 +7,6 @@ import time
 
 from boneio.components.input.detectors import MultiClickDetector
 from boneio.const import ClickTypes
-from boneio.core.utils import TimePeriod
 from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 
@@ -27,19 +26,21 @@ def _to_milliseconds(value, default_ms: int) -> int:
     """Convert a value to milliseconds.
 
     Args:
-        value: Can be int, float, TimePeriod, or None
-        default_ms: Default value in milliseconds if value is None
+        value: TimePeriod, bare number of milliseconds, string with a unit
+            (e.g. "300ms"), or None.
+        default_ms: Default value in milliseconds if value is None or unusable.
 
     Returns:
-        Value in milliseconds as integer
+        Value in milliseconds as integer.
+
+    Note:
+        Strings have to be handled here, not just TimePeriod: Cerberus coerces
+        these fields at startup, but the hot-reload path reads the YAML without
+        validating, and EventForm writes them as strings like "300ms". Falling
+        back to the default for those quietly reset every custom click timing on
+        each reload.
     """
-    if value is None:
-        return default_ms
-    if isinstance(value, TimePeriod):
-        return int(value.total_milliseconds)
-    if isinstance(value, (int, float)):
-        return int(value)
-    return default_ms
+    return parse_time_to_ms(value, default_ms)
 
 
 class GpioEventButton(GpioBaseClass):

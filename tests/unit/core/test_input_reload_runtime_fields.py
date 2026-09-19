@@ -291,6 +291,69 @@ class TestConstructorAcceptsRawBounceTime:
         assert sensor._bounce_time == pytest.approx(0.050)
 
 
+class TestEventClickTimings:
+    """Custom click timings must survive a reload, not snap back to defaults."""
+
+    @pytest.fixture
+    def button(self):
+        from boneio.components.input.event import GpioEventButton
+        from boneio.core.utils import TimePeriod
+
+        with (
+            patch("asyncio.get_running_loop", return_value=MagicMock()),
+            patch("boneio.components.input.event.get_gpio_manager", return_value=MagicMock()),
+        ):
+            return GpioEventButton(
+                pin="P8_34",
+                name="Switch",
+                id="switch",
+                actions={},
+                input_type="input",
+                event_bus=MagicMock(),
+                bounce_time=TimePeriod(milliseconds=30),
+            )
+
+    def test_reload_keeps_a_string_double_click_window(self, button):
+        """EventForm writes '300ms'; the reload path never coerces it."""
+        button.update_timings(double_click_duration="300ms")
+        assert button._detector._multiclick_window == pytest.approx(0.300)
+
+    def test_reload_keeps_a_string_long_press_threshold(self, button):
+        button.update_timings(long_press_duration="700ms")
+        assert button._detector._hold_threshold == pytest.approx(0.700)
+
+    def test_reload_keeps_a_string_sequence_window(self, button):
+        button.update_timings(sequence_window_duration="900ms")
+        assert button._detector._sequence_window == pytest.approx(0.900)
+
+    def test_reload_keeps_a_string_max_long_press(self, button):
+        button.update_timings(max_long_press_duration="45s")
+        assert button._detector._max_long_press_seconds == pytest.approx(45.0)
+
+    def test_constructor_keeps_a_string_double_click_window(self):
+        """A newly added event input goes through __init__, not update_timings."""
+        from boneio.components.input.event import GpioEventButton
+
+        with (
+            patch("asyncio.get_running_loop", return_value=MagicMock()),
+            patch("boneio.components.input.event.get_gpio_manager", return_value=MagicMock()),
+        ):
+            button = GpioEventButton(
+                pin="P8_34",
+                name="Switch",
+                id="switch",
+                actions={},
+                input_type="input",
+                event_bus=MagicMock(),
+                double_click_duration="300ms",
+            )
+        assert button._detector._multiclick_window == pytest.approx(0.300)
+
+    def test_unusable_value_still_falls_back_to_the_default(self, button):
+        button.update_timings(double_click_duration="nonsense")
+        assert button._detector._multiclick_window == pytest.approx(0.220)
+
+
 # ── InputManager reload path ─────────────────────────────────────────────────
 
 
