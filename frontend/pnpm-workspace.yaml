@@ -1,0 +1,23 @@
+# monaco-editor declares `dompurify: "3.2.7"` exactly (3.4.8 on 0.56), and the
+# newest advisory needs 3.4.13, so no released editor resolves it on its own.
+#
+# Read what this override does and does not do before trusting it. The ESM
+# build we bundle does not import the npm package at all — it imports a
+# *vendored* copy at esm/vs/base/browser/dompurify/dompurify.js, and that file
+# is 3.2.7. So this override makes the dependency graph honest (and silences
+# the alerts Dependabot raises against the manifest entry), but the sanitiser
+# that actually ships in the monaco chunk is still 3.2.7. Verify with:
+#
+#   grep -c columnsalign boneio/webui/frontend-dist/assets/monaco-*.js
+#
+# — `columnsalign` is in 3.2.7's MathML allowlist and gone in 3.4.x.
+#
+# Why we ship anyway rather than drop the editor: every open advisory against
+# 3.2.7 needs IN_PLACE mode, SAFE_FOR_TEMPLATES, or setConfig/clearConfig.
+# Monaco uses none of them — domSanitize.js calls sanitize() with
+# RETURN_TRUSTED_TYPE plus node-level hooks. Reaching the renderer at all means
+# an authenticated admin looking at hover text in their own YAML.
+#
+# Remove this whole file when monaco vendors 3.4.13 or later.
+overrides:
+  dompurify: ">=3.4.13"
