@@ -27,7 +27,9 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'other';
+  /** True while the section has unsaved edits; forwarded to the table. */
+  isDirty?: boolean;
+  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'schedule' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -67,7 +69,7 @@ const isInputSection = (s: string) => s === 'binary_sensor' || s === 'event' || 
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title: _title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], allRemoteInputs = [], allVirtualSwitches = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title: _title, uiSchema, sectionType = 'other', isDirty = false, deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], allRemoteInputs = [], allVirtualSwitches = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
   const { t } = useTranslation();
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -242,6 +244,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return;
     } else if (sectionType === 'local_inputs') {
       setEditingItem({ _type: 'event' });
+    } else if (sectionType === 'schedule') {
+      // A clock trigger rather than sunset: it is valid on every device,
+      // including one with no coordinates, where a sun trigger can never
+      // resolve and the schedule would look configured and never fire.
+      setEditingItem({ enabled: true, trigger: { type: 'time', at: '20:00', days: 'daily' }, actions: [] });
     } else {
       setEditingItem({});
     }
@@ -522,6 +529,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           onDelete={handleDelete}
           onDuplicate={sectionType === 'template' ? handleDuplicate : undefined}
           onAddFromDiscovery={handleAddFromDiscovery}
+          isDirty={isDirty}
         />
       ) : (
         <div className="text-center py-8 text-base-content/60">

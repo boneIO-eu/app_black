@@ -914,6 +914,10 @@ export default function UISettings() {
           'remote_outputs',
           'template',
           'oled',
+          // Both reload in place on the device. Without them here, saving the
+          // section wrote the file and changed nothing until a restart.
+          'virtual_switch',
+          'schedule',
         ];
         if (reloadableSections.includes(sectionName)) {
           try {

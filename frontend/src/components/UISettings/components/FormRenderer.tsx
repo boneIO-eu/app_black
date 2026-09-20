@@ -20,6 +20,7 @@ import BoardSensorsForm from '../BoardSensorsForm';
 import RemoteInputForm from '../RemoteInputForm';
 import RemoteOutputForm from '../RemoteOutputForm';
 import VirtualSwitchForm from '../VirtualSwitchForm';
+import ScheduleForm from '../ScheduleForm';
 import InputTypeSwitcher from './InputTypeSwitcher';
 import { pickInputVariantSchema } from '../helpers/inputSchema';
 
@@ -313,6 +314,30 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
     case 'virtual_switch':
       return (
         <VirtualSwitchForm
+          data={editingItem}
+          onChange={props.onChange}
+          allOutputs={props.allOutputs}
+          allOutputGroups={props.allOutputGroups}
+          allCovers={props.allCovers}
+          allAreas={props.allAreas}
+          allRemoteDevices={props.allRemoteDevices}
+          allBinarySensors={props.allBinarySensors}
+          allRemoteInputs={props.allRemoteInputs || []}
+          allVirtualSwitches={props.allVirtualSwitches || []}
+          savedOutputs={props.savedOutputs}
+          savedOutputGroups={props.savedOutputGroups}
+          savedCovers={props.savedCovers}
+          existingItems={value}
+          editingIndex={editingIndex}
+          onValidationChange={props.onValidationChange}
+          attemptedSubmit={props.attemptedSubmit}
+          initialTab={props.initialTab}
+        />
+      );
+
+    case 'schedule':
+      return (
+        <ScheduleForm
           data={editingItem}
           onChange={props.onChange}
           allOutputs={props.allOutputs}

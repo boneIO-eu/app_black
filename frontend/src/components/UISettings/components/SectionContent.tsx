@@ -88,7 +88,7 @@ function ArraySectionContent({
       uiSchema={activeSectionData.uiSchema.items}
       onChange={(newData) => onSectionChange(activeSection, newData)}
       schema={activeSectionData.normalizedSchema}
-      sectionType={activeSection as 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'other'}
+      sectionType={activeSection as 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'schedule' | 'other'}
       deviceType={formData.boneio?.device_type}
       allBinarySensors={formData.binary_sensor || (formData.local_inputs || []).filter((i: any) => i._type === 'binary_sensor')}
       allEvents={formData.event || (formData.local_inputs || []).filter((i: any) => i._type === 'event')}
@@ -106,6 +106,9 @@ function ArraySectionContent({
       allRemoteDevices={formData.remote_devices || []}
       allRemoteInputs={formData.remote_inputs || []}
       allVirtualSwitches={formData.virtual_switch || []}
+      /* Only the schedules table reads this, to keep "run now" from firing a
+         draft: it runs what the controller has loaded, not what is on screen. */
+      isDirty={JSON.stringify(formData[activeSection] ?? null) !== JSON.stringify(originalData[activeSection] ?? null)}
       savedOutputs={[...(originalData.output || []), ...(originalData.remote_outputs || [])]}
       savedOutputGroups={originalData.output_group || []}
       savedCovers={normalizeCovers(originalData.cover || [])}

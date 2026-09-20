@@ -141,22 +141,39 @@ alone, so testing a schedule does not cost you its next real firing.
 
 ## The panel
 
-Settings → Control → **Schedules**
-(`frontend/src/components/UISettings/SystemStateComponents/ScheduleSection.tsx`).
+Settings → Control → **Schedules**.
 
-Its own page rather than a generated form, for one reason: without "next firing"
-and "Run now" next to the fields, the only way to find out whether a schedule
-works is to wait until evening.
-
-A table, one row per schedule — name, what triggers it in words ("Sunset −15 min
-· Every day"), the action types, the next firing — and a row expands in place to
-the full editor, one at a time. Stacking every trigger, condition and action
-editor down the page showed nothing at a glance and scrolled forever once there
-were three of them.
+A table with a modal editor, like every other list of entities in Settings. One
+row per schedule: name, what triggers it in words ("Sunset −15 min · Every
+day"), the action types, and the next firing. The editor has four tabs, because
+the four things are independent — what it is called, when it fires, whether it
+is allowed to, and what it does.
 
 The action editor is the same `ActionFields` component the input forms use, and
 the condition editor the same `ActionConditions`, so a schedule's actions
 support exactly what a button's do.
+
+### The two things a schedule needs that a configuration cannot show
+
+`ScheduleTable` is the only table in Settings that fetches anything, and both
+reasons are specific to schedules.
+
+**The next firing.** The configuration says when a schedule *should* fire. Only
+the running controller says when it *will*, or why it did not — a stale
+timezone, a sun anchor that never resolves at this latitude, a condition that
+was false. The column also carries `last_error`.
+
+**Run now.** A schedule is the one thing in Settings nobody can test by pressing
+a button; without this the only way to find out whether it works is to wait
+until evening. It is disabled while the section has unsaved edits, because it
+fires what the controller has loaded, not what is on screen, and disabled for a
+schedule the controller has not loaded at all — a newly added one, before the
+first save.
+
+A new schedule starts as a clock trigger at 20:00 rather than sunset. A sun
+trigger on a device with no coordinates can never resolve, so it would sit there
+looking configured and never fire; the sun option is shown greyed out with the
+reason instead of being hidden.
 
 ## Files
 
@@ -166,6 +183,9 @@ support exactly what a button's do.
 | `boneio/schema/schema.yaml` | The `schedule:` section |
 | `boneio/core/config/yaml_util.py` | `_check_with_schedule_shape` |
 | `boneio/webui/routes/schedule.py` | Status and run-now |
+| `frontend/src/components/UISettings/tables/ScheduleTable.tsx` | The list, with next firing and run-now |
+| `frontend/src/components/UISettings/ScheduleForm.tsx` | The editor, four tabs |
+| `frontend/src/components/UISettings/helpers/scheduleTrigger.ts` | Offsets, trigger shape, row summary |
 | `tests/unit/core/test_scheduler.py` | 28 tests, mostly about when it should *not* fire |
 | `tests/unit/webui/test_schedule_routes.py` | The two endpoints |
 

@@ -173,6 +173,7 @@ export const ARRAY_SECTIONS = [
   'adc',
   'board_sensors',
   'virtual_switch',
+  'schedule',
 ] as const;
 
 /**

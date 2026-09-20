@@ -18,6 +18,7 @@ import ADCTable from '../tables/ADCTable';
 import BoardSensorsTable from '../tables/BoardSensorsTable';
 import RemoteOutputTable from '../tables/RemoteOutputTable';
 import VirtualSwitchTable from '../tables/VirtualSwitchTable';
+import ScheduleTable from '../tables/ScheduleTable';
 import GenericTable from '../tables/GenericTable';
 
 interface TableRendererProps {
@@ -31,6 +32,9 @@ interface TableRendererProps {
   onDelete: (index: number) => void;
   onDuplicate?: (index: number) => void;
   onAddFromDiscovery: (device: any) => void;
+  /** True while the section has edits that have not been saved.
+   *  Only the schedules table reads it, to keep "run now" off a draft. */
+  isDirty?: boolean;
 }
 
 /**
@@ -47,6 +51,7 @@ const TableRenderer: React.FC<TableRendererProps> = ({
   onDelete,
   onDuplicate,
   onAddFromDiscovery,
+  isDirty,
 }) => {
   const commonProps = { items, onEdit, onDelete };
 
@@ -82,6 +87,8 @@ const TableRenderer: React.FC<TableRendererProps> = ({
       return <RemoteOutputTable {...commonProps} allAreas={allAreas} allRemoteDevices={allRemoteDevices} />;
     case 'virtual_switch':
       return <VirtualSwitchTable {...commonProps} allAreas={allAreas} />;
+    case 'schedule':
+      return <ScheduleTable {...commonProps} isDirty={isDirty} />;
     default:
       return <GenericTable {...commonProps} />;
   }
