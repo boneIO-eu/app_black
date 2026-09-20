@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from boneio.components.virtual_switch import VirtualSwitch
 from boneio.const import VIRTUAL_SWITCH
+from boneio.core.utils.naming import resolve_id
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -40,9 +41,14 @@ class VirtualSwitchManager:
     def _configure(self, config: list[dict]) -> None:
         """Build the switches, restoring the state of the ones that ask for it."""
         for entry in config:
-            switch_id = entry.get("id")
+            # An explicit id wins; otherwise it is made from the name, so that
+            # `name: Nie ma nas w domu` is enough and the config says the same
+            # words the panel does.
+            switch_id = resolve_id(entry)
             if not switch_id:
-                _LOGGER.error("Virtual switch without an id, skipping: %s", entry)
+                _LOGGER.error(
+                    "Virtual switch with no name to make an id from, skipping: %s", entry
+                )
                 continue
             if switch_id in self._switches:
                 _LOGGER.error("Duplicate virtual switch id '%s', skipping.", switch_id)
@@ -78,7 +84,7 @@ class VirtualSwitchManager:
         # Second pass: an action may target another virtual switch, and
         # resolving that needs every switch to exist first.
         for entry in config:
-            switch = self._switches.get(entry.get("id"))
+            switch = self._switches.get(resolve_id(entry))
             if switch is None:
                 continue
             raw = entry.get("actions") or {}

@@ -3,7 +3,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import ActionRowList from './ActionFields/ActionRowList';
 import AreaSelect from './widgets/AreaSelect';
 import { CardSection, FormField, MoreOptions } from './ui';
-import { sanitizeId } from './helpers/idValidation';
+import { resolveId } from './helpers/slugifyId';
 import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
 import type { RemoteDevice } from './ActionFields/types';
 import {
@@ -77,6 +77,7 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
   attemptedSubmit = false,
 }) => {
   const { t } = useTranslation();
+  const derivedId = resolveId(data);
 
   const entities = {
     allOutputs,
@@ -94,10 +95,10 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
 
   const errors = useMemo(() => {
     const found: string[] = [];
-    const id = (data.id || '').trim();
+    const id = derivedId;
     if (!id) {
-      found.push(t('virtual_switch.error_id_required'));
-    } else if (existingItems.some((other, index) => index !== editingIndex && other.id === id)) {
+      found.push(t('virtual_switch.error_name_required'));
+    } else if (existingItems.some((other, index) => index !== editingIndex && resolveId(other) === id)) {
       found.push(t('virtual_switch.error_id_duplicate'));
     }
 
@@ -110,7 +111,7 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
       if (sets) found.push(t('virtual_switch.error_sets_itself'));
     }
     return found;
-  }, [data, existingItems, editingIndex, t]);
+  }, [data, derivedId, existingItems, editingIndex, t]);
 
   useEffect(() => {
     onValidationChange?.(errors.length > 0);
@@ -138,25 +139,29 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
         </div>
       )}
 
-      {/* The id first, and called what it is: this is the word you type once
-          and then use everywhere — in the MQTT topic, in a condition, in
-          another switch's action. The friendly `name` is the longer label
-          Home Assistant shows, which is a description of the same thing. */}
+      {/* Name and description, which is what the panel calls them and what
+          config.yaml calls them. The identifier is made from the name and
+          shown under it rather than typed: it is a consequence, not a
+          decision, and asking for both put two spellings of the same thing
+          side by side. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label={t('common.name')} help={t('virtual_switch.id_hint')}>
+        <FormField
+          label={t('common.name')}
+          help={derivedId ? `→ ${derivedId}` : t('virtual_switch.id_hint')}
+        >
           <input
             type="text"
-            className="input input-bordered w-full font-mono"
-            value={data.id || ''}
-            onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+            className="input input-bordered w-full"
+            value={data.name || ''}
+            onChange={(e) => updateField('name', e.target.value)}
           />
         </FormField>
         <FormField label={t('common.description')} help={t('common.description_hint')}>
           <input
             type="text"
             className="input input-bordered w-full"
-            value={data.name || ''}
-            onChange={(e) => updateField('name', e.target.value)}
+            value={(data.description as string) || ''}
+            onChange={(e) => updateField('description', e.target.value)}
           />
         </FormField>
       </div>
@@ -178,7 +183,7 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
             actionOutputOptions={ACTION_OUTPUT_OPTIONS}
             actionCoverOptions={ACTION_COVER_OPTIONS}
             attemptedSubmit={attemptedSubmit}
-            excludeEntityId={data.id}
+            excludeEntityId={derivedId}
             preferredArea={data.area}
           />
         </CardSection>

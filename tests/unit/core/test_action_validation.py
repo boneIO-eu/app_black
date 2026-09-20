@@ -566,16 +566,18 @@ class TestVirtualSwitchSelfReference:
     do half of what it says."""
 
     def _config(self, target: str) -> str:
+        """Two switches named, not id-ed: the ids are made from the names, so
+        'Away' is `away` and the self-reference is still detectable."""
         return (
             "boneio:\n  name: T\n"
             "virtual_switch:\n"
-            "  - id: away\n"
+            "  - name: Away\n"
             "    actions:\n"
             "      on_turn_on:\n"
             "        - action: virtual_switch\n"
             f"          boneio_virtual_switch: {target}\n"
             '          action_output: "OFF"\n'
-            "  - id: other\n"
+            "  - name: Other\n"
         )
 
     def _load(self, text: str):

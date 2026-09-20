@@ -16,6 +16,7 @@ from yaml import MarkedYAMLError, YAMLError, dump, load
 from boneio.const import OUTPUT
 from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
+from boneio.core.utils.naming import resolve_id
 from boneio.exceptions import ConfigurationException
 
 schema_file = os.path.join(os.path.dirname(__file__), "../../schema/schema.yaml")
@@ -834,6 +835,41 @@ class CustomValidator(Validator):
             )
         return float(match.group(1)) * unit_to_seconds[unit]
 
+    def _check_with_unique_ids(self, field, value):
+        """Reject a section where two entries resolve to the same identifier.
+
+        Only worth saying out loud since identifiers are made from names: two
+        lights both called "Salon" in different rooms are an easy thing to
+        write and produce one entity, with the second silently dropped at
+        startup. An explicit ``id`` on one of them is the way out, which is
+        what the message says.
+        """
+        if not isinstance(value, list):
+            return
+
+        seen: dict[str, int] = {}
+        for index, entry in enumerate(value):
+            if not isinstance(entry, dict):
+                continue
+            entry_id = resolve_id(entry)
+            if not entry_id:
+                self._error(  # type: ignore[attr-defined]
+                    field,
+                    f"Entry {index + 1} has no name to make an identifier from.",
+                )
+                continue
+            if entry_id in seen:
+                self._error(  # type: ignore[attr-defined]
+                    field,
+                    f"Entries {seen[entry_id] + 1} and {index + 1} both resolve "
+                    f"to the identifier {entry_id!r}. Names do not have to be "
+                    "unique, but what they are turned into does — give one of "
+                    "them an explicit 'id', or a name that differs by more "
+                    "than punctuation.",
+                )
+                continue
+            seen[entry_id] = index
+
     def _check_with_virtual_switch_shape(self, field, value):
         """Reject a virtual switch whose own actions set itself.
 
@@ -844,7 +880,7 @@ class CustomValidator(Validator):
         if not isinstance(value, dict):
             return
 
-        switch_id = value.get("id")
+        switch_id = resolve_id(value)
         if not switch_id:
             return
 

@@ -14,7 +14,7 @@ import ActionConditions from './ActionFields/ActionConditions';
 import ActionRowList from './ActionFields/ActionRowList';
 import { applyActionUpdate } from './ActionFields/helpers';
 import { CardSection, FormField, MoreOptions } from './ui';
-import { sanitizeId } from './helpers/idValidation';
+import { resolveId } from './helpers/slugifyId';
 import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
 import type { RemoteDevice } from './ActionFields/types';
 import {
@@ -87,6 +87,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
   attemptedSubmit = false,
 }) => {
   const { t } = useTranslation();
+  const derivedId = resolveId(data);
   const { hasLocation } = useConfig();
   const trigger = data.trigger || {};
   const kind = trigger.type || 'sun';
@@ -108,10 +109,10 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
 
   const errors = useMemo(() => {
     const found: string[] = [];
-    const id = (data.id || '').trim();
+    const id = derivedId;
     if (!id) {
-      found.push(t('schedule.error_id_required'));
-    } else if (existingItems.some((other, index) => index !== editingIndex && other.id === id)) {
+      found.push(t('schedule.error_name_required'));
+    } else if (existingItems.some((other, index) => index !== editingIndex && resolveId(other) === id)) {
       found.push(t('schedule.error_id_duplicate'));
     }
     if (kind === 'sun' && !trigger.event) found.push(t('schedule.error_event_required'));
@@ -120,7 +121,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
     // would sit there looking configured and never fire.
     if (kind === 'sun' && !hasLocation) found.push(t('schedule.needs_location'));
     return found;
-  }, [data.id, existingItems, editingIndex, kind, trigger.event, trigger.at, hasLocation, t]);
+  }, [derivedId, existingItems, editingIndex, kind, trigger.event, trigger.at, hasLocation, t]);
 
   useEffect(() => {
     onValidationChange?.(errors.length > 0);
@@ -143,25 +144,29 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
         </div>
       )}
 
-      {/* The id first, and called what it is: this is the word you type once
-          and then use everywhere — in the MQTT topic, in a condition, in
-          another switch's action. The friendly `name` is the longer label
-          Home Assistant shows, which is a description of the same thing. */}
+      {/* Name and description, which is what the panel calls them and what
+          config.yaml calls them. The identifier is made from the name and
+          shown under it rather than typed: it is a consequence, not a
+          decision, and asking for both put two spellings of the same thing
+          side by side. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label={t('common.name')} help={t('schedule.id_hint')}>
+        <FormField
+          label={t('common.name')}
+          help={derivedId ? `→ ${derivedId}` : t('schedule.id_hint')}
+        >
           <input
             type="text"
-            className="input input-bordered w-full font-mono"
-            value={data.id || ''}
-            onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+            className="input input-bordered w-full"
+            value={data.name || ''}
+            onChange={(e) => updateField('name', e.target.value)}
           />
         </FormField>
         <FormField label={t('common.description')} help={t('common.description_hint')}>
           <input
             type="text"
             className="input input-bordered w-full"
-            value={data.name || ''}
-            onChange={(e) => updateField('name', e.target.value)}
+            value={(data.description as string) || ''}
+            onChange={(e) => updateField('description', e.target.value)}
           />
         </FormField>
       </div>

@@ -56,8 +56,9 @@ descriptions from different ends of the same object.
 
 | Field | Default | Means |
 |---|---|---|
-| `id` | required | Used in the MQTT topic, and referenced by conditions and actions |
-| `name` | the id | Shown in Home Assistant and in the panel |
+| `name` | required | Free text. Shown in Home Assistant and in the panel, and the identifier is made from it |
+| `description` | — | A note to yourself. Nothing reads it |
+| `id` | made from `name` | Only when the identifier has to survive a rename — see below |
 | `area` | — | Area for Home Assistant grouping |
 | `icon` | — | MDI icon, e.g. `mdi:weather-night` |
 | `restore_state` | `true` | Remember the state across a restart |
@@ -143,6 +144,36 @@ trying to make.
 Actions are resolved after every switch has been built, so an action may name a
 switch defined further down the file.
 
+## The identifier
+
+Written as:
+
+```yaml
+virtual_switch:
+  - name: Nie ma nas w domu
+    description: Flaga symulacji obecności
+```
+
+and the identifier becomes `nie_ma_nas_w_domu`: accents folded, everything that
+is not a letter or a digit collapsed to one underscore. That identifier is what
+the MQTT topic uses, what Home Assistant's unique_id is built from, what the
+saved state is keyed on, and what a condition or another switch's action writes
+to refer to this switch.
+
+Which is also the catch. **Renaming a switch changes its identifier**, and with
+it all four: the old Home Assistant entity goes unavailable, the flag comes up
+off because its saved state was filed under the old name, and every action
+pointing at it stops matching. Set an explicit `id` if you expect to rename it:
+
+```yaml
+virtual_switch:
+  - id: away              # never changes
+    name: Nie ma nas w domu
+```
+
+Two names that fold to the same identifier — "Salon" and "salon!" — are refused
+at load time rather than silently becoming one switch.
+
 ## Setting one from an action
 
 Any action list can set one, so a long press can arm a mode that other inputs
@@ -210,11 +241,9 @@ editor. The editor card is about the same height whether an action says one
 thing or ten, so a switch that turns on two lights used to be a page of
 scrolling with nothing legible at a glance.
 
-The first field is the **id**, labelled *Name*: it is the word you type once
-and then use everywhere — in the MQTT topic, in a condition, in another
-switch's action. The friendly `name` is labelled *Description*, because that is
-what it is next to the id; Home Assistant shows it, and falls back to the id
-when it is empty.
+The dialog asks for a **name** and a **description**, which is what config.yaml
+calls them too. The identifier is shown under the name rather than typed — it
+is a consequence, not a decision.
 
 Everything else — `restore_state`, `initial`, `show_in_ha`, the icon, the area
 — is behind **More options**, and that row names what is inside so it can be

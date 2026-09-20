@@ -31,6 +31,13 @@ export interface PresenceOptions {
   randomness: 'calm' | 'normal' | 'lively';
   /** Name for the flag, shown in Home Assistant. */
   flagName?: string;
+  /** Display name per output id, so the generated names read like the panel
+   *  rather than like `out_03`. */
+  labels?: Record<string, string>;
+  /** Leading word of every generated name, localised by the wizard. */
+  namePrefix?: string;
+  /** What the final "everything off" schedule is called. */
+  endName?: string;
 }
 
 export interface PresenceResult {
@@ -104,7 +111,7 @@ export function buildPresenceSimulation(options: PresenceOptions): PresenceResul
     const at = toClock(windowStart + index * slot);
     schedules.push({
       id: `${PRESENCE_PREFIX}step_${index + 1}`,
-      name: `Presence — ${light}`,
+      name: `${options.namePrefix || 'Presence'} — ${options.labels?.[light] || light}`,
       enabled: true,
       trigger: first
         ? { type: 'sun', event: 'civil_dusk', offset: '-10min', latest: cap, jitter, days: 'daily' }
@@ -124,7 +131,7 @@ export function buildPresenceSimulation(options: PresenceOptions): PresenceResul
   if (lights.length > 0) {
     schedules.push({
       id: `${PRESENCE_PREFIX}off`,
-      name: 'Presence — end of evening',
+      name: `${options.namePrefix || 'Presence'} — ${options.endName || 'end of evening'}`,
       enabled: true,
       trigger: { type: 'time', at: options.endsAt, jitter, days: 'daily' },
       condition: armedOnly(),

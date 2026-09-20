@@ -88,12 +88,27 @@ const PresenceSimulationWizard: React.FC<PresenceSimulationWizardProps> = ({
     void load();
   }, [load]);
 
-  const result = useMemo(
-    () => buildPresenceSimulation({ lights, endsAt, randomness }),
-    [lights, endsAt, randomness],
+  const labels = useMemo(
+    () => Object.fromEntries(outputs.map((output) => [output.id, output.label])),
+    [outputs],
   );
 
-  const labelOf = (id: string) => outputs.find((output) => output.id === id)?.label || id;
+  const result = useMemo(
+    () => buildPresenceSimulation({
+      lights,
+      endsAt,
+      randomness,
+      labels,
+      // The generated entries are named, not id-ed, and the name is what the
+      // table shows — so it is localised like everything else on the page.
+      flagName: t('presence.flag_name'),
+      namePrefix: t('presence.name_prefix'),
+      endName: t('presence.end_name'),
+    }),
+    [lights, endsAt, randomness, labels, t],
+  );
+
+  const labelOf = (id: string) => labels[id] || id;
 
   const toggleLight = (id: string) =>
     setLights((current) =>

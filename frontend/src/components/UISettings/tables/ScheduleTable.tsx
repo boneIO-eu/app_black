@@ -14,6 +14,7 @@ import {
   type ScheduleEntry,
   type ScheduleStatus,
 } from '../helpers/scheduleTrigger';
+import { resolveId } from '../helpers/slugifyId';
 
 interface ScheduleTableProps {
   items: ScheduleEntry[];
@@ -83,9 +84,9 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ items, onEdit, onDelete, 
   const sortedItems = useMemo(
     () =>
       sortItems(indexedItems, {
-        name: (item: ScheduleEntry) => (item.name || item.id || '').toLowerCase(),
+        name: (item: ScheduleEntry) => (item.name || '').toLowerCase(),
         trigger: (item: ScheduleEntry) => triggerSummary(item, t).toLowerCase(),
-        next: (item: ScheduleEntry) => status[item.id]?.next_fire || '￿',
+        next: (item: ScheduleEntry) => status[resolveId(item)]?.next_fire || '￿',
       }),
     [indexedItems, sortItems, status, t],
   );
@@ -106,7 +107,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ items, onEdit, onDelete, 
 
   /** "Run it now", with the reason it is unavailable when it is. */
   const runButton = (item: ScheduleEntry, extraClass = '') => {
-    const state = status[item.id];
+    const state = status[resolveId(item)];
     const title = isDirty
       ? t('schedule.run_needs_save')
       : !state
@@ -116,11 +117,11 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ items, onEdit, onDelete, 
       <button
         type="button"
         className={`btn btn-ghost btn-xs btn-square ${extraClass}`}
-        onClick={() => runNow(item.id)}
-        disabled={!state || isDirty || running === item.id}
+        onClick={() => runNow(resolveId(item))}
+        disabled={!state || isDirty || running === resolveId(item)}
         title={title}
       >
-        {running === item.id ? <FaSpinner className="animate-spin w-3 h-3" /> : <FaBolt className="w-3 h-3" />}
+        {running === resolveId(item) ? <FaSpinner className="animate-spin w-3 h-3" /> : <FaBolt className="w-3 h-3" />}
       </button>
     );
   };
@@ -139,17 +140,17 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ items, onEdit, onDelete, 
         {sortedItems.map(({ item, originalIndex }) => (
           <MobileCard
             key={originalIndex}
-            title={item.name || item.id}
-            subtitle={item.name ? item.id : undefined}
+            title={item.name || resolveId(item)}
+            subtitle={resolveId(item)}
             onEdit={() => onEdit(originalIndex)}
             onDelete={() => onDelete(originalIndex)}
             fields={[
               { label: t('schedule.column_trigger'), value: triggerSummary(item, t) },
               { label: t('schedule.column_actions'), value: actionBadges(item) },
-              { label: t('schedule.column_next'), value: formatFire(status[item.id]?.next_fire ?? null) },
+              { label: t('schedule.column_next'), value: formatFire(status[resolveId(item)]?.next_fire ?? null) },
               { label: t('schedule.run_now'), value: runButton(item) },
-              ...(status[item.id]?.last_error
-                ? [{ label: t('schedule.last_error'), value: <span className="text-error text-xs">{status[item.id].last_error}</span> }]
+              ...(status[resolveId(item)]?.last_error
+                ? [{ label: t('schedule.last_error'), value: <span className="text-error text-xs">{status[resolveId(item)]!.last_error}</span> }]
                 : []),
             ]}
           />
@@ -170,14 +171,14 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({ items, onEdit, onDelete, 
           </Thead>
           <Tbody>
             {sortedItems.map(({ item, originalIndex }) => {
-              const state = status[item.id];
+              const state = status[resolveId(item)];
               const disabled = item.enabled === false;
               return (
                 <Tr key={originalIndex} className={disabled ? 'opacity-50' : ''}>
                   <Td>
                     <div className="min-w-0">
-                      <div className="truncate">{item.name || item.id}</div>
-                      {item.name && <div className="text-xs opacity-50 font-mono truncate">{item.id}</div>}
+                      <div className="truncate">{item.name || resolveId(item)}</div>
+                      <div className="text-xs opacity-50 font-mono truncate">{resolveId(item)}</div>
                       {disabled && <span className="badge badge-ghost badge-xs">{t('schedule.disabled')}</span>}
                     </div>
                   </Td>

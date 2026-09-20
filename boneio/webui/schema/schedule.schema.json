@@ -13,15 +13,20 @@
           "string"
         ],
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Id of I2C to use in pin config",
-            "title": "Id"
-          },
           "name": {
             "type": "string",
-            "description": "Display name for this schedule.",
+            "description": "Name",
             "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this schedule is for.",
+            "title": "Description"
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier, if the one made from the name will not do.",
+            "title": "Id"
           },
           "enabled": {
             "oneOf": [
@@ -1023,6 +1028,7 @@
           }
         },
         "required": [
+          "name",
           "trigger"
         ]
       },

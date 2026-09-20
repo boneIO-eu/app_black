@@ -85,8 +85,23 @@ def test_a_duplicate_id_is_refused(manager, caplog):
     assert any("Duplicate" in record.message for record in caplog.records)
 
 
-def test_a_switch_without_an_id_is_skipped(manager):
-    assert build(manager, [{"name": "nameless"}]).all() == []
+def test_a_name_is_enough(manager):
+    """The id is made from it, so the config says the same words the panel
+    does instead of carrying a second spelling of the same thing."""
+    switches = build(manager, [{"name": "Nie ma nas w domu"}])
+    assert [switch.id for switch in switches.all()] == ["nie_ma_nas_w_domu"]
+    assert switches.get("nie_ma_nas_w_domu").name == "Nie ma nas w domu"
+
+
+def test_an_explicit_id_still_wins(manager):
+    """It exists so a reference survives a rename."""
+    switches = build(manager, [{"id": "away", "name": "Nie ma nas w domu"}])
+    assert [switch.id for switch in switches.all()] == ["away"]
+
+
+def test_a_switch_with_nothing_to_name_it_is_skipped(manager):
+    assert build(manager, [{"name": "!!!"}]).all() == []
+    assert build(manager, [{}]).all() == []
 
 
 # ── switching ────────────────────────────────────────────────────────────

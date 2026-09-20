@@ -32,6 +32,7 @@ from datetime import time as dt_time
 from typing import TYPE_CHECKING, Any
 
 from boneio.core.events.bus import async_track_point_in_time
+from boneio.core.utils.naming import resolve_id
 from boneio.core.manager.action_conditions import (
     precompile_conditions,
     should_execute_action,
@@ -123,7 +124,10 @@ class _Entry:
     )
 
     def __init__(self, config: dict, index: int) -> None:
-        self.id = config.get("id") or f"schedule_{index + 1}"
+        # An explicit id wins; otherwise it is made from the name, so a config
+        # written as `name: Rolety o zmierzchu` says the same words the panel
+        # does. The positional fallback is for an entry with neither.
+        self.id = resolve_id(config) or f"schedule_{index + 1}"
         self.name = config.get("name") or self.id
         self.enabled = config.get("enabled", True)
         self.trigger = config.get("trigger") or {}

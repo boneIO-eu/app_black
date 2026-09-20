@@ -2130,6 +2130,7 @@ template:
 virtual_switch:
   type: list
   required: False
+  check_with: unique_ids
   meta:
     label: "Virtual switches — an on/off flag with no relay behind it."
     description: |
@@ -2167,19 +2168,39 @@ virtual_switch:
     type: dict
     check_with: virtual_switch_shape
     schema:
-      id:
+      name:
         type: string
         required: True
-        coerce: str
         meta:
-          label: Identifier
+          label: Name
           description: |
-            Used in the MQTT topic and referenced by conditions and actions.
-      name:
+            Free text, in whatever language the house is run in. Shown in Home
+            Assistant and in the panel, and the identifier is made from it —
+            "Nie ma nas w domu" becomes `nie_ma_nas_w_domu`, which is what the
+            MQTT topic uses and what a condition or an action refers to.
+      description:
         type: string
         required: False
         meta:
-          label: Display name in Home Assistant and in the panel.
+          label: What this flag is for.
+          description: |
+            A note to yourself. Nothing reads it.
+      id:
+        type: string
+        required: False
+        coerce: str
+        meta:
+          label: Identifier, if the one made from the name will not do.
+          description: |
+            Rarely needed. It exists so a reference survives a rename: the MQTT
+            topic, the Home Assistant entity, the saved state and every
+            condition and action pointing at this switch all use the
+            identifier, so renaming a switch that has no explicit `id` changes
+            all four at once — the old entity goes unavailable, the flag comes
+            up off, and the actions that referred to it stop matching.
+
+            Set one if you expect to rename this switch later and want none of
+            that to happen.
       area:
         type: string
         required: False
@@ -2259,6 +2280,7 @@ virtual_switch:
 schedule:
   type: list
   required: False
+  check_with: unique_ids
   meta:
     label: "Time and sun driven schedules — run actions without anyone pressing anything."
     description: |
@@ -2290,12 +2312,33 @@ schedule:
     type: dict
     check_with: schedule_shape
     schema:
-      id: !include id.yaml
       name:
+        type: string
+        required: True
+        meta:
+          label: Name
+          description: |
+            Free text. Shown in the panel, and the identifier is made from it —
+            "Covers at dusk" becomes `covers_at_dusk`, which is what "run now"
+            names and what the logs report.
+      description:
         type: string
         required: False
         meta:
-          label: Display name for this schedule.
+          label: What this schedule is for.
+          description: |
+            A note to yourself. Nothing reads it.
+      id:
+        type: string
+        required: False
+        coerce: str
+        meta:
+          label: Identifier, if the one made from the name will not do.
+          description: |
+            Rarely needed. Renaming a schedule that has no explicit `id`
+            changes its identifier, which is what "run now" and the logs use.
+            Less costly than for a virtual switch — nothing else refers to a
+            schedule — but set one if you want the name to be free to change.
       enabled:
         type: boolean
         required: False

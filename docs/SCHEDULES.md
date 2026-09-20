@@ -186,10 +186,13 @@ Jitter and `on_missed` are behind **More options** — they have a default that
 is right almost always, and they were competing with the fields that decide
 when the thing fires.
 
-The first field is the **id**, labelled *Name*: it is the word you type once
-and then use everywhere — in the config, in a condition, in "run now". The
-friendly `name` is labelled *Description*, because that is what it is next to
-the id; Home Assistant shows it, and falls back to the id when it is empty.
+A schedule is written with a **name**, and the identifier is made from it —
+"Rolety o zmierzchu" becomes `rolety_o_zmierzchu`, which is what "run now"
+names and what the logs report. `description` is a note nobody reads. An
+explicit `id` is accepted and rarely needed: renaming a schedule changes its
+identifier, but nothing else refers to a schedule, so the cost is smaller than
+for a virtual switch. Two names that fold to the same identifier are refused at
+load time.
 
 **Do** is a list of one-line rows ("Toggle: Living room · conditions: 2"), each
 expanding in place to the editor. Same reason as everywhere else: the editor

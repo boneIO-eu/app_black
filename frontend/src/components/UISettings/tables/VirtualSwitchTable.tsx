@@ -6,6 +6,7 @@ import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { EDGES, type SwitchEntry } from '../helpers/virtualSwitchEdges';
+import { resolveId } from '../helpers/slugifyId';
 
 interface Area {
   id: string;
@@ -41,8 +42,8 @@ const VirtualSwitchTable: React.FC<VirtualSwitchTableProps> = ({
   const sortedItems = useMemo(
     () =>
       sortItems(indexedItems, {
-        name: (item: SwitchEntry) => (item.name || item.id || '').toLowerCase(),
-        id: (item: SwitchEntry) => (item.id || '').toLowerCase(),
+        name: (item: SwitchEntry) => (item.name || '').toLowerCase(),
+        id: (item: SwitchEntry) => resolveId(item).toLowerCase(),
         actions: (item: SwitchEntry) => {
           const counts = edgeCounts(item);
           return EDGES.reduce((total, edge) => total + counts[edge], 0);
@@ -93,8 +94,8 @@ const VirtualSwitchTable: React.FC<VirtualSwitchTableProps> = ({
         {sortedItems.map(({ item, originalIndex }) => (
           <MobileCard
             key={originalIndex}
-            title={item.name || item.id}
-            subtitle={item.name ? item.id : undefined}
+            title={item.name || resolveId(item)}
+            subtitle={resolveId(item)}
             onEdit={() => onEdit(originalIndex)}
             onDelete={() => onDelete(originalIndex)}
             fields={[
@@ -121,8 +122,8 @@ const VirtualSwitchTable: React.FC<VirtualSwitchTableProps> = ({
           <Tbody>
             {sortedItems.map(({ item, originalIndex }) => (
               <Tr key={originalIndex}>
-                <Td>{item.name || item.id}</Td>
-                <Td className="font-mono text-xs">{item.id}</Td>
+                <Td>{item.name || resolveId(item)}</Td>
+                <Td className="font-mono text-xs">{resolveId(item)}</Td>
                 <Td>{actionBadges(item)}</Td>
                 <Td>{allAreas.find((a) => a.id === item.area)?.name || item.area || '-'}</Td>
                 <Td className="text-xs">{restoreLabel(item)}</Td>
