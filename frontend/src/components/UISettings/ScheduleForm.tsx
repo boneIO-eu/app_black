@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo } from 'react';
-import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import {
@@ -11,10 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import ActionFields, { cleanActionFields } from './ActionFields';
 import ActionConditions from './ActionFields/ActionConditions';
+import ActionRowList from './ActionFields/ActionRowList';
 import { applyActionUpdate } from './ActionFields/helpers';
-import { CardSection, FormField } from './ui';
+import { CardSection, FormField, MoreOptions } from './ui';
 import { sanitizeId } from './helpers/idValidation';
 import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
 import type { RemoteDevice } from './ActionFields/types';
@@ -93,6 +92,20 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
   const kind = trigger.type || 'sun';
   const actions = data.actions || [];
 
+  const entities = {
+    allOutputs,
+    allOutputGroups,
+    allCovers,
+    allAreas,
+    allRemoteDevices,
+    allBinarySensors,
+    allRemoteInputs,
+    allVirtualSwitches,
+    savedOutputs,
+    savedOutputGroups,
+    savedCovers,
+  };
+
   const errors = useMemo(() => {
     const found: string[] = [];
     const id = (data.id || '').trim();
@@ -162,7 +175,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
       </label>
 
       <CardSection title={t('schedule.section_when')} divided>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <FormField label={t('schedule.trigger_type')}>
             <Select value={kind} onValueChange={(value) => updateTrigger('type', value)}>
               <SelectTrigger className="w-full h-9"><SelectValue /></SelectTrigger>
@@ -237,6 +250,50 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
             </label>
           </FormField>
 
+
+        </div>
+      </CardSection>
+
+      <CardSection
+        title={t('schedule.section_only_if')}
+        description={t('schedule.section_only_if_hint')}
+        divided
+      >
+        {/* The schedule's own conditions gate the whole firing. Each action may
+            still carry its own, below. */}
+        <ActionConditions
+          hideHeading
+          action={data}
+          onUpdate={(field, value) => onChange(applyActionUpdate(data, field, value) as ScheduleEntry)}
+          t={t}
+          allOutputs={allOutputs}
+          allCovers={allCovers}
+          allBinarySensors={allBinarySensors}
+          allRemoteInputs={allRemoteInputs}
+          allVirtualSwitches={allVirtualSwitches}
+          allAreas={allAreas}
+        />
+      </CardSection>
+
+      <CardSection title={t('schedule.section_do')} divided>
+        <ActionRowList
+          actions={actions}
+          onChange={setActions}
+          newAction={() => ({ action: 'output', action_output: 'TOGGLE' })}
+          emptyText={t('schedule.no_actions_hint')}
+          entities={entities}
+          actionTypeOptions={ACTION_TYPE_OPTIONS}
+          actionOutputOptions={ACTION_OUTPUT_OPTIONS}
+          actionCoverOptions={ACTION_COVER_OPTIONS}
+          attemptedSubmit={attemptedSubmit}
+        />
+      </CardSection>
+
+      <MoreOptions
+        label={t('common.more_options')}
+        summary={`${t('schedule.jitter')} · ${t('schedule.on_missed')}`}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label={t('schedule.jitter')} help={t('schedule.jitter_hint')}>
             <label className="input input-bordered input-sm flex items-center gap-1 w-full">
               <input
@@ -262,83 +319,8 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
             </Select>
           </FormField>
         </div>
-      </CardSection>
+      </MoreOptions>
 
-      <CardSection
-        title={t('schedule.section_only_if')}
-        description={t('schedule.section_only_if_hint')}
-        divided
-      >
-        {/* The schedule's own conditions gate the whole firing. Each action may
-            still carry its own, below. */}
-        <ActionConditions
-          hideHeading
-          action={data}
-          onUpdate={(field, value) => onChange(applyActionUpdate(data, field, value) as ScheduleEntry)}
-          t={t}
-          allOutputs={allOutputs}
-          allCovers={allCovers}
-          allBinarySensors={allBinarySensors}
-          allRemoteInputs={allRemoteInputs}
-          allVirtualSwitches={allVirtualSwitches}
-          allAreas={allAreas}
-        />
-      </CardSection>
-
-      <CardSection
-        title={t('schedule.section_do')}
-        divided
-        action={
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm text-primary"
-            onClick={() => setActions([...actions, { action: 'output', action_output: 'TOGGLE' }])}
-          >
-            <FaPlus className="mr-2" />
-            {t('inputs.add_action')}
-          </button>
-        }
-      >
-        <div className="space-y-3">
-          {actions.length > 0 ? (
-            actions.map((action, index) => (
-              <ActionFields
-                key={index}
-                action={action}
-                index={index}
-                onUpdate={(field, value) =>
-                  setActions(
-                    actions.map((current, i) => {
-                      if (i !== index) return current;
-                      return field === 'action'
-                        ? (cleanActionFields(value, current) as ActionEntry)
-                        : applyActionUpdate(current, field, value);
-                    }),
-                  )
-                }
-                onRemove={() => setActions(actions.filter((_, i) => i !== index))}
-                allOutputs={allOutputs}
-                allOutputGroups={allOutputGroups}
-                allCovers={allCovers}
-                allAreas={allAreas}
-                allRemoteDevices={allRemoteDevices}
-                allBinarySensors={allBinarySensors}
-                allRemoteInputs={allRemoteInputs}
-                allVirtualSwitches={allVirtualSwitches}
-                actionTypeOptions={ACTION_TYPE_OPTIONS}
-                actionOutputOptions={ACTION_OUTPUT_OPTIONS}
-                actionCoverOptions={ACTION_COVER_OPTIONS}
-                showValidation={attemptedSubmit}
-                savedOutputs={savedOutputs}
-                savedOutputGroups={savedOutputGroups}
-                savedCovers={savedCovers}
-              />
-            ))
-          ) : (
-            <p className="text-sm text-base-content/60">{t('schedule.no_actions_hint')}</p>
-          )}
-        </div>
-      </CardSection>
     </div>
   );
 };

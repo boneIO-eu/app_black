@@ -17,6 +17,7 @@ export * from './StatGrid';
 export * from './FormField';
 export * from './FormActions';
 export * from './ToggleRow';
+export * from './MoreOptions';
 export * from './NoticeCallout';
 export * from './CodeBlock';
 export * from './EmptyState';

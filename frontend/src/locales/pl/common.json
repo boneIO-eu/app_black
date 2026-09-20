@@ -438,7 +438,8 @@
     "sensor": "Sensor",
     "items": "Elementy",
     "no_form_available": "Brak formularza dla typu sekcji: {sectionType}",
-    "unknown": "Nieznany"
+    "unknown": "Nieznany",
+    "incomplete_action": "Ta akcja nie ma jeszcze celu."
   },
   "binary_sensor_form": {
     "action_type_required": "Typ akcji jest wymagany",
@@ -1076,7 +1077,8 @@
     "of": "z",
     "area": "Obszar",
     "no_area": "Brak obszaru",
-    "type": "Typ"
+    "type": "Typ",
+    "more_options": "Więcej opcji"
   },
   "validation": {
     "id_required": "ID jest wymagane",
@@ -2978,7 +2980,7 @@
     "trigger_type": "Wyzwalacz"
   },
   "virtual_switch": {
-    "actions_hint": "Akcje uruchamiają się tylko przy rzeczywistej zmianie — nigdy przy ponownej publikacji po reconnect MQTT ani przy odtworzeniu stanu na starcie.",
+    "actions_hint": "Uruchamiają się tylko przy rzeczywistej zmianie — nie po reconnect MQTT ani przy odtworzeniu stanu na starcie.",
     "area": "Obszar",
     "column_actions": "Akcje",
     "column_name": "Przełącznik",
@@ -3000,6 +3002,7 @@
     "restore_state": "Pamiętaj stan po restarcie",
     "restored": "odtwarzany",
     "section_ha": "Home Assistant",
-    "show_in_ha": "Pokaż w Home Assistant"
+    "show_in_ha": "Pokaż w Home Assistant",
+    "hidden_in_ha": "ukryty w Home Assistant"
   }
 }

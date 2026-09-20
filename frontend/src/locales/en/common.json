@@ -438,7 +438,8 @@
     "sensor": "Sensor",
     "items": "Items",
     "no_form_available": "No form available for section type: {sectionType}",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "incomplete_action": "This action has no target yet."
   },
   "binary_sensor_form": {
     "action_type_required": "Action type is required",
@@ -1076,7 +1077,8 @@
     "area": "Area",
     "no_area": "No area",
     "type": "Type",
-    "done": "Done"
+    "done": "Done",
+    "more_options": "More options"
   },
   "validation": {
     "id_required": "ID is required",
@@ -2979,7 +2981,7 @@
     "trigger_type": "Trigger"
   },
   "virtual_switch": {
-    "actions_hint": "Actions run on a real change only — never on the republish after an MQTT reconnect, and never when a restored state is loaded at startup.",
+    "actions_hint": "Run on a real change only — not on an MQTT reconnect, and not on a restored state at startup.",
     "area": "Area",
     "column_actions": "Actions",
     "column_name": "Switch",
@@ -3001,6 +3003,7 @@
     "restore_state": "Remember across restarts",
     "restored": "restored",
     "section_ha": "Home Assistant",
-    "show_in_ha": "Show in Home Assistant"
+    "show_in_ha": "Show in Home Assistant",
+    "hidden_in_ha": "hidden in Home Assistant"
   }
 }

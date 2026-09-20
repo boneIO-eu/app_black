@@ -189,17 +189,37 @@ half of that group, next to Schedules rather than next to Outputs: the one
 thing a virtual switch never does is switch anything.
 
 It is an ordinary table with a modal editor, like every other list of entities
-in Settings. The modal is one scrolling page: the flag's settings, then **On
-turn on**, then **On turn off**.
+in Settings. The modal asks for what a flag is — a name and an id — and then
+what it does:
+
+```
+[ Name ]                      [ id ]
+
+ON TURN ON                              + Add action
+  › Turn on: Living room · conditions: 2      🗑
+  › Turn on: Kitchen                          🗑
+
+ON TURN OFF                             + Add action
+  › Turn off: Living room                     🗑
+
+› More options — restored · Home Assistant
+```
+
+Each action is one line saying what it does, expanding in place to the full
+editor. The editor card is about the same height whether an action says one
+thing or ten, so a switch that turns on two lights used to be a page of
+scrolling with nothing legible at a glance.
+
+Everything else — `restore_state`, `initial`, `show_in_ha`, the icon, the area
+— is behind **More options**, and that row names what is inside so it can be
+ruled out without opening it. Each of those has an answer that is right for
+almost everybody, and together they were outweighing the two fields that do
+not: the area picker alone is nine chips and five rows tall.
 
 The two lists sit under each other rather than behind tabs because they are
 usually written as a pair — whatever `on_turn_on` changes, `on_turn_off` is
 what puts it back, and checking that from memory across a tab switch is how one
 of them ends up forgotten.
-
-It was briefly a hand-written page with rows that expanded in place, and then
-briefly tabbed. The first put the one entity list in Settings that did not look
-like the others; the second hid half the pair.
 
 **The Outputs view** carries them as their own group, with a toggle. That is
 where they belong for day-to-day use — a mode gets flipped daily, and looking

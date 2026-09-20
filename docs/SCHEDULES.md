@@ -154,6 +154,15 @@ four tabs; that was a mistake. Tabs are right on an input, where `single`,
 `double` and `long` are alternatives you never need side by side, and wrong
 here, where the parts are clauses of one statement.
 
+**When** is one row: the trigger type, the anchor or the clock time, the days,
+the offset. Jitter and `on_missed` are behind **More options** — they have a
+default that is right almost always, and they were competing with the four
+fields that decide when the thing fires.
+
+**Do** is a list of one-line rows ("Toggle: Living room · conditions: 2"), each
+expanding in place to the editor. Same reason as everywhere else: the editor
+card is about the same height whether an action says one thing or ten.
+
 The action editor is the same `ActionFields` component the input forms use, and
 the condition editor the same `ActionConditions`, so a schedule's actions
 support exactly what a button's do.
