@@ -63,10 +63,85 @@ descriptions from different ends of the same object.
 | `restore_state` | `true` | Remember the state across a restart |
 | `initial` | `false` | What to come up as when there is nothing to restore |
 | `show_in_ha` | `true` | Announce it to Home Assistant |
+| `actions` | — | What to run when it changes — see below |
 
 `restore_state` defaults to on because a controller that forgot every mode on
 each reboot would be worse than one with no modes at all. Turn it off for a
 flag that should always start in a known state.
+
+## Running actions when it changes
+
+A virtual switch does not have to be only a flag other things read. It can act
+on its own change:
+
+```yaml
+virtual_switch:
+  - id: away
+    name: Away
+    actions:
+      on_turn_on:
+        - action: output
+          boneio_output: out_livingroom
+          action_output: "ON"
+          conditions:
+            mode: and
+            list:
+              - type: sun
+                after: civil_dusk
+              - type: time
+                before: "21:40"
+      on_turn_off:
+        - action: output
+          boneio_output: out_livingroom
+          action_output: "OFF"
+```
+
+### Why `on_turn_on` and not `on`
+
+YAML reads bare `on` and `off` as booleans. Written that way the keys would
+silently become `true` and `false`, nothing would ever match them, and the
+config would load, look right and do nothing. The spelling matches ESPHome,
+which hit the same trap first.
+
+### What they are for
+
+Two things, and the second is the one that is easy to miss.
+
+**Cleaning up.** Turning the flag off puts back whatever turning it on changed.
+Without this, every action that read the flag as a condition had to be paired
+by hand with a second action somewhere else that undid it.
+
+**Catching up.** Someone arms "away" at 22:00, after the dusk schedule that
+would have turned the lights on has already fired. A schedule cannot help —
+its moment has passed. An action on the flag can, because each action carries
+its own condition: "on, but only if it is already dark and not yet bedtime" is
+exactly the `conditions:` block above.
+
+### When they do not run
+
+- **Not on the republish after an MQTT reconnect.** States are re-published
+  whenever the broker comes back; re-running the actions there would turn the
+  lights on every time the network hiccuped.
+- **Not on a restored state at startup.** Coming back from a power cut must not
+  act on the house. The switch comes up holding the state it had; it does not
+  replay reaching it.
+- **Not on a config reload.** Saving the page rebuilds every switch and hands
+  each new one the state its predecessor held. Renaming one switch must not
+  replay every other switch's scenes.
+- **Not when the state did not change.** Setting a switch that is already on is
+  a publish, not an edge.
+
+### Loops
+
+A switch may set another switch, which is how "away on" can also turn "guest
+mode" off. A ring — A sets B, B sets A — is caught at its first repeat: the
+second entry is refused and logged as an error rather than recursing until the
+stack gives out. A switch whose own actions set *itself* is refused at load
+time, because the change that would run those actions is the one they are
+trying to make.
+
+Actions are resolved after every switch has been built, so an action may name a
+switch defined further down the file.
 
 ## Setting one from an action
 
@@ -113,6 +188,14 @@ mode nobody can see is a mode nobody trusts.
 half of that group, next to Schedules rather than next to Outputs: the one
 thing a virtual switch never does is switch anything.
 
+It is a hand-written page rather than a generated table, for the same reason
+Schedules has one: the interesting half of a virtual switch is its two action
+lists, and a generated array table has nowhere to put a list of actions nested
+under an edge. Each row expands in place to the fields plus both lists, and
+carries the live state with a toggle — a flag that runs actions is worth
+testing from the page you configured it on. The toggle is disabled while there
+are unsaved edits, because it flips the running switch, not the draft.
+
 **The Outputs view** carries them as their own group, with a toggle. That is
 where they belong for day-to-day use — a mode gets flipped daily, and looking
 for it in Settings would be the same mistake as being able to switch a relay
@@ -125,8 +208,9 @@ only from Settings.
 | `boneio/components/virtual_switch.py` | The entity: state, commands, publishing |
 | `boneio/core/manager/virtual_switches.py` | Building, restoring, discovery, reload |
 | `boneio/schema/schema.yaml` | The `virtual_switch:` section |
-| `boneio/webui/routes/outputs.py` | `POST /api/virtual_switch/{id}/toggle` |
-| `tests/unit/core/test_virtual_switch.py` | 19 tests |
+| `boneio/webui/routes/outputs.py` | `GET /api/virtual_switch`, `POST /api/virtual_switch/{id}/toggle` |
+| `frontend/src/components/UISettings/SystemStateComponents/VirtualSwitchSection.tsx` | The settings page |
+| `tests/unit/core/test_virtual_switch.py` | 29 tests |
 
 ## What this replaced
 

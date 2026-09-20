@@ -31,6 +31,11 @@ from boneio.models.state import OutputState
 
 _LOGGER = logging.getLogger(__name__)
 
+#: Action list keys. Not ``on``/``off``: YAML reads those as booleans, so the
+#: keys would silently become ``true`` and ``false``.
+TURN_ON = "on_turn_on"
+TURN_OFF = "on_turn_off"
+
 
 class VirtualSwitch(BasicMqtt):
     """An on/off flag that lives in the controller.
@@ -48,6 +53,8 @@ class VirtualSwitch(BasicMqtt):
         show_in_ha: Whether to announce it to Home Assistant.
         state_save: Callback invoked with the new state so it survives a
             restart. None disables persistence.
+        action_runner: Awaitable called with a list of parsed actions when the
+            state changes. None means this switch runs nothing.
     """
 
     def __init__(
@@ -61,6 +68,7 @@ class VirtualSwitch(BasicMqtt):
         restored_state: bool = False,
         show_in_ha: bool = True,
         state_save=None,
+        action_runner=None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -75,6 +83,12 @@ class VirtualSwitch(BasicMqtt):
         self.area = area
         self._show_in_ha = show_in_ha
         self._state_save = state_save
+        self._action_runner = action_runner
+        self._actions: dict[str, list] = {}
+        # Guards a cycle: a switch whose actions set another switch whose
+        # actions set this one back. Blocking the second entry breaks the ring
+        # at its first repeat instead of recursing until the stack gives out.
+        self._running_actions = False
         self._state = ON if restored_state else OFF
         self._last_timestamp = 0.0
 
@@ -94,6 +108,20 @@ class VirtualSwitch(BasicMqtt):
         special case there.
         """
         return self._state == ON
+
+    @property
+    def actions(self) -> dict[str, list]:
+        """Parsed actions, keyed by ``on_turn_on`` / ``on_turn_off``."""
+        return self._actions
+
+    def set_actions(self, actions: dict[str, list]) -> None:
+        """Attach parsed actions.
+
+        Set after construction, not in ``__init__``: an action may target
+        another virtual switch, and resolving that needs every switch to exist
+        first.
+        """
+        self._actions = actions or {}
 
     @property
     def icon(self) -> str | None:
@@ -131,13 +159,30 @@ class VirtualSwitch(BasicMqtt):
         """Flip the state."""
         await self._set(OFF if self.is_active else ON)
 
-    async def _set(self, state: str) -> None:
-        """Adopt a state, persist it, and tell everyone.
+    async def async_adopt_state(self, active: bool) -> None:
+        """Take a state over from a previous instance, silently.
+
+        Used by a config reload, which rebuilds every switch and then hands
+        each new one the state its predecessor was holding. That is not
+        somebody flipping the switch, so the actions must not run: editing one
+        switch's name would otherwise re-run every other switch's actions.
+        """
+        await self._set(ON if active else OFF, run_actions=False)
+
+    async def _set(self, state: str, run_actions: bool = True) -> None:
+        """Adopt a state, persist it, tell everyone, and run its actions.
 
         Publishes even when the state has not changed: an unchanged retained
         message is what a broker that lost its retained set needs to see, and
-        it costs nothing.
+        it costs nothing. Actions are the opposite — they run only on a real
+        change, or the republish after every MQTT reconnect would re-run them.
+
+        Args:
+            state: ``"ON"`` or ``"OFF"``.
+            run_actions: False for a state that is being adopted rather than
+                commanded — see :meth:`async_adopt_state`.
         """
+        changed = state != self._state
         self._state = state
         self._last_timestamp = time.time()
 
@@ -173,9 +218,38 @@ class VirtualSwitch(BasicMqtt):
         )
         _LOGGER.debug("Virtual switch '%s' is now %s", self.id, state)
 
+        if changed and run_actions:
+            await self._run_actions(state)
+
+    async def _run_actions(self, state: str) -> None:
+        """Run the actions for the state just entered.
+
+        Args:
+            state: ``"ON"`` or ``"OFF"``.
+        """
+        actions = self._actions.get(TURN_ON if state == ON else TURN_OFF)
+        if not actions or self._action_runner is None:
+            return
+
+        if self._running_actions:
+            _LOGGER.error(
+                "Virtual switch '%s' was set again while its own actions were "
+                "still running — a loop between switches. Not running them twice.",
+                self.id,
+            )
+            return
+
+        self._running_actions = True
+        try:
+            await self._action_runner(actions)
+        except Exception as err:  # noqa: BLE001 - a bad action must not wedge the flag
+            _LOGGER.error("Virtual switch '%s' actions failed: %s", self.id, err, exc_info=True)
+        finally:
+            self._running_actions = False
+
     async def async_send_state(self) -> None:
         """Re-publish the current state without changing it."""
-        await self._set(self._state)
+        await self._set(self._state, run_actions=False)
 
     def turn_on(self, timestamp=None) -> None:
         """Synchronous turn on, for callers outside the loop."""

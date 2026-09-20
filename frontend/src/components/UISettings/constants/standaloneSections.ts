@@ -60,6 +60,13 @@ export const STANDALONE_SECTIONS: Record<string, StandaloneSection> = {
     component: lazySection(() => import('../SystemStateComponents/LocationSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
   },
 
+  // The interesting half of a virtual switch is its two action lists, which a
+  // generated array table has nowhere to put. The page carries the live state
+  // and a toggle too: a flag that runs actions is worth testing here.
+  virtual_switch: {
+    component: lazySection(() => import('../SystemStateComponents/VirtualSwitchSection') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
+  },
+
   // A schedule is the only thing here nobody can test by pressing a button, so
   // the page carries "next firing" and "run now" alongside the fields.
   schedule: {

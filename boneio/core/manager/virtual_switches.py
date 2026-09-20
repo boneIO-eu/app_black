@@ -71,8 +71,22 @@ class VirtualSwitchManager:
                 message_bus=self._manager._message_bus,
                 topic_prefix=self._manager._topic_prefix,
                 state_save=self._make_saver(switch_id) if restore else None,
+                action_runner=self._manager.execute_actions,
             )
             self._switches[switch_id] = switch
+
+        # Second pass: an action may target another virtual switch, and
+        # resolving that needs every switch to exist first.
+        for entry in config:
+            switch = self._switches.get(entry.get("id"))
+            if switch is None:
+                continue
+            raw = entry.get("actions") or {}
+            if not raw:
+                continue
+            switch.set_actions(
+                self._manager.parse_actions(pin=switch.id, actions=raw)
+            )
 
         if self._switches:
             _LOGGER.info(
@@ -148,6 +162,11 @@ class VirtualSwitchManager:
         Switches that survive keep their state — reloading the configuration
         should not silently turn off a mode the house is running on. Only ones
         that were removed lose it, which is what removing them means.
+
+        The state is handed over with ``async_adopt_state`` rather than a turn
+        on: a reload is not somebody flipping the switch, and running the
+        actions here would fire every configured scene each time anyone saved
+        an unrelated edit on this page.
         """
         previous = self._switches
         self._switches = {}
@@ -156,7 +175,7 @@ class VirtualSwitchManager:
         for switch_id, switch in self._switches.items():
             kept = previous.get(switch_id)
             if kept is not None and kept.is_active != switch.is_active:
-                await (switch.async_turn_on() if kept.is_active else switch.async_turn_off())
+                await switch.async_adopt_state(kept.is_active)
 
         self.publish_discovery()
         await self.republish_states()

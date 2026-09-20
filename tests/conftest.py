@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -27,11 +27,24 @@ def mock_gpiod():
     # gpiod.line is imported as a submodule (`from gpiod.line import Edge`),
     # which a mock of `gpiod` alone does not satisfy — without this, importing
     # any module that reaches the GPIO layer fails outright off-device.
-    with patch.dict("sys.modules", {
-        "gpiod": MagicMock(),
-        "gpiod.line": MagicMock(),
-    }):
+    #
+    # Injected by hand rather than with ``patch.dict``: that helper snapshots
+    # sys.modules and restores the whole dict on teardown, which evicts every
+    # module a test imported lazily inside its own body. The next test then
+    # re-imports them and gets a second, separate copy of things like PyYAML's
+    # constructor registry — a failure that appears only when two such tests
+    # run in the same session, and never when either runs alone.
+    injected = {"gpiod": MagicMock(), "gpiod.line": MagicMock()}
+    saved = {name: sys.modules.get(name) for name in injected}
+    sys.modules.update(injected)
+    try:
         yield mock_chip
+    finally:
+        for name, previous in saved.items():
+            if previous is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous
 
 
 @pytest.fixture

@@ -6,6 +6,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from boneio.components.virtual_switch import TURN_OFF, TURN_ON
 from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,6 +41,37 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
         return {"status": status}
     else:
         return {"status": "error"}
+
+
+@router.get("/virtual_switch")
+async def get_virtual_switch_status(manager: Manager = Depends(get_manager)):
+    """The live state of every virtual switch.
+
+    The settings page needs this for the same reason the schedule page needs
+    "next firing": the configuration says what a switch should do, and only the
+    running controller says what it is doing. It also reports how many actions
+    each edge carries, so a switch that was saved with an empty list is visible
+    as such without opening it.
+
+    Returns:
+        Dict with a ``virtual_switches`` list.
+    """
+    switches = getattr(manager, "virtual_switches", None)
+    if switches is None:
+        return {"virtual_switches": []}
+    return {
+        "virtual_switches": [
+            {
+                "id": switch.id,
+                "name": switch.name,
+                "state": switch.state,
+                "last_changed": switch.last_timestamp or None,
+                "on_turn_on": len(switch.actions.get(TURN_ON) or []),
+                "on_turn_off": len(switch.actions.get(TURN_OFF) or []),
+            }
+            for switch in switches.all()
+        ]
+    }
 
 
 @router.post("/virtual_switch/{switch_id}/toggle")

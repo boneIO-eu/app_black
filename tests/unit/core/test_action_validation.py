@@ -557,3 +557,44 @@ class TestSunConditionValidation:
         errors = _validate_section_actions("event", entity, has_location=True)
         assert len(errors) == 1
         assert "Unknown sun phase" in errors[0]
+
+
+class TestVirtualSwitchSelfReference:
+    """A switch whose own actions set itself cannot work: the change that would
+    run the actions is the one they are trying to make. The runtime guard stops
+    the recursion by refusing to act, so the config would load, look right, and
+    do half of what it says."""
+
+    def _config(self, target: str) -> str:
+        return (
+            "boneio:\n  name: T\n"
+            "virtual_switch:\n"
+            "  - id: away\n"
+            "    actions:\n"
+            "      on_turn_on:\n"
+            "        - action: virtual_switch\n"
+            f"          boneio_virtual_switch: {target}\n"
+            '          action_output: "OFF"\n'
+            "  - id: other\n"
+        )
+
+    def _load(self, text: str):
+        import os
+        import tempfile
+
+        from boneio.core.config.yaml_util import load_config_from_file
+
+        directory = tempfile.mkdtemp()
+        path = os.path.join(directory, "config.yaml")
+        with open(path, "w") as handle:
+            handle.write(text)
+        return load_config_from_file(config_file=path)
+
+    def test_setting_itself_is_refused(self):
+        with pytest.raises(Exception) as excinfo:
+            self._load(self._config("away"))
+        assert "sets itself" in str(excinfo.value)
+
+    def test_setting_another_switch_is_fine(self):
+        config = self._load(self._config("other"))
+        assert len(config["virtual_switch"]) == 2

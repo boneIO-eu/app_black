@@ -834,6 +834,35 @@ class CustomValidator(Validator):
             )
         return float(match.group(1)) * unit_to_seconds[unit]
 
+    def _check_with_virtual_switch_shape(self, field, value):
+        """Reject a virtual switch whose own actions set itself.
+
+        The runtime guard stops the recursion, but it stops it by refusing to
+        act — so the configuration would load, look right, and do half of what
+        it says. Better to say so here.
+        """
+        if not isinstance(value, dict):
+            return
+
+        switch_id = value.get("id")
+        if not switch_id:
+            return
+
+        for key in ("on_turn_on", "on_turn_off"):
+            for action in value.get("actions", {}).get(key) or []:
+                if not isinstance(action, dict):
+                    continue
+                if (
+                    action.get("action") == "virtual_switch"
+                    and action.get("boneio_virtual_switch") == switch_id
+                ):
+                    self._error(  # type: ignore[attr-defined]
+                        field,
+                        f"Virtual switch '{switch_id}' sets itself in "
+                        f"'{key}', which cannot work: the change that would "
+                        "run the actions is the one they are trying to make.",
+                    )
+
     def _check_with_schedule_shape(self, field, value):
         """Reject a schedule whose trigger does not match its own type.
 

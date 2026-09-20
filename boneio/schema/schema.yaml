@@ -2165,6 +2165,7 @@ virtual_switch:
       can arm a mode that other inputs then obey.
   schema:
     type: dict
+    check_with: virtual_switch_shape
     schema:
       id:
         type: string
@@ -2211,6 +2212,49 @@ virtual_switch:
         default: True
         meta:
           label: Announce this switch to Home Assistant.
+      actions:
+        type: dict
+        required: False
+        meta:
+          label: Actions to run when this switch changes.
+          description: |
+            `on_turn_on` runs when it is switched on, `on_turn_off` when it is
+            switched off. Spelled that way rather than `on`/`off` because YAML
+            reads those two as booleans — the keys would silently become `true`
+            and `false` and nothing would ever match them.
+            The same actions an input can run, conditions included — which is
+            what makes a flag do something rather than only be read.
+
+            Two things this is for. Cleaning up: turning the flag off puts back
+            whatever it changed. And catching up: a flag armed after the moment
+            a schedule was due can still act, because each action carries its
+            own condition.
+
+              virtual_switch:
+                - id: away
+                  actions:
+                    on_turn_on:
+                      - action: output
+                        boneio_output: out_livingroom
+                        action_output: "ON"
+                        conditions:
+                          mode: and
+                          list:
+                            - type: sun
+                              after: civil_dusk
+                            - type: time
+                              before: "21:40"
+                    on_turn_off:
+                      - action: output
+                        boneio_output: out_livingroom
+                        action_output: "OFF"
+
+            They run on a real change only, never on the republish that follows
+            an MQTT reconnect, and never when a restored state is loaded at
+            startup — coming back from a power cut must not act on the house.
+        schema:
+          on_turn_on: !include actions_switch.yaml
+          on_turn_off: !include actions_switch.yaml
 
 schedule:
   type: list

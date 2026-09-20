@@ -305,3 +305,177 @@ def test_a_connecting_panel_is_told_about_them(manager):
     assert len(switches) == 1
     assert switches[0]["state"]["id"] == "evening"
     assert switches[0]["state"]["pin"] is None
+
+
+# ── actions on change ────────────────────────────────────────────────────
+
+
+def build_with_actions(manager, config, runner=None):
+    """A manager stub whose parse_actions passes the lists through."""
+    manager.parse_actions = lambda pin, actions: {k: list(v) for k, v in actions.items()}
+    manager.execute_actions = runner or (lambda actions, **kw: asyncio.sleep(0))
+    return VirtualSwitchManager(manager=manager, config=config)
+
+
+ON_ACTION = {"action": "mqtt", "topic": "t/on", "action_mqtt_msg": "go"}
+OFF_ACTION = {"action": "mqtt", "topic": "t/off", "action_mqtt_msg": "stop"}
+
+
+@pytest.fixture
+def ran(manager):
+    calls: list[list] = []
+
+    async def runner(actions, **kwargs):
+        calls.append(list(actions))
+
+    manager.ran = calls
+    return runner
+
+
+@pytest.mark.asyncio
+async def test_turning_on_runs_the_on_actions(manager, ran):
+    switches = build_with_actions(
+        manager,
+        [{"id": "away", "actions": {"on_turn_on": [ON_ACTION], "on_turn_off": [OFF_ACTION]}}],
+        ran,
+    )
+    await switches.get("away").async_turn_on()
+    assert manager.ran == [[ON_ACTION]]
+
+
+@pytest.mark.asyncio
+async def test_turning_off_runs_the_off_actions(manager, ran):
+    switches = build_with_actions(
+        manager,
+        [{"id": "away", "actions": {"on_turn_on": [ON_ACTION], "on_turn_off": [OFF_ACTION]}}],
+        ran,
+    )
+    await switches.get("away").async_turn_on()
+    await switches.get("away").async_turn_off()
+    assert manager.ran == [[ON_ACTION], [OFF_ACTION]]
+
+
+@pytest.mark.asyncio
+async def test_setting_the_same_state_again_runs_nothing(manager, ran):
+    """The reconnect republish sets every switch to the state it already has.
+    Running actions there would re-fire the house on every broker restart."""
+    switches = build_with_actions(manager, [{"id": "away", "actions": {"on_turn_on": [ON_ACTION]}}], ran)
+    switch = switches.get("away")
+
+    await switch.async_turn_on()
+    assert len(manager.ran) == 1
+
+    await switch.async_send_state()
+    await switch.async_turn_on()
+    assert len(manager.ran) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_restored_state_does_not_run_actions(manager, ran):
+    """Coming back from a power cut must not act on the house."""
+    manager._state_manager = FakeStateManager({"virtual_switch": {"away": True}})
+    switches = build_with_actions(
+        manager, [{"id": "away", "restore_state": True, "actions": {"on_turn_on": [ON_ACTION]}}], ran
+    )
+    assert switches.get("away").is_active is True
+    assert manager.ran == []
+
+
+@pytest.mark.asyncio
+async def test_a_switch_without_actions_still_switches(manager, ran):
+    switches = build_with_actions(manager, [{"id": "away"}], ran)
+    await switches.get("away").async_turn_on()
+    assert switches.get("away").is_active is True
+    assert manager.ran == []
+
+
+@pytest.mark.asyncio
+async def test_a_failing_action_does_not_wedge_the_flag(manager, caplog):
+    async def boom(actions, **kwargs):
+        raise RuntimeError("output on fire")
+
+    switches = build_with_actions(manager, [{"id": "away", "actions": {"on_turn_on": [ON_ACTION]}}], boom)
+    with caplog.at_level("ERROR"):
+        await switches.get("away").async_turn_on()
+    assert switches.get("away").is_active is True
+    assert any("actions failed" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_a_loop_between_switches_is_broken(manager, caplog):
+    """A toggles B on both edges, B toggles A on both edges. Every step is a
+    real change, so nothing else stops it — without the guard this recurses
+    until the stack gives out."""
+    switches: VirtualSwitchManager | None = None
+
+    async def runner(actions, **kwargs):
+        # Stand in for the real dispatcher: every action toggles the other one.
+        for action in actions:
+            await switches.get(action["boneio_virtual_switch"]).async_toggle()
+
+    def toggling(target: str) -> dict:
+        both = [{"action": "virtual_switch", "boneio_virtual_switch": target}]
+        return {"on_turn_on": list(both), "on_turn_off": list(both)}
+
+    switches = build_with_actions(
+        manager,
+        [
+            {"id": "a", "actions": toggling("b")},
+            {"id": "b", "actions": toggling("a")},
+        ],
+        runner,
+    )
+
+    with caplog.at_level("ERROR"):
+        await switches.get("a").async_turn_on()  # must return, not recurse
+
+    assert any("a loop between switches" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_actions_are_parsed_after_every_switch_exists(manager, ran):
+    """An action may target a switch defined further down the list, so parsing
+    has to wait until all of them are built."""
+    switches = build_with_actions(
+        manager,
+        [
+            {"id": "first", "actions": {"on_turn_on": [{"action": "virtual_switch", "boneio_virtual_switch": "second"}]}},
+            {"id": "second"},
+        ],
+        ran,
+    )
+    assert switches.get("first").actions["on_turn_on"][0]["boneio_virtual_switch"] == "second"
+
+
+@pytest.mark.asyncio
+async def test_a_reload_does_not_re_run_the_actions(manager, ran):
+    """Saving the Virtual Switches page rebuilds every switch and hands each
+    new one the state its predecessor held. That is a handover, not somebody
+    flipping the switch: renaming one switch must not replay the scenes of
+    every other one."""
+    config = [{"id": "away", "actions": {"on_turn_on": [ON_ACTION], "on_turn_off": [OFF_ACTION]}}]
+    switches = build_with_actions(manager, config, ran)
+    await switches.get("away").async_turn_on()
+    assert len(manager.ran) == 1
+
+    # Same section, one field edited elsewhere.
+    await switches.reload([{**config[0], "name": "Away mode"}])
+
+    assert switches.get("away").is_active is True
+    assert len(manager.ran) == 1
+
+
+@pytest.mark.asyncio
+async def test_republishing_does_not_re_run_the_actions(manager, ran):
+    """republish_states runs after every broker reconnect."""
+    switches = build_with_actions(
+        manager,
+        [{"id": "away", "actions": {"on_turn_on": [ON_ACTION]}}],
+        ran,
+    )
+    await switches.get("away").async_turn_on()
+    assert len(manager.ran) == 1
+
+    await switches.republish_states()
+
+    assert len(manager.ran) == 1
