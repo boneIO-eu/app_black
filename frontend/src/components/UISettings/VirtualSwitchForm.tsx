@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
-import { TabsBox } from '@/components/ui/tabs-box';
 import ActionFields, { cleanActionFields } from './ActionFields';
 import { applyActionUpdate } from './ActionFields/helpers';
 import AreaSelect from './widgets/AreaSelect';
+import { CardSection, FormField } from './ui';
 import { sanitizeId } from './helpers/idValidation';
 import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
 import type { RemoteDevice } from './ActionFields/types';
@@ -47,17 +47,16 @@ interface VirtualSwitchFormProps {
   editingIndex?: number | null;
   onValidationChange?: (hasErrors: boolean) => void;
   attemptedSubmit?: boolean;
-  /** Opens straight on one of the action tabs, e.g. from a deep link. */
-  initialTab?: string;
 }
 
 /**
  * Editor for one virtual switch.
  *
- * Laid out like the input forms rather than as one long page: the two action
- * lists are tabs, exactly as `single`/`double`/`long` are on an input. A
- * virtual switch is the same kind of thing — something that happens, with a
- * list of actions per case — so it should not need to be learned twice.
+ * One scrolling page: the flag's settings, then what happens when it goes on,
+ * then when it goes off. The two lists sit under each other rather than behind
+ * tabs because they are usually written as a pair — whatever `on_turn_on`
+ * changes, `on_turn_off` is what puts it back, and checking that by memory
+ * across a tab switch is how one of them ends up forgotten.
  */
 const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
   data,
@@ -77,14 +76,8 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
   editingIndex = null,
   onValidationChange,
   attemptedSubmit = false,
-  initialTab,
 }) => {
   const { t } = useTranslation();
-  const validTabs = new Set<string>(['basic', ...EDGES]);
-  const [activeTab, setActiveTab] = useState<string>(
-    initialTab && validTabs.has(initialTab) ? initialTab : 'basic',
-  );
-
   const errors = useMemo(() => {
     const found: string[] = [];
     const id = (data.id || '').trim();
@@ -120,9 +113,11 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
   const renderEdge = (edge: Edge) => {
     const actions = data.actions?.[edge] || [];
     return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold">{t(`virtual_switch.${edge}_actions`)}</h3>
+      <CardSection
+        key={edge}
+        title={t(`virtual_switch.${edge}`)}
+        divided
+        action={
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -136,55 +131,54 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
             <FaPlus className="mr-2" />
             {t('inputs.add_action')}
           </button>
+        }
+      >
+        <div className="space-y-3">
+          {actions.length > 0 ? (
+            actions.map((action, index) => (
+              <ActionFields
+                key={index}
+                action={action}
+                index={index}
+                onUpdate={(field, value) =>
+                  setEdge(
+                    edge,
+                    actions.map((current, i) => {
+                      if (i !== index) return current;
+                      // Switching the action type drops fields that belonged to
+                      // the old one; anything else is an ordinary field update,
+                      // including the `__batch` sentinel the shared editors use.
+                      return field === 'action'
+                        ? (cleanActionFields(value, current) as ActionEntry)
+                        : applyActionUpdate(current, field, value);
+                    }),
+                  )
+                }
+                onRemove={() => setEdge(edge, actions.filter((_, i) => i !== index))}
+                allOutputs={allOutputs}
+                allOutputGroups={allOutputGroups}
+                allCovers={allCovers}
+                allAreas={allAreas}
+                allRemoteDevices={allRemoteDevices}
+                allBinarySensors={allBinarySensors}
+                allRemoteInputs={allRemoteInputs}
+                allVirtualSwitches={allVirtualSwitches}
+                actionTypeOptions={ACTION_TYPE_OPTIONS}
+                actionOutputOptions={ACTION_OUTPUT_OPTIONS}
+                actionCoverOptions={ACTION_COVER_OPTIONS}
+                showValidation={attemptedSubmit}
+                savedOutputs={savedOutputs}
+                savedOutputGroups={savedOutputGroups}
+                savedCovers={savedCovers}
+                excludeEntityId={data.id}
+                preferredArea={data.area}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-base-content/60">{t(`virtual_switch.${edge}_empty`)}</p>
+          )}
         </div>
-
-        {actions.length > 0 ? (
-          actions.map((action, index) => (
-            <ActionFields
-              key={index}
-              action={action}
-              index={index}
-              onUpdate={(field, value) =>
-                setEdge(
-                  edge,
-                  actions.map((current, i) => {
-                    if (i !== index) return current;
-                    // Switching the action type drops fields that belonged to
-                    // the old one; anything else is an ordinary field update,
-                    // including the `__batch` sentinel the shared editors use.
-                    return field === 'action'
-                      ? (cleanActionFields(value, current) as ActionEntry)
-                      : applyActionUpdate(current, field, value);
-                  }),
-                )
-              }
-              onRemove={() => setEdge(edge, actions.filter((_, i) => i !== index))}
-              allOutputs={allOutputs}
-              allOutputGroups={allOutputGroups}
-              allCovers={allCovers}
-              allAreas={allAreas}
-              allRemoteDevices={allRemoteDevices}
-              allBinarySensors={allBinarySensors}
-              allRemoteInputs={allRemoteInputs}
-              allVirtualSwitches={allVirtualSwitches}
-              actionTypeOptions={ACTION_TYPE_OPTIONS}
-              actionOutputOptions={ACTION_OUTPUT_OPTIONS}
-              actionCoverOptions={ACTION_COVER_OPTIONS}
-              showValidation={attemptedSubmit}
-              savedOutputs={savedOutputs}
-              savedOutputGroups={savedOutputGroups}
-              savedCovers={savedCovers}
-              excludeEntityId={data.id}
-              preferredArea={data.area}
-            />
-          ))
-        ) : (
-          <div className="text-center py-8 text-base-content/60">
-            <p>{t(`virtual_switch.${edge}_empty`)}</p>
-            <p className="text-sm">{t('event_form.click_add_action')}</p>
-          </div>
-        )}
-      </div>
+      </CardSection>
     );
   };
 
@@ -198,117 +192,77 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
         </div>
       )}
 
-      <TabsBox
-        name="virtual_switch_tabs"
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabs={[
-          {
-            id: 'basic',
-            label: t('settings.basic_settings'),
-            content: (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">{t('outputs.display_name')}</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      value={data.name || ''}
-                      onChange={(e) => updateField('name', e.target.value)}
-                    />
-                    <label className="label">
-                      <span className="label-text-alt">{t('common.optional')}</span>
-                    </label>
-                  </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <FormField label={t('outputs.display_name')} help={t('common.optional')}>
+          <input
+            type="text"
+            className="input input-bordered input-sm w-full"
+            value={data.name || ''}
+            onChange={(e) => updateField('name', e.target.value)}
+          />
+        </FormField>
+        <FormField label="ID" help={t('virtual_switch.id_hint')}>
+          <input
+            type="text"
+            className="input input-bordered input-sm w-full font-mono"
+            value={data.id || ''}
+            onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+          />
+        </FormField>
+        <FormField label={t('virtual_switch.icon')}>
+          <input
+            type="text"
+            className="input input-bordered input-sm w-full font-mono"
+            placeholder="mdi:weather-night"
+            value={data.icon || ''}
+            onChange={(e) => updateField('icon', e.target.value)}
+          />
+        </FormField>
+        <FormField label={t('virtual_switch.area')}>
+          <AreaSelect
+            value={data.area || ''}
+            areas={allAreas}
+            onChange={(value) => updateField('area', value)}
+          />
+        </FormField>
+      </div>
 
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">ID</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input w-full font-mono"
-                      value={data.id || ''}
-                      onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-                    />
-                    <label className="label">
-                      <span className="label-text-alt">{t('virtual_switch.id_hint')}</span>
-                    </label>
-                  </div>
+      <div className="flex flex-wrap items-center gap-6">
+        <label className="label cursor-pointer gap-2">
+          <input
+            type="checkbox"
+            className="toggle toggle-sm"
+            checked={data.restore_state !== false}
+            onChange={(e) => updateField('restore_state', e.target.checked)}
+          />
+          <span className="label-text">{t('virtual_switch.restore_state')}</span>
+        </label>
+        <label className="label cursor-pointer gap-2">
+          <input
+            type="checkbox"
+            className="toggle toggle-sm"
+            checked={data.initial === true}
+            onChange={(e) => updateField('initial', e.target.checked)}
+            disabled={data.restore_state !== false}
+          />
+          <span className="label-text">{t('virtual_switch.initial_on')}</span>
+        </label>
+        <label className="label cursor-pointer gap-2">
+          <input
+            type="checkbox"
+            className="toggle toggle-sm"
+            checked={data.show_in_ha !== false}
+            onChange={(e) => updateField('show_in_ha', e.target.checked)}
+          />
+          <span className="label-text">{t('virtual_switch.show_in_ha')}</span>
+        </label>
+      </div>
 
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">{t('virtual_switch.icon')}</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input w-full font-mono"
-                      placeholder="mdi:weather-night"
-                      value={data.icon || ''}
-                      onChange={(e) => updateField('icon', e.target.value)}
-                    />
-                  </div>
+      <div className="alert alert-info">
+        <span className="text-sm">{t('virtual_switch.actions_hint')}</span>
+      </div>
 
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">{t('virtual_switch.area')}</span>
-                    </label>
-                    <AreaSelect
-                      value={data.area || ''}
-                      areas={allAreas}
-                      onChange={(value) => updateField('area', value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-6">
-                  <label className="label cursor-pointer gap-2">
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm"
-                      checked={data.restore_state !== false}
-                      onChange={(e) => updateField('restore_state', e.target.checked)}
-                    />
-                    <span className="label-text">{t('virtual_switch.restore_state')}</span>
-                  </label>
-                  <label className="label cursor-pointer gap-2">
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm"
-                      checked={data.initial === true}
-                      onChange={(e) => updateField('initial', e.target.checked)}
-                      disabled={data.restore_state !== false}
-                    />
-                    <span className="label-text">{t('virtual_switch.initial_on')}</span>
-                  </label>
-                  <label className="label cursor-pointer gap-2">
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm"
-                      checked={data.show_in_ha !== false}
-                      onChange={(e) => updateField('show_in_ha', e.target.checked)}
-                    />
-                    <span className="label-text">{t('virtual_switch.show_in_ha')}</span>
-                  </label>
-                </div>
-
-                <div className="alert alert-info">
-                  <span className="text-sm">{t('virtual_switch.actions_hint')}</span>
-                </div>
-              </div>
-            ),
-          },
-          ...EDGES.map((edge) => ({
-            id: edge,
-            label: t(`virtual_switch.${edge}`),
-            badge: data.actions?.[edge]?.length || undefined,
-            content: renderEdge(edge),
-          })),
-        ]}
-      />
+      {EDGES.map((edge) => renderEdge(edge))}
     </div>
   );
 };

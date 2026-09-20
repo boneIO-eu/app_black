@@ -331,7 +331,6 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           editingIndex={editingIndex}
           onValidationChange={props.onValidationChange}
           attemptedSubmit={props.attemptedSubmit}
-          initialTab={props.initialTab}
         />
       );
 
@@ -355,7 +354,6 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           editingIndex={editingIndex}
           onValidationChange={props.onValidationChange}
           attemptedSubmit={props.attemptedSubmit}
-          initialTab={props.initialTab}
         />
       );
 

@@ -189,14 +189,17 @@ half of that group, next to Schedules rather than next to Outputs: the one
 thing a virtual switch never does is switch anything.
 
 It is an ordinary table with a modal editor, like every other list of entities
-in Settings, and the two action lists are **tabs** in that modal — exactly as
-`single`/`double`/`long` are on an input. That is the point: a virtual switch
-is the same kind of thing as an input, something that happens with a list of
-actions per case, so it should not have to be learned twice.
+in Settings. The modal is one scrolling page: the flag's settings, then **On
+turn on**, then **On turn off**.
 
-It was briefly a hand-written page with rows that expanded in place. That put
-the one entity list in Settings that did not look like the others, and stacked
-two action editors inside a table row.
+The two lists sit under each other rather than behind tabs because they are
+usually written as a pair — whatever `on_turn_on` changes, `on_turn_off` is
+what puts it back, and checking that from memory across a tab switch is how one
+of them ends up forgotten.
+
+It was briefly a hand-written page with rows that expanded in place, and then
+briefly tabbed. The first put the one entity list in Settings that did not look
+like the others; the second hid half the pair.
 
 **The Outputs view** carries them as their own group, with a toggle. That is
 where they belong for day-to-day use — a mode gets flipped daily, and looking

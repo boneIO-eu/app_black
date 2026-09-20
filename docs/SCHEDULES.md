@@ -145,9 +145,14 @@ Settings → Control → **Schedules**.
 
 A table with a modal editor, like every other list of entities in Settings. One
 row per schedule: name, what triggers it in words ("Sunset −15 min · Every
-day"), the action types, and the next firing. The editor has four tabs, because
-the four things are independent — what it is called, when it fires, whether it
-is allowed to, and what it does.
+day"), the action types, and the next firing.
+
+The editor is one scrolling page, headed **When**, **Only if** and **Do**,
+because a schedule is a single sentence and the three parts are read together —
+you pick an action while looking at the trigger it hangs off. It was briefly
+four tabs; that was a mistake. Tabs are right on an input, where `single`,
+`double` and `long` are alternatives you never need side by side, and wrong
+here, where the parts are clauses of one statement.
 
 The action editor is the same `ActionFields` component the input forms use, and
 the condition editor the same `ActionConditions`, so a schedule's actions
