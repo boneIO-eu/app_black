@@ -193,7 +193,7 @@ in Settings. The modal asks for what a flag is — a name and an id — and then
 what it does:
 
 ```
-[ Name ]                      [ id ]
+[ Name = id ]                 [ Description ]
 
 ON TURN ON                              + Add action
   › Turn on: Living room · conditions: 2      🗑
@@ -209,6 +209,12 @@ Each action is one line saying what it does, expanding in place to the full
 editor. The editor card is about the same height whether an action says one
 thing or ten, so a switch that turns on two lights used to be a page of
 scrolling with nothing legible at a glance.
+
+The first field is the **id**, labelled *Name*: it is the word you type once
+and then use everywhere — in the MQTT topic, in a condition, in another
+switch's action. The friendly `name` is labelled *Description*, because that is
+what it is next to the id; Home Assistant shows it, and falls back to the id
+when it is empty.
 
 Everything else — `restore_state`, `initial`, `show_in_ha`, the icon, the area
 — is behind **More options**, and that row names what is inside so it can be

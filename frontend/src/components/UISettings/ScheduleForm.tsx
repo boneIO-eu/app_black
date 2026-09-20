@@ -143,23 +143,25 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
         </div>
       )}
 
-      {/* Identity. The toggle is on its own line rather than dressed up as a
-          third text field, which is what a third grid column made it look like. */}
+      {/* The id first, and called what it is: this is the word you type once
+          and then use everywhere — in the MQTT topic, in a condition, in
+          another switch's action. The friendly `name` is the longer label
+          Home Assistant shows, which is a description of the same thing. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label={t('outputs.display_name')} help={t('common.optional')}>
+        <FormField label={t('common.name')} help={t('schedule.id_hint')}>
           <input
             type="text"
-            className="input input-bordered input-sm w-full"
-            value={data.name || ''}
-            onChange={(e) => updateField('name', e.target.value)}
-          />
-        </FormField>
-        <FormField label="ID">
-          <input
-            type="text"
-            className="input input-bordered input-sm w-full font-mono"
+            className="input input-bordered w-full font-mono"
             value={data.id || ''}
             onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+          />
+        </FormField>
+        <FormField label={t('common.description')} help={t('common.description_hint')}>
+          <input
+            type="text"
+            className="input input-bordered w-full"
+            value={data.name || ''}
+            onChange={(e) => updateField('name', e.target.value)}
           />
         </FormField>
       </div>
@@ -175,10 +177,13 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
       </label>
 
       <CardSection title={t('schedule.section_when')} divided>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Four fields for a sun trigger, three for a clock one — the offset
+            is not offered there. A fixed four columns left the clock trigger
+            with an empty quarter. */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${kind === 'sun' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           <FormField label={t('schedule.trigger_type')}>
             <Select value={kind} onValueChange={(value) => updateTrigger('type', value)}>
-              <SelectTrigger className="w-full h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {/* Greyed out rather than hidden without coordinates: seeing
                     that the option exists, and being told why it is
@@ -199,7 +204,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
           {kind === 'sun' ? (
             <FormField label={t('schedule.event')}>
               <Select value={trigger.event || ''} onValueChange={(value) => updateTrigger('event', value)}>
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder={t('event_form.condition_sun_anchor')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,7 +223,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
             <FormField label={t('schedule.at')}>
               <input
                 type="time"
-                className="input input-bordered input-sm w-full"
+                className="input input-bordered w-full"
                 value={trigger.at || ''}
                 onChange={(e) => updateTrigger('at', e.target.value)}
               />
@@ -227,7 +232,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
 
           <FormField label={t('schedule.days')}>
             <Select value={trigger.days || 'daily'} onValueChange={(value) => updateTrigger('days', value)}>
-              <SelectTrigger className="w-full h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {DAY_OPTIONS.map((day) => (
                   <SelectItem key={day} value={day}>{t(`schedule.days_${day}`)}</SelectItem>
@@ -236,19 +241,21 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
             </Select>
           </FormField>
 
-          <FormField label={t('schedule.offset')} help={t('schedule.offset_hint')}>
-            <label className="input input-bordered input-sm flex items-center gap-1 w-full">
-              <input
-                type="number"
-                className="grow min-w-0 bg-transparent outline-hidden"
-                placeholder="0"
-                step={5}
-                value={offsetToMinutes(trigger.offset)}
-                onChange={(e) => updateTrigger('offset', minutesToOffset(e.target.value))}
-              />
-              <span className="text-xs opacity-60 shrink-0">{t('event_form.condition_sun_minutes')}</span>
-            </label>
-          </FormField>
+          {kind === 'sun' && (
+            <FormField label={t('schedule.offset')} help={t('schedule.offset_hint')}>
+              <label className="input input-bordered flex items-center gap-1 w-full">
+                <input
+                  type="number"
+                  className="grow min-w-0 bg-transparent outline-hidden"
+                  placeholder="0"
+                  step={5}
+                  value={offsetToMinutes(trigger.offset)}
+                  onChange={(e) => updateTrigger('offset', minutesToOffset(e.target.value))}
+                />
+                <span className="text-xs opacity-60 shrink-0">{t('event_form.condition_sun_minutes')}</span>
+              </label>
+            </FormField>
+          )}
 
 
         </div>
@@ -295,7 +302,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label={t('schedule.jitter')} help={t('schedule.jitter_hint')}>
-            <label className="input input-bordered input-sm flex items-center gap-1 w-full">
+            <label className="input input-bordered flex items-center gap-1 w-full">
               <input
                 type="number"
                 className="grow min-w-0 bg-transparent outline-hidden"
@@ -311,7 +318,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
 
           <FormField label={t('schedule.on_missed')} help={t('schedule.on_missed_hint')}>
             <Select value={data.on_missed || 'skip'} onValueChange={(value) => updateField('on_missed', value)}>
-              <SelectTrigger className="w-full h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="skip">{t('schedule.on_missed_skip')}</SelectItem>
                 <SelectItem value="run">{t('schedule.on_missed_run')}</SelectItem>

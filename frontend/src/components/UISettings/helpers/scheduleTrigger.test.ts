@@ -111,3 +111,22 @@ describe('actionTypes', () => {
     expect(actionTypes({ id: 's' })).toEqual([]);
   });
 });
+
+describe('withTriggerField, switching to a clock trigger', () => {
+  it('drops the offset too', () => {
+    // The editor stops offering it, because "20:00 minus 15 minutes" is just
+    // 19:45. Leaving it in the config would shift the schedule by an amount
+    // nothing on screen explains — the backend applies it either way.
+    const result = withTriggerField(
+      { type: 'sun', event: 'sunset', offset: '-15min', days: 'daily' },
+      'type',
+      'time',
+    );
+    expect(result).toEqual({ type: 'time', days: 'daily' });
+  });
+
+  it('keeps the offset when staying on a sun trigger', () => {
+    const result = withTriggerField({ type: 'sun', event: 'sunset', offset: '-15min' }, 'event', 'sunrise');
+    expect(result).toEqual({ type: 'sun', event: 'sunrise', offset: '-15min' });
+  });
+});

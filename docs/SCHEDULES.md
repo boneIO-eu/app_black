@@ -155,9 +155,20 @@ four tabs; that was a mistake. Tabs are right on an input, where `single`,
 here, where the parts are clauses of one statement.
 
 **When** is one row: the trigger type, the anchor or the clock time, the days,
-the offset. Jitter and `on_missed` are behind **More options** — they have a
-default that is right almost always, and they were competing with the four
-fields that decide when the thing fires.
+and — for a sun trigger only — the offset. On a clock trigger an offset is a
+second way to say the same thing ("20:00 minus 15 minutes" is 19:45), so the
+field is not offered and switching to a clock trigger drops it. The backend
+applies an offset either way, so one written by hand still works and still
+shows in the table row; the editor just will not help you create one.
+
+Jitter and `on_missed` are behind **More options** — they have a default that
+is right almost always, and they were competing with the fields that decide
+when the thing fires.
+
+The first field is the **id**, labelled *Name*: it is the word you type once
+and then use everywhere — in the config, in a condition, in "run now". The
+friendly `name` is labelled *Description*, because that is what it is next to
+the id; Home Assistant shows it, and falls back to the id when it is empty.
 
 **Do** is a list of one-line rows ("Toggle: Living room · conditions: 2"), each
 expanding in place to the editor. Same reason as everywhere else: the editor

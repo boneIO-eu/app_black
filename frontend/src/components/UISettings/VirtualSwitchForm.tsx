@@ -138,21 +138,25 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
         </div>
       )}
 
+      {/* The id first, and called what it is: this is the word you type once
+          and then use everywhere — in the MQTT topic, in a condition, in
+          another switch's action. The friendly `name` is the longer label
+          Home Assistant shows, which is a description of the same thing. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label={t('outputs.display_name')} help={t('common.optional')}>
+        <FormField label={t('common.name')} help={t('virtual_switch.id_hint')}>
           <input
             type="text"
-            className="input input-bordered input-sm w-full"
-            value={data.name || ''}
-            onChange={(e) => updateField('name', e.target.value)}
-          />
-        </FormField>
-        <FormField label="ID" help={t('virtual_switch.id_hint')}>
-          <input
-            type="text"
-            className="input input-bordered input-sm w-full font-mono"
+            className="input input-bordered w-full font-mono"
             value={data.id || ''}
             onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+          />
+        </FormField>
+        <FormField label={t('common.description')} help={t('common.description_hint')}>
+          <input
+            type="text"
+            className="input input-bordered w-full"
+            value={data.name || ''}
+            onChange={(e) => updateField('name', e.target.value)}
           />
         </FormField>
       </div>
@@ -221,7 +225,7 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
             <FormField label={t('virtual_switch.icon')}>
               <input
                 type="text"
-                className="input input-bordered input-sm w-full font-mono"
+                className="input input-bordered w-full font-mono"
                 placeholder="mdi:weather-night"
                 value={data.icon || ''}
                 onChange={(e) => updateField('icon', e.target.value)}

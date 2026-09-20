@@ -1078,7 +1078,9 @@
     "area": "Obszar",
     "no_area": "Brak obszaru",
     "type": "Typ",
-    "more_options": "Więcej opcji"
+    "more_options": "Więcej opcji",
+    "description": "Opis",
+    "description_hint": "Dłuższa etykieta pokazywana w Home Assistant. Opcjonalna — gdy pusta, używana jest nazwa."
   },
   "validation": {
     "id_required": "ID jest wymagane",
@@ -2977,7 +2979,8 @@
     "title": "Harmonogramy",
     "trigger_sun": "Słońce",
     "trigger_time": "Godzina",
-    "trigger_type": "Wyzwalacz"
+    "trigger_type": "Wyzwalacz",
+    "id_hint": "Jak ten harmonogram się nazywa — w konfiguracji i przy „uruchom teraz”."
   },
   "virtual_switch": {
     "actions_hint": "Uruchamiają się tylko przy rzeczywistej zmianie — nie po reconnect MQTT ani przy odtworzeniu stanu na starcie.",
@@ -2990,7 +2993,7 @@
     "error_sets_itself": "Ten przełącznik ustawia sam siebie — zmiana, która uruchomiłaby te akcje, to ta, którą próbują wykonać.",
     "flag_only": "sama flaga",
     "icon": "Ikona",
-    "id_hint": "Używane w temacie MQTT, odwołują się do niego warunki i akcje.",
+    "id_hint": "Używana w temacie MQTT; odwołują się do niej warunki i akcje.",
     "initial": "startuje jako",
     "initial_on": "Startuj włączony",
     "on_turn_off": "Po wyłączeniu",

@@ -190,6 +190,18 @@ body {
   body {
     @apply bg-base-100 text-base-content;
   }
+
+  /* Tailwind v4 dropped `button { cursor: pointer }` from preflight, on the
+     grounds that the native default is `default`. daisyUI's `.btn` sets it
+     back, so only the plain buttons lost it — the settings sidebar, the
+     collapsible rows, anything styled by hand. The result is a control that
+     looks clickable and does not say so. Put it back everywhere rather than
+     per component, because the next hand-styled button would lose it again.
+     `:disabled` is excluded: a disabled control should not invite the click. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
   
   :root {
     /* DaisyUI-compatible border color for shadcn components */

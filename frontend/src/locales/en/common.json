@@ -1078,7 +1078,9 @@
     "no_area": "No area",
     "type": "Type",
     "done": "Done",
-    "more_options": "More options"
+    "more_options": "More options",
+    "description": "Description",
+    "description_hint": "The longer label Home Assistant shows. Optional — the name is used when it is empty."
   },
   "validation": {
     "id_required": "ID is required",
@@ -2978,7 +2980,8 @@
     "title": "Schedules",
     "trigger_sun": "Sun",
     "trigger_time": "Clock time",
-    "trigger_type": "Trigger"
+    "trigger_type": "Trigger",
+    "id_hint": "What this schedule is called, in the config and in \"run now\"."
   },
   "virtual_switch": {
     "actions_hint": "Run on a real change only — not on an MQTT reconnect, and not on a restored state at startup.",
@@ -2991,7 +2994,7 @@
     "error_sets_itself": "This switch sets itself — the change that would run the actions is the one they are trying to make.",
     "flag_only": "flag only",
     "icon": "Icon",
-    "id_hint": "Used in the MQTT topic, and referenced by conditions and actions.",
+    "id_hint": "Used in the MQTT topic; conditions and actions refer to it.",
     "initial": "starts",
     "initial_on": "Start on",
     "on_turn_off": "On turn off",

@@ -117,8 +117,17 @@ export function withTriggerField(
 ): ScheduleTrigger {
   const next: ScheduleTrigger = { ...(trigger || {}), [field]: value };
   if (field === 'type') {
-    if (value === 'sun') delete next.at;
-    else delete next.event;
+    if (value === 'sun') {
+      delete next.at;
+    } else {
+      delete next.event;
+      // An offset only means something against a sun anchor. On a clock
+      // trigger "20:00 minus 15 minutes" is just 19:45 — a second way to say
+      // the same thing, and one the editor no longer shows, so leaving it in
+      // the config would shift a schedule by an amount nothing on screen
+      // explains.
+      delete next.offset;
+    }
   }
   if (value === undefined) delete next[field];
   return next;
