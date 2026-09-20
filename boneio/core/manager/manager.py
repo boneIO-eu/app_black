@@ -1429,8 +1429,12 @@ class Manager:
         but the remote devices themselves didn't change.
         """
         _LOGGER.info("Reloading remote inputs configuration")
+        # Unsubscribe before dropping the objects: a topic that still fires the
+        # previous callbacks would run the old actions alongside the new ones.
+        await self.inputs._remote_registrar.stop()
         self.inputs.unregister_remote_inputs()
         self.register_remote_inputs()
+        await self.inputs._remote_registrar.start()
         # Broadcast all input states so frontend picks up new/removed remote inputs
         self.inputs._broadcast_all_input_states()
         _LOGGER.info("Remote inputs configuration reloaded successfully")
@@ -1889,6 +1893,12 @@ class Manager:
         # after a broker restart (retained messages may have been lost).
         _LOGGER.info("Resending all entity states after MQTT reconnect.")
         await self._resend_all_states()
+
+        # Remote inputs carried over MQTT. On every connect, not just the
+        # first: a broker restart drops subscriptions, and an input that
+        # silently stopped following its peer is a fault nobody notices until
+        # the light does not come on.
+        await self.inputs._remote_registrar.start()
 
         # Start template entities (subscribe to MQTT command topics)
         await self.templates.start()

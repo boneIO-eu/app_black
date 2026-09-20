@@ -9,11 +9,16 @@ Sub-packages:
 
 from boneio.components.input.binary_sensor import GpioInputBinarySensor
 from boneio.components.input.event import GpioEventButton
-from boneio.components.input.remote import ESPHomeBinarySensorInput, RemoteInputBase
+from boneio.components.input.remote import (
+    ESPHomeBinarySensorInput,
+    MqttBinarySensorInput,
+    RemoteInputBase,
+)
 
 __all__ = [
     "GpioInputBinarySensor",
     "GpioEventButton",
     "ESPHomeBinarySensorInput",
+    "MqttBinarySensorInput",
     "RemoteInputBase",
 ]

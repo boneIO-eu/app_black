@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from boneio.components.input import (
     ESPHomeBinarySensorInput,
+    MqttBinarySensorInput,
     RemoteInputBase,
 )
 from boneio.const import EVENT_ENTITY
@@ -62,6 +63,10 @@ class RemoteInputRegistrar:
         """
         self._manager = manager
         self._ha_discovery_fn = ha_discovery_fn
+        # MQTT inputs that still need a subscription. Registration is
+        # synchronous and subscribing is not, and the subscription has to be
+        # remade after a broker restart anyway — so it is deferred to start().
+        self._mqtt_inputs: list[MqttBinarySensorInput] = []
 
     # ------------------------------------------------------------------
     # Registration
@@ -101,6 +106,36 @@ class RemoteInputRegistrar:
 
         if count:
             _LOGGER.info("Registered %d remote input(s)", count)
+
+    async def start(self) -> None:
+        """Subscribe every MQTT remote input to its topic.
+
+        Called on each MQTT connect, not only the first: a broker restart drops
+        subscriptions, and an input that silently stopped following its peer is
+        the kind of fault nobody notices until the light does not come on.
+        """
+        for remote_input in self._mqtt_inputs:
+            try:
+                await self._manager.message_bus.subscribe_and_listen(
+                    remote_input.topic, remote_input.on_mqtt_message
+                )
+                _LOGGER.debug(
+                    "Remote input '%s' listening on %s",
+                    remote_input.id,
+                    remote_input.topic,
+                )
+            except Exception as err:  # noqa: BLE001 - one input, not all of them
+                _LOGGER.error(
+                    "Could not subscribe remote input '%s' to %s: %s",
+                    remote_input.id,
+                    remote_input.topic,
+                    err,
+                )
+
+        if self._mqtt_inputs:
+            _LOGGER.info(
+                "Listening for %d remote input(s) over MQTT.", len(self._mqtt_inputs)
+            )
 
     def _register_single(
         self,
@@ -159,36 +194,53 @@ class RemoteInputRegistrar:
             else {}
         )
 
-        esphome_input = ESPHomeBinarySensorInput(
-            id=custom_id,
-            name=name,
-            device_id=device_id,
-            sensor_id=input_id,
-            event_bus=self._manager._event_bus,
-            actions=parsed_actions,
-            mode=mode,
-            device_class=ri_cfg.get("device_class"),
-            area=ri_cfg.get("area"),
-            inverted=ri_cfg.get("inverted", False),
-            show_in_ha=ri_cfg.get("show_in_ha", False),
-            double_click_duration=ri_cfg.get("double_click_duration", 220),
-            long_press_duration=ri_cfg.get("long_press_duration", 400),
-            mqtt_sequences=ri_cfg.get("mqtt_sequences"),
-            sequence_mode=ri_cfg.get("sequence_mode", "exclusive"),
-            long_press_mqtt_mode=ri_cfg.get("long_press_mqtt_mode", "single"),
-            enable_triple_click=ri_cfg.get("enable_triple_click", False),
-        )
+        common = {
+            "id": custom_id,
+            "name": name,
+            "device_id": device_id,
+            "sensor_id": input_id,
+            "event_bus": self._manager._event_bus,
+            "actions": parsed_actions,
+            "mode": mode,
+            "device_class": ri_cfg.get("device_class"),
+            "area": ri_cfg.get("area"),
+            "inverted": ri_cfg.get("inverted", False),
+            "show_in_ha": ri_cfg.get("show_in_ha", False),
+            "double_click_duration": ri_cfg.get("double_click_duration", 220),
+            "long_press_duration": ri_cfg.get("long_press_duration", 400),
+            "mqtt_sequences": ri_cfg.get("mqtt_sequences"),
+            "sequence_mode": ri_cfg.get("sequence_mode", "exclusive"),
+            "long_press_mqtt_mode": ri_cfg.get("long_press_mqtt_mode", "single"),
+            "enable_triple_click": ri_cfg.get("enable_triple_click", False),
+        }
 
-        # Register callback on the remote device (ESPHome)
-        if remote_source == "esphome_api" and hasattr(
-            device, "register_binary_sensor_callback"
-        ):
-            device.register_binary_sensor_callback(
-                input_id, esphome_input.on_remote_state_change
+        if remote_source == "mqtt":
+            # Default to the topic a boneIO publishes its own inputs on, so
+            # mirroring a peer needs no topic at all; `topic` overrides it for
+            # anything that is not a boneIO.
+            topic = ri_cfg.get("topic") or f"{device_id}/input/{input_id}"
+            remote_input = MqttBinarySensorInput(topic=topic, **common)
+            self._mqtt_inputs.append(remote_input)
+        elif remote_source == "esphome_api":
+            remote_input = ESPHomeBinarySensorInput(**common)
+            if hasattr(device, "register_binary_sensor_callback"):
+                device.register_binary_sensor_callback(
+                    input_id, remote_input.on_remote_state_change
+                )
+        else:
+            # Refused rather than created: an input nothing ever updates would
+            # appear in Home Assistant as an entity frozen at "released", which
+            # looks like a wiring fault rather than a missing feature.
+            _LOGGER.error(
+                "Remote input '%s' uses remote_source '%s', which is not "
+                "implemented. Use 'esphome_api' or 'mqtt'. Skipping.",
+                custom_id,
+                remote_source,
             )
+            return False
 
         # Store as a regular input
-        inputs_dict[custom_id] = esphome_input
+        inputs_dict[custom_id] = remote_input
 
         # HA Autodiscovery — delegate to InputManager
         if ri_cfg.get("show_in_ha", False) and self._ha_discovery_fn:
@@ -217,8 +269,25 @@ class RemoteInputRegistrar:
     # Unregistration
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def unregister_all(inputs_dict: dict[str, Any]) -> None:
+    async def stop(self) -> None:
+        """Unsubscribe every MQTT remote input.
+
+        Without this a reload leaves the previous objects listening: the topic
+        would still fire their callbacks, so one peer press would run both the
+        old actions and the new ones.
+        """
+        for remote_input in self._mqtt_inputs:
+            try:
+                await self._manager.message_bus.unsubscribe_and_stop_listen(
+                    remote_input.topic
+                )
+            except Exception as err:  # noqa: BLE001 - tearing down, keep going
+                _LOGGER.debug(
+                    "Could not unsubscribe remote input '%s': %s", remote_input.id, err
+                )
+        self._mqtt_inputs = []
+
+    def unregister_all(self, inputs_dict: dict[str, Any]) -> None:
         """Remove all remote (virtual) input instances.
 
         Used during remote device reload to clean up before re-registering.

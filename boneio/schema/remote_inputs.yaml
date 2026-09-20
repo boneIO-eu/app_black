@@ -36,8 +36,13 @@ schema:
         description: |
           Protocol used to receive input state:
           - esphome_api: ESPHome native API binary sensor
-          - can: CAN bus TPDO2 input state
-          - mqtt: MQTT binary sensor topic
+          - mqtt: a topic the device publishes its state on. Defaults to the
+            topic another boneIO uses for its own inputs, so mirroring a peer
+            needs nothing else; set `topic` for anything that is not a boneIO.
+          - can: NOT IMPLEMENTED. The value still loads so an existing config
+            does not stop the controller from starting, but the input is
+            refused at startup with an error rather than created as one that
+            never changes state.
     device_id:
       type: string
       required: True
@@ -52,6 +57,22 @@ schema:
         label: Input/Sensor ID
         description: |
           Binary sensor object_id on the remote device (e.g. "IN_02").
+    topic:
+      type: string
+      required: False
+      meta:
+        label: MQTT topic (mqtt source only)
+        description: |
+          Where the state arrives. Leave it out for another boneIO: the default
+          is `<device_id>/input/<input_id>`, which is exactly where a boneIO
+          publishes its own inputs, so `device_id` is the peer's topic prefix
+          (its serial).
+
+          Set it for anything else — an ESPHome device in MQTT mode, a Zigbee
+          bridge, a script. Payloads understood: on/off, true/false, 1/0,
+          pressed/released, open/closed. A boneIO event input publishes JSON
+          with `event_type`, which is passed through as the click type when
+          `mode: event`.
     mode:
       type: string
       required: False

@@ -180,7 +180,9 @@
     "actions_to_lose": "Akcje do usunięcia",
     "switch_to_bs_hint": "Pojedyncze kliknięcie → Wciśnięcie. Podwójne, potrójne, długie i sekwencje zostaną usunięte.",
     "switch_to_event_hint": "Wciśnięcie → Pojedyncze kliknięcie. Akcje puszczenia zostaną usunięte.",
-    "switch_type_confirm": "Zmień tryb"
+    "switch_type_confirm": "Zmień tryb",
+    "mqtt_topic": "Temat MQTT",
+    "mqtt_topic_hint": "Zostaw puste dla innego boneIO — domyślnie to temat, na którym publikuje on swoje wejścia. Wypełnij dla ESPHome, bramki Zigbee itp. Rozumiane wartości: on/off, true/false, 1/0, pressed/released."
   },
   "sensors": {
     "title": "Czujniki",

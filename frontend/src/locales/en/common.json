@@ -180,7 +180,9 @@
     "actions_to_lose": "Actions that will be removed",
     "switch_to_bs_hint": "Single click → Pressed. Double, triple, long press and sequences will be removed.",
     "switch_to_event_hint": "Pressed → Single click. Released actions will be removed.",
-    "switch_type_confirm": "Switch Type"
+    "switch_type_confirm": "Switch Type",
+    "mqtt_topic": "MQTT topic",
+    "mqtt_topic_hint": "Leave empty for another boneIO — the default is the topic it publishes its own inputs on. Fill it in for ESPHome, a Zigbee bridge and so on. Payloads understood: on/off, true/false, 1/0, pressed/released."
   },
   "sensors": {
     "title": "Onewire Sensors",

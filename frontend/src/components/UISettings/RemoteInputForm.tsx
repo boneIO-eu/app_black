@@ -359,6 +359,24 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
               selectedDevice?.esphome_api?.binary_sensors ||
               selectedDevice?.esphome_api?._discovered_binary_sensors ||
               [];
+
+            // An MQTT device announces nothing, so there is no list to pick
+            // from — the id is whatever the publisher calls it, and for a
+            // boneIO peer it also decides the default topic.
+            if (data.remote_source === 'mqtt') {
+              return (
+                <input
+                  type="text"
+                  className="input input-bordered w-full font-mono"
+                  placeholder="in_01"
+                  value={data.input_id || ''}
+                  onChange={(e) => updateField('input_id', e.target.value)}
+                  disabled={!data.device_id}
+                  spellCheck={false}
+                />
+              );
+            }
+
             return (
               <Select
                 value={data.input_id || '_none_'}
@@ -389,6 +407,31 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
             </label>
           )}
         </div>
+
+        {/* Topic — mqtt only. Left empty it defaults to where a boneIO
+            publishes its own inputs, which is the common case. */}
+        {data.remote_source === 'mqtt' && (
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">{t('inputs.mqtt_topic')}</span>
+            </label>
+            <input
+              type="text"
+              className="input input-bordered w-full font-mono"
+              placeholder={
+                data.device_id && data.input_id
+                  ? `${data.device_id}/input/${data.input_id}`
+                  : 'device/input/in_01'
+              }
+              value={data.topic || ''}
+              onChange={(e) => updateField('topic', e.target.value || undefined)}
+              spellCheck={false}
+            />
+            <label className="label">
+              <span className="label-text-alt opacity-60">{t('inputs.mqtt_topic_hint')}</span>
+            </label>
+          </div>
+        )}
 
         {/* Area */}
         <AreaSelect

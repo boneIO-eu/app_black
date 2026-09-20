@@ -140,3 +140,14 @@ Before it, there was no way to do this at all — not even roundabout:
 
 The `remote_source: mqtt` gap is a separate bug — the schema advertises
 something the registrar does not implement.
+
+### The `remote_source: mqtt` gap, since fixed
+
+That last point was a real bug and is now closed: `remote_input` with
+`remote_source: mqtt` subscribes to a topic and follows it. See
+`docs/REMOTE_INPUTS_MQTT.md`.
+
+It solves a different problem, though. A remote input **mirrors** a state that
+already exists somewhere else — another boneIO's button, an ESPHome sensor. A
+virtual switch **is** the state, owned here. Reach for a remote input to follow
+something; reach for a virtual switch to decide something.
