@@ -39,6 +39,7 @@ interface FormRendererProps {
   allModbusDevices: any[];
   allRemoteDevices: any[];
   allRemoteInputs?: any[];
+  allVirtualSwitches?: any[];
   // Saved snapshots
   savedOutputs?: any[];
   savedOutputGroups?: any[];
@@ -77,6 +78,7 @@ function inputFormProps(props: FormRendererProps) {
     allAreas: props.allAreas,
     allRemoteDevices: props.allRemoteDevices,
     allRemoteInputs: props.allRemoteInputs || [],
+    allVirtualSwitches: props.allVirtualSwitches || [],
     editingIndex: props.editingIndex,
     onValidationChange: props.onValidationChange,
     attemptedSubmit: props.attemptedSubmit,
@@ -139,6 +141,7 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           allAreas={props.allAreas}
           allRemoteDevices={props.allRemoteDevices}
           allRemoteInputs={props.allRemoteInputs || []}
+          allVirtualSwitches={props.allVirtualSwitches || []}
           allBinarySensors={props.allBinarySensors}
           onValidationChange={props.onValidationChange}
           attemptedSubmit={props.attemptedSubmit}

@@ -3,7 +3,15 @@
  */
 
 /** Output type categories for grouping outputs in the view */
-export type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
+export type OutputCategory =
+  | 'light'
+  | 'switch'
+  | 'valve'
+  | 'cover'
+  | 'group'
+  | 'state_only'
+  /** A flag with no relay behind it — see docs/VIRTUAL_SWITCHES.md. */
+  | 'virtual_switch';
 
 /** Sort modes for output lists */
 export type SortMode = 'name' | 'recent';

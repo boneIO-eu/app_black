@@ -62,6 +62,7 @@ import {
   validateAction as validate,
   cleanActionFields as cleanFields,
   OutputAction,
+  VirtualSwitchAction,
   CoverAction,
   MqttAction,
   OutputOverMqttAction,
@@ -96,6 +97,8 @@ interface ActionFieldsProps {
   allBinarySensors?: BinarySensorEntity[];
   /** Remote inputs (binary sensors from ESPHome/CAN devices) for condition entity selection */
   allRemoteInputs?: Array<Record<string, unknown>>;
+  /** Virtual switches — flags with no hardware, usable in conditions. */
+  allVirtualSwitches?: Array<Record<string, unknown>>;
   /** Entity ID to exclude from condition binary_sensor list (prevents self-reference) */
   excludeEntityId?: string;
   /** Area ID of the input being configured — used to prioritize same-area entities in pickers. */
@@ -126,6 +129,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   clickType,
   allBinarySensors = [],
   allRemoteInputs = [],
+  allVirtualSwitches = [],
   excludeEntityId,
   preferredArea,
 }) => {
@@ -284,6 +288,17 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           savedOutputs={savedOutputs}
           savedOutputGroups={savedOutputGroups}
           preferredArea={preferredArea}
+        />
+      )}
+
+      {/* Virtual switch action — sets a flag other conditions read. */}
+      {actionType === 'virtual_switch' && (
+        <VirtualSwitchAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allVirtualSwitches={allVirtualSwitches}
+          actionOutputOptions={actionOutputOptions}
         />
       )}
 
@@ -476,6 +491,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         allCovers={allCovers}
         allBinarySensors={allBinarySensors}
         allRemoteInputs={allRemoteInputs}
+        allVirtualSwitches={allVirtualSwitches}
         allAreas={allAreas}
         showValidation={showValidation}
         excludeEntityId={excludeEntityId}

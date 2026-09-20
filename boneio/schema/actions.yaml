@@ -2,7 +2,7 @@ type: dict
 schema:
   action:
     type: string
-    allowed: ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover']
+    allowed: ['mqtt', 'output', 'cover', 'virtual_switch', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover']
     coerce: lower
     case_insensitive: true
   boneio_output:
@@ -21,6 +21,16 @@ schema:
       label: Cover ID
       description: |
         ID of the cover to control. This should match the id defined in your cover configuration.
+  boneio_virtual_switch:
+    type: string
+    required_if:
+      action: ['virtual_switch']
+    meta:
+      label: Virtual switch ID
+      description: |
+        ID of the virtual switch to set. Matches an entry in the
+        `virtual_switch:` section — a flag with no relay behind it, which
+        conditions can then read. See docs/VIRTUAL_SWITCHES.md.
   topic:
     type: string
     required_if:
@@ -83,7 +93,7 @@ schema:
   action_output:
     type: string
     required_if:
-      action: ['output', 'output_over_mqtt', 'remote_output']
+      action: ['output', 'output_over_mqtt', 'remote_output', 'virtual_switch']
     forbidden_if:
       action: ['cover', 'mqtt', 'cover_over_mqtt', 'remote_cover']
     allowed: ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET']
@@ -93,6 +103,9 @@ schema:
     meta:
       label: If output action chosen then what action to perform.
       description: |
+        Reused by the virtual_switch action, which takes the same three verbs:
+        ON, OFF and TOGGLE. One concept, not two near-identical fields.
+
         For ESPHome lights, additional actions are available:
         - BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)
         - BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)

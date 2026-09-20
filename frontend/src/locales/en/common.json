@@ -62,7 +62,8 @@
       "valves": "Valves",
       "covers": "Covers",
       "groups": "Groups",
-      "state_only": "State Only"
+      "state_only": "State Only",
+      "virtual_switches": "Virtual switches"
     },
     "momentary_actions_title": "Momentary Actions",
     "momentary_actions_desc1": "When enabled, the output will automatically turn off after the specified duration.",
@@ -762,7 +763,8 @@
     "ha_dashboard": "Home Assistant dashboard",
     "yaml_editor": "YAML editor",
     "location": "Location",
-    "schedule": "Schedules"
+    "schedule": "Schedules",
+    "virtual_switch": "Virtual switches"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",
@@ -1474,7 +1476,11 @@
     "validation_condition_sun_range": "'Above' must be lower than 'below'.",
     "validation_condition_sun_degrees": "Elevation must be between -90 and 90 degrees.",
     "condition_sun_needs_location": "The 'Sun' condition appears once coordinates are set in Settings → Device → Location.",
-    "condition_sun_needs_location_short": "needs a location"
+    "condition_sun_needs_location_short": "needs a location",
+    "condition_entity_virtual_switch": "Virtual switch",
+    "virtual_switch": "Virtual switch",
+    "select_virtual_switch": "Choose a switch…",
+    "no_virtual_switches": "No virtual switches are defined. Add one in Settings → Control → Virtual switches."
   },
   "virtual_energy_sensor": {
     "title": "Virtual Energy Sensors",

@@ -47,6 +47,8 @@ interface ActionConditionsProps {
   allBinarySensors?: BinarySensorEntity[];
   /** Available remote inputs (binary sensors from ESPHome/CAN) for state conditions */
   allRemoteInputs?: Array<Record<string, unknown>>;
+  /** Virtual switches — flags with no hardware, read by a state condition. */
+  allVirtualSwitches?: Array<Record<string, unknown>>;
   /** Available areas for displaying area names in entity selectors */
   allAreas?: AreaEntity[];
   /** Whether to show validation errors */
@@ -128,7 +130,7 @@ function minutesToOffset(minutes: string): string | undefined {
   if (isNaN(value) || value === 0) return undefined;
   return `${value}min`;
 }
-const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'remote_output', 'remote_input'] as const;
+const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'virtual_switch', 'remote_output', 'remote_input'] as const;
 
 const STATE_OPTIONS: Record<string, string[]> = {
   binary_sensor: ['is_on', 'is_off'],
@@ -136,6 +138,7 @@ const STATE_OPTIONS: Record<string, string[]> = {
   output: ['is_on', 'is_off'],
   remote_output: ['is_on', 'is_off'],
   remote_input: ['is_on', 'is_off'],
+  virtual_switch: ['is_on', 'is_off'],
 };
 
 /**
@@ -154,6 +157,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   allCovers = [],
   allBinarySensors = [],
   allRemoteInputs = [],
+  allVirtualSwitches = [],
   allAreas = [],
   showValidation = false,
   excludeEntityId,
@@ -326,6 +330,16 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
             };
           })
           .filter(item => !!item.id);
+      case 'virtual_switch':
+        return (allVirtualSwitches || [])
+          .filter((vs: Record<string, unknown>) => !!vs.id)
+          .map((vs: Record<string, unknown>) => ({
+            id: vs.id as string,
+            name: (vs.name as string) || (vs.id as string),
+            area: vs.area as string | undefined,
+            badge: '🏳',
+            badgeClass: 'badge-ghost',
+          }));
       case 'remote_input':
         return (allRemoteInputs || [])
           .filter((ri: Record<string, unknown>) => {

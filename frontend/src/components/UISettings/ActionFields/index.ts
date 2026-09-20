@@ -1,3 +1,4 @@
+export { default as VirtualSwitchAction } from './VirtualSwitchAction';
 export { validateAction, validateCondition, cleanActionFields, applyActionUpdate, rgbToHex, hexToRgb } from './helpers';
 export type { 
   Area, 

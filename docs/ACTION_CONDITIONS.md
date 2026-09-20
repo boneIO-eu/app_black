@@ -4,7 +4,8 @@
 
 The action conditions system allows boneIO actions (button presses, events) to execute
 conditionally based on **time**, **date**, **entity state**, or the **position of the
-Sun**.
+Sun**. Entity state includes **virtual switches** — flags with no hardware behind
+them, flipped from Home Assistant or another action; see `docs/VIRTUAL_SWITCHES.md`.
 
 ## Architecture
 
@@ -170,6 +171,7 @@ The `state_resolver` maps `entity_type` to the appropriate manager lookup:
 | `entity` (config) | Manager method | Object class | Key property |
 |---|---|---|---|
 | `output` / `light` | `outputs.get_output(id)` | `BasicOutput` | `is_active` (bool) |
+| `virtual_switch` | `virtual_switches.get(id)` | `VirtualSwitch` | `is_active` (bool) |
 | `cover` | `covers.get_cover(id)` | `BaseCover` | `is_open` (bool) |
 | `binary_sensor` | `inputs.get_input(id)` | `GpioBaseClass` | `is_active` (bool) |
 

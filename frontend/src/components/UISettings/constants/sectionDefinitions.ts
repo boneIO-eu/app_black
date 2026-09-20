@@ -73,6 +73,10 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   // Irrigation is a template platform, edited inside this section.
   { name: 'template', icon: '🧩', translationKey: 'sections.template', group: 'control' },
   { name: 'binding_matrix', icon: '📊', translationKey: 'sections.binding_matrix', group: 'control' },
+  // Flags with no hardware, read by conditions and set by actions. Next to
+  // Schedules in the logic half of this group, not next to Outputs: the one
+  // thing a virtual switch never does is switch anything.
+  { name: 'virtual_switch', icon: '🏳️', translationKey: 'sections.virtual_switch', group: 'control' },
   // Actions that fire on their own. Under Control rather than Device: it
   // drives outputs and covers, it is not a fact about the hardware.
   { name: 'schedule', icon: '⏰', translationKey: 'sections.schedule', group: 'control' },

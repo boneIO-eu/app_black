@@ -8,6 +8,7 @@ const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
   output: ['boneio_output', 'action_output'],
   cover: ['boneio_cover', 'action_cover', 'data', 'restore_tilt'],
   mqtt: ['topic', 'action_mqtt_msg'],
+  virtual_switch: ['boneio_virtual_switch', 'action_output'],
   output_over_mqtt: ['boneio_id', 'boneio_output', 'action_output', 'action_mqtt_msg'],
   cover_over_mqtt: ['boneio_id', 'boneio_cover', 'action_cover', 'action_mqtt_msg', 'data'],
   remote_output: [

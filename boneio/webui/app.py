@@ -20,7 +20,7 @@ from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
 from boneio.components.input import RemoteInputBase
-from boneio.const import COVER, NONE
+from boneio.const import COVER, NONE, VIRTUAL_SWITCH
 from boneio.core.auth.migration import migrate_legacy_auth
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.core.config import ConfigHelper
@@ -446,6 +446,29 @@ async def send_initial_states(
                     return False
             except Exception as e:
                 _LOGGER.error(f"Error preparing output state: {type(e).__name__} - {e}")
+
+        # Send virtual switches. They travel the output channel because to a
+        # viewer they are the same shape of thing — a name that is on or off —
+        # and `type` tells the panel to group them separately.
+        for switch in boneio_manager.virtual_switches.all():
+            try:
+                update = OutputEvent(
+                    entity_id=switch.id,
+                    state=OutputState(
+                        id=switch.id,
+                        name=switch.name,
+                        state=switch.state,
+                        type=VIRTUAL_SWITCH,
+                        expander_id=None,
+                        pin=None,
+                        timestamp=switch.last_timestamp,
+                        area=switch.area,
+                    ),
+                )
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing virtual switch state: {type(e).__name__} - {e}")
 
         # Send output groups
         for group in boneio_manager.outputs.get_all_output_groups().values():

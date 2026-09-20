@@ -105,6 +105,7 @@ function ArraySectionContent({
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
       allRemoteInputs={formData.remote_inputs || []}
+      allVirtualSwitches={formData.virtual_switch || []}
       savedOutputs={[...(originalData.output || []), ...(originalData.remote_outputs || [])]}
       savedOutputGroups={originalData.output_group || []}
       savedCovers={normalizeCovers(originalData.cover || [])}

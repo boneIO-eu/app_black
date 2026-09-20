@@ -56,6 +56,8 @@ interface EventFormProps {
   allRemoteDevices?: RemoteDeviceEntity[];
   /** Remote inputs for condition entity picker */
   allRemoteInputs?: Array<Record<string, unknown>>;
+  /** Virtual switches — flags with no hardware, usable in conditions. */
+  allVirtualSwitches?: Array<Record<string, unknown>>;
   /** Callback when validation state changes */
   onValidationChange?: (hasErrors: boolean) => void;
   /** Whether user attempted to submit (shows validation errors) */
@@ -82,6 +84,7 @@ const EventForm: React.FC<EventFormProps> = ({
   allAreas = [],
   allRemoteDevices = [],
   allRemoteInputs = [],
+  allVirtualSwitches = [],
   editingIndex,
   onValidationChange,
   attemptedSubmit = false,
@@ -229,6 +232,8 @@ const EventForm: React.FC<EventFormProps> = ({
         clickType={type}
         allBinarySensors={allBinarySensors}
         allRemoteInputs={allRemoteInputs}
+      allVirtualSwitches={allVirtualSwitches}
+        
         preferredArea={data.area}
       />
     );

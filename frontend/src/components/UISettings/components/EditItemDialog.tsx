@@ -54,6 +54,7 @@ export interface EditItemDialogProps {
   allRemoteDevices?: any[];
   /** All remote inputs. */
   allRemoteInputs?: any[];
+  allVirtualSwitches?: any[];
   /** Saved (committed) outputs for comparison. */
   savedOutputs?: any[];
   /** Saved (committed) output groups. */
@@ -111,6 +112,7 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
   allModbusDevices = [],
   allRemoteDevices = [],
   allRemoteInputs = [],
+  allVirtualSwitches = [],
   savedOutputs,
   savedOutputGroups,
   savedCovers,
@@ -182,6 +184,7 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
                 allModbusDevices={allModbusDevices}
                 allRemoteDevices={allRemoteDevices}
                 allRemoteInputs={allRemoteInputs}
+                allVirtualSwitches={allVirtualSwitches}
                 savedOutputs={savedOutputs}
                 savedOutputGroups={savedOutputGroups}
                 savedCovers={savedCovers}

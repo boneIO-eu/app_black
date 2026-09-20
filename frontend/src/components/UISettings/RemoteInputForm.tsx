@@ -63,6 +63,8 @@ interface RemoteInputFormProps {
   allBinarySensors?: BinarySensorEntity[];
   /** Remote inputs for condition entity picker */
   allRemoteInputs?: Array<Record<string, unknown>>;
+  /** Virtual switches — flags with no hardware, usable in conditions. */
+  allVirtualSwitches?: Array<Record<string, unknown>>;
   onValidationChange?: (hasErrors: boolean) => void;
   attemptedSubmit?: boolean;
   savedOutputs?: OutputEntity[];
@@ -86,6 +88,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
   allRemoteDevices = [],
   allBinarySensors = [],
   allRemoteInputs = [],
+  allVirtualSwitches = [],
   onValidationChange,
   attemptedSubmit = false,
   savedOutputs,
@@ -231,6 +234,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
       clickType={type as 'pressed' | 'released' | 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single'}
       allBinarySensors={allBinarySensors}
       allRemoteInputs={allRemoteInputs}
+      allVirtualSwitches={allVirtualSwitches}
       excludeEntityId={data.id}
       preferredArea={data.area}
     />

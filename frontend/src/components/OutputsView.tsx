@@ -29,6 +29,7 @@ import type { OutputCategory, SortMode } from '@/types/outputs';
 function categorizeOutput(type: string | undefined): OutputCategory {
   const typeStr = (type || '').toLowerCase();
   
+  if (typeStr === 'virtual_switch') return 'virtual_switch';
   if (typeStr === 'light') return 'light';
   if (typeStr === 'valve') return 'valve';
   if (typeStr === 'cover' || typeStr === 'none') return 'state_only';
@@ -82,6 +83,7 @@ export default function OutputsView({error}: {error: string | null}) {
       cover: t('outputs.categories.covers'),
       group: t('outputs.categories.groups'),
       state_only: t('outputs.categories.state_only'),
+      virtual_switch: t('outputs.categories.virtual_switches'),
     };
     return labels[category];
   };
@@ -151,6 +153,7 @@ export default function OutputsView({error}: {error: string | null}) {
       cover: [],
       group: [],
       state_only: [],
+      virtual_switch: [],
     };
     
     localOutputs.forEach(output => {
@@ -318,6 +321,14 @@ export default function OutputsView({error}: {error: string | null}) {
         return;
       }
 
+      // A virtual switch has no relay and no interlock, so it takes its own
+      // endpoint rather than pretending to be an output that happens to work.
+      if (type === 'virtual_switch') {
+        await axios.post(`/api/virtual_switch/${id}/toggle`);
+        setError(null);
+        return;
+      }
+
       const response = await axios.post(`/api/outputs/${id}/toggle`);
       if (response.data.status === 'interlock') {
         setError(`${type} ${name} is locked by interlock`);
@@ -462,6 +473,10 @@ export default function OutputsView({error}: {error: string | null}) {
 
           {/* Switches */}
           {renderOutputSection('switch', categorizedOutputs.switch, toggleOutput)}
+
+          {/* Modes and flags. After the relays: they are what the relays are
+              conditioned on, not another thing the board drives. */}
+          {renderOutputSection('virtual_switch', categorizedOutputs.virtual_switch, toggleOutput)}
 
           {/* Valves */}
           {renderOutputSection('valve', categorizedOutputs.valve, toggleOutput)}

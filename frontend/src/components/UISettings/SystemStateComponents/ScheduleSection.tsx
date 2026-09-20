@@ -98,6 +98,7 @@ interface EntityLists {
   allRemoteDevices: RemoteDeviceEntity[];
   allBinarySensors: BinarySensorEntity[];
   allRemoteInputs: Record<string, unknown>[];
+  allVirtualSwitches: Record<string, unknown>[];
 }
 
 const NO_ENTITIES: EntityLists = {
@@ -108,6 +109,7 @@ const NO_ENTITIES: EntityLists = {
   allRemoteDevices: [],
   allBinarySensors: [],
   allRemoteInputs: [],
+  allVirtualSwitches: [],
 };
 
 interface ScheduleStatus {
@@ -206,6 +208,7 @@ export default function ScheduleSection() {
         allRemoteDevices: parsed.remote_devices || [],
         allBinarySensors: parsed.binary_sensor || [],
         allRemoteInputs: parsed.remote_inputs || [],
+        allVirtualSwitches: parsed.virtual_switch || [],
       });
       const byId: Record<string, ScheduleStatus> = {};
       for (const entry of state.schedules || []) byId[entry.id] = entry;
@@ -586,6 +589,7 @@ export default function ScheduleSection() {
                       allCovers={entities.allCovers}
                       allBinarySensors={entities.allBinarySensors}
                       allRemoteInputs={entities.allRemoteInputs}
+                  allVirtualSwitches={entities.allVirtualSwitches}
                       allAreas={entities.allAreas}
                     />
 

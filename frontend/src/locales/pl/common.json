@@ -62,7 +62,8 @@
       "valves": "Zawory",
       "covers": "Rolety",
       "groups": "Grupy",
-      "state_only": "Tylko Stan"
+      "state_only": "Tylko Stan",
+      "virtual_switches": "Przełączniki wirtualne"
     },
     "momentary_actions_title": "Akcje chwilowe",
     "momentary_actions_desc1": "Po włączeniu, wyjście automatycznie wyłączy się po określonym czasie.",
@@ -726,7 +727,8 @@
     "ha_dashboard": "Dashboard do Home Assistant",
     "yaml_editor": "Edytor YAML",
     "location": "Lokalizacja",
-    "schedule": "Harmonogramy"
+    "schedule": "Harmonogramy",
+    "virtual_switch": "Przełączniki wirtualne"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
@@ -1475,7 +1477,11 @@
     "validation_condition_sun_range": "„Powyżej” musi być mniejsze niż „poniżej”.",
     "validation_condition_sun_degrees": "Wysokość musi mieścić się w zakresie od -90 do 90 stopni.",
     "condition_sun_needs_location": "Warunek „Słońce” pojawi się po ustawieniu współrzędnych w Ustawienia → Urządzenie → Lokalizacja.",
-    "condition_sun_needs_location_short": "wymaga lokalizacji"
+    "condition_sun_needs_location_short": "wymaga lokalizacji",
+    "condition_entity_virtual_switch": "Przełącznik wirtualny",
+    "virtual_switch": "Przełącznik wirtualny",
+    "select_virtual_switch": "Wybierz przełącznik…",
+    "no_virtual_switches": "Nie zdefiniowano żadnego przełącznika wirtualnego. Dodaj go w Ustawienia → Sterowanie → Przełączniki wirtualne."
   },
   "virtual_energy_sensor": {
     "title": "Wirtualne Sensory Energii",

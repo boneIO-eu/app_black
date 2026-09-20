@@ -34,6 +34,7 @@ from boneio.const import (
     SET_BRIGHTNESS,
     STATE,
     TOGGLE,
+    VIRTUAL_SWITCH,
     cover_actions,
     filter_cover_extra_data,
     output_actions,
@@ -55,6 +56,7 @@ from boneio.core.manager.sensors import SensorManager
 from boneio.core.manager.sun import SunProvider
 from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
+from boneio.core.manager.virtual_switches import VirtualSwitchManager
 from boneio.core.messaging import MessageBus
 from boneio.core.remote.wled import WLEDRemoteDevice
 from boneio.core.state import StateManager
@@ -134,6 +136,7 @@ class Manager:
         can: dict[str, Any] | None = None,
         location: dict[str, Any] | None = None,
         schedule: list[dict] | None = None,
+        virtual_switch: list[dict] | None = None,
         web_active: bool = False,
         web_port: int = 8090,
         early_oled_device: Any | None = None,
@@ -309,7 +312,11 @@ class Manager:
             irrigation_config=merged_irrigation,
         )
 
-        # 13. Scheduler — actions that fire on their own. Built here because
+        # 13. Virtual switches — flags with no hardware, read by conditions and
+        # set by actions. Before the scheduler, whose actions may set one.
+        self.virtual_switches = VirtualSwitchManager(manager=self, config=virtual_switch or [])
+
+        # 14. Scheduler — actions that fire on their own. Built here because
         # parsing its actions needs the outputs and covers to exist, and armed
         # from a task because the first thing it does is look at the clock.
         self.scheduler = Scheduler(manager=self, schedules=schedule or [])
@@ -749,6 +756,27 @@ class Manager:
                             continue
                     _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
 
+                elif action == VIRTUAL_SWITCH:
+                    entity_id = action_definition.get("boneio_virtual_switch")
+                    action_output = action_definition.get("action_output", TOGGLE)
+                    action_to_execute = output_actions.get(action_output)
+                    # Resolved here so a typo shows up as a warning at config
+                    # load rather than as an action that quietly does nothing.
+                    if entity_id and action_to_execute and self.virtual_switches.get(entity_id):
+                        parsed_action = {
+                            "action": action,
+                            "boneio_virtual_switch": entity_id,
+                            "action_to_execute": action_to_execute,
+                        }
+                        _copy_long_press_meta(parsed_action, action_definition)
+                        parsed_actions[click_type].append(parsed_action)
+                        continue
+                    _LOGGER.warning(
+                        "Virtual switch %s for action in %s not found. Omitting.",
+                        entity_id,
+                        pin,
+                    )
+
                 elif action == COVER:
                     # Support both new 'boneio_cover' and legacy 'pin' for backward compatibility
                     entity_id = action_definition.get("boneio_cover") or action_definition.get("pin")
@@ -883,7 +911,8 @@ class Manager:
         OutputManager, so they are resolved via ``entity_type='output'``.
 
         Args:
-            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light', 'remote_output', 'remote_input')
+            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light',
+                'virtual_switch', 'remote_output', 'remote_input')
             entity_id: Entity ID
 
         Returns:
@@ -895,6 +924,8 @@ class Manager:
             return self.covers.get_cover(entity_id)
         if entity_type in ("binary_sensor", "remote_input"):
             return self.inputs.get_input(entity_id)
+        if entity_type == VIRTUAL_SWITCH:
+            return self.virtual_switches.get(entity_id)
         _LOGGER.warning("Unknown entity type for condition: %s", entity_type)
         return None
 
@@ -1061,6 +1092,15 @@ class Manager:
             )
             _f = getattr(output, action_to_execute)
             await _f()
+
+        elif action == VIRTUAL_SWITCH:
+            switch_id = action_definition.get("boneio_virtual_switch")
+            switch_action = action_definition.get("action_to_execute")
+            switch = self.virtual_switches.get(switch_id) if switch_id else None
+            if not switch or not switch_action:
+                _LOGGER.warning("Virtual switch %s not found for action", switch_id)
+                return
+            await getattr(switch, switch_action)()
 
         elif action == COVER:
             assert entity_id and action_to_execute  # guaranteed by guard above
@@ -1320,6 +1360,11 @@ class Manager:
             )
         finally:
             self._pending_tilt_restores.pop(task_key, None)
+
+    async def _reload_virtual_switches(self) -> None:
+        """Adopt a new virtual_switch section, keeping the states that survive."""
+        config = self._config_helper.get_config() or {}
+        await self.virtual_switches.reload(config.get("virtual_switch") or [])
 
     async def _reload_schedule(self) -> None:
         """Adopt a new schedule section, disarming whatever was armed before."""
@@ -1754,6 +1799,7 @@ class Manager:
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
             "location": self._reload_location,  # Coordinates for sun-based features
             "schedule": self._reload_schedule,  # Time and sun driven schedules
+            "virtual_switch": self._reload_virtual_switches,  # Flags read by conditions
             "oled": self.display.reload_oled,  # OLED display screens, screensaver
         }
 
@@ -1868,6 +1914,10 @@ class Manager:
         # Resend cover states (send_state now uses retain=True)
         self.covers._broadcast_all_states()
 
+        # Resend virtual switches. A mode nobody can see is a mode nobody
+        # trusts, and a reinstalled broker comes back with no retained set.
+        await self.virtual_switches.republish_states()
+
         _LOGGER.info(
             "Resent states: %d outputs, %d covers.",
             len([o for o in self.outputs.get_all_outputs().values() if o.output_type not in ("cover", "none")]),
@@ -1919,6 +1969,21 @@ class Manager:
             _LOGGER.debug("Divide topic to: msg_type: %s, device_id: %s, command: %s", msg_type, device_id, command)
         except IndexError:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
+            return
+
+        # Handle virtual switch commands — this is how Home Assistant flips a
+        # flag. Nothing extra is subscribed for it: the controller already
+        # listens to the whole cmd/+/+/# tree.
+        if msg_type == VIRTUAL_SWITCH and command == "set":
+            target_switch = self.virtual_switches.get(device_id)
+            if target_switch is None:
+                _LOGGER.debug("Virtual switch not found %s.", device_id)
+                return
+            action_from_msg = output_actions.get(message.upper())
+            if action_from_msg:
+                await getattr(target_switch, action_from_msg)()
+            else:
+                _LOGGER.debug("Unknown virtual switch command %s.", message.upper())
             return
 
         # Handle relay/output commands

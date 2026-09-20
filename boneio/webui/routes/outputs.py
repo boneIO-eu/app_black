@@ -42,6 +42,31 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
         return {"status": "error"}
 
 
+@router.post("/virtual_switch/{switch_id}/toggle")
+async def toggle_virtual_switch(switch_id: str, manager: Manager = Depends(get_manager)):
+    """Flip a virtual switch from the panel.
+
+    Alongside the outputs rather than in its own module because it is the same
+    gesture on the same screen: the Outputs view lists these next to the relays,
+    and a viewer flipping a mode does not care which one has a pin.
+
+    Args:
+        switch_id: ID of the virtual switch.
+        manager: Manager instance.
+
+    Returns:
+        The state it ended up in.
+
+    Raises:
+        HTTPException: 404 if there is no such switch.
+    """
+    switch = manager.virtual_switches.get(switch_id)
+    if switch is None:
+        raise HTTPException(status_code=404, detail="Virtual switch not found")
+    await switch.async_toggle()
+    return {"status": switch.state}
+
+
 @router.post("/outputs/{output_id}/turn_on")
 async def turn_on_output(output_id: str, manager: Manager = Depends(get_manager)):
     """

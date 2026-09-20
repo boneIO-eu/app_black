@@ -334,6 +334,10 @@ _STATE_EVALUATORS: dict[tuple[str, str], Callable[[Any], bool]] = {
     # binary_sensor → is_active
     ("binary_sensor", "is_on"): _check_is_active,
     ("binary_sensor", "is_off"): _check_is_not_active,
+    # virtual_switch → is_active, same as an output. That is the point of the
+    # name: a flag reads like the thing it stands in for.
+    ("virtual_switch", "is_on"): _check_is_active,
+    ("virtual_switch", "is_off"): _check_is_not_active,
     # cover → is_open
     ("cover", "is_open"): _check_is_open,
     ("cover", "is_closed"): _check_is_closed,

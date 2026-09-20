@@ -164,6 +164,7 @@ config_modules = [
     {"name": IRRIGATION, "default": []},
     {"name": "location", "default": None},
     {"name": "schedule", "default": []},
+    {"name": "virtual_switch", "default": []},
 ]
 
 

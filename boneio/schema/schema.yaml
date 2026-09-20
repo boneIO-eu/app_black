@@ -2111,6 +2111,91 @@ template:
               meta:
                 label: Days when this schedule is active.
 
+virtual_switch:
+  type: list
+  required: False
+  meta:
+    label: "Virtual switches — an on/off flag with no relay behind it."
+    description: |
+      A switch that drives nothing. It exists to be read by a condition, so an
+      ordinary action can be qualified: IN_11 turns OUT_11 on, but only while
+      "evening mode" is on — and evening mode is something you flip in Home
+      Assistant, in the panel, or from another button.
+
+      boneIO owns the state. Modelling it the other way round — an
+      input_boolean in Home Assistant that boneIO listens to — would mean the
+      controller forgets which mode it is in whenever the broker restarts or
+      Home Assistant is down, which is exactly when it should keep working.
+
+        virtual_switch:
+          - id: evening_mode
+            name: Evening mode
+            restore_state: true
+
+        event:
+          - boneio_input: in_11
+            actions:
+              single:
+                - action: output
+                  boneio_output: out_11
+                  action_output: TOGGLE
+                  condition:
+                    type: state
+                    entity: virtual_switch
+                    entity_id: evening_mode
+                    state: is_on
+
+      Home Assistant sees it as a switch. Actions can set it, so a long press
+      can arm a mode that other inputs then obey.
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: True
+        coerce: str
+        meta:
+          label: Identifier
+          description: |
+            Used in the MQTT topic and referenced by conditions and actions.
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display name in Home Assistant and in the panel.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/room for Home Assistant grouping.
+      icon:
+        type: string
+        required: False
+        meta:
+          label: Home Assistant icon, e.g. `mdi:weather-night`.
+      restore_state:
+        type: boolean
+        required: False
+        default: True
+        meta:
+          label: Remember the state across a restart.
+          description: |
+            On by default: a controller that forgot every mode on each reboot
+            would be worse than one with no modes at all. Turn it off for a
+            flag that should always come up in a known state.
+      initial:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: State to start in when there is nothing to restore.
+      show_in_ha:
+        type: boolean
+        required: False
+        default: True
+        meta:
+          label: Announce this switch to Home Assistant.
+
 schedule:
   type: list
   required: False
