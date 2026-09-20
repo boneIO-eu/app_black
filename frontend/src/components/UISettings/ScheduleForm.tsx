@@ -130,9 +130,9 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
         </div>
       )}
 
-      {/* Identity. No heading: it is the top of a dialog whose title already
-          says what is being edited. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Identity. The toggle is on its own line rather than dressed up as a
+          third text field, which is what a third grid column made it look like. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label={t('outputs.display_name')} help={t('common.optional')}>
           <input
             type="text"
@@ -149,20 +149,17 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
             onChange={(e) => updateField('id', sanitizeId(e.target.value))}
           />
         </FormField>
-        <FormField label={t('schedule.enabled')}>
-          <label className="cursor-pointer flex items-center gap-2 h-9">
-            <input
-              type="checkbox"
-              className="toggle toggle-sm"
-              checked={data.enabled !== false}
-              onChange={(e) => updateField('enabled', e.target.checked)}
-            />
-            <span className="text-sm opacity-70">
-              {data.enabled !== false ? t('schedule.enabled_yes') : t('schedule.disabled')}
-            </span>
-          </label>
-        </FormField>
       </div>
+
+      <label className="cursor-pointer flex items-center gap-2">
+        <input
+          type="checkbox"
+          className="toggle toggle-sm"
+          checked={data.enabled !== false}
+          onChange={(e) => updateField('enabled', e.target.checked)}
+        />
+        <span className="text-sm">{t('schedule.enabled')}</span>
+      </label>
 
       <CardSection title={t('schedule.section_when')} divided>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -275,6 +272,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
         {/* The schedule's own conditions gate the whole firing. Each action may
             still carry its own, below. */}
         <ActionConditions
+          hideHeading
           action={data}
           onUpdate={(field, value) => onChange(applyActionUpdate(data, field, value) as ScheduleEntry)}
           t={t}
@@ -293,7 +291,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
         action={
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className="btn btn-ghost btn-sm text-primary"
             onClick={() => setActions([...actions, { action: 'output', action_output: 'TOGGLE' }])}
           >
             <FaPlus className="mr-2" />

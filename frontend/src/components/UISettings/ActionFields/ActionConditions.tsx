@@ -33,6 +33,10 @@ interface SingleCondition {
 }
 
 interface ActionConditionsProps {
+  /** Hide the "Conditions" divider, for a caller that already heads the group.
+   *  Inside an action card there is nothing else saying what these fields are,
+   *  so it stays on by default. */
+  hideHeading?: boolean;
   /** The current action object */
   action: any;
   /** Callback to update a field on the action */
@@ -150,6 +154,7 @@ const STATE_OPTIONS: Record<string, string[]> = {
  * On save, if there's exactly 1 condition it's stored as `condition` (single).
  */
 const ActionConditions: React.FC<ActionConditionsProps> = ({
+  hideHeading = false,
   action,
   onUpdate,
   t,
@@ -784,7 +789,9 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
 
   return (
     <div className="form-control mb-3">
-      <div className="divider text-xs opacity-70 my-1">{t('event_form.conditions')}</div>
+      {!hideHeading && (
+        <div className="divider text-xs opacity-70 my-1">{t('event_form.conditions')}</div>
+      )}
 
       {!hasConditions ? (
         <button

@@ -2945,7 +2945,6 @@
     "description": "Akcje, które odpalają się same — o godzinie zegarowej albo w momencie wyznaczonym przez słońce. Wyzwalacz słoneczny wymaga ustawionej lokalizacji.",
     "disabled": "wyłączony",
     "enabled": "Włączony",
-    "enabled_yes": "włączony",
     "error_at_required": "Wybierz godzinę dla tego wyzwalacza.",
     "error_event_required": "Wybierz kotwicę słoneczną dla tego wyzwalacza.",
     "error_id_duplicate": "Inny harmonogram już używa tego id.",
@@ -2979,7 +2978,7 @@
     "trigger_type": "Wyzwalacz"
   },
   "virtual_switch": {
-    "actions_hint": "Akcje uruchamiają się tylko przy rzeczywistej zmianie — nigdy przy ponownej publikacji po reconnect MQTT ani przy odtworzeniu stanu na starcie. Każda akcja może mieć własny warunek, więc flaga włączona po zmierzchu wciąż zadziała dzisiaj.",
+    "actions_hint": "Akcje uruchamiają się tylko przy rzeczywistej zmianie — nigdy przy ponownej publikacji po reconnect MQTT ani przy odtworzeniu stanu na starcie.",
     "area": "Obszar",
     "column_actions": "Akcje",
     "column_name": "Przełącznik",
@@ -3000,6 +2999,7 @@
     "on_turn_on_empty": "Włączenie tego przełącznika nic nie uruchamia.",
     "restore_state": "Pamiętaj stan po restarcie",
     "restored": "odtwarzany",
+    "section_ha": "Home Assistant",
     "show_in_ha": "Pokaż w Home Assistant"
   }
 }

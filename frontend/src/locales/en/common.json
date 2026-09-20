@@ -2946,7 +2946,6 @@
     "description": "Actions that fire on their own — at a clock time, or at a moment defined by the Sun. A sun trigger needs the location to be set.",
     "disabled": "disabled",
     "enabled": "Enabled",
-    "enabled_yes": "on",
     "error_at_required": "Pick a time for this trigger.",
     "error_event_required": "Pick a sun anchor for this trigger.",
     "error_id_duplicate": "Another schedule already uses this id.",
@@ -2980,7 +2979,7 @@
     "trigger_type": "Trigger"
   },
   "virtual_switch": {
-    "actions_hint": "Actions run on a real change only — never on the republish after an MQTT reconnect, and never when a restored state is loaded at startup. Each action can carry its own condition, so a flag armed after dusk can still act today.",
+    "actions_hint": "Actions run on a real change only — never on the republish after an MQTT reconnect, and never when a restored state is loaded at startup.",
     "area": "Area",
     "column_actions": "Actions",
     "column_name": "Switch",
@@ -3001,6 +3000,7 @@
     "on_turn_on_empty": "Nothing runs when this switch goes on.",
     "restore_state": "Remember across restarts",
     "restored": "restored",
+    "section_ha": "Home Assistant",
     "show_in_ha": "Show in Home Assistant"
   }
 }

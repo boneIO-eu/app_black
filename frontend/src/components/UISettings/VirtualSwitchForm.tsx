@@ -116,11 +116,12 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
       <CardSection
         key={edge}
         title={t(`virtual_switch.${edge}`)}
+        description={edge === 'on_turn_on' ? t('virtual_switch.actions_hint') : undefined}
         divided
         action={
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className="btn btn-ghost btn-sm text-primary"
             onClick={() =>
               setEdge(edge, [
                 ...actions,
@@ -192,7 +193,10 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Identity. Two wide fields rather than four cramped ones: the icon and
+          the area are Home Assistant cosmetics and live with the rest of that
+          below, where they are not squeezed next to what a switch actually is. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label={t('outputs.display_name')} help={t('common.optional')}>
           <input
             type="text"
@@ -209,35 +213,19 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
             onChange={(e) => updateField('id', sanitizeId(e.target.value))}
           />
         </FormField>
-        <FormField label={t('virtual_switch.icon')}>
-          <input
-            type="text"
-            className="input input-bordered input-sm w-full font-mono"
-            placeholder="mdi:weather-night"
-            value={data.icon || ''}
-            onChange={(e) => updateField('icon', e.target.value)}
-          />
-        </FormField>
-        <FormField label={t('virtual_switch.area')}>
-          <AreaSelect
-            value={data.area || ''}
-            areas={allAreas}
-            onChange={(value) => updateField('area', value)}
-          />
-        </FormField>
       </div>
 
-      <div className="flex flex-wrap items-center gap-6">
-        <label className="label cursor-pointer gap-2">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <label className="cursor-pointer flex items-center gap-2">
           <input
             type="checkbox"
             className="toggle toggle-sm"
             checked={data.restore_state !== false}
             onChange={(e) => updateField('restore_state', e.target.checked)}
           />
-          <span className="label-text">{t('virtual_switch.restore_state')}</span>
+          <span className="text-sm">{t('virtual_switch.restore_state')}</span>
         </label>
-        <label className="label cursor-pointer gap-2">
+        <label className="cursor-pointer flex items-center gap-2">
           <input
             type="checkbox"
             className="toggle toggle-sm"
@@ -245,22 +233,55 @@ const VirtualSwitchForm: React.FC<VirtualSwitchFormProps> = ({
             onChange={(e) => updateField('initial', e.target.checked)}
             disabled={data.restore_state !== false}
           />
-          <span className="label-text">{t('virtual_switch.initial_on')}</span>
+          <span className={`text-sm ${data.restore_state !== false ? 'opacity-40' : ''}`}>
+            {t('virtual_switch.initial_on')}
+          </span>
         </label>
-        <label className="label cursor-pointer gap-2">
+        <label className="cursor-pointer flex items-center gap-2">
           <input
             type="checkbox"
             className="toggle toggle-sm"
             checked={data.show_in_ha !== false}
             onChange={(e) => updateField('show_in_ha', e.target.checked)}
           />
-          <span className="label-text">{t('virtual_switch.show_in_ha')}</span>
+          <span className="text-sm">{t('virtual_switch.show_in_ha')}</span>
         </label>
       </div>
 
-      <div className="alert alert-info">
-        <span className="text-sm">{t('virtual_switch.actions_hint')}</span>
-      </div>
+      {/* The icon and the area are discovery fields and nothing else reads
+          them, so they are here rather than at the top — and not here at all
+          when the switch is not announced. */}
+      {data.show_in_ha !== false && (
+        <CardSection title={t('virtual_switch.section_ha')} divided>
+          <div className="space-y-3">
+            <FormField label={t('virtual_switch.icon')} className="sm:max-w-xs">
+              <input
+                type="text"
+                className="input input-bordered input-sm w-full font-mono"
+                placeholder="mdi:weather-night"
+                value={data.icon || ''}
+                onChange={(e) => updateField('icon', e.target.value)}
+              />
+            </FormField>
+            {/* AreaSelect's own label and hint are turned off and FormField's
+                used instead, so the two fields in this group are labelled the
+                same way; on its own it renders "Area" above "Area / Room" in a
+                different size. Width-capped because its chips are a hardcoded
+                two columns: across the whole dialog they stop reading as chips
+                and start reading as a menu. */}
+            <FormField label={t('virtual_switch.area')} help={t('outputs.area_hint')} className="sm:max-w-md">
+              <AreaSelect
+                value={data.area || ''}
+                areas={allAreas}
+                onChange={(value) => updateField('area', value)}
+                hideLabel
+                hideHint
+                compact
+              />
+            </FormField>
+          </div>
+        </CardSection>
+      )}
 
       {EDGES.map((edge) => renderEdge(edge))}
     </div>
