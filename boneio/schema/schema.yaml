@@ -2349,6 +2349,34 @@ schedule:
                 Negative is earlier: `event: sunset` with `offset: "-15min"`
                 fires a quarter of an hour before sunset. Accepts s, min and h;
                 a bare number means seconds. Limited to ±12 h.
+          earliest:
+            type: string
+            required: False
+            regex: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+            meta:
+              label: Not before this clock time (sun triggers only)
+              description: |
+                Clamps a sun anchor that falls too early. `event: civil_dawn`
+                with `earliest: "06:30"` fires at dawn in winter and at 06:30
+                in June, instead of waking the house at half past three.
+          latest:
+            type: string
+            required: False
+            regex: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+            meta:
+              label: Not after this clock time (sun triggers only)
+              description: |
+                Clamps a sun anchor that falls too late. In Warsaw on the
+                longest day civil dusk is 21:50, which leaves a presence
+                simulation about an hour of "evening" before bedtime — in
+                exactly the season people are away.
+                `event: civil_dusk` with `latest: "21:00"` fires at dusk for
+                most of the year and at 21:00 in midsummer.
+
+                Applied after `offset` and before `jitter`: clamping last would
+                put every midsummer evening at the same minute, which is the
+                pattern `jitter` exists to break. So the firing can land up to
+                `jitter` after this time.
           jitter:
             type: float
             required: False

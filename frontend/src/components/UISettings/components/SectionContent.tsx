@@ -3,7 +3,10 @@
  * Handles both array sections (ArrayTableWidget) and custom form sections.
  */
 import { useTranslation } from '@/hooks/useTranslation';
+import { useState } from 'react';
+import { FaWandMagicSparkles } from 'react-icons/fa6';
 import ArrayTableWidget from '../ArrayTableWidget';
+import PresenceSimulationWizard from '../PresenceSimulationWizard';
 import BoneIOForm from '../BoneIOForm';
 import MessagingProtocolsForm from '../MessagingProtocolsForm';
 import WebServerForm from '../WebServerForm';
@@ -81,6 +84,28 @@ function ArraySectionContent({
   onSaveSection,
 }: Omit<SectionContentProps, 'schemaLoaded'>) {
   const { t } = useTranslation();
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // A presence simulation is a handful of ordinary schedules, so the way in is
+  // here rather than as a section of its own: a page for it would have nothing
+  // to show once it had run.
+  const extraActions = activeSection === 'schedule' ? (
+    <>
+      <button className="btn btn-ghost btn-sm gap-1" onClick={() => setWizardOpen(true)}>
+        <FaWandMagicSparkles />
+        <span className="hidden sm:inline">{t('presence.button')}</span>
+      </button>
+      {/* Mounted only while open, so each run starts on step one with nothing
+          left over from the last. */}
+      {wizardOpen && (
+        <PresenceSimulationWizard
+          open
+          onOpenChange={setWizardOpen}
+          onDone={() => window.location.reload()}
+        />
+      )}
+    </>
+  ) : undefined;
 
   return (
     <ArrayTableWidget
@@ -109,6 +134,7 @@ function ArraySectionContent({
       /* Only the schedules table reads this, to keep "run now" from firing a
          draft: it runs what the controller has loaded, not what is on screen. */
       isDirty={JSON.stringify(formData[activeSection] ?? null) !== JSON.stringify(originalData[activeSection] ?? null)}
+      extraActions={extraActions}
       savedOutputs={[...(originalData.output || []), ...(originalData.remote_outputs || [])]}
       savedOutputGroups={originalData.output_group || []}
       savedCovers={normalizeCovers(originalData.cover || [])}

@@ -378,6 +378,85 @@ def test_replanning_does_not_rearm_the_same_moment(monkeypatch):
     assert len(armed) == 1
 
 
+# ── clamping a sun anchor to a clock window ──────────────────────────────
+
+# Warsaw midsummer: sunset is just after 21:00 and civil dusk is 21:50, which
+# is the case this exists for — a presence simulation gets an hour of "evening"
+# before bedtime, in exactly the season the house is empty.
+MIDSUMMER = date(2025, 6, 21)
+
+
+def test_latest_pulls_a_late_anchor_back(monkeypatch):
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "sun", "event": "civil_dusk", "latest": "21:00", "days": "daily"})],
+    )
+    when = scheduler._fire_time_on(scheduler._entries[0], MIDSUMMER, at("2025-06-21 12:00"))
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "21:00"
+
+
+def test_latest_leaves_an_anchor_that_is_already_early_enough(monkeypatch):
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "sun", "event": "sunset", "latest": "21:00", "days": "daily"})],
+    )
+    when = scheduler._fire_time_on(scheduler._entries[0], EQUINOX, at("2025-03-20 12:00"))
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "17:49"
+
+
+def test_earliest_pushes_an_early_anchor_forward(monkeypatch):
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "sun", "event": "civil_dawn", "earliest": "06:30", "days": "daily"})],
+    )
+    when = scheduler._fire_time_on(scheduler._entries[0], MIDSUMMER, at("2025-06-21 00:30"))
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "06:30"
+
+
+def test_the_clamp_applies_after_the_offset(monkeypatch):
+    """Otherwise "dusk minus 30 min, no later than 21:00" could still fire at
+    21:00 and then be shifted to 20:30, which is not what either field says."""
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={
+            "type": "sun", "event": "civil_dusk", "offset": -1800,
+            "latest": "21:00", "days": "daily",
+        })],
+    )
+    when = scheduler._fire_time_on(scheduler._entries[0], MIDSUMMER, at("2025-06-21 12:00"))
+    # Dusk 21:50 − 30 min = 21:20, still past the bound.
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "21:00"
+
+
+def test_jitter_still_applies_after_the_clamp(monkeypatch):
+    """Clamping last would put every midsummer evening at the same minute,
+    which is the pattern jitter exists to break."""
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={
+            "type": "sun", "event": "civil_dusk",
+            "latest": "21:00", "jitter": 1800, "days": "daily",
+        })],
+    )
+    entry = scheduler._entries[0]
+    times = {
+        scheduler._fire_time_on(entry, MIDSUMMER + timedelta(days=offset), at("2025-06-21 00:30"))
+        .astimezone(WARSAW)
+        .strftime("%H:%M")
+        for offset in range(5)
+    }
+    assert len(times) > 1, f"every evening landed on the same minute: {times}"
+    assert all("21:00" <= t <= "21:30" for t in times), times
+
+
+def test_a_clamp_without_a_bound_changes_nothing(monkeypatch):
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "sun", "event": "civil_dusk", "days": "daily"})],
+    )
+    when = scheduler._fire_time_on(scheduler._entries[0], MIDSUMMER, at("2025-06-21 12:00"))
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "21:50"
+
 # ── the clock arriving late ──────────────────────────────────────────────
 
 

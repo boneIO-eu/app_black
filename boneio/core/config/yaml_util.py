@@ -895,6 +895,15 @@ class CustomValidator(Validator):
                 self._error(  # type: ignore[attr-defined]
                     field, "'at' belongs to a time trigger, not a sun trigger."
                 )
+            earliest, latest = trigger.get("earliest"), trigger.get("latest")
+            if earliest and latest and earliest > latest:
+                # String compare is right for zero-padded HH:MM, and both are
+                # already held to that shape by the schema's regex.
+                self._error(  # type: ignore[attr-defined]
+                    field,
+                    f"'earliest' ({earliest}) is after 'latest' ({latest}), "
+                    "so the window is empty and the schedule can never fire.",
+                )
         elif kind == "time":
             if not trigger.get("at"):
                 self._error(  # type: ignore[attr-defined]
@@ -904,6 +913,15 @@ class CustomValidator(Validator):
                 self._error(  # type: ignore[attr-defined]
                     field, "'event' belongs to a sun trigger, not a time trigger."
                 )
+            for key in ("earliest", "latest"):
+                if trigger.get(key):
+                    # Clamping a clock time to another clock time is either a
+                    # no-op or a different time written twice.
+                    self._error(  # type: ignore[attr-defined]
+                        field,
+                        f"{key!r} clamps a sun anchor; a time trigger already "
+                        "has a fixed time.",
+                    )
 
         if not value.get("actions"):
             self._error(  # type: ignore[attr-defined]

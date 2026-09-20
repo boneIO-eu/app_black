@@ -66,6 +66,44 @@ _DAYS_MAP: dict[str, frozenset[int]] = {
 }
 
 
+
+def _clamp_to_window(when: datetime, trigger: dict, tz) -> datetime:
+    """Hold a sun anchor inside ``earliest``/``latest``, if it was given any.
+
+    Both are clock times on the local date the firing lands on, which is the
+    date after ``offset`` — an anchor pushed past midnight is clamped against
+    the day it actually happens on, the same rule the day filter uses.
+
+    Applied before ``jitter`` on purpose. Clamping afterwards would put every
+    midsummer evening at exactly the same minute, which is the pattern jitter
+    exists to break; so a clamped firing can still land up to ``jitter`` later
+    than ``latest``.
+
+    Args:
+        when: The anchor, already shifted by ``offset``.
+        trigger: The schedule's trigger.
+        tz: The local timezone.
+
+    Returns:
+        ``when``, or the bound it crossed.
+    """
+    local = when.astimezone(tz)
+
+    def bound(key: str) -> datetime | None:
+        value = trigger.get(key)
+        if not value:
+            return None
+        hour, minute = (int(part) for part in str(value).split(":", 1))
+        return datetime.combine(local.date(), dt_time(hour, minute), tzinfo=tz)
+
+    earliest, latest = bound("earliest"), bound("latest")
+    if earliest is not None and local < earliest:
+        return earliest
+    if latest is not None and local > latest:
+        return latest
+    return when
+
+
 class _Entry:
     """One configured schedule, with its parsed actions and armed timer."""
 
@@ -326,6 +364,7 @@ class Scheduler:
         # offset that pushes past midnight counts as the day it happens on —
         # which is what someone reading "weekdays" expects.
         when = base + timedelta(seconds=float(trigger.get("offset") or 0.0))
+        when = _clamp_to_window(when, trigger, tz)
         if when.astimezone(tz).weekday() not in entry.days:
             return None
 

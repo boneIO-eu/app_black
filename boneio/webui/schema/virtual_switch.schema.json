@@ -381,6 +381,14 @@
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
                     },
+                    "probability": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "Chance of running",
+                      "title": "Probability"
+                    },
                     "delay": {
                       "type": [
                         "number",
@@ -967,6 +975,14 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "probability": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "Chance of running",
+                      "title": "Probability"
                     },
                     "delay": {
                       "type": [

@@ -208,3 +208,26 @@ path. The anchors it reads are computed once per local day by `SunProvider` and
 reused; elevation readings are cached for 60 s. The only case that computes
 anything per evaluation is a *missing* anchor at high latitude, which needs one
 `threshold_state` call to decide which way the window collapses.
+
+## `probability` — running an action only some of the time
+
+Not a condition, but it sits in the same place: after the conditions have
+passed, before the action runs.
+
+```yaml
+actions:
+  - action: output
+    boneio_output: out_livingroom
+    action_output: "ON"
+    probability: 0.7      # seven times out of ten
+```
+
+Drawn per firing, and drawn *after* the conditions — a `probability` on an
+action whose condition is false still never runs, and the draw is not burned on
+a firing that was never going to happen.
+
+Written for presence simulation, where `jitter` on a schedule randomises *when*
+a step happens and this randomises *whether*. That is the difference between
+lights on a timer and somebody living there: three evenings of the same four
+steps is a pattern an observer can read. See
+[PRESENCE_SIMULATION.md](PRESENCE_SIMULATION.md).

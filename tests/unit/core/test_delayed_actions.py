@@ -515,3 +515,89 @@ class TestHandleInputEventDelayIntegration:
 
         # The cancel should have been called
         mock_manager.cancel_delayed_actions.assert_called_once_with("motion_01")
+
+
+class TestProbability:
+    """`probability` on an action: run it only some of the time.
+
+    For presence simulation. `jitter` randomises *when* a step happens; this
+    randomises *whether*, which is the difference between lights on a timer and
+    somebody living there.
+    """
+
+    @staticmethod
+    def _manager(monkeypatch, draws):
+        """A manager whose randomness is a list of numbers we choose."""
+        from boneio.core.manager.manager import Manager
+
+        manager = MagicMock(spec=Manager)
+        manager.ran = []
+
+        async def single(action_definition, idx=0):
+            manager.ran.append(action_definition)
+
+        manager._execute_single_action = single
+        manager._resolve_entity_state = lambda *a, **kw: None
+        manager._pending_delayed_actions = {}
+        sequence = iter(draws)
+        monkeypatch.setattr(
+            "boneio.core.manager.manager.random.random", lambda: next(sequence)
+        )
+        return manager
+
+    @pytest.mark.asyncio
+    async def test_a_low_draw_runs_it(self, monkeypatch):
+        from boneio.core.manager.manager import Manager
+
+        manager = self._manager(monkeypatch, [0.1])
+        await Manager.execute_actions(
+            manager, [{"action": "mqtt", "topic": "t", "probability": 0.7}]
+        )
+        assert len(manager.ran) == 1
+
+    @pytest.mark.asyncio
+    async def test_a_high_draw_skips_it(self, monkeypatch):
+        from boneio.core.manager.manager import Manager
+
+        manager = self._manager(monkeypatch, [0.9])
+        await Manager.execute_actions(
+            manager, [{"action": "mqtt", "topic": "t", "probability": 0.7}]
+        )
+        assert manager.ran == []
+
+    @pytest.mark.asyncio
+    async def test_no_probability_always_runs(self, monkeypatch):
+        """And draws nothing — the iterator would raise if it were consumed."""
+        from boneio.core.manager.manager import Manager
+
+        manager = self._manager(monkeypatch, [])
+        await Manager.execute_actions(manager, [{"action": "mqtt", "topic": "t"}])
+        assert len(manager.ran) == 1
+
+    @pytest.mark.asyncio
+    async def test_probability_one_does_not_draw(self, monkeypatch):
+        from boneio.core.manager.manager import Manager
+
+        manager = self._manager(monkeypatch, [])
+        await Manager.execute_actions(
+            manager, [{"action": "mqtt", "topic": "t", "probability": 1}]
+        )
+        assert len(manager.ran) == 1
+
+    @pytest.mark.asyncio
+    async def test_a_false_condition_wins_over_the_draw(self, monkeypatch):
+        """The draw happens after the conditions, so it is not burned on a
+        firing that was never going to happen."""
+        from boneio.core.manager.action_conditions import precompile_conditions
+        from boneio.core.manager.manager import Manager
+
+        manager = self._manager(monkeypatch, [])
+        action = {
+            "action": "mqtt",
+            "topic": "t",
+            "probability": 0.99,
+            "condition": {"type": "time", "after": "23:59", "before": "23:59"},
+        }
+        action["_compiled_conditions"] = precompile_conditions(action)
+        await Manager.execute_actions(manager, [action])
+        assert manager.ran == []

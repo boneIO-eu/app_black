@@ -3007,5 +3007,32 @@
     "section_ha": "Home Assistant",
     "show_in_ha": "Pokaż w Home Assistant",
     "hidden_in_ha": "ukryty w Home Assistant"
+  },
+  "presence": {
+    "back": "Wstecz",
+    "button": "Symulacja obecności",
+    "create": "Utwórz",
+    "ends_at": "Wszystko gaśnie o",
+    "ends_at_hint": "Pierwsze światło podąża za zmierzchem cywilnym, ograniczonym do dwóch godzin przed tą porą — w środku lata zmierzch wypada za późno, żeby zostawić jakikolwiek wieczór.",
+    "everything_off": "wszystko gaśnie",
+    "needs_location": "Bez współrzędnych wyzwalacz słoneczny nigdy się nie rozwiąże. Ustaw je najpierw w Ustawienia → Urządzenie → Lokalizacja, inaczej wieczór nigdy się nie zacznie.",
+    "next": "Dalej",
+    "no_outputs": "Nie ma jeszcze skonfigurowanych wyjść.",
+    "order_hint": "Numer to kolejność. Dwa albo trzy zwykle wystarczą — jeden pokój naraz wygląda bardziej jak ktoś przechodzący przez dom niż jak zapalenie całego piętra.",
+    "random_calm": "Spokojnie",
+    "random_calm_hint": "Te same kroki co wieczór, każdy w granicach kwadransa od poprzedniego dnia.",
+    "random_lively": "Żywo",
+    "random_lively_hint": "Trzy kwadranse rozrzutu, mniej więcej co trzeci krok pominięty. Najtrudniejsze do odczytania z zewnątrz.",
+    "random_normal": "Normalnie",
+    "random_normal_hint": "Pół godziny rozrzutu, czasem krok zostaje pominięty.",
+    "step_lights_hint": "Wybierz światła w kolejności, w jakiej mają się zapalać przez wieczór.",
+    "step_randomness_hint": "Jak bardzo wieczór ma się różnić z dnia na dzień.",
+    "step_summary_hint": "Co to zrobi i co zapisze.",
+    "step_timing_hint": "Kiedy wieczór się kończy. Początek sam podąża za zmierzchem.",
+    "title": "Symulacja obecności",
+    "turns_on": "zapala się {name}",
+    "write_failed": "Nie udało się zapisać wpisów.",
+    "writes": "Utworzy przełącznik „{flag}” i {schedules} harmonogram(ów). To zwykłe wpisy — potem edytujesz je tutaj. Ponowne uruchomienie podmieni je i zostawi w spokoju to, co napisałeś sam.",
+    "writing": "Tworzenie…"
   }
 }

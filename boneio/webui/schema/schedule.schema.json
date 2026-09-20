@@ -82,6 +82,16 @@
                 "description": "Shift the moment",
                 "title": "Offset"
               },
+              "earliest": {
+                "type": "string",
+                "description": "Not before this clock time (sun triggers only)",
+                "title": "Earliest"
+              },
+              "latest": {
+                "type": "string",
+                "description": "Not after this clock time (sun triggers only)",
+                "title": "Latest"
+              },
               "jitter": {
                 "type": [
                   "number",
@@ -691,6 +701,14 @@
                   "default": "800ms",
                   "description": "Repeat Interval",
                   "title": "Repeat interval"
+                },
+                "probability": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "description": "Chance of running",
+                  "title": "Probability"
                 },
                 "delay": {
                   "type": [

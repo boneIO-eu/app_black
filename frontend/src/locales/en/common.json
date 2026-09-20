@@ -3008,5 +3008,32 @@
     "section_ha": "Home Assistant",
     "show_in_ha": "Show in Home Assistant",
     "hidden_in_ha": "hidden in Home Assistant"
+  },
+  "presence": {
+    "back": "Back",
+    "button": "Presence simulation",
+    "create": "Create",
+    "ends_at": "Everything goes off at",
+    "ends_at_hint": "The first light follows civil dusk, capped two hours before this — in midsummer dusk comes too late to leave an evening at all.",
+    "everything_off": "everything off",
+    "needs_location": "Without coordinates a sun trigger can never resolve. Set them in Settings → Device → Location first, or the evening will never start.",
+    "next": "Next",
+    "no_outputs": "No outputs configured yet.",
+    "order_hint": "The number is the order. Two or three is usually enough — one room at a time looks more like somebody walking through the house than the whole floor lighting up.",
+    "random_calm": "Calm",
+    "random_calm_hint": "Same steps every evening, each within a quarter of an hour of the last.",
+    "random_lively": "Lively",
+    "random_lively_hint": "Three quarters of an hour of drift, and roughly one step in three is skipped. Hardest to read from outside.",
+    "random_normal": "Normal",
+    "random_normal_hint": "Half an hour of drift, and a step is occasionally skipped.",
+    "step_lights_hint": "Pick the lights, in the order they should come on through the evening.",
+    "step_randomness_hint": "How much the evening should vary from one day to the next.",
+    "step_summary_hint": "What this will do, and what it will write.",
+    "step_timing_hint": "When the evening ends. The start follows dusk on its own.",
+    "title": "Presence simulation",
+    "turns_on": "{name} on",
+    "write_failed": "Could not write the entries.",
+    "writes": "Creates the switch \"{flag}\" and {schedules} schedule(s). They are ordinary entries — edit them here afterwards. Running this again replaces them and leaves anything you wrote yourself alone.",
+    "writing": "Creating…"
   }
 }

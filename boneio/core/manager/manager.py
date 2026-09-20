@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import time
 from collections import deque
 from collections.abc import Callable, Coroutine
@@ -1004,8 +1005,34 @@ class Manager:
                 _LOGGER.debug("Action %d: condition not met, skipping", idx)
                 continue
 
+            # Drawn after the conditions, so a probability on an action whose
+            # condition is false still never runs — and so the draw is not
+            # burned on a firing that was never going to happen.
+            probability = action_definition.get("probability")
+            if probability is not None and probability < 1:
+                if random.random() >= probability:
+                    _LOGGER.debug(
+                        "Action %d: skipped by probability %.2f", idx, probability
+                    )
+                    continue
+
             # Handle delayed actions
             delay_seconds = action_definition.get("delay")
+            if delay_seconds and delay_seconds > 0 and not input_id:
+                # Delayed actions are tracked per input, for the cancel-on
+                # rules; a schedule has no input, so the delay is dropped. It
+                # has always been dropped — silently, which is the part worth
+                # fixing here. A durable delay is a separate piece of work: an
+                # asyncio task does not survive the restart that a schedule's
+                # own plan does.
+                _LOGGER.warning(
+                    "Action %d has a delay of %.1fs but was fired by something "
+                    "with no input (a schedule or a virtual switch), where "
+                    "delays are not supported. Running it immediately. Use a "
+                    "second schedule for the later step instead.",
+                    idx,
+                    delay_seconds,
+                )
             if delay_seconds and delay_seconds > 0 and input_id:
                 _LOGGER.info(
                     "Scheduling delayed action %d for input '%s': %.1fs delay",

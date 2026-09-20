@@ -263,6 +263,25 @@ schema:
         Minimum: 200ms (matches periodic event interval).
 
   # Delayed action execution (cancelable timer)
+  probability:
+    type: float
+    required: False
+    min: 0
+    max: 1
+    meta:
+      label: Chance of running
+      description: |
+        Run this action only some of the time. 1 (the default) always, 0.7
+        seven times out of ten, 0 never.
+
+        For presence simulation. `jitter` on a schedule randomises *when* a
+        step happens; this randomises *whether* it happens at all, which is
+        the difference between lights on a timer and somebody living there —
+        three evenings of the same four steps is a pattern an observer can
+        read.
+
+        Drawn per firing, after the conditions: a `probability` of 0.5 on an
+        action whose condition is false still never runs.
   delay:
     type: timeperiod
     coerce: positive_time_period

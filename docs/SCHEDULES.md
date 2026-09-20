@@ -46,6 +46,27 @@ which is the hardest kind of misconfiguration to notice.
 
 A sun trigger needs the `location:` section. See `docs/SUN.md`.
 
+### Holding a sun anchor inside a clock window
+
+`earliest:` and `latest:` clamp a sun trigger, for the months when the anchor
+runs away from the hour someone actually meant:
+
+```yaml
+trigger:
+  type: sun
+  event: civil_dusk
+  latest: "21:00"     # in Warsaw, dusk is 21:50 on the longest day
+  jitter: "25min"
+```
+
+Applied after `offset` and before `jitter`. Clamping last would put every
+midsummer evening on exactly the same minute, which is the pattern `jitter`
+exists to break — so a clamped firing can land up to `jitter` after the bound.
+
+Sun triggers only: a clock trigger already has a fixed time, and clamping it is
+either a no-op or the same time written twice. The loader refuses that rather
+than accepting it quietly.
+
 ## What it refuses to guess at
 
 **A clock that has not been set.** The board has no battery-backed RTC, so
@@ -211,6 +232,7 @@ reason instead of being hidden.
 | `frontend/src/components/UISettings/tables/ScheduleTable.tsx` | The list, with next firing and run-now |
 | `frontend/src/components/UISettings/ScheduleForm.tsx` | The editor, four tabs |
 | `frontend/src/components/UISettings/helpers/scheduleTrigger.ts` | Offsets, trigger shape, row summary |
+| [PRESENCE_SIMULATION.md](PRESENCE_SIMULATION.md) | The wizard that writes a set of these |
 | `tests/unit/core/test_scheduler.py` | 28 tests, mostly about when it should *not* fire |
 | `tests/unit/webui/test_schedule_routes.py` | The two endpoints |
 
