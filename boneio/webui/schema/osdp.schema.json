@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "osdp": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Enable OSDP support.",
+          "title": "Enabled"
+        },
+        "uart": {
+          "type": "string",
+          "description": "OSDP bus port",
+          "title": "Uart"
+        },
+        "baudrate": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 9600,
+          "enum": [
+            9600,
+            19200,
+            38400,
+            57600,
+            115200,
+            230400
+          ],
+          "examples": [
+            9600
+          ],
+          "description": "Bus speed",
+          "title": "Baudrate"
+        },
+        "refresh_interval": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
+          "default": "50ms",
+          "description": "How often to poll the readers",
+          "title": "Refresh interval"
+        },
+        "bus_sharing": {
+          "type": "string",
+          "default": "off",
+          "enum": [
+            "off",
+            "modbus"
+          ],
+          "examples": [
+            "off"
+          ],
+          "description": "Share the bus with Modbus",
+          "title": "Bus sharing"
+        },
+        "secure_channel": {
+          "type": "string",
+          "default": "enforced",
+          "enum": [
+            "enforced",
+            "install",
+            "disabled"
+          ],
+          "examples": [
+            "enforced"
+          ],
+          "description": "Default Secure Channel policy",
+          "title": "Secure channel"
+        },
+        "readers": {
+          "type": [
+            "array",
+            "string"
+          ],
+          "items": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Reader id, lowercase letters, digits and underscores.",
+                "title": "Id"
+              },
+              "name": {
+                "type": "string",
+                "description": "Name shown in Home Assistant and in logs.",
+                "title": "Name"
+              },
+              "address": {
+                "type": [
+                  "integer",
+                  "string"
+                ],
+                "description": "PD address on the bus (0-126), unique per bus.",
+                "title": "Address"
+              },
+              "area": {
+                "type": "string",
+                "description": "Area, for grouping devices in Home Assistant.",
+                "title": "Area"
+              },
+              "secure_channel": {
+                "type": "string",
+                "enum": [
+                  "enforced",
+                  "install",
+                  "disabled"
+                ],
+                "examples": [
+                  "enforced"
+                ],
+                "description": "Secure Channel policy for this reader; empty means the bus default.",
+                "title": "Secure channel"
+              }
+            },
+            "required": [
+              "id",
+              "address"
+            ]
+          },
+          "description": "Readers on the bus",
+          "title": "Readers"
+        }
+      },
+      "required": [
+        "uart",
+        "readers"
+      ],
+      "description": "EXPERIMENTAL. OSDP (IEC 60839-11-5) wall readers and keypads over RS485. boneIO acts as the control panel. Not a certified intruder alarm system \u2014 see the documentation.",
+      "title": "Osdp"
+    }
+  }
+}

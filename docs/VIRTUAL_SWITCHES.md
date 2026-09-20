@@ -188,13 +188,15 @@ mode nobody can see is a mode nobody trusts.
 half of that group, next to Schedules rather than next to Outputs: the one
 thing a virtual switch never does is switch anything.
 
-It is a hand-written page rather than a generated table, for the same reason
-Schedules has one: the interesting half of a virtual switch is its two action
-lists, and a generated array table has nowhere to put a list of actions nested
-under an edge. Each row expands in place to the fields plus both lists, and
-carries the live state with a toggle — a flag that runs actions is worth
-testing from the page you configured it on. The toggle is disabled while there
-are unsaved edits, because it flips the running switch, not the draft.
+It is an ordinary table with a modal editor, like every other list of entities
+in Settings, and the two action lists are **tabs** in that modal — exactly as
+`single`/`double`/`long` are on an input. That is the point: a virtual switch
+is the same kind of thing as an input, something that happens with a list of
+actions per case, so it should not have to be learned twice.
+
+It was briefly a hand-written page with rows that expanded in place. That put
+the one entity list in Settings that did not look like the others, and stacked
+two action editors inside a table row.
 
 **The Outputs view** carries them as their own group, with a toggle. That is
 where they belong for day-to-day use — a mode gets flipped daily, and looking
@@ -208,8 +210,9 @@ only from Settings.
 | `boneio/components/virtual_switch.py` | The entity: state, commands, publishing |
 | `boneio/core/manager/virtual_switches.py` | Building, restoring, discovery, reload |
 | `boneio/schema/schema.yaml` | The `virtual_switch:` section |
-| `boneio/webui/routes/outputs.py` | `GET /api/virtual_switch`, `POST /api/virtual_switch/{id}/toggle` |
-| `frontend/src/components/UISettings/SystemStateComponents/VirtualSwitchSection.tsx` | The settings page |
+| `boneio/webui/routes/outputs.py` | `POST /api/virtual_switch/{id}/toggle` |
+| `frontend/src/components/UISettings/tables/VirtualSwitchTable.tsx` | The list |
+| `frontend/src/components/UISettings/VirtualSwitchForm.tsx` | The editor, with a tab per edge |
 | `tests/unit/core/test_virtual_switch.py` | 29 tests |
 
 ## What this replaced

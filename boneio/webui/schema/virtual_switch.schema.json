@@ -98,6 +98,1190 @@
             "default": true,
             "description": "Announce this switch to Home Assistant.",
             "title": "Show in ha"
+          },
+          "actions": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "properties": {
+              "on_turn_on": {
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "items": {
+                  "type": [
+                    "object",
+                    "string"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
+                        "VIRTUAL_SWITCH",
+                        "Virtual_Switch",
+                        "cover",
+                        "cover_over_mqtt",
+                        "mqtt",
+                        "output",
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output",
+                        "virtual_switch"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
+                    },
+                    "boneio_virtual_switch": {
+                      "type": "string",
+                      "description": "Virtual switch ID",
+                      "title": "Boneio virtual switch"
+                    },
+                    "topic": {
+                      "type": "string",
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": "string",
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE",
+                        "SMART_TOGGLE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        },
+                        "always_open_till": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Smart toggle threshold (0-100%).",
+                          "title": "Always open till"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
+                    },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
+                    "action_output": {
+                      "type": "string",
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
+                        "SET_BRIGHTNESS",
+                        "CYCLE_COLOR",
+                        "CYCLE_PRESET"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": "string",
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    },
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
+                    },
+                    "color_temp": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Color Temperature (mireds)",
+                      "title": "Color temp"
+                    },
+                    "rgb": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "RGB Color [R, G, B]",
+                      "title": "Rgb"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
+                      "title": "Transition"
+                    },
+                    "colors": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Color List for CYCLE_COLOR",
+                      "title": "Colors"
+                    },
+                    "presets": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Preset/Effect List for CYCLE_PRESET",
+                      "title": "Presets"
+                    },
+                    "repeat": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Repeat on Hold",
+                      "title": "Repeat"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "default": "800ms",
+                      "description": "Repeat Interval",
+                      "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
+                    },
+                    "condition": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "time",
+                            "date",
+                            "state",
+                            "sun"
+                          ],
+                          "examples": [
+                            "time"
+                          ],
+                          "description": "Condition type",
+                          "title": "Type"
+                        },
+                        "after": {
+                          "type": "string",
+                          "description": "After (start of range)",
+                          "title": "After"
+                        },
+                        "before": {
+                          "type": "string",
+                          "description": "Before (end of range)",
+                          "title": "Before"
+                        },
+                        "after_offset": {
+                          "type": [
+                            "number",
+                            "string"
+                          ],
+                          "description": "Offset from the 'after' anchor (sun only)",
+                          "title": "After offset"
+                        },
+                        "before_offset": {
+                          "type": [
+                            "number",
+                            "string"
+                          ],
+                          "description": "Offset from the 'before' anchor (sun only)",
+                          "title": "Before offset"
+                        },
+                        "phase": {
+                          "type": "string",
+                          "enum": [
+                            "day",
+                            "civil_twilight",
+                            "nautical_twilight",
+                            "astronomical_twilight",
+                            "night",
+                            "golden_hour",
+                            "blue_hour"
+                          ],
+                          "examples": [
+                            "day"
+                          ],
+                          "description": "Sun phase (sun only)",
+                          "title": "Phase"
+                        },
+                        "above": {
+                          "type": [
+                            "integer",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Sun elevation above (degrees, sun only)",
+                          "title": "Above"
+                        },
+                        "below": {
+                          "type": [
+                            "integer",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Sun elevation below (degrees, sun only)",
+                          "title": "Below"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "enum": [
+                            "binary_sensor",
+                            "cover",
+                            "output",
+                            "light",
+                            "virtual_switch",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
+                          ],
+                          "examples": [
+                            "binary_sensor"
+                          ],
+                          "description": "Entity type (for state condition)",
+                          "title": "Entity"
+                        },
+                        "entity_id": {
+                          "type": "string",
+                          "description": "Entity ID (for state condition)",
+                          "title": "Entity id"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "is_on",
+                            "is_off",
+                            "is_open",
+                            "is_closed"
+                          ],
+                          "examples": [
+                            "is_on"
+                          ],
+                          "description": "Expected state (for state condition)",
+                          "title": "State"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "conditions": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "default": "and",
+                          "enum": [
+                            "and",
+                            "or"
+                          ],
+                          "examples": [
+                            "and"
+                          ],
+                          "description": "Condition mode",
+                          "title": "Mode"
+                        },
+                        "list": {
+                          "type": [
+                            "array",
+                            "string"
+                          ],
+                          "items": {
+                            "type": [
+                              "object",
+                              "string"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "time",
+                                  "date",
+                                  "state",
+                                  "sun"
+                                ],
+                                "examples": [
+                                  "time"
+                                ],
+                                "description": "Condition type",
+                                "title": "Type"
+                              },
+                              "after": {
+                                "type": "string",
+                                "description": "After (start of range)",
+                                "title": "After"
+                              },
+                              "before": {
+                                "type": "string",
+                                "description": "Before (end of range)",
+                                "title": "Before"
+                              },
+                              "after_offset": {
+                                "type": [
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Offset from the 'after' anchor (sun only)",
+                                "title": "After offset"
+                              },
+                              "before_offset": {
+                                "type": [
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Offset from the 'before' anchor (sun only)",
+                                "title": "Before offset"
+                              },
+                              "phase": {
+                                "type": "string",
+                                "enum": [
+                                  "day",
+                                  "civil_twilight",
+                                  "nautical_twilight",
+                                  "astronomical_twilight",
+                                  "night",
+                                  "golden_hour",
+                                  "blue_hour"
+                                ],
+                                "examples": [
+                                  "day"
+                                ],
+                                "description": "Sun phase (sun only)",
+                                "title": "Phase"
+                              },
+                              "above": {
+                                "type": [
+                                  "integer",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Sun elevation above (degrees, sun only)",
+                                "title": "Above"
+                              },
+                              "below": {
+                                "type": [
+                                  "integer",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Sun elevation below (degrees, sun only)",
+                                "title": "Below"
+                              },
+                              "entity": {
+                                "type": "string",
+                                "enum": [
+                                  "binary_sensor",
+                                  "cover",
+                                  "output",
+                                  "light",
+                                  "virtual_switch",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
+                                ],
+                                "examples": [
+                                  "binary_sensor"
+                                ],
+                                "description": "Entity type (for state condition)",
+                                "title": "Entity"
+                              },
+                              "entity_id": {
+                                "type": "string",
+                                "description": "Entity ID (for state condition)",
+                                "title": "Entity id"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "is_on",
+                                  "is_off",
+                                  "is_open",
+                                  "is_closed"
+                                ],
+                                "examples": [
+                                  "is_on"
+                                ],
+                                "description": "Expected state (for state condition)",
+                                "title": "State"
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          },
+                          "description": "List of conditions",
+                          "title": "List"
+                        }
+                      },
+                      "required": [
+                        "list"
+                      ]
+                    }
+                  }
+                }
+              },
+              "on_turn_off": {
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "items": {
+                  "type": [
+                    "object",
+                    "string"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "COVER",
+                        "COVER_OVER_MQTT",
+                        "Cover",
+                        "Cover_Over_Mqtt",
+                        "MQTT",
+                        "Mqtt",
+                        "OUTPUT",
+                        "OUTPUT_OVER_MQTT",
+                        "Output",
+                        "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
+                        "VIRTUAL_SWITCH",
+                        "Virtual_Switch",
+                        "cover",
+                        "cover_over_mqtt",
+                        "mqtt",
+                        "output",
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output",
+                        "virtual_switch"
+                      ],
+                      "examples": [
+                        "mqtt"
+                      ]
+                    },
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
+                    },
+                    "boneio_virtual_switch": {
+                      "type": "string",
+                      "description": "Virtual switch ID",
+                      "title": "Boneio virtual switch"
+                    },
+                    "topic": {
+                      "type": "string",
+                      "description": "If mqtt action then topic to send",
+                      "title": "Topic"
+                    },
+                    "action_cover": {
+                      "type": "string",
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "OPEN",
+                        "CLOSE",
+                        "STOP",
+                        "TOGGLE_OPEN",
+                        "TOGGLE_CLOSE",
+                        "SMART_TOGGLE",
+                        "TILT",
+                        "TILT_OPEN",
+                        "TILT_CLOSE"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If cover action chosen then what action to perform.",
+                      "title": "Action cover"
+                    },
+                    "data": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "default": {},
+                      "properties": {
+                        "position": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Position to set cover to",
+                          "title": "Position"
+                        },
+                        "tilt_position": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+                          "title": "Tilt position"
+                        },
+                        "always_open_till": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Smart toggle threshold (0-100%).",
+                          "title": "Always open till"
+                        }
+                      },
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "title": "Data"
+                    },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
+                    "action_output": {
+                      "type": "string",
+                      "default": "TOGGLE",
+                      "enum": [
+                        "TOGGLE",
+                        "ON",
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
+                        "SET_BRIGHTNESS",
+                        "CYCLE_COLOR",
+                        "CYCLE_PRESET"
+                      ],
+                      "examples": [
+                        "TOGGLE"
+                      ],
+                      "description": "If output action chosen then what action to perform.",
+                      "title": "Action output"
+                    },
+                    "action_mqtt_msg": {
+                      "type": "string",
+                      "description": "What message to send to mqtt topic",
+                      "title": "Action mqtt msg"
+                    },
+                    "boneio_id": {
+                      "type": "string",
+                      "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                      "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
+                    },
+                    "color_temp": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Color Temperature (mireds)",
+                      "title": "Color temp"
+                    },
+                    "rgb": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "RGB Color [R, G, B]",
+                      "title": "Rgb"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
+                      "title": "Transition"
+                    },
+                    "colors": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Color List for CYCLE_COLOR",
+                      "title": "Colors"
+                    },
+                    "presets": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Preset/Effect List for CYCLE_PRESET",
+                      "title": "Presets"
+                    },
+                    "repeat": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Repeat on Hold",
+                      "title": "Repeat"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "default": "800ms",
+                      "description": "Repeat Interval",
+                      "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
+                    },
+                    "condition": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "time",
+                            "date",
+                            "state",
+                            "sun"
+                          ],
+                          "examples": [
+                            "time"
+                          ],
+                          "description": "Condition type",
+                          "title": "Type"
+                        },
+                        "after": {
+                          "type": "string",
+                          "description": "After (start of range)",
+                          "title": "After"
+                        },
+                        "before": {
+                          "type": "string",
+                          "description": "Before (end of range)",
+                          "title": "Before"
+                        },
+                        "after_offset": {
+                          "type": [
+                            "number",
+                            "string"
+                          ],
+                          "description": "Offset from the 'after' anchor (sun only)",
+                          "title": "After offset"
+                        },
+                        "before_offset": {
+                          "type": [
+                            "number",
+                            "string"
+                          ],
+                          "description": "Offset from the 'before' anchor (sun only)",
+                          "title": "Before offset"
+                        },
+                        "phase": {
+                          "type": "string",
+                          "enum": [
+                            "day",
+                            "civil_twilight",
+                            "nautical_twilight",
+                            "astronomical_twilight",
+                            "night",
+                            "golden_hour",
+                            "blue_hour"
+                          ],
+                          "examples": [
+                            "day"
+                          ],
+                          "description": "Sun phase (sun only)",
+                          "title": "Phase"
+                        },
+                        "above": {
+                          "type": [
+                            "integer",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Sun elevation above (degrees, sun only)",
+                          "title": "Above"
+                        },
+                        "below": {
+                          "type": [
+                            "integer",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Sun elevation below (degrees, sun only)",
+                          "title": "Below"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "enum": [
+                            "binary_sensor",
+                            "cover",
+                            "output",
+                            "light",
+                            "virtual_switch",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
+                          ],
+                          "examples": [
+                            "binary_sensor"
+                          ],
+                          "description": "Entity type (for state condition)",
+                          "title": "Entity"
+                        },
+                        "entity_id": {
+                          "type": "string",
+                          "description": "Entity ID (for state condition)",
+                          "title": "Entity id"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "is_on",
+                            "is_off",
+                            "is_open",
+                            "is_closed"
+                          ],
+                          "examples": [
+                            "is_on"
+                          ],
+                          "description": "Expected state (for state condition)",
+                          "title": "State"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "conditions": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "default": "and",
+                          "enum": [
+                            "and",
+                            "or"
+                          ],
+                          "examples": [
+                            "and"
+                          ],
+                          "description": "Condition mode",
+                          "title": "Mode"
+                        },
+                        "list": {
+                          "type": [
+                            "array",
+                            "string"
+                          ],
+                          "items": {
+                            "type": [
+                              "object",
+                              "string"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "time",
+                                  "date",
+                                  "state",
+                                  "sun"
+                                ],
+                                "examples": [
+                                  "time"
+                                ],
+                                "description": "Condition type",
+                                "title": "Type"
+                              },
+                              "after": {
+                                "type": "string",
+                                "description": "After (start of range)",
+                                "title": "After"
+                              },
+                              "before": {
+                                "type": "string",
+                                "description": "Before (end of range)",
+                                "title": "Before"
+                              },
+                              "after_offset": {
+                                "type": [
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Offset from the 'after' anchor (sun only)",
+                                "title": "After offset"
+                              },
+                              "before_offset": {
+                                "type": [
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Offset from the 'before' anchor (sun only)",
+                                "title": "Before offset"
+                              },
+                              "phase": {
+                                "type": "string",
+                                "enum": [
+                                  "day",
+                                  "civil_twilight",
+                                  "nautical_twilight",
+                                  "astronomical_twilight",
+                                  "night",
+                                  "golden_hour",
+                                  "blue_hour"
+                                ],
+                                "examples": [
+                                  "day"
+                                ],
+                                "description": "Sun phase (sun only)",
+                                "title": "Phase"
+                              },
+                              "above": {
+                                "type": [
+                                  "integer",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Sun elevation above (degrees, sun only)",
+                                "title": "Above"
+                              },
+                              "below": {
+                                "type": [
+                                  "integer",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Sun elevation below (degrees, sun only)",
+                                "title": "Below"
+                              },
+                              "entity": {
+                                "type": "string",
+                                "enum": [
+                                  "binary_sensor",
+                                  "cover",
+                                  "output",
+                                  "light",
+                                  "virtual_switch",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
+                                ],
+                                "examples": [
+                                  "binary_sensor"
+                                ],
+                                "description": "Entity type (for state condition)",
+                                "title": "Entity"
+                              },
+                              "entity_id": {
+                                "type": "string",
+                                "description": "Entity ID (for state condition)",
+                                "title": "Entity id"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "is_on",
+                                  "is_off",
+                                  "is_open",
+                                  "is_closed"
+                                ],
+                                "examples": [
+                                  "is_on"
+                                ],
+                                "description": "Expected state (for state condition)",
+                                "title": "State"
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          },
+                          "description": "List of conditions",
+                          "title": "List"
+                        }
+                      },
+                      "required": [
+                        "list"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Actions to run when this switch changes.",
+            "title": "Actions"
           }
         },
         "required": [

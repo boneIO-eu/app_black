@@ -1,8 +1,8 @@
 /**
  * The action lists a virtual switch carries, and the one rule about editing them.
  *
- * Split out of `VirtualSwitchSection.tsx` so it can be tested: the component
- * itself renders, and this project's vitest runs in node with no DOM.
+ * Split out of `VirtualSwitchForm.tsx` so it can be tested: the form itself
+ * renders, and this project's vitest runs in node with no DOM.
  */
 
 /** The two edges a virtual switch can act on. Mirrors `boneio/schema/schema.yaml`.

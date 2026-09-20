@@ -119,6 +119,11 @@ export function validateItem(
     case 'adc':
       return { isValid: !!dataToSave.pin, errorMessage: t('adc.pin_required') };
 
+    case 'virtual_switch':
+      // The id is the whole handle: it is the MQTT topic, and it is what a
+      // condition or another switch's action names.
+      return { isValid: !!dataToSave.id, errorMessage: t('array_table_widget.id_required') };
+
     default:
       return { isValid: true, errorMessage: '' };
   }

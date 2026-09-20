@@ -17,6 +17,7 @@ import TemplateTable from '../tables/TemplateTable';
 import ADCTable from '../tables/ADCTable';
 import BoardSensorsTable from '../tables/BoardSensorsTable';
 import RemoteOutputTable from '../tables/RemoteOutputTable';
+import VirtualSwitchTable from '../tables/VirtualSwitchTable';
 import GenericTable from '../tables/GenericTable';
 
 interface TableRendererProps {
@@ -79,6 +80,8 @@ const TableRenderer: React.FC<TableRendererProps> = ({
       return <BoardSensorsTable {...commonProps} />;
     case 'remote_outputs':
       return <RemoteOutputTable {...commonProps} allAreas={allAreas} allRemoteDevices={allRemoteDevices} />;
+    case 'virtual_switch':
+      return <VirtualSwitchTable {...commonProps} allAreas={allAreas} />;
     default:
       return <GenericTable {...commonProps} />;
   }
