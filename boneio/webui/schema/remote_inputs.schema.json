@@ -46,6 +46,11 @@
             "description": "Input/Sensor ID",
             "title": "Input id"
           },
+          "topic": {
+            "type": "string",
+            "description": "MQTT topic (mqtt source only)",
+            "title": "Topic"
+          },
           "mode": {
             "type": "string",
             "default": "binary_sensor",

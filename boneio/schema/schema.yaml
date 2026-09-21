@@ -247,6 +247,22 @@ web:
               When enabled, device registers with boneIO Cloud API and downloads
               wildcard SSL certificate for *.black.boneio.app domain.
               This allows PWA installation on mobile devices.
+        declined:
+          required: False
+          type: boolean
+          default: False
+          meta:
+            label: Not interested in cloud registration
+            description: |
+              Set this when you have decided against registering with boneIO
+              Cloud. Registration publishes this device's local address in DNS,
+              which is a reasonable thing to refuse — and without somewhere to
+              record the refusal the panel goes on recommending it, so the
+              certificate check can never be settled.
+
+              It changes nothing about how the device works. It only stops the
+              panel offering cloud registration as the way to a trusted
+              certificate, leaving uploading your own.
         pwa_name:
           required: False
           type: string

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "location": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "latitude": {
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ],
+          "description": "Latitude",
+          "title": "Latitude"
+        },
+        "longitude": {
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ],
+          "description": "Longitude",
+          "title": "Longitude"
+        },
+        "elevation": {
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ],
+          "default": 0,
+          "description": "Elevation above sea level (m)",
+          "title": "Elevation"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "description": "Geographic location of the controller. Required for sun-based conditions and for the sunrise/sunset times shown in the panel.",
+      "title": "Location"
+    }
+  }
+}

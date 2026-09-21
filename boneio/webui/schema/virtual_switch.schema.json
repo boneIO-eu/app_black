@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "virtual_switch": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name in Home Assistant and in the panel.",
+            "title": "Name"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/room for Home Assistant grouping.",
+            "title": "Area"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Home Assistant icon, e.g. `mdi:weather-night`.",
+            "title": "Icon"
+          },
+          "restore_state": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "Remember the state across a restart.",
+            "title": "Restore state"
+          },
+          "initial": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "State to start in when there is nothing to restore.",
+            "title": "Initial"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "Announce this switch to Home Assistant.",
+            "title": "Show in ha"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "description": "Virtual switches \u2014 an on/off flag with no relay behind it.",
+      "title": "Virtual switch"
+    }
+  }
+}

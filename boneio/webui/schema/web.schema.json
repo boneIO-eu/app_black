@@ -24,8 +24,21 @@
             "null",
             "string"
           ],
-          "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
+          "description": "Reverse proxy port for the Home Assistant link. Advanced; set it only when your own proxy fronts this panel on another port.",
           "title": "Proxy port"
+        },
+        "expose": {
+          "type": "string",
+          "default": "all",
+          "enum": [
+            "all",
+            "proxy"
+          ],
+          "examples": [
+            "all"
+          ],
+          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise.",
+          "title": "Expose"
         },
         "cloud": {
           "type": [
@@ -57,6 +70,28 @@
               "description": "Enable cloud registration",
               "title": "Enabled"
             },
+            "declined": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": false,
+              "description": "Not interested in cloud registration",
+              "title": "Declined"
+            },
             "pwa_name": {
               "type": [
                 "null",
@@ -77,6 +112,28 @@
           ],
           "default": {},
           "properties": {
+            "map_tiles": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": false,
+              "description": "Allow the location picker to load a map",
+              "title": "Map tiles"
+            },
             "frame_ancestors": {
               "type": [
                 "array",
