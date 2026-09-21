@@ -6,6 +6,7 @@ It extends BaseSensor with temperature-specific functionality.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from boneio.const import TEMPERATURE
@@ -132,7 +133,14 @@ class TempSensor(BaseSensor):
             timestamp: Current timestamp
         """
         try:
-            _temp = self.temperature
+            # Off the loop: reading the chip is a blocking I2C transfer that
+            # first waits for the shared bus lock. Inline, that wait is the
+            # event loop's — and a bus held by a relay write or the expander
+            # watchdog then stalls GPIO input handling along with everything
+            # else. See the matching change in INA219.async_update.
+            _temp = await asyncio.get_running_loop().run_in_executor(
+                None, lambda: self.temperature
+            )
             
             if _temp is None:
                 _LOGGER.warning("Temperature reading returned None for sensor %s", self.id)
