@@ -143,6 +143,10 @@ that is not held by the build pipeline, and are verified on the device against
 public keys pinned outside the application's reach. A compromised release
 pipeline cannot, on its own, produce something a controller will run as root.
 
+[MIGRATION_SIGNING.md](MIGRATION_SIGNING.md) describes that mechanism in full —
+the verification chain, where the keys live, and what it deliberately does not
+protect against. It is written to be handed to someone auditing the device.
+
 ## How we tell you about fixes
 
 - release notes in this repository, naming what was fixed
