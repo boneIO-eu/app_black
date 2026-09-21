@@ -384,6 +384,14 @@ def _read_release_floor() -> str | None:
 def _version_key(version: str) -> tuple:
     """Sortable key for a release string.
 
+    The pre-release suffix is tokenised into its runs of letters and digits
+    rather than compared as text, and that is the whole point of this function.
+    Comparing it as text put every two-digit tag below every one-digit one —
+    ``"dev10" < "dev9"`` — so a device that had accepted 1.6.0.dev9 read
+    1.6.0.dev10 as a downgrade and refused it, along with dev11 and everything
+    after. The floor is only consulted when a migration is applied, so the
+    fault stayed invisible until a release carried one.
+
     Args:
         version: Something like ``1.6.0.dev1``.
 
@@ -394,7 +402,13 @@ def _version_key(version: str) -> tuple:
     head = re.match(r"^[0-9.]+", version)
     numbers = tuple(int(p) for p in head.group(0).strip(".").split(".")) if head else ()
     suffix = version[head.end():] if head else version
-    return (numbers, suffix == "", suffix)
+    # (0, text) before (1, number) so a tag and a count never compare against
+    # each other as the same kind of thing.
+    tokens = tuple(
+        (1, int(part)) if part.isdigit() else (0, part)
+        for part in re.findall(r"\d+|[^\W\d_]+", suffix)
+    )
+    return (numbers, suffix == "", tokens)
 
 
 def _raise_floor(release: str) -> None:
