@@ -138,6 +138,26 @@ class EventBus:
                 raise
             try:
                 await self._handle_event(event)
+            except asyncio.CancelledError:
+                # Only a cancellation aimed at this worker ends it. A listener
+                # can raise CancelledError without this task being cancelled at
+                # all — a websocket send whose connection task is torn down
+                # underneath it does exactly that. CancelledError is a
+                # BaseException, so it used to travel straight through the
+                # handler below and out of this coroutine, killing the worker
+                # silently: no traceback, because a task that ends this way is
+                # merely "cancelled". Nothing restarts it and nothing watches
+                # it, so from that moment every input, output, cover and sensor
+                # event was queued and never delivered, and the controller had
+                # to be restarted to take a button press again.
+                if self._shutting_down:
+                    # `finally` below still runs and marks the item done.
+                    raise
+                _LOGGER.error(
+                    "Listener for %s raised CancelledError; the event bus is "
+                    "continuing.",
+                    type(event).__name__,
+                )
             except Exception as exc:
                 _LOGGER.error(f"Error handling event: {exc}")
             finally:
@@ -181,6 +201,13 @@ class EventBus:
                     await result
                 elif result is not None:
                     _LOGGER.warning(f"Listener returned non-coroutine: {type(result)}")
+            except asyncio.CancelledError:
+                # Contain it here so one listener cannot take the others down
+                # with it, and re-raise while shutting down so cancellation
+                # still works. See _event_worker for what this used to cost.
+                if self._shutting_down:
+                    raise
+                _LOGGER.error("Listener cancelled mid-dispatch; skipping it.")
             except Exception as exc:
                 _LOGGER.error(f"Listener error: {exc}")
 

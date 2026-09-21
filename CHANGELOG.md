@@ -4,6 +4,68 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.4 (2026-09-21)
+
+Hotfix on top of `v1.5.3`, for the report of inputs that stop responding —
+"sometimes" on 1.5.1, "very often" on 1.5.2 — with nothing in the log about the
+button press.
+
+The inputs were not at fault. A debug capture from an affected controller shows
+the asyncio event loop standing still for 40 seconds: every MainThread log line
+stops, including the once-per-7s migration status poll, while the Modbus worker
+threads keep publishing and their message ids run on. Nothing reads GPIO while
+the loop is stopped, so the edges are dropped in the kernel buffer and the
+detector is left mid-press.
+
+### 🐛 Blocking I2C taken off the event loop
+
+Reading an I2C sensor is a blocking transfer that first waits for a bus lock
+shared with the relay expanders, the OLED and every other device on the bus.
+Both sensor readers did that wait inline in their coroutine, so it was the
+event loop that waited — and with it the GPIO reader, every timer and the whole
+event bus.
+
+- **INA219** reads all of its measurements in a worker thread, in one hop.
+- **Temperature sensors** (PCT2075, MCP9808) read in a worker thread.
+
+### 🐛 The event bus no longer dies on a cancelled listener
+
+Every input, output, cover and sensor event is dispatched by a single worker
+task. `CancelledError` is a `BaseException`, so a listener raising one passed
+straight through the `except Exception` handlers and ended that task — with no
+traceback, because a task ending that way counts as merely cancelled, and with
+nothing watching or restarting it. From then on the queue filled and nobody
+drained it: every input dead at once, nothing in the log, only a restart would
+bring them back. The websocket broadcast, which is a global listener for all
+six event types, raises exactly this when a browser disconnects mid-send.
+
+A cancelled listener is now contained and logged; cancellation of the worker
+itself still works.
+
+### 🐛 Orphaned long-hold timer chains
+
+A long press runs a self-rescheduling 200ms timer chain, and only the newest
+handle is kept. If a release went missing — the edge lost while the loop was
+blocked, or swallowed as a bounce — the next press started a second chain while
+the first was still running and now unreachable: nothing could cancel it, and
+its safety timeout measured against the new press, so it never tripped. Each
+such press added another chain firing LONG five times a second.
+
+- A press now ends any chain still running from the previous one.
+- A chain that stops on its own drops its handle, instead of leaving a stale
+  one that made the next ordinary short click emit a phantom LONG as well.
+
+### Not changed, and why
+
+The per-write `IODIR` verification in the MCP23017 driver and the expander
+health watchdog were both considered as suspects and both cleared. One extra
+one-byte register read per relay write is on the order of 100µs of bus time —
+three orders of magnitude short of explaining a 40-second stall — and it guards
+a failure mode seen in the field. Throttling it only traded a real protection
+for nothing measurable, so it stays as it is.
+
+---
+
 ## v1.5.3 (2026-09-19)
 
 Hotfix release on top of `v1.5.2`. Two input-configuration bugs reported from
