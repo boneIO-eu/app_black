@@ -137,7 +137,48 @@ Jedno ustalenie, trzy osobne problemy — i wszystkie trzy trzeba było zamkną�
 - Zapis pliku idzie **regexem po surowym tekście**, nie przez re-serializację, więc tagi przeżywają nietknięte — sprawdzone.
 - Zweryfikowane na sterowniku scenariuszem z raportu: migracja wykonana, dane wyodrębnione, `!secret` nietknięty, pola WLED usunięte.
 
-**Zostaje w #8 (obraz, `black_debian_images`):** domyślne hasło SSH (F-04 sudo, hasło z obrazu), domyślne MQTT `boneio123` (F-05), certyfikat self-signed i HTTP (F-10), uprawnienia `/etc/mosquitto/passwd` (F-11) oraz throttling SSH przeniesiony z #3.
+### 8b. Część obrazowa (`black_debian_images`) — domknięta
+
+To była ostatnia otwarta pozycja: „domyślne hasło SSH, domyślne MQTT, certyfikat self-signed i HTTP, uprawnienia `/etc/mosquitto/passwd`, throttling SSH". Stan w `scripts/setup_boneio.sh`:
+
+- **F-04, hasło i sudo z obrazu.** Reguła `/etc/sudoers.d/boneio-setup` z `NOPASSWD: ALL`, pisana przez `build_image_usb.sh` na czas nienadzorowanego setupu, jest usuwana przy pieczętowaniu obrazu — i tylko tam, bo cały krok jest pomijany przy `--no-cleanup`, więc urządzeniu w eksploatacji nikt nie zmienia sudo pod nogami. Wspólne hasło `Black` wygaszane przez `chage -d 0`, czyli właściciel ustawia swoje przy pierwszym logowaniu. Obraz nie dopisuje już konta do grupy `docker`.
+- **F-05, MQTT.** Trzy konta (`boneio`, `homeassistant`, `mqtt`) dostają hasła z `openssl rand`, per urządzenie. Tworzone są **tylko te, których nie ma** — wcześniejsza wersja kroku nadpisywała wszystkie trzy przy każdym uruchomieniu, cicho cofając to, co ustawił właściciel.
+- **F-10, transmisja.** Pięć wariantów configu wiezie `web: expose: proxy`, więc świeży obraz nie wystawia 8090 na LAN. Caddy przekierowuje 80 → HTTPS, liść żyje 180 dni zamiast dwunastu godzin, intermediate rok, i jest upload własnego certyfikatu.
+- **F-11, uprawnienia.** `chown root:mosquitto` + `chmod 0640` — **dwa razy**, także po rotacji hasła, bo `mosquitto_passwd` przepisuje plik i gubi tryb. To jest ta „pułapka naprawy", którą raport wytknął osobno.
+- **Throttling SSH** przeniesiony z #3: krok 1b, trzy próby na połączenie zamiast sześciu, krótsze okno, root bez logowania po SSH.
+
+### Co doszło po dev2, czego ta roadmapa nie widziała
+
+- **Grupa `docker` zdjęta** (migracja 1.6.11 + obraz). Członkostwo w niej jest równoważne rootowi, więc dopóki zostawało, reszta pracy nad F-04 była obejściem, nie naprawą. Migracja odmawia, dopóki `/usr/sbin/boneio-containers` nie jest zainstalowany i root-owned — sprawdza, że jest gdzie przenieść zarządzanie kontenerami, zamiast wierzyć kolejności w planie.
+- **Certyfikaty:** własny do wgrania, root CA do pobrania, 180 dni zamiast 12 godzin (1.6.13, 1.6.14).
+- **`web.expose`** z guardem, który sonduje proxy, zanim pozwoli zdjąć panel z sieci — jedyne ustawienie, którego awaria to sterownik nieodpowiadający na żadnym porcie.
+- **Port panelu dociera do Caddy'ego** (1.6.15). Upstream był wpisany na sztywno jako 8090, więc przy `expose: proxy` zmiana portu odcinała urządzenie od sieci.
+- **Kolejność release floor** (1.6.16). Helper porównywał sufiks pre-release jako tekst, więc `dev10 < dev9` i każde urządzenie z floor dev2–dev9 odrzucało resztę serii. Znalezione na sprzęcie, nie w testach — floor jest sprawdzany dopiero przy stosowaniu migracji.
+- **[MIGRATION_SIGNING.md](MIGRATION_SIGNING.md)** — opis mechanizmu podpisów dla kogoś, kto audytuje urządzenie, razem z tym, czego ten mechanizm świadomie nie chroni.
+- **Numery CVE usunięte z drzewa** — repo jest publiczne, a identyfikatory nie są jeszcze opublikowane. Wyjaśnienia zostały.
+
+## Dowód per ustalenie
+
+Do czego sięgnąć, gdy ktoś zapyta „czym dowodzicie, że F-XX jest zamknięte". Każdy plik testowy nazywa swoje ustalenie w docstringu, więc `grep -rn "F-10" tests/` prowadzi do dowodu.
+
+| | co zamyka | dowód |
+|---|---|---|
+| F-01 | `adminAuth` w Node-RED spięty z kontem admina | `test_nodered_admin_auth.py` |
+| F-02 | urządzenie bez konta odmawia API; role wymuszane na trasach | `test_auth_middleware.py`, `test_authz_policy.py` |
+| F-03 | maskowanie w `GET /api/config` i w logach; serial nie wychodzi anonimowo | `test_secret_masking.py`, `test_config_secret_routes.py`, `test_serial_disclosure.py`, `test_log_scrubbing.py` |
+| F-04 | podpisane plany, helpery o zamkniętym słowniku, stary helper wycofany, grupa `docker` zdjęta, reguła build-time usuwana przy pieczętowaniu | `test_migrate_helper_v2.py`, `test_signed_plans.py`, `test_system_helper.py`, `test_migration_dispatch.py`, `test_code_hardening.py`, `setup_boneio.sh` |
+| F-05 | hasła per urządzenie w obrazie; aplikacja **wykrywa** domyślne, nie zmienia go | `test_security_posture.py`, `setup_boneio.sh` |
+| F-06 | 10 prób / 5 min, równolegle po IP i po koncie; SSH w obrazie | `test_login_rate_limit.py`, `setup_boneio.sh` krok 1b |
+| F-07 | sprawdzanie `Origin` na operacjach zmieniających stan | `test_csrf.py` |
+| F-08 | token tylko dla prawdziwych poświadczeń, konto wymuszone | `test_auth_middleware.py`, `test_onboarding_routes.py` |
+| F-09 | `tempfile.mkstemp()` — `O_EXCL`, 0600; `install -m 0440` jednym krokiem | `test_timezone_sudoers.py`, `test_code_hardening.py` |
+| F-10 | `expose: proxy` domyślnie w obrazie, redirect 80→HTTPS, liść 180d, port dociera do proxy | `test_expose_guard.py`, `test_migration_consistency.py`, `test_web_port_reaches_caddy.py` |
+| F-11 | `0640 root:mosquitto`, nakładane też po rotacji | `test_mosquitto_passwd_perms.py`, `setup_boneio.sh` |
+| F-12 | każda ścieżka API wymaga roli, więc trasa dodana bez niej oblewa testy | `test_authz_policy.py` |
+| F-13 | CSP, Permissions-Policy, warunkowy HSTS, X-Frame-Options | `test_security_headers.py` |
+| F-14 | kreator ustawia poświadczenia pierwszy; nieuwierzytelnione `PUT` zniknęło | `test_onboarding_routes.py` |
+| F-15 | walidacja host/port, blokada loopback i sieci prywatnych, wymóg admina | `test_discovery_guard.py` |
+| F-16 | catch-all na dowolny tag, ten sam loader dla `!include` | `test_migration_dispatch.py` |
 
 ## Status
 - [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
@@ -147,4 +188,8 @@ Jedno ustalenie, trzy osobne problemy — i wszystkie trzy trzeba było zamkną�
 - [x] 5. Node-RED adminAuth — **zrobione**
 - [x] 6. SSRF — **zrobione**
 - [x] 7. CSRF — **zrobione**
-- [~] 8. Twardnienie kodu/systemu — **część aplikacyjna zrobiona** (F-09, F-16); obraz (F-04, F-05, F-10, F-11 + SSH z #3) zostaje
+- [x] 8. Twardnienie kodu/systemu — **zrobione**: aplikacja (F-09, F-16) i obraz (F-04, F-05, F-10, F-11 + SSH z #3), patrz 8b
+
+Wszystkie 16 ustaleń mają dowód nazwany po imieniu — `grep -rhoE "F-0[1-9]|F-1[0-6]" tests/` zwraca F-01…F-16.
+
+**Czego to nie znaczy.** Zamknięte znaczy „jest mechanizm i jest test, który go trzyma", nie „nie ma tu już ryzyka". Granice są wypisane w [MIGRATION_SIGNING.md](MIGRATION_SIGNING.md): urządzenie już zrootowane, `(ALL:ALL) ALL` operatora za hasłem, i furtka deweloperska, której na wysyłanym urządzeniu być nie może.

@@ -1,5 +1,10 @@
 """Taking the panel off the local network, safely.
 
+The first half of F-10: the panel answered on 8090 over plain HTTP on every
+interface, so a login and the configuration behind it crossed the
+network in the clear. The other half of that finding is the certificate's
+twelve-hour lifetime, pinned in test_migration_consistency.py.
+
 `web.expose: proxy` is the fix for the panel being served in the clear. It is
 also the one setting whose failure mode is a controller in a cabinet answering
 on no port at all, so it is refused unless something else is demonstrably

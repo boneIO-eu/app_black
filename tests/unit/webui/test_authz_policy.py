@@ -1,4 +1,11 @@
-"""Tests for the role policy — which role may make which request."""
+"""Tests for the role policy — which role may make which request.
+
+Also where F-12 is held closed. /api/logs, /api/system/overlay and
+/api/hostname answered anyone who asked, handing out the service journal, the
+boot overlay path and the hostname without a token. The policy here is what
+decides that an API path needs a role at all, so a route added without one
+fails these tests rather than shipping open.
+"""
 
 from __future__ import annotations
 

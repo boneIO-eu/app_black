@@ -1,4 +1,12 @@
-"""Tests for the security posture model."""
+"""Tests for the security posture model.
+
+This is the application's half of F-05. The shared broker password is written
+by the image, and per-device passwords replaced it there — the panel cannot
+change what setup_boneio.sh put in /etc/mosquitto/passwd on a device that only
+updated the application. What it can do, and what these tests hold it to, is
+notice the shipped default and say so. Do not read a green run here as the
+credential having been rotated.
+"""
 
 from __future__ import annotations
 
