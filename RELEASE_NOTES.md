@@ -1,3 +1,33 @@
+# v1.5.5
+
+Hotfix on top of `v1.5.4`, for the same field report: clicking an input logged
+`Detected SINGLE click` but the output action never ran, until the service was
+restarted.
+
+v1.5.4 fixed one half and left the other. The event dispatcher no longer *dies*
+on a cancelled listener — but it could still *block* on one forever.
+
+## 🐛 A WebSocket client that stops answering no longer stops the controller
+
+A browser whose host leaves the network does not raise `WebSocketDisconnect`.
+The socket stays registered, the send buffer fills, and the write waits for as
+long as TCP keeps retrying. The WebSocket broadcast is a global listener for
+every event type and is awaited by the single dispatcher task, so that wait
+stopped inputs, outputs, covers and sensors alike — while the click detector,
+which sits upstream on plain event-loop timers, kept logging clicks that no
+longer did anything.
+
+Frames are now bounded at 5s, sent concurrently, and a client that misses the
+deadline is dropped. The manager's lock is no longer held across the sends.
+
+## 🔎 A stalled event bus now says so
+
+It was silent twice, which is most of why this took two releases. The
+dispatcher records which listener it is awaiting and, past 20s, logs an error
+naming it and saying what is stalled behind it. Diagnostics only.
+
+---
+
 # v1.5.4
 
 Hotfix release on top of `v1.5.3`, for the report of inputs that stop responding
