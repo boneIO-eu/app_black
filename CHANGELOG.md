@@ -4,6 +4,28 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## Unreleased (dev-debian13)
+
+### 🐛 The OLED no longer puts I2C in front of the GPIO reader
+
+Drawing a screen is cheap — a 128x64 PIL image — but handing it to the panel is
+an I2C transfer of about a kilobyte that first waits for the bus lock shared
+with the relay expanders and every I2C sensor. That transfer ran on the event
+loop, and the output and input screens redraw straight from the event bus
+worker, so every relay that switched put a kilobyte of I2C ahead of the GPIO
+reader.
+
+The device is now wrapped so that only the transfer moves to its own thread;
+the drawing code is unchanged and still builds its image on the caller's
+thread. Frames are coalesced rather than queued — a screen is a snapshot, so a
+burst of events leaves one redraw behind it instead of a backlog. The goodbye
+screen is flushed before the machine powers off.
+
+Same family as the INA219, temperature sensor and `Cover.stop()` changes in
+v1.5.4.
+
+---
+
 ## v1.6.0.dev1 (2026-08-02)
 
 ### ✨ New Features

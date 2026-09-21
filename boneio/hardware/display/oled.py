@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 import subprocess
+import threading
 from itertools import cycle
 from typing import TYPE_CHECKING
 
@@ -26,6 +27,100 @@ if TYPE_CHECKING:
     from boneio.hardware.i2c.bus import SMBus2I2C
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class _DeferredDisplay:
+    """A luma device whose frame transfer happens on its own thread.
+
+    Drawing a screen is cheap — a 128x64 PIL image — but handing it to the
+    panel is an I2C transfer of about a kilobyte that first waits for the bus
+    lock shared with the relay expanders and every I2C sensor. That transfer
+    used to run on the event loop, and the screens that redraw on output and
+    input events run it straight from the event bus worker: every relay that
+    switched put a kilobyte of I2C in front of the GPIO reader.
+
+    Everything except ``display()`` is forwarded to the real device, so the
+    drawing code is unchanged and still builds its image on the caller's
+    thread. ``display()`` only hands the finished image over and returns.
+
+    Frames are coalesced rather than queued. A screen is a snapshot of current
+    state, so when several arrive while the panel is busy only the newest is
+    worth sending — a burst of output events leaves one redraw behind it, not
+    a backlog to work through.
+    """
+
+    def __init__(self, device) -> None:
+        """Wrap `device` and start its transfer thread.
+
+        Args:
+            device: The luma device to forward to.
+        """
+        self._device = device
+        self._pending = None
+        self._lock = threading.Lock()
+        self._wake = threading.Event()
+        self._stopping = threading.Event()
+        self._idle = threading.Event()
+        self._idle.set()
+        self._thread = threading.Thread(
+            target=self._run, name="oled-display", daemon=True
+        )
+        self._thread.start()
+
+    def __getattr__(self, name):
+        """Forward anything this wrapper does not define to the real device."""
+        return getattr(self._device, name)
+
+    def display(self, image) -> None:
+        """Queue `image` for transfer, replacing any frame not yet sent."""
+        with self._lock:
+            self._pending = image
+            # Cleared under the lock, and set again only while the lock is held
+            # and nothing is pending — otherwise a frame handed over just as the
+            # thread finished the previous one could be marked idle while still
+            # unsent, and flush() would return before the panel had it.
+            self._idle.clear()
+        self._wake.set()
+
+    def _run(self) -> None:
+        """Transfer frames until stopped."""
+        while True:
+            self._wake.wait()
+            self._wake.clear()
+            if self._stopping.is_set():
+                return
+            while True:
+                with self._lock:
+                    image, self._pending = self._pending, None
+                    if image is None:
+                        self._idle.set()
+                        break
+                try:
+                    self._device.display(image)
+                except Exception as err:  # noqa: BLE001 - the panel is cosmetic
+                    _LOGGER.error("Failed to send a frame to the OLED: %s", err)
+
+    def flush(self, timeout: float = 2.0) -> bool:
+        """Wait for the queued frame to reach the panel.
+
+        Used where the picture has to be on screen before the next step —
+        the goodbye screen before the machine powers off.
+
+        Args:
+            timeout: Seconds to wait.
+
+        Returns:
+            True if nothing is left to send.
+        """
+        return self._idle.wait(timeout)
+
+    def stop(self, timeout: float = 2.0) -> None:
+        """Send whatever is queued, then end the thread."""
+        self.flush(timeout)
+        self._stopping.set()
+        self._wake.set()
+        self._thread.join(timeout)
+
 
 # Try to use TTF fonts, fallback to default PIL fonts if not available
 try:
@@ -128,12 +223,12 @@ class Oled:
 
         # Initialize I2C display (reuse early device if provided)
         if device is not None:
-            self._device = device
+            self._device = _DeferredDisplay(device)
             _LOGGER.debug("OLED display reusing early-initialized device")
         else:
             try:
                 serial = i2c(port=2, address=0x3C)
-                self._device = sh1106(serial)
+                self._device = _DeferredDisplay(sh1106(serial))
                 _LOGGER.debug("OLED display initialized successfully")
             except (DeviceNotFoundError, OSError) as err:
                 raise I2CError(f"OLED display not found: {err}") from err
@@ -477,6 +572,9 @@ class Oled:
         with canvas(self._device) as draw:
             draw.text((20, 10), "Goodbye!", font=fonts["big"], fill=WHITE)
             draw.text((15, 35), "System shutting down...", font=fonts["extraSmall"], fill=WHITE)
+
+        # On the panel before the machine goes down, not merely queued.
+        self._device.flush()
 
         # Small delay so the user sees the message
         await asyncio.sleep(1)
