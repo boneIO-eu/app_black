@@ -55,6 +55,15 @@ such press added another chain firing LONG five times a second.
 - A chain that stops on its own drops its handle, instead of leaving a stale
   one that made the next ordinary short click emit a phantom LONG as well.
 
+### 🐛 Stopping a cover no longer freezes the loop
+
+`Cover.stop()` waited for the movement thread and then de-energised both relays
+over I2C, all inline in the coroutine — up to half a second of stopped event
+loop. `toggle`, `toggle_open` and `toggle_close` all call `stop()` first, so an
+ordinary button press on a cover paid for it, and nothing read GPIO meanwhile.
+The wait and both relay writes now happen in a worker thread, in the same order
+as before.
+
 ### Not changed, and why
 
 The per-write `IODIR` verification in the MCP23017 driver and the expander

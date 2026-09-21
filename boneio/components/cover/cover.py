@@ -210,9 +210,23 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     async def stop(self, on_exit=False) -> None:
         if self._movement_thread and self._movement_thread.is_alive():
             self._stop_event.set()
-            self._movement_thread.join(timeout=0.5)
-            self._open_relay.turn_off()
-            self._close_relay.turn_off()
+
+            # Halting is three blocking operations: waiting for the movement
+            # thread to notice the stop event, and two relay writes that go out
+            # over I2C behind a bus lock shared with every other device. Run
+            # inline they were the *event loop's* wait — up to half a second of
+            # frozen loop on every cover stop, and a cover stop is the first
+            # thing `toggle`, `toggle_open` and `toggle_close` do, so an
+            # ordinary button press paid it. Nothing reads GPIO while the loop
+            # is stopped. Order is unchanged: join first, then de-energise.
+            thread = self._movement_thread
+
+            def _halt() -> None:
+                thread.join(timeout=0.5)
+                self._open_relay.turn_off()
+                self._close_relay.turn_off()
+
+            await asyncio.get_running_loop().run_in_executor(None, _halt)
             # Send relay states to WebSocket (not MQTT - that's handled by output_type check)
             with suppress(RuntimeError):
                 asyncio.create_task(self._open_relay.async_send_state())
