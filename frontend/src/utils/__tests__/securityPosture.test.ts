@@ -100,6 +100,46 @@ describe('promptDecision', () => {
     expect(promptDecision(base)).toEqual({ show: true, knownUpgrade: true });
   });
 
+  describe('a snooze', () => {
+    const NOW = 1_700_000_000_000;
+
+    it('hides the prompt while it has not run out', () => {
+      const decision = promptDecision({ ...base, snoozedUntil: NOW + 1000, now: NOW });
+      expect(decision.show).toBe(false);
+    });
+
+    it('lets it back once it has', () => {
+      // The gap is still there tomorrow, and so is the notice — this is what
+      // separates "remind me tomorrow" from the button that means never.
+      expect(promptDecision({ ...base, snoozedUntil: NOW - 1000, now: NOW }).show).toBe(true);
+    });
+
+    it('is ignored when the stored value is not a number', () => {
+      // Storage can come back with anything. Hiding the prompt forever on
+      // unreadable input is the one failure worth avoiding here; showing it
+      // once more than asked is not.
+      for (const broken of [NaN, Infinity, null, undefined]) {
+        const decision = promptDecision({
+          ...base,
+          snoozedUntil: broken as unknown as number | null,
+          now: NOW,
+        });
+        expect(decision.show).toBe(true);
+      }
+    });
+
+    it('does not override an outstanding count of zero', () => {
+      // A device with nothing to fix stays quiet whether or not it was snoozed.
+      const decision = promptDecision({
+        ...base,
+        posture: posture(0),
+        snoozedUntil: NOW - 1000,
+        now: NOW,
+      });
+      expect(decision.show).toBe(false);
+    });
+  });
+
   it('ignores advice that applies to every device', () => {
     // Self-signed certificate and unset frame_ancestors are INFO: reported in
     // the panel, never a reason to interrupt.

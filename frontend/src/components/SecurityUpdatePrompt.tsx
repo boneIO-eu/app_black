@@ -25,6 +25,35 @@ import { checkText, promptDecision } from '../utils/securityPosture';
  */
 
 const SEEN_VERSION_KEY = 'boneio.security.promptedVersion';
+const SNOOZE_UNTIL_KEY = 'boneio.security.snoozedUntil';
+
+/**
+ * A day, because "tomorrow" is what was asked for.
+ *
+ * A day from now rather than the next local midnight: snoozing at 23:55 and
+ * being asked again five minutes later is not what anybody means by tomorrow,
+ * and it would teach them to use the button that means never instead.
+ */
+const SNOOZE_MS = 24 * 60 * 60 * 1000;
+
+function readSnoozedUntil(): number | null {
+  try {
+    const raw = localStorage.getItem(SNOOZE_UNTIL_KEY);
+    if (!raw) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSnoozedUntil(until: number): void {
+  try {
+    localStorage.setItem(SNOOZE_UNTIL_KEY, String(until));
+  } catch {
+    // Nothing to do. The prompt comes back, which is the safe direction.
+  }
+}
 
 function readSeenVersion(): string | null {
   try {
@@ -53,6 +82,7 @@ export default function SecurityUpdatePrompt() {
 
   const version = appInit.data?.version ?? null;
   const [seenVersion, setSeenVersion] = useState<string | null>(() => readSeenVersion());
+  const [snoozedUntil, setSnoozedUntil] = useState<number | null>(() => readSnoozedUntil());
   const [dismissed, setDismissed] = useState(false);
 
   // A device with nothing outstanding never prompts, and recording the version
@@ -76,12 +106,27 @@ export default function SecurityUpdatePrompt() {
     posture,
     dismissed,
     onboarding: appInit.needsOnboarding,
+    snoozedUntil,
   });
   if (!decision.show || !version || !posture) return null;
 
   const close = () => {
     writeSeenVersion(version);
     setSeenVersion(version);
+    setDismissed(true);
+  };
+
+  /**
+   * Ask again tomorrow.
+   *
+   * Deliberately does not record the version: that is what makes this
+   * different from the button next to it. The gap is still there tomorrow, and
+   * so is the notice.
+   */
+  const snooze = () => {
+    const until = Date.now() + SNOOZE_MS;
+    writeSnoozedUntil(until);
+    setSnoozedUntil(until);
     setDismissed(true);
   };
 
@@ -121,6 +166,9 @@ export default function SecurityUpdatePrompt() {
             ))}
         </div>
         <div className="modal-action">
+          <button className="btn btn-ghost" onClick={snooze}>
+            {t('security.after_update.tomorrow')}
+          </button>
           <button className="btn btn-outline" onClick={close}>
             {t('security.after_update.later')}
           </button>

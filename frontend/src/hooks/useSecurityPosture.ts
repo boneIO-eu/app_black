@@ -29,6 +29,9 @@ export interface SecurityCheck {
   remedy: string;
   /** A device-specific fact, shown as sent — never translated. */
   context?: string;
+  /** Which wording applies, when one check has several. Optional: an older
+      backend does not send it. */
+  variant?: string;
   /** Bare name = Settings section; `system:<anchor>` = System page. */
   settings_section: string | null;
 }

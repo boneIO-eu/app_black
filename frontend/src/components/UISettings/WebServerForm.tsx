@@ -183,6 +183,28 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         <HelpLabel className="pt-0">{t('boneio_config.cloud_registration_help')}</HelpLabel>
       </div>
 
+      {/* Somewhere to put "no, and stop asking".
+          Registration publishes this device's local address in DNS, so
+          refusing it is a reasonable decision — but with nowhere to record the
+          decision, the security section went on naming cloud registration as
+          the way to a trusted certificate, and that check could never be
+          settled. Offered only while registration is off: someone who has it
+          on has plainly not declined it. */}
+      {!data?.cloud?.enabled && (
+        <div className="form-control flex flex-col gap-2 ml-2">
+          <label className="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-sm shrink-0"
+              checked={data?.cloud?.declined || false}
+              onChange={(e) => handleCloudChange('declined', e.target.checked)}
+            />
+            <span className="label-text">{t('boneio_config.cloud_declined')}</span>
+          </label>
+          <HelpLabel className="pt-0">{t('boneio_config.cloud_declined_help')}</HelpLabel>
+        </div>
+      )}
+
       {data?.cloud?.enabled && (
         <div className="space-y-3 ml-2">
           {/* DNS Rebinding Warning */}

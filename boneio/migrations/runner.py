@@ -440,12 +440,51 @@ class MigrationRunner:
                 result.returncode,
                 result.stderr.strip(),
             )
+            self.last_error = self._reason_from_helper(result.stderr)
             return False
 
         self._write_applied_flag(migration)
         self._applied.add(migration.version)
         _LOGGER.info("Migration %s applied via v2.", migration.version)
         return True
+
+    @staticmethod
+    def _reason_from_helper(stderr: str) -> str:
+        """The one line out of the helper's output worth showing a person.
+
+        The helper writes its refusals in full and explains them — the release
+        floor check, for instance, says which release the manifest is for and
+        which one this device has already accepted. All of that went to the
+        journal while the panel was told "Migration 1.6.15 failed", which is
+        not something anybody can act on.
+
+        The last REFUSED or ERROR line is taken rather than the whole stream,
+        because stderr also carries the helper's startup chatter, and the last
+        such line is the one that stopped the run. The log prefix is stripped:
+        a timestamp and a level tell a reader of the panel nothing.
+
+        Args:
+            stderr: Everything the helper wrote to standard error.
+
+        Returns:
+            The reason, or an empty string when there is nothing quotable.
+        """
+        interesting = [
+            line.strip()
+            for line in stderr.splitlines()
+            if "REFUSED:" in line or "[ERROR]" in line
+        ]
+        chosen = interesting[-1] if interesting else ""
+        if not chosen:
+            remaining = [line.strip() for line in stderr.splitlines() if line.strip()]
+            chosen = remaining[-1] if remaining else ""
+        # "2026-09-21 15:40:22,929 [ERROR] REFUSED: ..." -> "REFUSED: ..."
+        for marker in ("[ERROR]", "[WARNING]", "[INFO]"):
+            _, _, tail = chosen.partition(marker)
+            if tail:
+                chosen = tail.strip()
+                break
+        return chosen
 
     def _any_helper_available(self) -> bool:
         """Whether some helper can apply a migration.
@@ -695,6 +734,9 @@ class MigrationRunner:
                 )
                 continue
 
+            # Cleared per migration: a reason left over from an earlier one
+            # would be attached to this failure and read as its explanation.
+            self.last_error = None
             ok = self._apply_one(migration)
             if ok and migration.version in PIVOT_VERSIONS:
                 # Ask again in this same run: the pivot has just installed v2,
@@ -704,7 +746,9 @@ class MigrationRunner:
                 self.helper_v2_available(recheck=True)
             if not ok:
                 _LOGGER.error("Migration %s failed, stopping.", migration.version)
-                self.last_error = f"Migration {migration.version} failed"
+                self.last_error = (
+                    self.last_error or f"Migration {migration.version} failed"
+                )
                 self.status = MigrationStatus.ERROR
                 all_ok = False
                 break

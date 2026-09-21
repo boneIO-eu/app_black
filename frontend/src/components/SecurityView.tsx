@@ -21,8 +21,12 @@ export default function SecurityView() {
   const navigate = useNavigate();
   const { posture, loading, error, refresh } = useSecurityPosture();
 
-  const checkText = (id: string, field: string, fallback: string): string =>
-    checkTextOf(t, id, field, fallback);
+  const checkText = (
+    id: string,
+    field: string,
+    fallback: string,
+    variant?: string,
+  ): string => checkTextOf(t, id, field, fallback, variant);
 
   /** Send the admin to whatever fixes this check. */
   const goToFix = (check: SecurityCheck) => {
@@ -199,8 +203,8 @@ export default function SecurityView() {
               key={check.id}
               severity={check.severity}
               title={checkText(check.id, 'title', check.title)}
-              detail={checkText(check.id, 'detail', check.detail)}
-              remedy={checkText(check.id, 'remedy', check.remedy)}
+              detail={checkText(check.id, 'detail', check.detail, check.variant)}
+              remedy={checkText(check.id, 'remedy', check.remedy, check.variant)}
               context={check.context}
               severityLabel={t(`security.severity.${check.severity}`)}
               {...fixActionFor(check)}
@@ -221,8 +225,8 @@ export default function SecurityView() {
               key={check.id}
               severity={check.severity}
               title={checkText(check.id, 'title', check.title)}
-              detail={checkText(check.id, 'detail', check.detail)}
-              remedy={checkText(check.id, 'remedy', check.remedy)}
+              detail={checkText(check.id, 'detail', check.detail, check.variant)}
+              remedy={checkText(check.id, 'remedy', check.remedy, check.variant)}
               context={check.context}
               severityLabel={t(`security.severity.${check.severity}`)}
               {...fixActionFor(check)}

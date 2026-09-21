@@ -961,6 +961,8 @@
     "ha_child_devices_naming_device_name_area": "Device name + area + entity (e.g. boneIO Black - Gabinet - OUT 17)",
     "cloud_registration": "Cloud Registration (PWA)",
     "cloud_registration_help": "Registers device subdomain ({serial}.black.boneio.app) with boneIO Cloud API and downloads wildcard SSL certificate for PWA access via HTTPS.",
+    "cloud_declined": "Not interested in cloud registration",
+    "cloud_declined_help": "Tick this if you have decided against it. It changes nothing about how the device works — the security section stops offering registration and leaves uploading your own certificate.",
     "cloud_registration_warning_title": "DNS Rebinding Protection",
     "cloud_registration_warning": "Your router must have DNS rebinding protection disabled for this feature to work. This protection (sometimes called DNS rebind attack prevention) blocks DNS responses that resolve to private IP addresses. Check your router settings (e.g. in OpenWrt: Network → DHCP and DNS → uncheck 'Rebind protection').",
     "cloud_registration_domain": "Your device will be accessible at:",
@@ -2099,6 +2101,7 @@
   "migrations": {
     "title": "System migrations",
     "banner_bootstrap_required": "System migration setup required — complete bootstrap in System panel.",
+    "banner_failed": "A system update was refused, and will be refused on every start until the reason goes away. This device is not receiving system hardening.",
     "banner_pending": "{{count}} system migration(s) pending — open System panel to apply.",
     "open_panel": "Open System",
     "explain_bootstrap": "One-time authorization needed to enable the privileged migration helper (installs /usr/sbin/boneio-migrate with NOPASSWD sudoers). After that, system updates apply automatically.",
@@ -2717,8 +2720,10 @@
       "certificate": {
         "title": "HTTPS certificate",
         "detail": "Served with a self-signed certificate, so browsers warn on every visit and people learn to click through the warning.",
+        "detail_declined": "Served with a self-signed certificate. You have declined cloud registration, so this is the arrangement you chose; browsers still warn on every visit.",
         "ok": "Served with a certificate browsers trust.",
-        "remedy": "Enable boneIO Cloud registration, or upload a certificate of your own below."
+        "remedy": "Enable boneIO Cloud registration, or upload a certificate of your own below.",
+        "remedy_declined": "Upload a certificate of your own below, or install this device's own authority on the machines that use it."
       },
       "frame_ancestors": {
         "title": "Embedding in other sites",
@@ -2745,6 +2750,7 @@
       "body_clean": "This release adds security settings. Nothing on this device needs attention.",
       "review": "Review security",
       "later": "Later",
+      "tomorrow": "Remind me tomorrow",
       "outstanding": "{{count}} outstanding",
       "title_first": "Security recommendations"
     },

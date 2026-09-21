@@ -72,6 +72,17 @@ class Check:
     #: moment somebody writes a translation for it. This is shown verbatim
     #: underneath instead.
     context: str = ""
+    #: Which wording of this check applies, when one check has several.
+    #:
+    #: The panel keys its translations by check id alone, so a check whose
+    #: English text varies at runtime collapses to one translated sentence —
+    #: and the wrong one. The certificate check has four states and a single
+    #: Polish remedy telling people to enable cloud registration, including on
+    #: a device where they have declined it.
+    #:
+    #: The panel looks for ``<field>_<variant>`` and falls back to ``<field>``,
+    #: so a variant nobody has translated yet still reads as a sentence.
+    variant: str = ""
     #: Where in the panel this is fixed, when it can be fixed there. A bare
     #: name is a Settings section; ``system:<anchor>`` is the System page.
     #: None means there is no control — the remedy is a file or a shell.
@@ -91,6 +102,7 @@ class Check:
             "detail": self.detail,
             "remedy": self.remedy,
             "context": self.context,
+            "variant": self.variant,
             "settings_section": self.settings_section,
         }
 
@@ -344,6 +356,12 @@ def evaluate(
 
     web = config.get("web") if isinstance(config.get("web"), dict) else {}
     cloud_enabled = bool((web.get("cloud") or {}).get("enabled"))
+    # Somebody said no to cloud registration and meant it. Registration
+    # publishes this device's local address in DNS, which is a reasonable thing
+    # to refuse — and with nowhere to record the refusal the certificate check
+    # went on recommending it release after release, so it could never be
+    # settled.
+    cloud_declined = bool((web.get("cloud") or {}).get("declined"))
     has_legacy = _legacy_web_auth(config)
     checks.append(
         Check(
@@ -394,6 +412,10 @@ def evaluate(
                     "produced a certificate yet, so the panel is still served "
                     "with a self-signed one."
                     if cloud_enabled
+                    else "Served with a self-signed certificate. You have "
+                    "declined cloud registration, so this is the arrangement "
+                    "you chose; browsers still warn on every visit."
+                    if cloud_declined
                     else "Served with a self-signed certificate, so browsers "
                     "warn on every visit and people learn to click through the "
                     "warning."
@@ -405,10 +427,16 @@ def evaluate(
                 else "Sort out the registration error, or upload a certificate "
                 "of your own below."
                 if cloud_enabled
+                # Not offering the thing they turned down. Repeating it is how
+                # a panel teaches people to stop reading it.
+                else "Upload a certificate of your own below, or install this "
+                "device's own authority on the machines that use it."
+                if cloud_declined
                 else "Enable boneIO Cloud registration, or upload a certificate "
                 "of your own below."
             ),
             context=cloud_error or "",
+            variant="declined" if (cloud_declined and not cloud_enabled) else "",
             settings_section="security",
         )
     )

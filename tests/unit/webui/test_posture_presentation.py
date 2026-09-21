@@ -36,18 +36,27 @@ def _all_checks():
     import os
     from unittest.mock import patch
 
+    # Some wordings only appear under a setting, so an empty config is not
+    # enough: a variant nobody produced here would be reported as translated
+    # when nothing had looked for its text.
+    configs: tuple[dict, ...] = (
+        {},
+        {"web": {"cloud": {"declined": True}}},
+        {"web": {"cloud": {"enabled": True}}},
+    )
     checks = []
     for environ in ({}, {"BONEIO_DEV": "1"}):
         with patch.dict(os.environ, environ, clear=False):
-            checks.extend(
-                evaluate(
-                    {},
-                    is_provisioned=False,
-                    anonymous_allowed=True,
-                    auth_required=False,
-                    cloud_active=False,
-                ).checks
-            )
+            for config in configs:
+                checks.extend(
+                    evaluate(
+                        config,
+                        is_provisioned=False,
+                        anonymous_allowed=True,
+                        auth_required=False,
+                        cloud_active=False,
+                    ).checks
+                )
     return checks
 
 
@@ -110,3 +119,35 @@ def test_no_translation_describes_a_check_that_is_gone(language):
     known = _check_ids()
     stale = [check_id for check_id in _translations(language) if check_id not in known]
     assert not stale, f"{language}: text for checks that no longer exist: {sorted(stale)}"
+
+
+@pytest.mark.parametrize("language", ["en", "pl"])
+def test_every_variant_is_translated(language):
+    """A check with several wordings needs one translation per wording.
+
+    The panel keys its text by check id, so a check whose English varies at
+    runtime collapses to a single translated sentence — and not necessarily the
+    right one. The certificate check had four states and one Polish remedy
+    saying "enable cloud registration", shown even on a device whose owner had
+    declined it. `variant` splits the key; this is what keeps the halves in
+    step.
+    """
+    strings = _translations(language)
+    missing = []
+    for check in _all_checks():
+        if not check.variant:
+            continue
+        entry = strings.get(check.id, {})
+        for field in ("detail", "remedy"):
+            # Only where the backend has something to say. A variant with no
+            # remedy needs no translation for one.
+            if not str(getattr(check, field, "")).strip():
+                continue
+            key = f"{field}_{check.variant}"
+            if not str(entry.get(key, "")).strip():
+                missing.append(f"{check.id}.{key}")
+    assert not missing, (
+        f"{language}: no translation for {sorted(set(missing))} — the panel "
+        "falls back to the wording of the other state, which is what this "
+        "variant exists to avoid"
+    )

@@ -43,16 +43,28 @@ export function fixRoute(
  * translates by check id. A check this bundle has never heard of — newer
  * backend, older frontend — then still reads as a sentence rather than a
  * dotted key, because `t` returns the key itself when there is no translation.
+ *
+ * A check whose wording depends on the device carries a `variant`, and the
+ * variant's key is tried first. Keying by id alone meant one translated
+ * sentence per check: the certificate check has four states, and in Polish all
+ * four said "enable cloud registration" — including on a device whose owner
+ * had declined it. An untranslated variant falls through to the plain field
+ * rather than to the key, so the worst case is the old wording, never a dotted
+ * string on screen.
  */
 export function checkText(
   t: (key: string) => string,
   id: string,
   field: string,
   fallback: string,
+  variant?: string,
 ): string {
-  const key = `security.checks.${id}.${field}`;
-  const value = t(key);
-  return value === key || !value ? fallback : value;
+  const lookup = (key: string): string | null => {
+    const value = t(key);
+    return value === key || !value ? null : value;
+  };
+  const specific = variant ? lookup(`security.checks.${id}.${field}_${variant}`) : null;
+  return specific ?? lookup(`security.checks.${id}.${field}`) ?? fallback;
 }
 
 export interface PromptDecision {
@@ -91,12 +103,30 @@ export function promptDecision(input: {
    * when it finishes, so nothing is lost by waiting.
    */
   onboarding?: boolean;
+  /**
+   * When a "remind me tomorrow" runs out, as epoch milliseconds.
+   *
+   * Separate from `seenVersion`, which silences the prompt for a whole
+   * release. Somebody who is in the middle of something wants to be asked
+   * again, and had only one button that meant never.
+   */
+  snoozedUntil?: number | null;
+  /** Now, injected so the decision stays a pure function. */
+  now?: number;
 }): PromptDecision {
   const { isAdmin, version, seenVersion, posture, dismissed, onboarding } = input;
   const knownUpgrade = Boolean(seenVersion) && seenVersion !== version;
 
   if (onboarding) return { show: false, knownUpgrade };
   if (!isAdmin || !version || !posture || dismissed) return { show: false, knownUpgrade };
+  // A snooze from the future means someone asked not to be asked yet. A stored
+  // value that is not a usable number is ignored rather than trusted: the
+  // failure that matters is hiding the prompt forever, not showing it once
+  // more than asked.
+  const snoozedUntil = input.snoozedUntil;
+  if (typeof snoozedUntil === 'number' && Number.isFinite(snoozedUntil)) {
+    if ((input.now ?? Date.now()) < snoozedUntil) return { show: false, knownUpgrade };
+  }
   if (posture.summary.actionable === 0) return { show: false, knownUpgrade };
   if (seenVersion === version) return { show: false, knownUpgrade };
 

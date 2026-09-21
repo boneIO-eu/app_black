@@ -961,6 +961,8 @@
     "ha_child_devices_naming_device_name_area": "Nazwa urządzenia + area + encja (np. boneIO Black - Gabinet - OUT 17)",
     "cloud_registration": "Rejestracja w chmurze (PWA)",
     "cloud_registration_help": "Rejestruje subdomenę urządzenia ({serial}.black.boneio.app) w boneIO Cloud API i pobiera wildcard certyfikat SSL do dostępu PWA przez HTTPS.",
+    "cloud_declined": "Nie chcę rejestracji w chmurze",
+    "cloud_declined_help": "Zaznacz, jeżeli świadomie rezygnujesz. Nic to nie zmienia w działaniu urządzenia — sekcja bezpieczeństwa przestaje proponować rejestrację i zostawia wgranie własnego certyfikatu.",
     "cloud_registration_warning_title": "Ochrona przed DNS Rebinding",
     "cloud_registration_warning": "Twój router musi mieć wyłączoną ochronę przed DNS rebinding, aby ta funkcja działała. Ta ochrona (czasem nazywana DNS rebind attack prevention) blokuje odpowiedzi DNS wskazujące na prywatne adresy IP. Sprawdź ustawienia routera (np. w OpenWrt: Sieć → DHCP i DNS → odznacz 'Rebind protection').",
     "cloud_registration_domain": "Twoje urządzenie będzie dostępne pod adresem:",
@@ -2098,6 +2100,7 @@
   "migrations": {
     "title": "Migracje systemowe",
     "banner_bootstrap_required": "Wymagana konfiguracja migracji systemowych — dokończ bootstrap w panelu Systemu.",
+    "banner_failed": "Aktualizacja systemowa została odrzucona i będzie odrzucana przy każdym starcie, dopóki powód nie zniknie. To urządzenie nie dostaje poprawek systemowych.",
     "banner_pending": "{{count}} oczekująca migracja systemowa — otwórz panel Systemu aby zastosować.",
     "open_panel": "Otwórz System",
     "explain_bootstrap": "Wymagana jednorazowa autoryzacja aby włączyć uprzywilejowany helper migracji (instaluje /usr/sbin/boneio-migrate z NOPASSWD sudoers). Potem aktualizacje systemowe stosują się automatycznie.",
@@ -2716,8 +2719,10 @@
       "certificate": {
         "title": "Certyfikat HTTPS",
         "detail": "Panel jest serwowany certyfikatem samopodpisanym, więc przeglądarka ostrzega przy każdym wejściu, a ludzie uczą się klikać przez to ostrzeżenie.",
+        "detail_declined": "Panel jest serwowany certyfikatem samopodpisanym. Odmówiłeś rejestracji w chmurze, więc to jest wybrany przez Ciebie układ; przeglądarka nadal ostrzega przy każdym wejściu.",
         "ok": "Panel jest serwowany certyfikatem, któremu przeglądarki ufają.",
-        "remedy": "Włącz rejestrację w boneIO Cloud albo wgraj poniżej własny certyfikat."
+        "remedy": "Włącz rejestrację w boneIO Cloud albo wgraj poniżej własny certyfikat.",
+        "remedy_declined": "Wgraj poniżej własny certyfikat albo zainstaluj urząd certyfikacji tego urządzenia na komputerach, z których z niego korzystasz."
       },
       "frame_ancestors": {
         "title": "Osadzanie w innych stronach",
@@ -2744,6 +2749,7 @@
       "body_clean": "Ta wersja dokłada ustawienia bezpieczeństwa. Na tym urządzeniu nic nie wymaga uwagi.",
       "review": "Pokaż bezpieczeństwo",
       "later": "Później",
+      "tomorrow": "Odłóż do jutra",
       "outstanding": "Do zrobienia: {{count}}",
       "title_first": "Zalecenia bezpieczeństwa"
     },
