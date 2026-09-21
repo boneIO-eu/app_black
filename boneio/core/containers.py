@@ -41,6 +41,9 @@ PROJECT_DIR = Path.home() / "docker" / "nodered"
 #: application; the compose file next to it is not. See set_project_env.
 ENV_FILE = PROJECT_DIR / ".env"
 
+#: The live compose file. Root-owned — read here, never written.
+COMPOSE_FILE = PROJECT_DIR / "docker-compose.yaml"
+
 CADDY_SERVICE = "caddy"
 NODERED_SERVICE = "node-red"
 
@@ -491,3 +494,27 @@ def set_project_env(name: str, value: str) -> bool:
 
     _LOGGER.info("Set %s in %s", assignment, ENV_FILE)
     return True
+
+
+def cloud_template_is_live() -> bool:
+    """Whether the compose file in use is the cloud template.
+
+    Asked of the file rather than of the configuration, because the two
+    disagree on real devices: a controller whose ``web.cloud.enabled`` is true
+    but whose registration never completed is still running the local
+    template. Refreshing it from the cloud one on the strength of the config
+    would put it on an init script whose certificates are not there.
+
+    Returns:
+        True for the cloud template, False for the local one or when the file
+        cannot be read — the local template is the safe assumption, being the
+        one that needs nothing from outside the device.
+    """
+    try:
+        body = COMPOSE_FILE.read_text()
+    except OSError as err:
+        _LOGGER.warning("Could not read %s, assuming the local template: %s", COMPOSE_FILE, err)
+        return False
+    # The init script each template runs is the thing that differs and the
+    # thing that matters: it decides which certificate Caddy serves.
+    return "init-certs-cloud.sh" in body

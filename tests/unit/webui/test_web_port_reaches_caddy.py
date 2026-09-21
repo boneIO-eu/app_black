@@ -132,6 +132,11 @@ class TestApplyingAPortChange:
             return True
 
         monkeypatch.setattr(config_core.containers, "set_project_env", env)
+        # Default: the local template is what the file says. Tests that care
+        # override this.
+        monkeypatch.setattr(
+            config_core.containers, "cloud_template_is_live", lambda: False
+        )
         for verb in ("apply_cloud_template", "remove_cloud_template", "start_caddy"):
             monkeypatch.setattr(
                 config_core.containers,
@@ -156,14 +161,32 @@ class TestApplyingAPortChange:
         assert spy == ["env:WEB_PORT=8095", "remove_cloud_template", "start_caddy"]
         assert "8095" in outcome
 
-    def test_a_cloud_device_keeps_its_own_template(self, spy):
+    def test_a_cloud_device_keeps_its_own_template(self, spy, monkeypatch):
+        monkeypatch.setattr(
+            config_core.containers, "cloud_template_is_live", lambda: True
+        )
+
+        asyncio.run(_apply_web_port_change({"port": 8090}, {"port": 8095}))
+
+        assert "apply_cloud_template" in spy
+        assert "remove_cloud_template" not in spy
+
+    def test_config_asking_for_cloud_does_not_decide_it(self, spy):
+        """The file decides, not the setting.
+
+        A controller whose registration never completed has cloud enabled in
+        config and the local template on disk. Switching it to the cloud one
+        would hand Caddy an init script whose certificates are not there —
+        which is what the dev controller at .220 actually looks like.
+        """
         asyncio.run(
             _apply_web_port_change(
                 {"port": 8090}, {"port": 8095, "cloud": {"enabled": True}}
             )
         )
-        assert "apply_cloud_template" in spy
-        assert "remove_cloud_template" not in spy
+
+        assert "remove_cloud_template" in spy
+        assert "apply_cloud_template" not in spy
 
     def test_a_failure_is_reported_rather_than_raised(self, monkeypatch):
         # The port is already saved by this point. A 500 here would say nothing
@@ -173,3 +196,26 @@ class TestApplyingAPortChange:
         )
         outcome = asyncio.run(_apply_web_port_change({"port": 8090}, {"port": 8095}))
         assert "8095" in outcome
+
+
+class TestWhichTemplateIsLive:
+    """Read from the file, because the configuration can disagree with it."""
+
+    @pytest.fixture
+    def compose(self, tmp_path, monkeypatch):
+        path = tmp_path / "docker-compose.yaml"
+        monkeypatch.setattr(containers, "COMPOSE_FILE", path)
+        return path
+
+    def test_the_cloud_template_is_recognised(self, compose):
+        compose.write_text("    command: [\"/init-certs-cloud.sh\"]\n")
+        assert containers.cloud_template_is_live() is True
+
+    def test_the_local_template_is_recognised(self, compose):
+        compose.write_text("    command: [\"/init-certs.sh\"]\n")
+        assert containers.cloud_template_is_live() is False
+
+    def test_an_unreadable_file_assumes_local(self, compose):
+        # Local needs nothing from outside the device, so it is the assumption
+        # that cannot make things worse.
+        assert containers.cloud_template_is_live() is False

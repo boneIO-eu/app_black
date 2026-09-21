@@ -502,9 +502,13 @@ async def _apply_web_port_change(previous: object, current: object) -> str | Non
     # The application does not write that file itself: it names a verb and the
     # privileged helper copies from /usr/lib/boneio/trusted. That is F-04, and
     # it is why this is two calls rather than a file write.
+    # Which template, asked of the file and not of the configuration. A device
+    # whose cloud registration never completed has cloud enabled in config and
+    # the local template on disk, and switching it to the cloud one would hand
+    # Caddy an init script whose certificates are not there.
     refresh = (
         containers.apply_cloud_template
-        if _cloud_enabled(current)
+        if await loop.run_in_executor(None, containers.cloud_template_is_live)
         else containers.remove_cloud_template
     )
     outcome = await loop.run_in_executor(None, refresh)
