@@ -5,7 +5,8 @@ Version 1 of this helper accepted a whole migration plan over stdin from the
 unprivileged ``boneio`` process it serves: the actions to perform, the digests
 to check assets against, and a free-text ``validate_cmd`` that it ran as root.
 Anyone holding the ``boneio`` account could therefore execute arbitrary code as
-root through an entirely legitimate call. That is CVE-2026-77055.
+root through an entirely legitimate call — no exploit needed, because the
+mechanism was the vulnerability.
 
 Version 2 accepts a version string. Everything else it works out for itself,
 and it trusts nothing it is handed:
@@ -1421,7 +1422,8 @@ def selftest() -> int:
     if _dev_hatch_open():
         _LOGGER.warning(
             "DEV HATCH OPEN: %s exists, so unsigned plans are accepted on this "
-            "device. This reopens CVE-2026-77055; remove it before shipping.",
+            "device, which is protocol 1 behaviour and undoes the reason this "
+            "helper exists. Remove it before shipping.",
             DEV_HATCH,
         )
 
@@ -1524,7 +1526,8 @@ def main(argv: list[str] | None = None) -> int:
         if _dev_hatch_open() and "actions" in request:
             _LOGGER.warning(
                 "DEV HATCH: applying an UNSIGNED plan for %s because %s exists. "
-                "This is protocol 1 behaviour and reopens CVE-2026-77055.",
+                "This is protocol 1 behaviour: the plan is taken on trust from the "
+                "unprivileged caller, which is the escalation this helper closes.",
                 version, DEV_HATCH,
             )
             actions = request["actions"]

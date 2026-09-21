@@ -4,7 +4,7 @@
 # version string and builds the plan itself from a signed release, and
 # boneio-containers accepts one of a fixed list of verbs. Neither will run a
 # command supplied by the caller, which is what separates this from the
-# NOPASSWD rule it replaces (CVE-2026-77055).
+# wildcard NOPASSWD rule it replaces.
 #
 # There is deliberately no rule for reinstalling the helpers. Recovery goes
 # through boneio-helpers-heal.service and the root-owned pristine copy, so a

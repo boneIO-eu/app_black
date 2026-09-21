@@ -29,7 +29,7 @@ jobs:
           pip install -e .
 
       # The signed plans are the only thing the privileged migration helper will
-      # execute (CVE-2026-77055), so a plan that drifts from its module means the
+      # execute, so a plan that drifts from its module means the
       # device applies old, signed behaviour while the source says otherwise.
       # No signing key here on purpose: verification needs only the public key,
       # so a compromised workflow cannot mint a plan that runs as root.
