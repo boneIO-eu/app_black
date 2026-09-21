@@ -135,6 +135,14 @@ class MultiClickDetector:
                         self._delay_click_types.add(first)
                         break
 
+    def set_debounce(self, debounce_seconds: float) -> None:
+        """Change the debounce window on a running detector.
+
+        Only the window is replaced; timestamps already recorded stay valid
+        and are simply compared against the new window from now on.
+        """
+        self._debounce_seconds = debounce_seconds
+
     def _finalize_clicks(self) -> None:
         """Finalize a multi-click sequence."""
         count = self._state.click_count
@@ -415,13 +423,18 @@ class MultiClickDetector:
         GPIO state to detect missed RELEASE edge events.
         """
         if not self._state.last_press_loop_ts or self._state.last_release_ts:
-            # Button released or invalid state
+            # Button released or invalid state. Drop the handle as well: this
+            # chain is ending here, and a handle left pointing at a timer that
+            # has already fired reads as "a long press is running" to the
+            # release path, which then emits a phantom final LONG on the next
+            # ordinary click.
             _LOGGER.debug(
                 "Periodic long skipped for %s: press_ts=%s, release_ts=%s",
                 self._name,
                 self._state.last_press_loop_ts is not None,
                 self._state.last_release_ts,
             )
+            self._state.long_hold_periodic_timer = None
             return
         
         now = self._loop.time()
@@ -570,6 +583,27 @@ class MultiClickDetector:
                 return
 
             _LOGGER.debug("PRESSED: %s (%s)", self._name, self._pin)
+
+            # End any long-hold chain still running from the previous press.
+            # It can still be running only because that press never saw its
+            # release — the edge was lost while the event loop was blocked, or
+            # it was swallowed as a bounce. Left alone, the old chain keeps
+            # rescheduling itself and now measures against *this* press, so its
+            # safety timeout never trips and nothing can ever cancel it: the
+            # handle below is about to be overwritten. Every such press adds
+            # another immortal chain emitting LONG five times a second.
+            if self._state.long_hold_periodic_timer:
+                _LOGGER.warning(
+                    "New press on %s (%s) while a long-hold chain was still "
+                    "running — the previous release was never seen. Ending it.",
+                    self._name,
+                    self._pin,
+                )
+                self._state.long_hold_periodic_timer.cancel()
+                self._state.long_hold_periodic_timer = None
+                self._state.executed_long_actions = set()
+                self._state.last_repeat_times = {}
+
             self._state.last_press_ts = timestamp_s
             self._state.last_press_loop_ts = self._loop.time()  # Store loop time for duration calc
             self._state.last_release_ts = None  # Reset release timestamp for new press
@@ -846,6 +880,33 @@ class BinarySensorDetector:
         self._name = name
         self._pin = pin
         self._state = BinarySensorState()
+
+    def set_debounce(self, debounce_seconds: float) -> None:
+        """Change the debounce window on a running detector.
+
+        Only the window is replaced; timestamps already recorded stay valid
+        and are simply compared against the new window from now on.
+        """
+        self._debounce_seconds = debounce_seconds
+
+    def resync(self, inverted: bool, current_state: bool) -> None:
+        """Apply a new polarity to a running detector.
+
+        Called when ``inverted`` is changed in the config and reloaded, so the
+        user does not have to restart the application for it to take effect.
+
+        Args:
+            inverted: New inverted flag.
+            current_state: Pressed state as read from the pin right now, already
+                interpreted with the *new* polarity. Without re-anchoring it the
+                cached state would still describe the old polarity and the next
+                edge would be dropped by the "state unchanged" guard.
+        """
+        self._inverted = bool(inverted)
+        self._state.current_state = bool(current_state)
+        # Drop the debounce anchor — the pending window belongs to the old
+        # polarity and would swallow the first edge after the change.
+        self._state.last_press_ts = None
 
     def handle_event(self, event: gpiod.EdgeEvent) -> None:
         """Process a GPIO edge event for binary sensor.

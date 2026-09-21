@@ -12,11 +12,16 @@ import time
 
 from boneio.const import PRESSED, RELEASED, ClickTypes
 from boneio.core.events import EventBus
-from boneio.core.utils import TimePeriod
+from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.models import InputState
 from boneio.models.events import InputEvent
 
 _LOGGER = logging.getLogger(__name__)
+
+# Fallback debounce when a config carries no bounce_time at all. The per-type
+# schema defaults (120ms binary_sensor, 30ms event) normally win long before
+# this, via Cerberus at startup or the update_* methods on reload.
+DEFAULT_BOUNCE_TIME_MS = 50
 
 
 class GpioBaseClass:
@@ -58,8 +63,13 @@ class GpioBaseClass:
     ) -> None:
         """Initialize GPIO input base class."""
         self._pin = pin
-        bounce_time: TimePeriod = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
-        self._bounce_time = bounce_time.total_in_seconds
+        # A TimePeriod at startup, where Cerberus has coerced it — but the
+        # hot-reload path reads the YAML without validation, so an input added
+        # while the app runs arrives with a bare number of milliseconds (WebUI)
+        # or a string such as "30ms" (hand-written config).
+        self._bounce_time = (
+            parse_time_to_ms(kwargs.get("bounce_time"), DEFAULT_BOUNCE_TIME_MS) / 1000.0
+        )
         self._loop = asyncio.get_running_loop()
         self._name = name
         self._actions = actions

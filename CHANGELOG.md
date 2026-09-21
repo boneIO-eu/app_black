@@ -4,6 +4,28 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## Unreleased
+
+The reliability fixes from the 1.5.x line, forward-ported.
+
+### 🐛 The OLED no longer puts I2C in front of the GPIO reader
+
+Drawing a screen is cheap — a 128x64 PIL image — but handing it to the panel is
+an I2C transfer of about a kilobyte that first waits for the bus lock shared
+with the relay expanders and every I2C sensor. That transfer ran on the event
+loop, and the output and input screens redraw straight from the event bus
+worker, so every relay that switched put a kilobyte of I2C ahead of the GPIO
+reader.
+
+The device is now wrapped so that only the transfer moves to its own thread;
+the drawing code is unchanged and still builds its image on the caller's
+thread. Frames are coalesced rather than queued — a screen is a snapshot, so a
+burst of events leaves one redraw behind it instead of a backlog. The goodbye
+screen is flushed before the machine powers off.
+
+Same family as the INA219, temperature sensor and `Cover.stop()` changes in
+v1.5.4.
+
 ## v1.6.0.dev10 (2026-09-19) — 1.6.x security series
 
 Brought under the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847), which
@@ -54,6 +76,217 @@ of meeting those requirements; they are not a declaration of conformity.
 ### ♻️ Refactoring
 
 - **Remove `any` from `RemoteOutputForm`** — Replaced all 5 `any` types with proper interfaces (`RemoteOutputFormData`, `RemoteOutputFormSchema`, `RemoteOutputType`). `updateField` now uses generic constraint `<K extends keyof RemoteOutputFormData>`.
+
+---
+
+## v1.5.5 (2026-09-21)
+
+Hotfix on top of `v1.5.4`. The same symptom came back from the field with
+1.5.4 installed: clicking an input logged `Detected SINGLE click` but the
+output action never ran, and only restarting the service brought it back.
+
+v1.5.4 fixed one half of this and left the other. The dispatcher no longer
+*dies* on a cancelled listener — but it could still *block* on one forever,
+and that is what was happening.
+
+### 🐛 A WebSocket client that stops answering no longer stops the controller
+
+In the same journal, hypercorn logged `OSError: [Errno 113] No route to host`
+— a browser whose host had left the network. Nothing raises
+`WebSocketDisconnect` for a peer that has merely stopped being routable: the
+socket stays in `active_connections`, the kernel send buffer fills, and
+`writer.drain()` inside hypercorn waits for as long as TCP keeps retrying.
+
+The WebSocket broadcast is a global listener for all six event types, and every
+entity event is dispatched by one worker task that awaits it. So that wait
+became everyone's: inputs, outputs, covers and sensors all stopped being
+delivered, while the click detector — which sits upstream of the bus, on plain
+event-loop timers — carried on logging clicks that no longer did anything.
+
+- **Each frame is bounded** by `WS_SEND_TIMEOUT` (5s). A client that misses it
+  is dropped, not waited on.
+- **Sends run concurrently**, so a batch of unreachable clients costs one
+  timeout rather than one each.
+- **The manager's lock is no longer held across the sends** — held across them,
+  one stuck client also blocked every other caller.
+
+### 🔎 A stalled event bus now says so
+
+The failure was silent twice, which is most of why it took two releases. The
+dispatcher records which listener it is awaiting, and once a wait passes 20s it
+logs an error naming that listener and saying that everything queued behind it
+is stalled.
+
+This is diagnostics only; it changes no behaviour and cancels nothing.
+
+### Not fixed here
+
+The hypercorn traceback itself (`Unhandled exception in client_connected_cb`)
+is upstream: `TCPServer._close()` catches `BrokenPipeError`,
+`ConnectionAbortedError`, `ConnectionResetError`, `RuntimeError` and
+`CancelledError`, and `EHOSTUNREACH` is none of those; it is raised from a
+`finally:` block, outside the `except OSError` in `run()`. It is log noise, it
+does not affect operation, and it predates 1.5.4.
+
+---
+
+## v1.5.4 (2026-09-21)
+
+Hotfix on top of `v1.5.3`, for the report of inputs that stop responding —
+"sometimes" on 1.5.1, "very often" on 1.5.2 — with nothing in the log about the
+button press.
+
+The inputs were not at fault. A debug capture from an affected controller shows
+the asyncio event loop standing still for 40 seconds: every MainThread log line
+stops, including the once-per-7s migration status poll, while the Modbus worker
+threads keep publishing and their message ids run on. Nothing reads GPIO while
+the loop is stopped, so the edges are dropped in the kernel buffer and the
+detector is left mid-press.
+
+### 🐛 Blocking I2C taken off the event loop
+
+Reading an I2C sensor is a blocking transfer that first waits for a bus lock
+shared with the relay expanders, the OLED and every other device on the bus.
+Both sensor readers did that wait inline in their coroutine, so it was the
+event loop that waited — and with it the GPIO reader, every timer and the whole
+event bus.
+
+- **INA219** reads all of its measurements in a worker thread, in one hop.
+- **Temperature sensors** (PCT2075, MCP9808) read in a worker thread.
+
+### 🐛 The event bus no longer dies on a cancelled listener
+
+Every input, output, cover and sensor event is dispatched by a single worker
+task. `CancelledError` is a `BaseException`, so a listener raising one passed
+straight through the `except Exception` handlers and ended that task — with no
+traceback, because a task ending that way counts as merely cancelled, and with
+nothing watching or restarting it. From then on the queue filled and nobody
+drained it: every input dead at once, nothing in the log, only a restart would
+bring them back. The websocket broadcast, which is a global listener for all
+six event types, raises exactly this when a browser disconnects mid-send.
+
+A cancelled listener is now contained and logged; cancellation of the worker
+itself still works.
+
+### 🐛 Orphaned long-hold timer chains
+
+A long press runs a self-rescheduling 200ms timer chain, and only the newest
+handle is kept. If a release went missing — the edge lost while the loop was
+blocked, or swallowed as a bounce — the next press started a second chain while
+the first was still running and now unreachable: nothing could cancel it, and
+its safety timeout measured against the new press, so it never tripped. Each
+such press added another chain firing LONG five times a second.
+
+- A press now ends any chain still running from the previous one.
+- A chain that stops on its own drops its handle, instead of leaving a stale
+  one that made the next ordinary short click emit a phantom LONG as well.
+
+### 🐛 Stopping a cover no longer freezes the loop
+
+`Cover.stop()` waited for the movement thread and then de-energised both relays
+over I2C, all inline in the coroutine — up to half a second of stopped event
+loop. `toggle`, `toggle_open` and `toggle_close` all call `stop()` first, so an
+ordinary button press on a cover paid for it, and nothing read GPIO meanwhile.
+The wait and both relay writes now happen in a worker thread, in the same order
+as before.
+
+### Not changed, and why
+
+The per-write `IODIR` verification in the MCP23017 driver and the expander
+health watchdog were both considered as suspects and both cleared. One extra
+one-byte register read per relay write is on the order of 100µs of bus time —
+three orders of magnitude short of explaining a 40-second stall — and it guards
+a failure mode seen in the field. Throttling it only traded a real protection
+for nothing measurable, so it stays as it is.
+
+---
+
+## v1.5.3 (2026-09-19)
+
+Hotfix release on top of `v1.5.2`. Two input-configuration bugs reported from
+the field, plus three more found in the same code while fixing them — all of
+which made the WebUI disagree with the running device.
+
+### 🐛 Bug Fixes — input settings that needed an application restart
+
+Reported after flipping **Inverted** on a binary sensor in Settings → Inputs:
+the value was saved to YAML and the hot reload ran, but the input went on
+reporting the old polarity until `systemctl restart boneio`.
+
+The reload machinery itself was fine — the WebUI does `PUT /api/config/...`
+followed by `POST /api/config/reload`, and the manager routes that to
+`InputManager.reload_inputs()`. The gap was one level down: rather than
+rebuilding an existing input, the reload updates it in place, and it updated
+exactly four things — actions, name, area and device_class. Everything read in
+`__init__` and baked into the GPIO detector was left on its old value, which is
+why restarting the service fixed it and reloading did not.
+
+- **`inverted` is applied to the running sensor.** `update_inverted()` swaps
+  the sensor's click types, re-reads the pin and re-anchors the detector.
+- **The first edge after a polarity change is no longer swallowed.** The
+  detector's cached state still described the old polarity, so the next edge
+  looked like "state unchanged" and was dropped; the pending debounce window
+  belonged to the old polarity too. Both are reset with the change.
+- **The state is republished straight away.** After a flip the reported state
+  is the opposite one, so MQTT, Home Assistant and the WebUI are told at once
+  instead of waiting for the next physical edge.
+- **`bounce_time` is applied too**, for binary sensors and event inputs alike.
+
+`gpio_mode` is deliberately untouched: it is deprecated, ignored at runtime
+(the kernel overlay handles it) and never set from the interface.
+
+### 🐛 Bug Fixes — time values lost on the hot-reload path
+
+All three of the following come from one root cause. Time fields are declared
+in the schema with a `positive_time_period` coercion, so at startup they reach
+the input as `TimePeriod` objects. The hot-reload path deliberately skips
+Cerberus validation for speed, so on a reload the very same fields arrive as
+whatever the YAML holds — a bare number of milliseconds where the WebUI wrote
+one (`BinarySensorForm`), or a string such as `"300ms"` where it wrote that
+(`EventForm`, and any hand-written config). The code that consumed them only
+understood `TimePeriod`.
+
+- **Custom click timings no longer reset on every reload.**
+  `double_click_duration`, `long_press_duration`, `sequence_window_duration`
+  and `max_long_press_duration` silently fell back to 220/400/500 ms and 120 s
+  each time the config was reloaded, because the helper that converted them
+  returned the default for any string. A fresh boot honoured the configured
+  values, so the timings changed under the user without anything in the log.
+- **Adding an input no longer risks aborting the reload.**
+  `GpioBaseClass.__init__` called `.total_in_seconds` straight on the value,
+  which raises `AttributeError` on a number or a string. The only handler
+  around that call catches `GPIOInputException`, so the exception escaped the
+  reload instead of being reported against the offending input.
+- **`bounce_time` resolves the same way everywhere.** An absent key means the
+  WebUI stripped it as a default, so it resolves to that input type's schema
+  default — 120 ms for a binary sensor, 30 ms for an event.
+
+Every one of these now goes through `parse_time_to_ms`, which reads
+`TimePeriod`, bare milliseconds and strings with a unit alike, and still falls
+back to the documented default for a value it cannot parse.
+
+### 🐛 Bug Fixes — binary sensors offered the wrong device classes
+
+Reported from Settings → Inputs: the **Device class** list held only Button,
+Doorbell and Motion regardless of input type. Those are the Home Assistant
+*event* device classes; a binary sensor should be offered door, window,
+opening, moisture, smoke, gas, occupancy, vibration, tamper and the rest.
+
+- **Each input form now gets its own schema.** The merged `local_inputs`
+  section used the event schema as its base, on the stated assumption that
+  event is a superset of binary_sensor. It is not: `device_class`, `actions`
+  and `bounce_time` differ, and `initial_send` exists only on binary_sensor.
+  `BinarySensorForm` reads its options straight from the schema, so it was
+  handed the event list. The section schema now carries the union of both
+  property sets plus each item schema under `x-variants`, and the form renderer
+  picks the variant for the type being edited.
+- **Side effects of the same fix.** `BinarySensorForm` now also gets the
+  pressed/released action types and the binary-sensor `bounce_time` default
+  from the schema instead of falling back to hardcoded lists.
+
+The backend schemas were already correct — `binary_sensor.schema.json` has all
+27 device classes and `event.schema.json` the three event ones. Nothing in
+config.yaml needs changing.
 ---
 
 ## v1.5.2 (2026-09-10)

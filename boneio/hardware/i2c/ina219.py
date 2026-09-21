@@ -222,6 +222,26 @@ class INA219(AsyncUpdater):
         """
         return self._sensors
 
+    def _read_values(self, keys: list[str]) -> dict[str, float]:
+        """Read the requested measurements from the chip.
+
+        Runs in a worker thread; every access here is a blocking I2C transfer.
+
+        Args:
+            keys: Driver attribute names to read (``current``, ``voltage``, ``power``).
+
+        Returns:
+            The values that could be read. A key is absent when its read failed,
+            so one bad measurement does not cost the others.
+        """
+        out: dict[str, float] = {}
+        for k in keys:
+            try:
+                out[k] = getattr(self._ina_219, k)
+            except Exception as err:
+                _LOGGER.error("Error reading INA219 %s: %s", k, err)
+        return out
+
     async def async_update(self, timestamp: datetime) -> None:
         """Read sensor values and update all managed sensors.
         
@@ -232,9 +252,27 @@ class INA219(AsyncUpdater):
         Args:
             timestamp: Current timestamp
         """
+        # Read the whole chip in one executor hop. Each attribute is a blocking
+        # I2C transaction that takes the bus lock, and the bus lock is held by
+        # whatever else is mid-transfer — a relay write, the expander watchdog,
+        # the OLED. Done inline in this coroutine it is the *event loop* that
+        # waits on that lock, which stops the GPIO reader, every timer and the
+        # event bus for as long as the bus is busy. Reading in a worker thread
+        # keeps the wait off the loop.
+        keys = list(self._sensors)
+        try:
+            values = await asyncio.get_running_loop().run_in_executor(
+                None, self._read_values, keys
+            )
+        except Exception as err:
+            _LOGGER.error("Error reading INA219: %s", err)
+            return
+
         for k, sensor in self._sensors.items():
             try:
-                value = getattr(self._ina_219, k)
+                value = values.get(k)
+                if value is None:
+                    continue
                 _LOGGER.debug("Fetched INA219 value: %s = %s %s", k, value, sensor.unit_of_measurement)
                 
                 if sensor.raw_state != value:
