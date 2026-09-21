@@ -1,1 +1,1 @@
-[{"action":"install_file","dst":"/home/boneio/docker/nodered/caddy/init-certs.sh","expected_sha256":"93342a62f024235b2deefd2cd833ef72d7a9cf14a8ad0727ab0dc422e78e8388","group":"boneio","mode":493,"owner":"boneio","src":"docker/nodered/caddy/init-certs.sh","template_vars":{}}]
+[{"action":"install_file","dst":"/home/boneio/docker/nodered/caddy/init-certs.sh","expected_sha256":"3faa5c453478fde512d9084df2e2d2d73546d1cdd0aff0c672fc8531307bde45","group":"boneio","mode":493,"owner":"boneio","src":"docker/nodered/caddy/init-certs.sh","template_vars":{}}]

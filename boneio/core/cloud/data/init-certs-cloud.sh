@@ -59,7 +59,7 @@ if [ -f "/data/ssl/fullchain.pem" ] && [ -f "/data/ssl/privkey.pem" ]; then
         }
 
         handle {
-                reverse_proxy host.docker.internal:8090 {
+                reverse_proxy host.docker.internal:${WEB_PORT:-8090} {
                         header_up X-Forwarded-Proto {scheme}
                 }
         }
@@ -129,7 +129,7 @@ https:// {
         }
 
         handle {
-                reverse_proxy host.docker.internal:8090 {
+                reverse_proxy host.docker.internal:${WEB_PORT:-8090} {
                         header_up X-Forwarded-Proto {scheme}
                 }
         }

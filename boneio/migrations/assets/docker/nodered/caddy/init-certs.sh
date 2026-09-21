@@ -108,7 +108,11 @@ https:// {
         }
 
         handle {
-                reverse_proxy host.docker.internal:8090 {
+                # The panel's own port, passed in by compose. Hardcoding 8090 here
+                # meant a device with web.expose set to proxy answered on nothing
+                # at all once its port was changed: Caddy kept proxying to 8090
+                # while the application had stopped binding it.
+                reverse_proxy host.docker.internal:${WEB_PORT:-8090} {
                         header_up X-Forwarded-Proto {scheme}
                 }
         }

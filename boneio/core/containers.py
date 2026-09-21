@@ -20,10 +20,13 @@ to run compose against a compose file the caller could have written.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
+import re
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,6 +36,10 @@ HELPER_PATH = "/usr/sbin/boneio-containers"
 #: Where the compose project lives. The helper has its own hard-coded copy of
 #: this; ours is only used by the fallback.
 PROJECT_DIR = Path.home() / "docker" / "nodered"
+
+#: What compose interpolates into the compose file. Writable by the
+#: application; the compose file next to it is not. See set_project_env.
+ENV_FILE = PROJECT_DIR / ".env"
 
 CADDY_SERVICE = "caddy"
 NODERED_SERVICE = "node-red"
@@ -417,3 +424,70 @@ def set_nodered_image(tag: str, timeout: int = 60) -> Result:
 def remove_cloud_template(timeout: int = 60) -> Result:
     """Restore the plain compose template."""
     return run("remove-cloud-template", timeout=timeout)
+
+
+def set_project_env(name: str, value: str) -> bool:
+    """Set one variable in the compose project's ``.env``, leaving the rest alone.
+
+    Compose reads ``.env`` from the project directory and interpolates it into
+    the compose file, which is how the panel's own port reaches Caddy. The
+    application may write this file: the directory belongs to it. It may not
+    write the compose file beside it, which is root-owned because
+    ``docker compose up`` executes it — that distinction is F-04, and it holds
+    here because interpolation substitutes into scalar values after the YAML is
+    parsed, so nothing passed this way can introduce a volume or an entrypoint.
+
+    Read-modify-write rather than truncate: an operator may have put their own
+    variables here, and a port change is no reason to lose them. Comments and
+    order are preserved, and the replacement is atomic, so a crash mid-write
+    cannot leave compose reading half a file.
+
+    Args:
+        name: Variable name, e.g. ``"WEB_PORT"``.
+        value: Its value, written verbatim.
+
+    Returns:
+        True when the file now says so, False when it could not be written.
+    """
+    assignment = f"{name}={value}"
+    try:
+        existing = ENV_FILE.read_text().splitlines()
+    except FileNotFoundError:
+        existing = []
+    except OSError as err:
+        _LOGGER.error("Could not read %s: %s", ENV_FILE, err)
+        return False
+
+    pattern = re.compile(rf"^\s*(?:export\s+)?{re.escape(name)}\s*=")
+    lines, replaced = [], False
+    for line in existing:
+        if pattern.match(line):
+            # Only the first assignment is authoritative for compose, but a
+            # later duplicate would override it, so every one has to go.
+            if not replaced:
+                lines.append(assignment)
+                replaced = True
+            continue
+        lines.append(line)
+    if not replaced:
+        lines.append(assignment)
+
+    body = "\n".join(lines).rstrip("\n") + "\n"
+    try:
+        ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+        handle, temporary = tempfile.mkstemp(dir=ENV_FILE.parent, prefix=".env.")
+        try:
+            with os.fdopen(handle, "w") as stream:
+                stream.write(body)
+            os.chmod(temporary, 0o644)
+            os.replace(temporary, ENV_FILE)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(temporary)
+            raise
+    except OSError as err:
+        _LOGGER.error("Could not write %s: %s", ENV_FILE, err)
+        return False
+
+    _LOGGER.info("Set %s in %s", assignment, ENV_FILE)
+    return True

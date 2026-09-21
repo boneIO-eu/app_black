@@ -16,6 +16,7 @@ from fastapi import APIRouter, Body, HTTPException
 if TYPE_CHECKING:
     from starlette.datastructures import State
 
+from boneio.core import containers
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.core.config.yaml_util import (
@@ -458,6 +459,67 @@ async def _guard_expose_change(previous: object, current: object) -> None:
         )
 
 
+async def _apply_web_port_change(previous: object, current: object) -> str | None:
+    """Tell Caddy the panel's port when it moves.
+
+    The Caddyfile is generated at container start from ``WEB_PORT``, so a port
+    change that does not reach the compose project's ``.env`` leaves Caddy
+    proxying to the old one. With ``web.expose`` set to ``proxy`` — the default
+    a 1.6 image ships — the application is not listening anywhere else either,
+    so the device would answer on nothing but the loopback, the USB link and an
+    SSH tunnel.
+
+    ``up -d`` rather than ``restart``: a container's environment is fixed when
+    it is created, so a restart would keep the old value and the change would
+    appear to have been applied when it had not.
+
+    A failure here is reported, not raised. The port is already saved by this
+    point, and the caller needs to hear that the proxy is behind rather than
+    receive a 500 that suggests nothing was written at all.
+
+    Args:
+        previous: The ``web`` section before the save.
+        current: The ``web`` section after it.
+
+    Returns:
+        What happened, or None when the port did not move.
+    """
+    was = (previous or {}).get("port") if isinstance(previous, dict) else None
+    now = (current or {}).get("port") if isinstance(current, dict) else None
+    if not isinstance(now, int) or now == was:
+        return None
+
+    loop = asyncio.get_running_loop()
+    if not await loop.run_in_executor(None, containers.set_project_env, "WEB_PORT", str(now)):
+        return f"could not tell the proxy about port {now}"
+
+    # Refresh the live compose file from the trusted template, because a device
+    # updated from an earlier 1.6 still has the one that does not pass WEB_PORT
+    # through — and without that, .env is read and then ignored, which looks
+    # exactly like success. Whichever template is in use is re-copied, so a
+    # cloud device is not quietly switched back to the local one.
+    #
+    # The application does not write that file itself: it names a verb and the
+    # privileged helper copies from /usr/lib/boneio/trusted. That is F-04, and
+    # it is why this is two calls rather than a file write.
+    refresh = (
+        containers.apply_cloud_template
+        if _cloud_enabled(current)
+        else containers.remove_cloud_template
+    )
+    outcome = await loop.run_in_executor(None, refresh)
+    if not outcome.ok:
+        return (
+            f"port {now} is saved, but the proxy still forwards to the old one: "
+            f"{outcome.error or 'the compose template could not be refreshed'}"
+        )
+
+    outcome = await loop.run_in_executor(None, containers.start_caddy)
+    if not outcome.ok:
+        return f"the proxy did not come back up on port {now}: {outcome.error or 'unknown reason'}"
+    return f"the proxy now forwards to port {now}"
+
+
 async def _apply_cloud_toggle(app_state, previous: object, current: object) -> str | None:
     """Start or stop cloud registration to match what was just saved.
 
@@ -606,6 +668,9 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             )
             if cloud_outcome:
                 result["cloud"] = cloud_outcome
+            proxy_outcome = await _apply_web_port_change(previous_section, data)
+            if proxy_outcome:
+                result["proxy"] = proxy_outcome
 
         # A restart is what the other settings in this section need; the cloud
         # toggle now takes effect where it is made. Asking for one anyway would
