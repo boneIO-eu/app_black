@@ -191,11 +191,46 @@ phase_verify() {
   if [ -z "${DEV_PASSWORD:-}" ]; then
     info "DEV_USER/DEV_PASSWORD unset — the socket and migration checks will be skipped"
   fi
-  if python3 "$REPO_ROOT/scripts/verify_device.py" "${args[@]}"; then
+  local py
+  py="$(_verify_python)" || {
+    bad "no interpreter here can run verify_device.py — see above"
+    return
+  }
+  if "$py" "$REPO_ROOT/scripts/verify_device.py" "${args[@]}"; then
     ok "the live service answers for everything asked of it"
   else
     bad "the live service failed a check (see above)"
   fi
+}
+
+# An interpreter that can actually run the checker.
+#
+# This used to be a bare `python3`, which meant whatever pyenv resolved from
+# .python-version — a bare interpreter with no project installed. It worked for
+# months because that particular one happened to have `requests` left in it
+# from something else, and broke the day the environment was rebuilt clean. A
+# dev-loop check whose own dependencies are satisfied by accident is not a
+# check you can trust to tell you the device is fine.
+#
+# So: ask each candidate whether it can import what the checker needs, and say
+# which one was chosen rather than leaving it to be guessed.
+_verify_python() {
+  local candidates=("$REPO_ROOT/.venv/bin/python")
+  [ -n "${VIRTUAL_ENV:-}" ] && candidates+=("$VIRTUAL_ENV/bin/python")
+  candidates+=(python3)
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    command -v "$candidate" >/dev/null 2>&1 || [ -x "$candidate" ] || continue
+    if "$candidate" -c 'import requests, websockets' >/dev/null 2>&1; then
+      # stderr, because this function's stdout is the chosen path.
+      info "checker running under $candidate" >&2
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  bad "verify_device.py needs requests and websockets. Tried: ${candidates[*]}" >&2
+  bad "install them into one of those, e.g. pip install -e . in this repo" >&2
+  return 1
 }
 
 phase_harness() {
