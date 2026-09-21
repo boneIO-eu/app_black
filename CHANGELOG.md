@@ -45,6 +45,57 @@ v1.5.4.
 
 ---
 
+## v1.5.5 (2026-09-21)
+
+Hotfix on top of `v1.5.4`. The same symptom came back from the field with
+1.5.4 installed: clicking an input logged `Detected SINGLE click` but the
+output action never ran, and only restarting the service brought it back.
+
+v1.5.4 fixed one half of this and left the other. The dispatcher no longer
+*dies* on a cancelled listener — but it could still *block* on one forever,
+and that is what was happening.
+
+### 🐛 A WebSocket client that stops answering no longer stops the controller
+
+In the same journal, hypercorn logged `OSError: [Errno 113] No route to host`
+— a browser whose host had left the network. Nothing raises
+`WebSocketDisconnect` for a peer that has merely stopped being routable: the
+socket stays in `active_connections`, the kernel send buffer fills, and
+`writer.drain()` inside hypercorn waits for as long as TCP keeps retrying.
+
+The WebSocket broadcast is a global listener for all six event types, and every
+entity event is dispatched by one worker task that awaits it. So that wait
+became everyone's: inputs, outputs, covers and sensors all stopped being
+delivered, while the click detector — which sits upstream of the bus, on plain
+event-loop timers — carried on logging clicks that no longer did anything.
+
+- **Each frame is bounded** by `WS_SEND_TIMEOUT` (5s). A client that misses it
+  is dropped, not waited on.
+- **Sends run concurrently**, so a batch of unreachable clients costs one
+  timeout rather than one each.
+- **The manager's lock is no longer held across the sends** — held across them,
+  one stuck client also blocked every other caller.
+
+### 🔎 A stalled event bus now says so
+
+The failure was silent twice, which is most of why it took two releases. The
+dispatcher records which listener it is awaiting, and once a wait passes 20s it
+logs an error naming that listener and saying that everything queued behind it
+is stalled.
+
+This is diagnostics only; it changes no behaviour and cancels nothing.
+
+### Not fixed here
+
+The hypercorn traceback itself (`Unhandled exception in client_connected_cb`)
+is upstream: `TCPServer._close()` catches `BrokenPipeError`,
+`ConnectionAbortedError`, `ConnectionResetError`, `RuntimeError` and
+`CancelledError`, and `EHOSTUNREACH` is none of those; it is raised from a
+`finally:` block, outside the `except OSError` in `run()`. It is log noise, it
+does not affect operation, and it predates 1.5.4.
+
+---
+
 ## v1.5.4 (2026-09-21)
 
 Hotfix on top of `v1.5.3`, for the report of inputs that stop responding —

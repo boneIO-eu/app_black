@@ -137,3 +137,50 @@ class TestWorkerSurvivesCancelledListener:
 
         assert seen == ["in1"]
         assert not bus._worker_task.done()
+
+
+class TestStallIsReported:
+    """A dispatcher that stops moving must say so in the journal."""
+
+    async def test_no_warning_while_healthy(self, bus, caplog):
+        bus._dispatch_started_at = None
+        with caplog.at_level("ERROR"):
+            bus._check_dispatch_stall()
+        assert "waiting" not in caplog.text
+
+    async def test_no_warning_before_the_threshold(self, bus, caplog):
+        import time as _t
+
+        bus._dispatch_started_at = _t.monotonic() - 1.0
+        bus._dispatch_listener = "ws_input_global (input)"
+        with caplog.at_level("ERROR"):
+            bus._check_dispatch_stall()
+        assert "waiting" not in caplog.text
+
+    async def test_warns_once_when_stuck(self, bus, caplog):
+        import time as _t
+
+        bus._dispatch_started_at = _t.monotonic() - 60.0
+        bus._dispatch_listener = "ws_input_global (input)"
+
+        with caplog.at_level("ERROR"):
+            bus._check_dispatch_stall()
+            bus._check_dispatch_stall()
+
+        assert caplog.text.count("Event bus has been waiting") == 1
+        assert "ws_input_global (input)" in caplog.text
+
+    async def test_listener_is_named_during_dispatch(self, bus):
+        """The warning can only name a listener if dispatch records it."""
+        seen: list[str] = []
+
+        async def slow(_event):
+            seen.append(bus._dispatch_listener)
+
+        bus.add_event_listener(
+            event_type="input", entity_id="", listener_id="ws_input_global", target=slow
+        )
+        bus.trigger_event(_input_event("in1"))
+        await asyncio.sleep(0.05)
+
+        assert seen == ["ws_input_global (input)"]
