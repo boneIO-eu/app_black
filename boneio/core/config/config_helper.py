@@ -23,6 +23,7 @@ from boneio.const import (
     EVENT_ENTITY,
     HOMEASSISTANT,
     LIGHT,
+    NONE,
     NUMERIC,
     SELECT,
     SENSOR,
@@ -199,6 +200,41 @@ class ConfigHelper:
         """
         return bool(self._proxy_port) or self._expose == "proxy"
 
+    def update_network_info(self, network_info: dict | None) -> None:
+        """Refresh the address this device publishes links to.
+
+        The snapshot taken at startup goes stale: on DHCP the lease can arrive
+        after boneIO is up, and it can change later. Home Assistant and the OLED
+        both build their link from here, so both were handing out whatever was
+        true at boot.
+
+        An update without a usable address is ignored rather than stored — a
+        link to the last known address beats a link to nothing.
+
+        Args:
+            network_info: Fresh mapping from :func:`get_network_info`.
+        """
+        if self._usable_address(network_info):
+            self._network_info = network_info
+
+    @staticmethod
+    def _usable_address(network_info: dict | None) -> str | None:
+        """The IP from a network mapping, or None when there is not one.
+
+        ``get_network_info`` reports a missing address as the string "none",
+        which is truthy — published unchecked it became ``https://none:8443``.
+
+        Args:
+            network_info: Mapping to read.
+
+        Returns:
+            The address, or None.
+        """
+        address = (network_info or {}).get(IP)
+        if not address or address == NONE:
+            return None
+        return str(address)
+
     @property
     def configuration_url(self) -> str | None:
         """The address anything linking to this panel should use.
@@ -216,7 +252,7 @@ class ConfigHelper:
             # Registered with the cloud: a real certificate on a public name,
             # pointing at the local address. Nothing else can beat that.
             return f"https://{self.serial_number}.black.boneio.app:{DEFAULT_PROXY_PORT}"
-        address = (self._network_info or {}).get(IP)
+        address = self._usable_address(self._network_info)
         if not (self._is_web_active and address):
             return None
         return f"{self.http_proto}://{address}:{self.web_configuration_port}"

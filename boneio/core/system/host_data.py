@@ -19,7 +19,6 @@ from boneio.const import (
     DISK,
     HOST,
     INA219,
-    IP,
     MEMORY,
     NETWORK,
     SWAP,
@@ -150,7 +149,7 @@ class HostData:
         # Define host statistics monitoring
         host_stats = {
             NETWORK: {
-                "f": get_network_info,
+                "f": self._refresh_network_info,
                 "update_interval": TimePeriod(seconds=60),
             },
             CPU: {
@@ -323,19 +322,40 @@ class HostData:
         with suppress(RuntimeError):
             self._loop.create_task(uptime_sensor.async_update(time.time()))
 
+    def _refresh_network_info(self) -> dict[str, str]:
+        """Read the network state for the screen, and share it with ConfigHelper.
+
+        ConfigHelper takes its snapshot once at startup, which goes stale the
+        moment a DHCP lease is renewed — and it is what Home Assistant's
+        device link is built from. This poll already runs, so it is the cheapest
+        place to keep that snapshot current.
+
+        Returns:
+            The network mapping for the network screen.
+        """
+        info = get_network_info()
+        config_helper = getattr(self._manager, "config_helper", None)
+        if config_helper is not None:
+            config_helper.update_network_info(info)
+        return info
+
     @property
     def web_url(self) -> str | None:
-        """Get web UI URL if web server is enabled.
-        
+        """The address the QR code on the OLED points at.
+
+        Deliberately the same property Home Assistant's device link is built
+        from: the two used to be assembled separately, so a cloud-registered
+        device showed its proper certificate name in Home Assistant and a bare
+        IP on the display. Reading it here also drops a dependency on the
+        network screen being enabled — the old code indexed ``_data[NETWORK]``,
+        which does not exist when that screen is switched off.
+
         Returns:
-            URL string like "http://192.168.1.100:8090" or None
+            URL string, or None when there is nothing truthful to point at.
         """
         if not self._manager.is_web_on:
             return None
-        network_state = self._data[NETWORK].state
-        if IP in network_state:
-            return f"{self._manager.config_helper.http_proto}://{network_state[IP]}:{self._manager.config_helper.web_configuration_port}"
-        return None
+        return self._manager.config_helper.configuration_url
 
     def get(self, type: str) -> dict | str | None:
         """Get data for specified type.

@@ -129,3 +129,109 @@ def test_discovery_publishes_exactly_this():
     assert "black.boneio.app" not in source, (
         "discovery is building the address again instead of reading it"
     )
+
+
+def test_a_lease_that_arrives_after_boot_is_picked_up():
+    """The snapshot is taken at startup; DHCP does not always oblige by then."""
+    helper = ConfigHelper(name="x", version="1", web_port=8090, is_web_active=True)
+    assert helper.configuration_url is None
+
+    helper.update_network_info({"ip": "192.168.50.220"})
+    assert helper.configuration_url == "http://192.168.50.220:8090"
+
+    helper.update_network_info({"ip": "192.168.50.7"})
+    assert helper.configuration_url == "http://192.168.50.7:8090"
+
+
+def test_a_missing_address_is_not_published_as_an_address():
+    """get_network_info reports a missing address as the string "none", which
+    is truthy — unchecked it went out as https://none:8443."""
+    helper = ConfigHelper(
+        name="x",
+        version="1",
+        web_port=8090,
+        is_web_active=True,
+        network_info={"ip": "none"},
+    )
+    assert helper.configuration_url is None
+
+
+def test_an_update_without_an_address_keeps_the_last_good_one():
+    """A link to where the device was beats a link to nowhere."""
+    helper = _addressable()
+    assert helper.configuration_url == "http://192.168.50.220:8090"
+
+    helper.update_network_info({"ip": "none"})
+    helper.update_network_info({})
+    helper.update_network_info(None)
+    assert helper.configuration_url == "http://192.168.50.220:8090"
+
+
+class _FakeManager:
+    def __init__(self, helper, is_web_on=True):
+        self.config_helper = helper
+        self.is_web_on = is_web_on
+
+
+def _oled_url(helper, is_web_on=True):
+    """The URL the QR code on the display encodes."""
+    from boneio.core.system.host_data import HostData
+
+    fake = object.__new__(HostData)
+    fake._manager = _FakeManager(helper, is_web_on)
+    return HostData.web_url.fget(fake)
+
+
+def test_the_display_and_home_assistant_agree():
+    """They were assembled separately, so a cloud-registered device showed its
+    certificate name in Home Assistant and a bare IP on the OLED."""
+    helper = _addressable(cloud_registration=True, proxy_port=8443)
+    assert _oled_url(helper) == helper.configuration_url
+    assert ".black.boneio.app:8443" in _oled_url(helper)
+
+
+def test_the_display_follows_the_proxy_too():
+    helper = _addressable(expose="proxy")
+    assert _oled_url(helper) == "https://192.168.50.220:8443"
+
+
+def test_no_qr_code_when_the_panel_is_off():
+    helper = _addressable(expose="proxy")
+    assert _oled_url(helper, is_web_on=False) is None
+
+
+def test_the_display_needs_no_network_screen():
+    """The old code read _data[NETWORK], which does not exist when that screen
+    is switched off — enabling the web screen alone raised KeyError."""
+    helper = _addressable(expose="proxy")
+    assert _oled_url(helper) is not None
+
+
+def test_the_network_poll_keeps_the_snapshot_current(monkeypatch):
+    """The OLED's network poll already runs every 60s; it is what carries a new
+    lease into the snapshot Home Assistant's link is built from."""
+    from boneio.core.system import host_data as host_data_module
+
+    helper = ConfigHelper(name="x", version="1", web_port=8090, is_web_active=True)
+    fake = object.__new__(host_data_module.HostData)
+    fake._manager = _FakeManager(helper)
+
+    monkeypatch.setattr(
+        host_data_module, "get_network_info", lambda: {"ip": "10.0.0.5"}
+    )
+    returned = host_data_module.HostData._refresh_network_info(fake)
+
+    # The screen still gets its data …
+    assert returned == {"ip": "10.0.0.5"}
+    # … and the link followed it.
+    assert helper.configuration_url == "http://10.0.0.5:8090"
+
+
+def test_the_network_poll_survives_a_manager_without_a_helper():
+    """Early in startup the attribute may not be there yet; the screen must not
+    take the device down over it."""
+    from boneio.core.system import host_data as host_data_module
+
+    fake = object.__new__(host_data_module.HostData)
+    fake._manager = object()
+    assert isinstance(host_data_module.HostData._refresh_network_info(fake), dict)
