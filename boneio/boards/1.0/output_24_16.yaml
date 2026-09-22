@@ -126,6 +126,3 @@ output_mapping:
     mcp_id: mcp_right
     pin: 15
     output_type: switch
-  buzzer:
-    kind: buzzer
-    output_type: switch
