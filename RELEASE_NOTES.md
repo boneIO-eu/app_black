@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev10` exists so that we can test the new system-migration chain on a
+`1.6.0.dev11` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -23,6 +23,36 @@ Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
 
 ---
+
+# v1.6.0.dev11 — internal test build
+
+## Since dev10
+
+Schedules and sun-driven actions, virtual switches that can run actions of
+their own, and a presence-simulation wizard that writes both. `location:` gives
+the device coordinates; `earliest:`/`latest:` keep a sun anchor inside a clock
+window, which midsummer otherwise pushes past bedtime.
+
+Three things a test station and a running house both care about:
+
+- Cached sun times are dropped when the clock is set and when the timezone
+  changes. The board has no battery-backed clock, so it boots in the year 2000
+  until NTP answers; the sun provider kept answering with the old timezone
+  until a restart.
+- A schedule set inside the hour the spring clock change removes fired an hour
+  late, while the log and the panel both printed the time that had been asked
+  for. It now fires at the first moment that exists.
+- The Timezone page reported "permissions not installed, apply your pending
+  migrations" whenever the check timed out — on devices whose migrations were
+  all applied and whose rule was in place. Six routes that shelled out on the
+  event loop were the cause; one of them hangs when NTP is unreachable.
+
+Configuration now refuses at load time what it used to accept and get wrong at
+runtime: two names that fold to one identifier, a switch whose actions set
+itself, and a condition naming a virtual switch that does not exist.
+
+Entries are written with `name:` and the identifier is derived from it. `id:`
+is still accepted where a reference has to survive a rename.
 
 # v1.6.0.dev10 — internal test build
 

@@ -6,6 +6,72 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev11 (2026-09-22) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### ☀️ Schedules, and things that happen on their own
+
+`schedule:` fires actions at a clock time or at a moment the Sun defines —
+sunrise, the twilights, the golden and blue hours — with an offset, a random
+spread, and conditions. `location:` supplies the coordinates, editable on a map
+in the panel.
+
+`earliest:` and `latest:` hold a sun anchor inside a clock window. In Warsaw
+civil dusk is 21:50 on the longest day, so "living room at dusk, bed at 23:10"
+collapsed to eighty minutes in exactly the season a house is empty.
+
+### 🏳️ Virtual switches
+
+A flag with no relay behind it, read by conditions and set by actions, and a
+switch in Home Assistant. It carries `on_turn_on` / `on_turn_off` action lists
+of its own, which is what lets a mode clean up after itself when it is turned
+off — and catch up when it is armed after the moment a schedule was due.
+
+`probability:` on an action runs it only some of the time. Written for presence
+simulation: `jitter` randomises *when* a step happens, this randomises
+*whether*, and only the second breaks a pattern an observer can read.
+
+### 🏠 Presence simulation
+
+Settings → Control → Schedules → Presence simulation. Four questions, and what
+comes out is one virtual switch and one schedule per light — ordinary entries,
+editable afterwards, with nothing extra running.
+
+### 🐛 A clock the board cannot keep
+
+The BeagleBone has no battery-backed RTC: it boots in the year 2000 until NTP
+answers, which needs the network first. Cached sun times are now dropped when
+the clock is set and when the timezone changes — the provider was answering
+with the old zone until a restart.
+
+Schedules inside the hour that the spring clock change removes used to fire an
+hour late while the log and the panel both printed the time that was asked for.
+They now fire at the first moment that exists.
+
+### 🐛 A permission check that could not run is not a permission that is missing
+
+Six async routes shelled out with blocking calls, one of which hangs when the
+NTP server is unreachable — the exact moment somebody opens the Timezone page.
+That stalled every other request, the browser gave up at five seconds, and the
+panel turned a timeout into "the rule is not installed, apply your pending
+migrations" while the migrations page correctly said all of them were applied.
+
+### 🔒 Configuration refuses more at load time
+
+Two names that fold to the same identifier, a virtual switch whose own actions
+set itself, and a condition naming a virtual switch that does not exist. The
+last one matters because of which way the runtime fails: an unresolvable
+condition entity is logged and the action runs anyway, so a typo in "only while
+nobody is home" fired everything it was meant to hold back.
+
+### 📇 `name:` instead of `id:`
+
+Entries are written with a free-text `name:` and the identifier is made from it
+— "Nie ma nas w domu" becomes `nie_ma_nas_w_domu`, accents folded. `id:` is
+still accepted for a reference that has to survive a rename. `description:` is
+a note nobody reads.
+
 The reliability fixes from the 1.5.x line, forward-ported.
 
 ### 🐛 The OLED no longer puts I2C in front of the GPIO reader
