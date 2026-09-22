@@ -12,7 +12,7 @@ import { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useAppInit } from './AppInitContext';
 
 /** Board versions that support CAN bus (0.5+) */
-const CAN_SUPPORTED_VERSIONS = ['0.5', '0.6', '0.7', '0.8', '1.0'];
+const CAN_SUPPORTED_VERSIONS = ['0.5', '0.6', '0.7', '0.8', '1.0', '1.1'];
 
 /** Max inputs per board version */
 const MAX_INPUTS: Record<string, number> = {
@@ -24,6 +24,7 @@ const MAX_INPUTS: Record<string, number> = {
   '0.7': 49,
   '0.8': 49,
   '1.0': 49,
+  '1.1': 49,
 };
 
 interface ConfigContextType {

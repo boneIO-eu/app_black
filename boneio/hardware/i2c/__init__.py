@@ -3,7 +3,7 @@
 This module provides I2C bus support and I2C-based sensors:
 - SMBus2I2C wrapper for I2C communication
 - Temperature sensors (PCT2075/LM75, MCP9808)
-- Power monitoring (INA219 for v0.8, INA226 for v1.0)
+- Power monitoring (INA219 for v0.8, INA226 for v1.0+)
 """
 
 from boneio.hardware.i2c.bus import SMBus2I2C

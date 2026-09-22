@@ -1237,6 +1237,8 @@ _VERSION_TO_OVERLAY: dict[str, str] = {
     "0.7": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
     "0.8": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
     "1.0": "BONEIO-BLACK-PINS-v1.0.dtbo",
+    # 1.1 uses the same overlay as 1.0 — the pinout did not change.
+    "1.1": "BONEIO-BLACK-PINS-v1.0.dtbo",
 }
 
 # All valid overlay basenames (for security — reject unknown filenames)

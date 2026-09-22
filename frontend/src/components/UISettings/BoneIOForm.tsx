@@ -167,6 +167,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           <option value="0.7">0.7</option>
           <option value="0.8">0.8</option>
           <option value="1.0">1.0</option>
+          <option value="1.1">1.1</option>
         </select>
         <HelpLabel>{t('boneio_config.hardware_version_help')}</HelpLabel>
       </div>

@@ -2,7 +2,7 @@
 
 This module provides support for INA226 current/voltage/power monitoring sensor.
 The INA226 is a high-side/low-side current shunt and power monitor with I2C
-interface, used on boneIO Black v1.0 boards (replacing INA219 from v0.8).
+interface, used on boneIO Black v1.0+ boards (replacing INA219 from v0.8).
 
 Key improvements over INA219:
 - Bus voltage range: 0–36V (vs 0–26V)

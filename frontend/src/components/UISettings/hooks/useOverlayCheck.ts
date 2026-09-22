@@ -16,6 +16,8 @@ const VERSION_TO_OVERLAY: Record<string, string> = {
   '0.7': 'BONEIO-BLACK-PINS-v0.4-v0.8.dtbo',
   '0.8': 'BONEIO-BLACK-PINS-v0.4-v0.8.dtbo',
   '1.0': 'BONEIO-BLACK-PINS-v1.0.dtbo',
+  // 1.1 has the same pinout as 1.0 — it differs by the buzzer, not the overlay.
+  '1.1': 'BONEIO-BLACK-PINS-v1.0.dtbo',
 };
 
 interface OverlayStatus {
