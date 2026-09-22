@@ -27,7 +27,7 @@ import asyncio
 import contextlib
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
 from typing import TYPE_CHECKING, Any
 
@@ -68,6 +68,62 @@ _DAYS_MAP: dict[str, frozenset[int]] = {
 
 
 
+
+def _local_exists(candidate: datetime) -> bool:
+    """Whether this wall-clock time happens at all in its own zone.
+
+    The round trip goes through UTC on purpose: ``astimezone()`` into the zone
+    a value already carries is a no-op in CPython, so it never renormalises
+    and would report a time inside a DST gap as fine.
+    """
+    tz = candidate.tzinfo
+    normalized = candidate.astimezone(timezone.utc).astimezone(tz)
+    return normalized.replace(tzinfo=None) == candidate.replace(tzinfo=None)
+
+
+def _local_instant(day, clock: dt_time, tz) -> datetime:
+    """The first instant at or after ``clock`` on ``day``, in ``tz``.
+
+    One rule for both ends of the year, which is the reason to state it that
+    way. In spring an hour goes missing — Poland has no 02:30 on the last
+    Sunday in March — and ``datetime.combine`` does not refuse it: it attaches
+    the offset from *before* the change, producing an instant that is really
+    an hour later than asked, while still printing the time that was asked
+    for. A schedule set for 02:30 fired at 03:30 and said 02:30 in the log.
+    Here it fires at 03:00, the first moment that exists.
+
+    In autumn the hour happens twice and both instants are real; the earlier
+    one is taken, so the schedule fires once rather than twice.
+
+    Args:
+        day: The local date.
+        clock: The local wall-clock time asked for.
+        tz: The local zone.
+
+    Returns:
+        An aware datetime whose offset is the one actually in force.
+    """
+    candidate = datetime.combine(day, clock, tzinfo=tz)
+    if _local_exists(candidate):
+        return candidate
+
+    # Walk to the first minute that does exist. Gaps are an hour wherever this
+    # runs; the bound is only so a pathological zone cannot spin.
+    for minutes in range(1, 24 * 60):
+        probe = candidate + timedelta(minutes=minutes)
+        probe = datetime.combine(probe.date(), probe.time(), tzinfo=tz)
+        if _local_exists(probe):
+            _LOGGER.info(
+                "%s does not exist on %s in this timezone (the clocks go "
+                "forward); firing at %s instead.",
+                clock.strftime("%H:%M"),
+                day,
+                probe.strftime("%H:%M"),
+            )
+            return probe
+    return candidate
+
+
 def _clamp_to_window(when: datetime, trigger: dict, tz) -> datetime:
     """Hold a sun anchor inside ``earliest``/``latest``, if it was given any.
 
@@ -95,7 +151,7 @@ def _clamp_to_window(when: datetime, trigger: dict, tz) -> datetime:
         if not value:
             return None
         hour, minute = (int(part) for part in str(value).split(":", 1))
-        return datetime.combine(local.date(), dt_time(hour, minute), tzinfo=tz)
+        return _local_instant(local.date(), dt_time(hour, minute), tz)
 
     earliest, latest = bound("earliest"), bound("latest")
     if earliest is not None and local < earliest:
@@ -353,7 +409,7 @@ class Scheduler:
         if trigger.get("type", "sun") == "time":
             at = trigger.get("at") or "00:00"
             hour, minute = (int(part) for part in at.split(":", 1))
-            base = datetime.combine(day, dt_time(hour, minute), tzinfo=tz)
+            base = _local_instant(day, dt_time(hour, minute), tz)
         else:
             if not provider.configured:
                 raise ValueError(

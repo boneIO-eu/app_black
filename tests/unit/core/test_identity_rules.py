@@ -121,3 +121,126 @@ class TestSelfReferenceThroughADerivedId:
             "  - name: Guest mode\n"
         )
         assert len(config["virtual_switch"]) == 2
+
+
+class TestDanglingVirtualSwitchReferences:
+    """A reference to a virtual switch the config never defines is refused.
+
+    Which way the runtime fails is the reason this is worth catching here: an
+    unresolvable condition entity is logged and the action **runs anyway**. For
+    "only while nobody is home" that is backwards — one wrong letter and every
+    step of a presence simulation fires while somebody is in the house, with
+    no flag able to stop it and a single warning in the log to say why.
+    """
+
+    SWITCH = "virtual_switch:\n  - name: Presence away\n"
+
+    def test_a_typo_in_a_schedule_condition_is_refused(self):
+        with pytest.raises(ConfigurationException) as excinfo:
+            load(
+                self.SWITCH
+                + "schedule:\n"
+                "  - name: Wieczor\n"
+                "    condition:\n"
+                "      type: state\n"
+                "      entity: virtual_switch\n"
+                "      entity_id: presence_awya\n" + TRIGGER + ACTIONS
+            )
+        message = str(excinfo.value)
+        assert "presence_awya" in message
+        # The message names what *is* defined, because the answer is usually
+        # one letter away from the question.
+        assert "presence_away" in message
+
+    def test_the_right_reference_is_accepted(self):
+        config = load(
+            self.SWITCH
+            + "schedule:\n"
+            "  - name: Wieczor\n"
+            "    condition:\n"
+            "      type: state\n"
+            "      entity: virtual_switch\n"
+            "      entity_id: presence_away\n" + TRIGGER + ACTIONS
+        )
+        assert len(config["schedule"]) == 1
+
+    def test_a_typo_in_an_action_target_is_refused(self):
+        with pytest.raises(ConfigurationException) as excinfo:
+            load(
+                self.SWITCH
+                + "event:\n"
+                "  - boneio_input: in_11\n"
+                "    actions:\n"
+                "      single:\n"
+                "        - action: virtual_switch\n"
+                "          boneio_virtual_switch: guest_mode\n"
+                '          action_output: "ON"\n'
+            )
+        message = str(excinfo.value)
+        assert "guest_mode" in message
+        # Inputs have no id, so the pin is what identifies them to somebody
+        # hunting the typo.
+        assert "in_11" in message, message
+
+    def test_a_typo_in_a_condition_on_an_action_is_refused(self):
+        with pytest.raises(ConfigurationException) as excinfo:
+            load(
+                self.SWITCH
+                + "event:\n"
+                "  - boneio_input: in_11\n"
+                "    actions:\n"
+                "      single:\n"
+                "        - action: mqtt\n"
+                "          topic: t/x\n"
+                "          condition:\n"
+                "            type: state\n"
+                "            entity: virtual_switch\n"
+                "            entity_id: nope\n"
+            )
+        assert "nope" in str(excinfo.value)
+
+    def test_a_grouped_condition_list_is_walked_too(self):
+        with pytest.raises(ConfigurationException) as excinfo:
+            load(
+                self.SWITCH
+                + "schedule:\n"
+                "  - name: Wieczor\n"
+                "    conditions:\n"
+                "      mode: and\n"
+                "      list:\n"
+                "        - type: sun\n"
+                "          after: civil_dusk\n"
+                "        - type: state\n"
+                "          entity: virtual_switch\n"
+                "          entity_id: missing_one\n" + TRIGGER + ACTIONS
+            )
+        assert "missing_one" in str(excinfo.value)
+
+    def test_one_switch_referring_to_another_is_checked(self):
+        with pytest.raises(ConfigurationException) as excinfo:
+            load(
+                "virtual_switch:\n"
+                "  - name: Away\n"
+                "    actions:\n"
+                "      on_turn_on:\n"
+                "        - action: virtual_switch\n"
+                "          boneio_virtual_switch: guest_mode\n"
+                '          action_output: "OFF"\n'
+            )
+        assert "guest_mode" in str(excinfo.value)
+
+    def test_conditions_on_other_entity_types_are_left_alone(self):
+        """Outputs, covers and inputs come from several places — a board file,
+        an expander, a remote device — so the same check on them would reject
+        configurations that work. Only virtual switches have exactly one
+        source, which is what makes this safe."""
+        config = load(
+            self.SWITCH
+            + "schedule:\n"
+            "  - name: Wieczor\n"
+            "    condition:\n"
+            "      type: state\n"
+            "      entity: output\n"
+            "      entity_id: out_that_is_defined_by_the_board\n" + TRIGGER + ACTIONS
+        )
+        assert len(config["schedule"]) == 1

@@ -103,23 +103,22 @@ async def test_turning_it_off_again_closes_the_gate(manager):
 
 @pytest.mark.asyncio
 async def test_a_condition_naming_a_missing_switch_FAILS_OPEN(manager):
-    """Pins today's behaviour, which is the dangerous direction.
+    """Pins the runtime behaviour, which is still the dangerous direction —
+    and is now unreachable from a configuration.
 
-    A condition whose entity cannot be resolved lets the action run —
+    A condition whose entity cannot be resolved lets the action run:
     ``action_conditions`` logs "not found, allowing action" and returns True.
-    For most conditions that is a defensible default: a broken reference
-    should not silently stop the lights working.
+    For most conditions that is defensible — a broken reference should not
+    silently stop the lights working. For "only while nobody is home" it is
+    backwards, because one typo would fire every step of a presence simulation
+    while somebody is in the house.
 
-    For a presence simulation it is the wrong way round. One typo in the flag's
-    id and every step runs while somebody is home, with no way to switch it
-    off, and the only sign is a warning in the log.
-
-    Not changed here, because flipping it would silently stop actions in every
-    existing config that has a stale reference. The fix belongs at load time:
-    reject a condition naming a virtual switch the config does not define, so
-    a dangling reference cannot reach the runtime that has to guess. Until
-    then, this test exists so nobody discovers the behaviour from a house that
-    lit itself up while they were in it.
+    The runtime is unchanged, because flipping it would silently stop actions
+    in every existing config with a stale reference. The reference is caught
+    one level up instead: ``_check_virtual_switch_references`` refuses to load
+    a config naming a virtual switch that is not defined, so nothing dangling
+    reaches this code any more (see test_identity_rules.py). This test stays as
+    the statement of what would happen if one did.
     """
     from datetime import datetime
 

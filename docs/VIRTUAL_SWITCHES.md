@@ -174,6 +174,25 @@ virtual_switch:
 Two names that fold to the same identifier — "Salon" and "salon!" — are refused
 at load time rather than silently becoming one switch.
 
+## References are checked when the config loads
+
+A condition or an action naming a virtual switch that is not defined stops the
+controller from starting, with the name quoted and the defined ones listed
+next to it.
+
+Worth being strict about here specifically, because of which way the runtime
+fails: a condition whose entity cannot be resolved is logged and **the action
+runs anyway**. That is a reasonable default — a broken reference should not
+silently stop the lights working — but for a flag that exists to hold things
+back it is exactly backwards. One wrong letter in "only while nobody is home"
+and everything it was gating runs while somebody is in the house, with a
+single warning in the log to say why.
+
+Virtual switches come from exactly one place, which is what makes the check
+safe. Outputs, covers and inputs arrive from a board file, an expander or a
+remote device as well as from the config, so the same rule on them would
+reject configurations that work.
+
 ## Setting one from an action
 
 Any action list can set one, so a long press can arm a mode that other inputs

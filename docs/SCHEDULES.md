@@ -67,6 +67,24 @@ Sun triggers only: a clock trigger already has a fixed time, and clamping it is
 either a no-op or the same time written twice. The loader refuses that rather
 than accepting it quietly.
 
+### The hour that goes missing, and the one that happens twice
+
+One rule for both ends of the year: **the first instant at or after the time
+you asked for**.
+
+Poland has no 02:30 on the last Sunday in March, so a schedule set for it
+fires at 03:00. In October 02:30 happens twice and the earlier one is taken,
+so it fires once rather than twice. `earliest:` and `latest:` are held to the
+same rule, since they name wall-clock times too.
+
+This used to be wrong twice over. `datetime.combine` does not refuse a time
+that does not exist — it attaches the offset from *before* the change, which
+made the instant an hour later than asked. And `astimezone()` into the zone a
+value already carries is a no-op in CPython, so it never renormalised: the log
+and the "next firing" column printed 02:30 while the timer was set for 03:30.
+The display agreed with the request instead of with the timer, which is why
+nobody could see it.
+
 ## What it refuses to guess at
 
 **A clock that has not been set.** The board has no battery-backed RTC, so

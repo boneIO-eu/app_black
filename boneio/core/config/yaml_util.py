@@ -13,7 +13,7 @@ from typing import Any
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, YAMLError, dump, load
 
-from boneio.const import OUTPUT
+from boneio.const import OUTPUT, VIRTUAL_SWITCH
 from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
 from boneio.core.utils.naming import resolve_id
@@ -1393,6 +1393,126 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
         _LOGGER.debug("Could not save config cache: %s", e)
 
 
+
+#: Sections whose entries can carry actions, and where those actions live.
+#: ``None`` means "a list of actions"; a string names the key holding a dict of
+#: action lists.
+_ACTION_BEARING_SECTIONS = {
+    "virtual_switch": "actions",
+    "schedule": None,
+    "event": "actions",
+    "binary_sensor": "actions",
+    "local_inputs": "actions",
+    "remote_inputs": "actions",
+}
+
+
+def _iter_conditions(holder: dict):
+    """Every condition on one action or one schedule, in both shapes."""
+    single = holder.get("condition")
+    if isinstance(single, dict):
+        yield single
+    grouped = holder.get("conditions")
+    if isinstance(grouped, dict):
+        for item in grouped.get("list") or []:
+            if isinstance(item, dict):
+                yield item
+
+
+def _iter_actions(entry: dict, actions_key: str | None):
+    """Every action on one config entry, whatever shape the section uses."""
+    raw = entry.get("actions") if actions_key else entry.get("actions")
+    if isinstance(raw, list):
+        for action in raw:
+            if isinstance(action, dict):
+                yield action
+    elif isinstance(raw, dict):
+        for group in raw.values():
+            for action in group or []:
+                if isinstance(action, dict):
+                    yield action
+
+
+def _check_virtual_switch_references(doc: dict) -> None:
+    """Refuse a reference to a virtual switch the configuration never defines.
+
+    Virtual switches come from exactly one place, so a reference to one that is
+    not there is a typo or a leftover — never something resolved elsewhere at
+    runtime. That matters more here than for other entity types because of
+    which way the runtime fails: an unresolvable condition entity is logged and
+    the action **runs anyway**. For "only while nobody is home" that is exactly
+    backwards — one wrong letter and every step of a presence simulation fires
+    while somebody is in the house, with no flag able to stop it and a single
+    warning in the log to say why.
+
+    Catching it here turns a silent runtime guess into a refusal to start with
+    the offending name quoted.
+
+    Args:
+        doc: The merged, validated configuration.
+
+    Raises:
+        ConfigurationException: With every bad reference and where it is.
+    """
+    defined = {
+        resolve_id(entry)
+        for entry in (doc.get("virtual_switch") or [])
+        if isinstance(entry, dict)
+    }
+    defined.discard("")
+
+    problems: list[str] = []
+
+    def note(where: str, name: str) -> None:
+        known = ", ".join(sorted(defined)) or "none are defined"
+        problems.append(
+            f"{where} refers to virtual switch {name!r}, which does not exist "
+            f"(defined: {known})."
+        )
+
+    for section, actions_key in _ACTION_BEARING_SECTIONS.items():
+        for index, entry in enumerate(doc.get(section) or []):
+            if not isinstance(entry, dict):
+                continue
+            # Inputs are named by their pin, not by an id — quoting "entry 3"
+            # at somebody hunting a typo is barely better than silence.
+            label = (
+                resolve_id(entry)
+                or str(entry.get("boneio_input") or entry.get("boneio_output") or "").strip()
+                or f"entry {index + 1}"
+            )
+            where = f"{section} '{label}'"
+
+            # A schedule's own gate sits on the entry, not on an action.
+            for condition in _iter_conditions(entry):
+                name = _referenced_switch(condition)
+                if name and name not in defined:
+                    note(where, name)
+
+            for action in _iter_actions(entry, actions_key):
+                for condition in _iter_conditions(action):
+                    name = _referenced_switch(condition)
+                    if name and name not in defined:
+                        note(f"{where}, in a condition on one of its actions", name)
+                if action.get("action") == "virtual_switch":
+                    name = str(action.get("boneio_virtual_switch") or "").strip()
+                    if name and name not in defined:
+                        note(f"{where}, in an action", name)
+
+    if problems:
+        raise ConfigurationException(
+            "Configuration refers to virtual switches that do not exist:\n\n- "
+            + "\n- ".join(problems)
+        )
+
+
+def _referenced_switch(condition: dict) -> str:
+    """The virtual switch a condition names, if it names one."""
+    if condition.get("entity") != VIRTUAL_SWITCH:
+        return ""
+    return str(condition.get("entity_id") or "").strip()
+
+
 def _full_config_validation(
     config_file: str,
     config_yaml: dict,
@@ -1492,6 +1612,12 @@ def _full_config_validation(
                 error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
             raise ConfigurationException(error_msg)
     _LOGGER.debug("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
+
+    # Cross-section references cerberus cannot see: it validates one key at a
+    # time and a condition in `event:` points into `virtual_switch:`. Skipped
+    # on a downgrade, where the whole validation is already advisory.
+    if not _is_downgraded:
+        _check_virtual_switch_references(merged_doc)
 
     # Save to cache for next startup
     _progress("Saving cache...")

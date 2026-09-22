@@ -516,26 +516,19 @@ def test_the_clock_going_bad_again_is_noticed_twice(monkeypatch):
 # ── the twice-yearly hour ────────────────────────────────────────────────
 
 
-def test_a_firing_in_the_hour_that_does_not_exist(monkeypatch):
-    """Pins today's behaviour on the spring clock change: wrong by an hour,
-    and misreported so you cannot see it.
+def test_a_firing_in_the_hour_that_does_not_exist_moves_to_03_00(monkeypatch):
+    """Poland has no 02:30 on the last Sunday in March.
 
-    Poland loses 02:00-03:00 on the last Sunday in March; the change lands at
-    01:00 UTC. `datetime.combine(day, 02:30, tzinfo=Warsaw)` does not refuse
-    the missing time — it attaches the pre-transition +01:00, which makes the
-    instant 01:30 UTC. And 01:30 UTC that day is 03:30 local, so the timer
-    fires an hour late.
+    The policy is one rule for both ends of the year: the first instant at or
+    after the time that was asked for. Here that is 03:00, the moment the gap
+    closes.
 
-    The second half is the nastier one. `astimezone()` into the zone the value
-    already carries is a no-op in CPython — it returns the value untouched
-    rather than renormalising — so every log line and the "next firing" column
-    print 02:30 while the timer is set for 03:30. The arithmetic is wrong and
-    the display agrees with the request instead of with the timer.
-
-    One day a year, only for schedules inside that hour. Documented rather
-    than fixed because the fix is a policy question: skip that day, or fire at
-    03:00, and both surprise somebody. If either assertion here fails, a
-    policy was chosen — update this test to say which.
+    Before this, `combine` attached the pre-transition offset and produced an
+    instant that was really 03:30 — an hour late — while every log line and
+    the "next firing" column printed 02:30, because `astimezone()` into a
+    value's own zone is a no-op in CPython and never renormalises. The
+    arithmetic was wrong and the display agreed with the request rather than
+    with the timer, so it could not be seen from the panel.
     """
     scheduler = Scheduler(
         make_manager(monkeypatch),
@@ -545,12 +538,35 @@ def test_a_firing_in_the_hour_that_does_not_exist(monkeypatch):
         scheduler._entries[0], date(2026, 3, 29), at("2026-03-29 00:10")
     )
 
-    # What actually decides when it fires.
-    assert when.astimezone(UTC).strftime("%H:%M") == "01:30"
-    # Which is this, locally — an hour after the 02:30 that was asked for.
-    assert when.astimezone(UTC).astimezone(WARSAW).strftime("%H:%M") == "03:30"
-    # And this is what gets logged and shown, which is neither.
-    assert when.astimezone(WARSAW).strftime("%H:%M") == "02:30"
+    assert when.astimezone(UTC).strftime("%H:%M") == "01:00"
+    assert when.astimezone(UTC).astimezone(WARSAW).strftime("%H:%M") == "03:00"
+    # And the value says the same thing the timer will do, which is the half
+    # that used to disagree.
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "03:00"
+    assert when.utcoffset().total_seconds() == 2 * 3600
+
+
+def test_a_time_just_outside_the_gap_is_left_alone(monkeypatch):
+    """The walk forward must not drag times that are already fine."""
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "time", "at": "01:30", "days": "daily"})],
+    )
+    when = scheduler._fire_time_on(
+        scheduler._entries[0], date(2026, 3, 29), at("2026-03-29 00:10")
+    )
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "01:30"
+    assert when.utcoffset().total_seconds() == 1 * 3600
+
+
+def test_a_sun_clamp_inside_the_gap_moves_too(monkeypatch):
+    """`latest`/`earliest` build a wall-clock time the same way, so they need
+    the same care — a clamp to a time that does not exist would put the whole
+    schedule an hour out on that day."""
+    from boneio.core.manager.scheduler import _local_instant
+
+    when = _local_instant(date(2026, 3, 29), datetime(2026, 1, 1, 2, 30).time(), WARSAW)
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "03:00"
 
 
 def test_a_firing_in_the_hour_that_happens_twice_fires_once(monkeypatch):

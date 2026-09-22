@@ -89,6 +89,17 @@ Nothing here needs the wizard. The pieces are `virtual_switch` with
 sun trigger and `latest:`/`jitter:` (see [SCHEDULES.md](SCHEDULES.md)), and
 `probability:` on an action.
 
+## What stops it firing while you are home
+
+The flag, and two things that back it up.
+
+Every generated schedule carries a condition on `presence_away`, so nothing
+runs while it is off. If the reference were ever wrong — a rename, a hand
+edit — the runtime would let the action through rather than block it, so a
+dangling reference is refused when the config loads instead. The wizard writes
+an explicit `id` for exactly this reason: `presence_away` does not move when
+somebody renames the flag in the panel.
+
 ## Still missing
 
 **Which light is never random.** `probability` decides whether a step runs, not
