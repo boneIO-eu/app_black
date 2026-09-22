@@ -66,6 +66,13 @@ jobs:
         run: pnpm install --no-frozen-lockfile
         working-directory: frontend
 
+      # Keys built at runtime (sections.descriptions.<name>) are invisible to
+      # TypeScript, so a section shipped without translations only shows up as
+      # a raw key on screen. This is the only thing that catches it.
+      - name: Check translation completeness
+        run: pnpm run check-i18n
+        working-directory: frontend
+
       - name: Run frontend unit tests
         run: pnpm test
         working-directory: frontend

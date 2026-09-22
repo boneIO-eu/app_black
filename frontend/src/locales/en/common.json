@@ -738,7 +738,10 @@
       "security": "Overview of the controller security posture and hardening recommendations.",
       "ha_dashboard": "Wizard for generating Home Assistant dashboard views and Lovelace cards.",
       "binding_matrix": "Matrix of bindings between inputs and outputs.",
-      "yaml_editor": "Advanced direct editor for config.yaml."
+      "yaml_editor": "Advanced direct editor for config.yaml.",
+      "location": "Geographic coordinates of the controller. Required for sun-based schedules and conditions, and for the sunrise and sunset times shown in the panel.",
+      "schedule": "Actions that run on their own, at a clock time or at a moment defined by the Sun. Everything else in boneIO waits for a person or an input — schedules do not.",
+      "virtual_switch": "An on/off flag with no relay behind it. Use it to qualify other actions, so that a button works only while a mode such as evening mode is on."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -756,7 +759,6 @@
     "timezone": "Time zone",
     "mosquitto": "MQTT broker (local)",
     "nodered_service": "Node-RED",
-    "certificate": "Certificate and proxy",
     "backup": "Backups",
     "migrations": "System migrations",
     "power": "Restart and shutdown",

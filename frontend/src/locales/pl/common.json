@@ -702,7 +702,10 @@
       "security": "Przegląd stanu bezpieczeństwa kontrolera i zalecenia ochronne.",
       "ha_dashboard": "Kreator generowania widoków i kart panelu Home Assistant.",
       "binding_matrix": "Macierz powiązań między wejściami i wyjściami.",
-      "yaml_editor": "Zaawansowany edytor pliku konfiguracyjnego config.yaml."
+      "yaml_editor": "Zaawansowany edytor pliku konfiguracyjnego config.yaml.",
+      "location": "Współrzędne geograficzne sterownika. Potrzebne do harmonogramów i warunków opartych o słońce oraz do godzin wschodu i zachodu pokazywanych w panelu.",
+      "schedule": "Akcje, które uruchamiają się same, o wyznaczonej godzinie albo w momencie zależnym od słońca. Wszystko inne w boneIO czeka na człowieka lub na wejście — harmonogramy nie.",
+      "virtual_switch": "Przełącznik wł/wył, za którym nie stoi żaden przekaźnik. Służy do warunkowania innych akcji, żeby przycisk działał tylko gdy tryb w rodzaju wieczornego jest włączony."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -720,7 +723,6 @@
     "timezone": "Strefa czasowa",
     "mosquitto": "Broker MQTT (lokalny)",
     "nodered_service": "Node-RED",
-    "certificate": "Certyfikat i proxy",
     "backup": "Kopie zapasowe",
     "migrations": "Migracje systemowe",
     "power": "Restart i wyłączenie",

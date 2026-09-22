@@ -54,9 +54,12 @@ export default function SectionHeader({
   const { t } = useTranslation();
   const [helpOpen, setHelpOpen] = useState(false);
   const icon = ALL_SECTIONS.find(s => s.name === sectionName)?.icon;
+  // defaultValue matters: without it i18next returns the key itself for a
+  // missing translation, which is truthy, so the generic fallback below never
+  // runs and the raw 'sections.descriptions.<name>' lands on screen.
   const description =
     sectionDescription
-    || t(`sections.descriptions.${sectionName}`)
+    || t(`sections.descriptions.${sectionName}`, { defaultValue: '' })
     || t('settings.configure_settings').replace('{section}', sectionTitle);
 
   return (

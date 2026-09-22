@@ -2,9 +2,17 @@
 /**
  * Translation key completeness checker.
  *
- * Scans all .tsx/.ts source files (excluding node_modules and locales)
- * for t('some.key') calls and verifies that every extracted key exists
- * in every locale JSON file (en/common.json, pl/common.json, etc.).
+ * Two passes, because keys reach t() in two different shapes.
+ *
+ * 1. Static keys. Scans all .tsx/.ts source files (excluding node_modules and
+ *    locales) for t('some.key') calls and verifies that every extracted key
+ *    exists in every locale JSON file (en/common.json, pl/common.json, etc.).
+ *
+ * 2. Section keys. SectionHeader and UISettings build their labels and help
+ *    text at runtime — t(`sections.descriptions.${sectionName}`) — so pass 1
+ *    is blind to them; that is how sections.descriptions.location reached the
+ *    screen as a raw key. The section list is read from sectionDefinitions.ts
+ *    and every section is required to have both a label and a description.
  *
  * Usage:
  *   node scripts/check-translations.js          # check all source files
@@ -26,6 +34,14 @@ const { execSync } = require('child_process');
 const FRONTEND_ROOT = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(FRONTEND_ROOT, 'src');
 const LOCALES_DIR = path.join(SRC_DIR, 'locales');
+
+// The one place that knows which settings sections exist.
+const SECTION_DEFS_FILE = path.join(
+  SRC_DIR, 'components', 'UISettings', 'constants', 'sectionDefinitions.ts'
+);
+
+// Captures the section name out of `translationKey: 'sections.<name>'`.
+const SECTION_DEF_RE = /translationKey:\s*['"]sections\.([a-zA-Z0-9_]+)['"]/g;
 
 // Regex that captures dot-separated keys inside t('...') or t("...")
 // Handles both single and double quotes.
@@ -96,6 +112,25 @@ function extractKeys(source) {
   return results;
 }
 
+/**
+ * Names of the settings sections the editor actually renders.
+ *
+ * Read from sectionDefinitions.ts rather than from the locale files, so that a
+ * section added in code without translations fails, and a translation left
+ * behind for a removed section does not.
+ */
+function collectSectionNames() {
+  if (!fs.existsSync(SECTION_DEFS_FILE)) return [];
+  const source = fs.readFileSync(SECTION_DEFS_FILE, 'utf-8');
+  const names = new Set();
+  let match;
+  const re = new RegExp(SECTION_DEF_RE.source, 'g');
+  while ((match = re.exec(source)) !== null) {
+    names.add(match[1]);
+  }
+  return [...names];
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -159,13 +194,15 @@ function main() {
     process.exit(0);
   }
 
-  // 3. Extract keys and check
+  // 3. Pass 1 — static t('a.b') calls
   const missing = []; // { file, line, key, langs[] }
+  const usedKeys = new Set();
 
   for (const file of files) {
     const source = fs.readFileSync(file, 'utf-8');
     const keys = extractKeys(source);
     for (const { key, line } of keys) {
+      usedKeys.add(key);
       const missingLangs = langNames.filter(lang => !locales[lang].has(key));
       if (missingLangs.length > 0) {
         const relPath = path.relative(FRONTEND_ROOT, file);
@@ -174,30 +211,78 @@ function main() {
     }
   }
 
-  if (missing.length === 0) {
-    console.log(`✅ All translation keys found in ${langNames.join(', ')} (checked ${files.length} files).`);
+  // 4. Pass 2 — sections, whose keys are assembled at runtime
+  const sectionNames = collectSectionNames();
+  const sectionMissing = []; // { key, langs[], section }
+
+  for (const name of sectionNames) {
+    for (const key of [`sections.${name}`, `sections.descriptions.${name}`]) {
+      const langs = langNames.filter(lang => !locales[lang].has(key));
+      if (langs.length > 0) {
+        sectionMissing.push({ key, langs, section: name });
+      }
+    }
+  }
+
+  // Translations for sections nobody renders any more. A warning, not an
+  // error: some of these (binary_sensor, event, lox_udp) belong to composite
+  // sections and are reached through a static t() call, which pass 1 covers.
+  const orphans = [];
+  for (const key of locales[langNames[0]]) {
+    if (!key.startsWith('sections.')) continue;
+    if (usedKeys.has(key)) continue;
+    const name = key.startsWith('sections.descriptions.')
+      ? key.slice('sections.descriptions.'.length)
+      : key.slice('sections.'.length);
+    if (name.includes('.')) continue;
+    if (!sectionNames.includes(name)) orphans.push(key);
+  }
+
+  // 5. Report
+  if (orphans.length > 0) {
+    console.warn(`\n⚠️  ${orphans.length} translation(s) for section(s) that no longer exist:`);
+    for (const key of orphans) console.warn(`     ${key}`);
+    console.warn('   Remove them, or add the section back to sectionDefinitions.ts.\n');
+  }
+
+  if (missing.length === 0 && sectionMissing.length === 0) {
+    console.log(
+      `✅ All translation keys found in ${langNames.join(', ')} ` +
+      `(checked ${files.length} files, ${sectionNames.length} sections).`
+    );
     process.exit(0);
   }
 
-  // 4. Report
-  console.error(`\n❌ Found ${missing.length} missing translation key(s):\n`);
+  if (missing.length > 0) {
+    console.error(`\n❌ Found ${missing.length} missing translation key(s):\n`);
 
-  // Group by key for cleaner output
-  const byKey = new Map();
-  for (const m of missing) {
-    if (!byKey.has(m.key)) {
-      byKey.set(m.key, { langs: m.langs, locations: [] });
+    // Group by key for cleaner output
+    const byKey = new Map();
+    for (const m of missing) {
+      if (!byKey.has(m.key)) {
+        byKey.set(m.key, { langs: m.langs, locations: [] });
+      }
+      byKey.get(m.key).locations.push(`${m.file}:${m.line}`);
     }
-    byKey.get(m.key).locations.push(`${m.file}:${m.line}`);
+
+    for (const [key, { langs, locations }] of byKey) {
+      console.error(`  🔑 ${key}`);
+      console.error(`     Missing in: ${langs.join(', ')}`);
+      for (const loc of locations) {
+        console.error(`     Used at: ${loc}`);
+      }
+      console.error('');
+    }
   }
 
-  for (const [key, { langs, locations }] of byKey) {
-    console.error(`  🔑 ${key}`);
-    console.error(`     Missing in: ${langs.join(', ')}`);
-    for (const loc of locations) {
-      console.error(`     Used at: ${loc}`);
+  if (sectionMissing.length > 0) {
+    console.error(`\n❌ Found ${sectionMissing.length} missing section translation(s):\n`);
+    for (const { key, langs, section } of sectionMissing) {
+      console.error(`  🔑 ${key}`);
+      console.error(`     Missing in: ${langs.join(', ')}`);
+      console.error(`     Built at runtime for section '${section}' (sectionDefinitions.ts)`);
+      console.error('');
     }
-    console.error('');
   }
 
   console.error(`Add the missing keys to: ${langNames.map(l => `src/locales/${l}/common.json`).join(', ')}`);
