@@ -19,6 +19,7 @@ from boneio.core.manager.scheduler import Scheduler
 from boneio.core.manager.sun import SunProvider
 
 WARSAW = ZoneInfo("Europe/Warsaw")
+UTC = ZoneInfo("UTC")
 OSLO = ZoneInfo("Europe/Oslo")
 
 # Warsaw, 20 March 2025 (a Thursday): sunrise 05:38, sunset 17:49 local.
@@ -510,3 +511,72 @@ def test_the_clock_going_bad_again_is_noticed_twice(monkeypatch):
     _prime_anchor_cache(manager)
     scheduler._clock_ready(at("2025-03-21 12:00"))
     assert manager.sun._anchor_cache == {}, "the second step did not refresh them"
+
+
+# ── the twice-yearly hour ────────────────────────────────────────────────
+
+
+def test_a_firing_in_the_hour_that_does_not_exist(monkeypatch):
+    """Pins today's behaviour on the spring clock change: wrong by an hour,
+    and misreported so you cannot see it.
+
+    Poland loses 02:00-03:00 on the last Sunday in March; the change lands at
+    01:00 UTC. `datetime.combine(day, 02:30, tzinfo=Warsaw)` does not refuse
+    the missing time — it attaches the pre-transition +01:00, which makes the
+    instant 01:30 UTC. And 01:30 UTC that day is 03:30 local, so the timer
+    fires an hour late.
+
+    The second half is the nastier one. `astimezone()` into the zone the value
+    already carries is a no-op in CPython — it returns the value untouched
+    rather than renormalising — so every log line and the "next firing" column
+    print 02:30 while the timer is set for 03:30. The arithmetic is wrong and
+    the display agrees with the request instead of with the timer.
+
+    One day a year, only for schedules inside that hour. Documented rather
+    than fixed because the fix is a policy question: skip that day, or fire at
+    03:00, and both surprise somebody. If either assertion here fails, a
+    policy was chosen — update this test to say which.
+    """
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "time", "at": "02:30", "days": "daily"})],
+    )
+    when = scheduler._fire_time_on(
+        scheduler._entries[0], date(2026, 3, 29), at("2026-03-29 00:10")
+    )
+
+    # What actually decides when it fires.
+    assert when.astimezone(UTC).strftime("%H:%M") == "01:30"
+    # Which is this, locally — an hour after the 02:30 that was asked for.
+    assert when.astimezone(UTC).astimezone(WARSAW).strftime("%H:%M") == "03:30"
+    # And this is what gets logged and shown, which is neither.
+    assert when.astimezone(WARSAW).strftime("%H:%M") == "02:30"
+
+
+def test_a_firing_in_the_hour_that_happens_twice_fires_once(monkeypatch):
+    """The autumn change is the benign one: 02:30 exists twice, and the first
+    one is taken, so the schedule fires once rather than twice."""
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "time", "at": "02:30", "days": "daily"})],
+    )
+    fall_back = date(2026, 10, 25)
+    when = scheduler._fire_time_on(
+        scheduler._entries[0], fall_back, at("2026-10-25 00:10")
+    )
+    local = when.astimezone(WARSAW)
+    assert local.strftime("%H:%M") == "02:30"
+    # CEST, the first pass — an hour before the repeat.
+    assert local.utcoffset().total_seconds() == 2 * 3600
+
+
+def test_an_ordinary_evening_schedule_is_untouched_by_either(monkeypatch):
+    """The hour only matters if you fire inside it. Everything the presence
+    wizard writes is in the evening."""
+    scheduler = Scheduler(
+        make_manager(monkeypatch),
+        [schedule(trigger={"type": "time", "at": "23:10", "days": "daily"})],
+    )
+    for day in (date(2026, 3, 29), date(2026, 10, 25)):
+        when = scheduler._fire_time_on(scheduler._entries[0], day, at("2026-01-01 00:10"))
+        assert when.astimezone(WARSAW).strftime("%H:%M") == "23:10"
