@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev11` exists so that we can test the new system-migration chain on a
+`1.6.0.dev12` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -23,6 +23,27 @@ Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
 
 ---
+
+# v1.6.0.dev12 — internal test build
+
+## Since dev11
+
+Hardware revision 1.1 is supported end to end: selectable in the panel,
+accepted by the schema, and stamped onto a board by the eMMC flasher. It is 1.0
+plus the buzzer, so the board maps and the overlay are unchanged.
+
+The buzzer is 1.1 only now. It had been mapped on 1.0 too, where the part is
+not fitted, and a config asking for it got an output that logged sysfs errors
+rather than making a sound.
+
+The QR code on the display and the device link in Home Assistant are built from
+one property again. A cloud-registered controller used to show its certificate
+name in Home Assistant and a bare IP on the OLED. The address behind both is
+also refreshed now: it was read once at startup, so a DHCP lease that arrived
+after boneIO was up left Home Assistant with no link until a restart.
+
+Migration plans are unchanged since dev10; the manifest names the release, so
+it was re-signed for this one and verifies.
 
 # v1.6.0.dev11 — internal test build
 

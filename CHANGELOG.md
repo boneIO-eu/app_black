@@ -6,6 +6,44 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev12 (2026-09-22) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🔌 Hardware revision 1.1
+
+1.1 is 1.0 plus the buzzer — same pinout, same expanders, same power monitor —
+so the board maps are a copy and the device tree overlay is the 1.0 one. It is
+selectable in the panel, accepted by the schema, and carried by the eMMC
+flasher: a board identified by the DS2484 probe is stamped 1.1, because nothing
+on the I2C bus tells 1.0 and 1.1 apart and 1.1 is what comes off the line.
+
+`boneio/boards/README.md` now writes down what those directories are and what
+has to change to add the next revision — four files in three languages, until
+now discoverable only by grep.
+
+### 🔇 The buzzer belongs to 1.1
+
+It was mapped in the 1.0 board maps as well, where the part is not fitted, so a
+config asking for `boneio_output: buzzer` got an output that logged sysfs write
+errors instead of beeping. A 1.0 config naming it is now refused at load.
+
+### 📱 The QR code on the display points where Home Assistant points
+
+The two addresses were assembled separately, so a cloud-registered controller
+showed its certificate name in Home Assistant and a bare IP on the OLED — the
+one address a phone cannot get a clean certificate for. Both read the same
+property now.
+
+That property took its address once at startup and never updated it. On DHCP
+the lease can arrive after boneIO is up, and Home Assistant then had no device
+link at all until a restart; the network poll the display already runs carries
+the address into it now. A missing address is reported as the string `none`,
+which is truthy and had been going out as `https://none:8443`. And the old path
+read the network screen's data, so enabling the web screen on a device without
+it raised `KeyError`.
+
+
 ## v1.6.0.dev11 (2026-09-22) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
