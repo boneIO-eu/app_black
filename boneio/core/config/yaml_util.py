@@ -18,6 +18,7 @@ from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
 from boneio.core.utils.naming import resolve_id
 from boneio.exceptions import ConfigurationException
+from boneio.version import __version__
 
 schema_file = os.path.join(os.path.dirname(__file__), "../../schema/schema.yaml")
 _LOGGER = logging.getLogger(__name__)
@@ -1327,67 +1328,130 @@ def _compute_config_dir_hash(config_file: str) -> str:
     return h.hexdigest()
 
 
+#: Anything that makes a cache unreadable by *this* build, as opposed to
+#: corrupt. The payload is a pickle of boneIO objects, so a build that moved or
+#: renamed a class fails on the import or the attribute lookup rather than on
+#: the bytes; ``TypeError`` covers a class that still exists but no longer
+#: reconstructs from the arguments it was pickled with. All of them mean the
+#: same thing — throw the cache away and validate normally. ``pickle`` is
+#: imported lazily, so ``pickle.PickleError`` is added at the ``except`` itself.
+_CACHE_FOREIGN_BUILD_ERRORS = (
+    ImportError,  # ModuleNotFoundError is a subclass
+    AttributeError,
+    TypeError,
+    EOFError,
+)
+
+
 def _try_load_cached_config(config_file: str) -> dict | None:
     """Try to load validated config from cache.
 
-    Returns the cached config dict if cache is valid (config file and schema
-    file unchanged since cache was written). Returns None if cache is missing,
-    corrupt, or stale.
+    Returns the cached config dict if the cache is valid: written by this
+    boneIO version, with the config and schema files unchanged since. Returns
+    None — never raises — if the cache is missing, corrupt, stale or written by
+    another build, so the caller falls back to full Cerberus validation.
+
+    The file holds two pickles back to back: a header of plain strings, then
+    the payload. The version is checked against the header alone, so a cache
+    from another build is rejected without ever unpickling boneIO objects that
+    build may no longer define.
     """
     import pickle
 
     cache_path = _get_config_cache_path(config_file)
     try:
         with open(cache_path, "rb") as f:
-            cached = pickle.load(f)
+            header = pickle.load(f)
 
-        # Verify cache structure
-        if (
-            not isinstance(cached, dict)
-            or "config_hash" not in cached
-            or "schema_hash" not in cached
-            or "data" not in cached
-        ):
-            _LOGGER.debug("Config cache has invalid structure, ignoring")
-            return None
+            # Verify cache structure. A cache from before the header split is a
+            # single dict carrying its payload under "data": it has no version,
+            # so it is a miss like any other foreign build.
+            if (
+                not isinstance(header, dict)
+                or "version" not in header
+                or "config_hash" not in header
+                or "schema_hash" not in header
+            ):
+                _LOGGER.warning(
+                    "Config cache %s is not in a format this boneIO understands, "
+                    "revalidating config",
+                    cache_path,
+                )
+                return None
 
-        # Verify config files hash (main + all !include YAML files)
-        current_config_hash = _compute_config_dir_hash(config_file)
-        if cached["config_hash"] != current_config_hash:
-            _LOGGER.debug("Config files changed, cache invalidated")
-            return None
+            # Verify the cache was written by this build. The pickled payload
+            # holds boneIO objects (TimePeriod, OrderedDict and friends), so a
+            # release that moves a class leaves a cache that cannot be read
+            # back - and neither hash below would notice, because neither
+            # config.yaml nor schema.yaml has to change for that to happen.
+            if header["version"] != __version__:
+                _LOGGER.warning(
+                    "Config cache was written by boneIO %s, this is %s - "
+                    "revalidating config",
+                    header["version"],
+                    __version__,
+                )
+                return None
 
-        # Verify schema file hash
-        current_schema_hash = _compute_file_hash(schema_file)
-        if cached["schema_hash"] != current_schema_hash:
-            _LOGGER.debug("Schema file changed, cache invalidated")
+            # Verify config files hash (main + all !include YAML files)
+            current_config_hash = _compute_config_dir_hash(config_file)
+            if header["config_hash"] != current_config_hash:
+                _LOGGER.debug("Config files changed, cache invalidated")
+                return None
+
+            # Verify schema file hash
+            current_schema_hash = _compute_file_hash(schema_file)
+            if header["schema_hash"] != current_schema_hash:
+                _LOGGER.debug("Schema file changed, cache invalidated")
+                return None
+
+            data = pickle.load(f)
+
+        if not isinstance(data, dict):
+            _LOGGER.warning("Config cache %s holds no config, revalidating", cache_path)
             return None
 
         _LOGGER.debug("Loading validated config from cache (skipping Cerberus validation)")
-        return cached["data"]
-    except (FileNotFoundError, pickle.UnpicklingError, OSError, EOFError) as e:
-        _LOGGER.debug("Config cache not available: %s", e)
+        return data
+    except FileNotFoundError:
+        # No cache yet - first boot after flashing, or after clear_config_cache.
+        _LOGGER.debug("No config cache at %s", cache_path)
+        return None
+    except (OSError, pickle.PickleError, *_CACHE_FOREIGN_BUILD_ERRORS) as e:
+        # Loud on purpose: losing the cache costs 20-30s of Cerberus validation
+        # on a BeagleBone, so it should be visible in the log rather than only
+        # felt at boot.
+        _LOGGER.warning(
+            "Config cache %s could not be read (%s: %s), revalidating config",
+            cache_path,
+            type(e).__name__,
+            e,
+        )
         return None
 
 
 def _save_config_cache(config_file: str, validated_config: dict) -> None:
     """Save validated config to cache file.
 
-    Stores the validated config along with hashes of the config and schema
-    files so we can detect when the cache is stale. Uses pickle to handle
-    TimePeriod and OrderedDict objects.
+    Stores the validated config along with the boneIO version and hashes of
+    the config and schema files, so we can detect when the cache is stale or
+    was written by a build whose classes have since moved. Uses pickle to
+    handle TimePeriod and OrderedDict objects.
     """
     import pickle
 
     cache_path = _get_config_cache_path(config_file)
     try:
-        cache_data = {
+        header = {
+            "version": __version__,
             "config_hash": _compute_config_dir_hash(config_file),
             "schema_hash": _compute_file_hash(schema_file),
-            "data": validated_config,
         }
         with open(cache_path, "wb") as f:
-            pickle.dump(cache_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            # Header first, payload second, so the reader can reject a cache
+            # from another build without unpickling boneIO objects at all.
+            pickle.dump(header, f, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(validated_config, f, protocol=pickle.HIGHEST_PROTOCOL)
         _LOGGER.debug("Saved validated config cache to %s", cache_path)
     except (OSError, pickle.PicklingError) as e:
         _LOGGER.debug("Could not save config cache: %s", e)
