@@ -201,3 +201,40 @@ def test_boneio_objects_survive_the_round_trip(config_file):
     loaded = yaml_util._try_load_cached_config(config_file)
     assert isinstance(loaded["cover"], OrderedDict)
     assert loaded["grace"].total_seconds == 60
+
+
+class TestSchemaPickleCache:
+    """The other pickle on the same startup path, in ~/.cache/boneio.
+
+    It is fingerprinted on the mtime and size of the schema YAMLs, which says
+    nothing about the code that parsed them — so it can go stale the same way,
+    and reparsing the YAML it stands in for costs several seconds on a BeagleBone.
+    """
+
+    @pytest.fixture(autouse=True)
+    def cache_in_tmp(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+
+    def test_a_cache_whose_classes_moved_is_reparsed_not_raised(
+        self, pickled_by_the_previous_build, caplog
+    ):
+        path = yaml_util._get_schema_pickle_path()
+        import os
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        blob = pickled_by_the_previous_build(
+            lambda grace: {"fingerprint": yaml_util._schema_fingerprint(), "data": {"g": grace}}
+        )
+        with open(path, "wb") as f:
+            f.write(blob)
+
+        with caplog.at_level(logging.WARNING):
+            schema = yaml_util._load_schema()
+        assert isinstance(schema, dict) and schema, "schema should have been reparsed from YAML"
+        assert "ModuleNotFoundError" in caplog.text
+
+    def test_the_fingerprint_changes_with_the_boneio_version(self, monkeypatch):
+        """A release that moves a class need not touch a single schema YAML."""
+        before = yaml_util._schema_fingerprint()
+        monkeypatch.setattr(yaml_util, "__version__", "9.9.9")
+        assert yaml_util._schema_fingerprint() != before

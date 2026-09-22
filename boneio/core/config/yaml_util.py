@@ -26,6 +26,20 @@ _LOGGER = logging.getLogger(__name__)
 SECRET_YAML = "secrets.yaml"
 _SECRET_VALUES = {}
 
+#: Anything that makes a cache unreadable by *this* build, as opposed to
+#: corrupt. The payload is a pickle of boneIO objects, so a build that moved or
+#: renamed a class fails on the import or the attribute lookup rather than on
+#: the bytes; ``TypeError`` covers a class that still exists but no longer
+#: reconstructs from the arguments it was pickled with. All of them mean the
+#: same thing — throw the cache away and validate normally. ``pickle`` is
+#: imported lazily, so ``pickle.PickleError`` is added at the ``except`` itself.
+_CACHE_FOREIGN_BUILD_ERRORS = (
+    ImportError,  # ModuleNotFoundError is a subclass
+    AttributeError,
+    TypeError,
+    EOFError,
+)
+
 # ── YAML write serialization & background save tracking ──────────────────
 _yaml_write_lock = threading.Lock()
 _yaml_pending_saves = 0
@@ -113,8 +127,10 @@ def _schema_fingerprint() -> tuple:
     """Build a cheap fingerprint of all schema inputs.
 
     Combines name/mtime/size of every YAML file in the schema directory with
-    the list of modbus device models, so the pickled schema cache is
-    invalidated whenever any of them changes.
+    the list of modbus device models and the boneIO version, so the pickled
+    schema cache is invalidated whenever any of them changes. The version is
+    in there because the pickle holds parsed objects: a release that moves a
+    class need not touch a single schema YAML.
     """
     schema_dir = os.path.dirname(os.path.abspath(schema_file))
     files = []
@@ -127,7 +143,7 @@ def _schema_fingerprint() -> tuple:
     except OSError as e:
         _LOGGER.debug("Could not fingerprint schema directory: %s", e)
         return ()
-    return (tuple(files), tuple(_get_modbus_device_models()))
+    return (tuple(files), tuple(_get_modbus_device_models()), __version__)
 
 
 def _get_schema_pickle_path() -> str:
@@ -155,8 +171,19 @@ def _load_schema() -> dict:
                 _LOGGER.debug("Loaded schema from pickle cache %s", cache_path)
                 return cached["data"]
             _LOGGER.debug("Schema pickle cache is stale, reparsing YAML")
-        except (FileNotFoundError, OSError, EOFError, pickle.UnpicklingError, AttributeError) as e:
-            _LOGGER.debug("Schema pickle cache not available: %s", e)
+        except FileNotFoundError:
+            _LOGGER.debug("No schema pickle cache at %s", cache_path)
+        except (OSError, pickle.PickleError, *_CACHE_FOREIGN_BUILD_ERRORS) as e:
+            # Same story as the config cache: this is a pickle of parsed schema
+            # objects, so a build that moved a class cannot read back what its
+            # predecessor wrote. Reparsing the YAML costs several seconds on a
+            # BeagleBone, so say so rather than lose them quietly.
+            _LOGGER.warning(
+                "Schema pickle cache %s could not be read (%s: %s), reparsing YAML",
+                cache_path,
+                type(e).__name__,
+                e,
+            )
 
     schema = load_yaml_file(schema_file)
     _inject_modbus_models(schema)
@@ -1328,21 +1355,6 @@ def _compute_config_dir_hash(config_file: str) -> str:
     return h.hexdigest()
 
 
-#: Anything that makes a cache unreadable by *this* build, as opposed to
-#: corrupt. The payload is a pickle of boneIO objects, so a build that moved or
-#: renamed a class fails on the import or the attribute lookup rather than on
-#: the bytes; ``TypeError`` covers a class that still exists but no longer
-#: reconstructs from the arguments it was pickled with. All of them mean the
-#: same thing — throw the cache away and validate normally. ``pickle`` is
-#: imported lazily, so ``pickle.PickleError`` is added at the ``except`` itself.
-_CACHE_FOREIGN_BUILD_ERRORS = (
-    ImportError,  # ModuleNotFoundError is a subclass
-    AttributeError,
-    TypeError,
-    EOFError,
-)
-
-
 def _try_load_cached_config(config_file: str) -> dict | None:
     """Try to load validated config from cache.
 
@@ -1384,6 +1396,11 @@ def _try_load_cached_config(config_file: str) -> dict | None:
             # release that moves a class leaves a cache that cannot be read
             # back - and neither hash below would notice, because neither
             # config.yaml nor schema.yaml has to change for that to happen.
+            #
+            # This check was here once before, as "app_version", and went in
+            # 3b876d04 with no reason given. If it starts rejecting the caches
+            # an image build warms, the thing to fix is the build - warm them
+            # with the boneIO the image installs - not this gate.
             if header["version"] != __version__:
                 _LOGGER.warning(
                     "Config cache was written by boneIO %s, this is %s - "

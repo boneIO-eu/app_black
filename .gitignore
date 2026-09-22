@@ -150,3 +150,7 @@ frontend/dev-dist/
 # Local pointer so Claude Code picks up AGENTS.md; the rules themselves are
 # in AGENTS.md, which is tracked.
 CLAUDE.md
+
+# Validated-config caches: generated per machine and per boneIO build, never
+# committed. The image build warms its own; see black_debian_images.
+*.cache.pkl
