@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from cerberus import TypeDefinition, Validator
+from cerberus.schema import DefinitionSchema
 from yaml import MarkedYAMLError, YAMLError, dump, load
 
 from boneio.const import OUTPUT, VIRTUAL_SWITCH
@@ -25,6 +26,78 @@ _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
 _SECRET_VALUES = {}
+
+#: Cerberus checks that the schema is itself a legal cerberus schema every time
+#: a Validator is built, and that - not validating anybody's config - is where a
+#: cold start spends its time: ~93% of it, because every subschema is hashed and
+#: re-checked, and the verdict cannot be carried between processes (cerberus
+#: memoises it under hashes of ``types_mapping``, which hold functions and so
+#: hash by identity). On a BeagleBone that is most of the 20-30s a config cache
+#: miss costs.
+#:
+#: schema.yaml ships in the wheel and nothing on the device can edit it - the
+#: one dynamic part, _inject_modbus_models, only fills an ``allowed`` list with
+#: filenames, which cannot make a schema illegal - so the check is run once in
+#: the test suite instead of once per boot. See tests/unit/core/test_schema_is_valid.py.
+#:
+#: Set BONEIO_VALIDATE_SCHEMA=1 to put the runtime check back. That is what you
+#: want while editing schema.yaml on a device, where a mistake would otherwise
+#: surface as odd validation results rather than a SchemaError.
+_SCHEMA_SELF_CHECK = DefinitionSchema.validate
+_schema_self_check_dropped = False
+
+
+def _no_schema_self_check(self, schema=None) -> None:
+    """Stand-in for DefinitionSchema.validate: the schema ships with the wheel."""
+    return None
+
+
+def _schema_self_check_requested() -> bool:
+    """True if BONEIO_VALIDATE_SCHEMA asks for cerberus to check the schema."""
+    return os.environ.get("BONEIO_VALIDATE_SCHEMA", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _trust_schema() -> None:
+    """Take cerberus' schema self-check out of the startup path, once.
+
+    Patching the class rather than wrapping each call is deliberate: cerberus
+    re-checks subschemas from inside normalization too, so a narrower hook would
+    only move the cost. It is never restored, because a process that wants the
+    check never gets here - and the only consequence of a race with a thread
+    validating right now is that that thread pays for a check it did not need.
+    """
+    global _schema_self_check_dropped
+    if _schema_self_check_dropped or _schema_self_check_requested():
+        return
+    DefinitionSchema.validate = _no_schema_self_check
+    _schema_self_check_dropped = True
+    _LOGGER.debug("Trusting the packaged schema; cerberus will not re-check it")
+
+
+@contextlib.contextmanager
+def schema_self_check():
+    """Put cerberus' schema self-check back for the duration of the block.
+
+    This is what the test suite uses to prove the shipped schema is legal, and
+    it is the only thing standing between a typo in schema.yaml and a release.
+    Nothing on a device should need it.
+    """
+    patched = DefinitionSchema.validate
+    DefinitionSchema.validate = _SCHEMA_SELF_CHECK
+    # The memo would otherwise let a schema validated earlier in this process
+    # through without looking at it.
+    Validator._valid_schemas.clear()
+    try:
+        yield
+    finally:
+        DefinitionSchema.validate = patched
+        Validator._valid_schemas.clear()
+
 
 #: Anything that makes a cache unreadable by *this* build, as opposed to
 #: corrupt. The payload is a pickle of boneIO objects, so a build that moved or
@@ -1249,6 +1322,7 @@ def _strip_empty_strings_deep(obj: Any) -> Any:
 
 def load_config_from_string(config_str: str) -> dict:
     """Load config from string."""
+    _trust_schema()
     schema = _get_schema()  # Use cached schema instead of loading every time
     v = CustomValidator(schema, purge_unknown=True)
 
@@ -1621,6 +1695,7 @@ def _full_config_validation(
     schema = _get_schema()
     _LOGGER.debug("[STARTUP TIMING] _get_schema: %.2fs", _time.monotonic() - _t1)
     _t2 = _time.monotonic()
+    _trust_schema()
     v = CustomValidator(schema, purge_unknown=True)
     _LOGGER.debug("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
 
