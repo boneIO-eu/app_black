@@ -722,7 +722,7 @@
       "board_sensors": "Configure I2C sensors on the board: LM75/PCT2075 temperature sensor, INA219 power monitor, and MCP9808 temperature sensor.",
       "oled": "Configure the OLED display: choose screens, set order, add extra sensors, and screensaver timeout.",
       "hostname": "Manage the device hostname on the local network (mDNS).",
-      "timezone": "Configure system timezone and NTP time synchronization.",
+      "timezone": "Timezone and NTP time synchronisation.\n\nThe BeagleBone Black has no battery-backed clock. Cut its power and it comes back believing it is 1 January 2000 until NTP answers — which needs the network to be up first. Everything that depends on the time waits for that: sun-based schedules, conditions with a time window, anything with a timestamp.\n\nThis is worth a UPS. A few minutes of battery covers the brownouts that cause most restarts, and the controller keeps a clock it never had to guess at.",
       "mosquitto": "Manage user account passwords for the local Mosquitto MQTT broker.",
       "nodered_service": "Manage Node-RED service, updates, and backups.",
       "update": "Check for boneIO software updates and install releases or prereleases.",
@@ -1950,14 +1950,16 @@
     "ntp_servers_active": "Clock is following"
   },
   "timezone_sudoers": {
-    "title": "Timezone Permissions",
-    "description": "Configure sudoers NOPASSWD rules so the application can change timezone and NTP settings (timedatectl) without a password prompt.",
-    "checking": "Checking sudoers configuration...",
     "check_now": "Check permissions",
+    "checking": "Checking sudoers configuration...",
+    "description": "Configure sudoers NOPASSWD rules so the application can change timezone and NTP settings (timedatectl) without a password prompt.",
     "missing": "Timezone permissions are not installed yet",
     "missing_hint": "The rule that lets the application run 'timedatectl set-timezone' and 'set-ntp' is installed by a system migration. Apply the pending system migrations and check again.",
     "status_ok": "Timezone permissions OK",
-    "status_ok_hint": "Sudoers NOPASSWD is configured correctly. The application can change timezone and NTP settings without a password."
+    "status_ok_hint": "Sudoers NOPASSWD is configured correctly. The application can change timezone and NTP settings without a password.",
+    "title": "Timezone Permissions",
+    "unknown": "Could not check the permission",
+    "unknown_hint": "The controller did not answer in time, so this says nothing about whether the rule is installed — check the System migrations page for that. Try again in a moment."
   },
   "irrigation": {
     "title": "Irrigation",

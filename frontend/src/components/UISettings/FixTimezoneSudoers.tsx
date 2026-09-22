@@ -22,20 +22,27 @@ export default function FixTimezoneSudoers() {
     sudoers_file_exists: boolean;
     error: string | null;
   } | null>(null);
+  /** Set when the request itself failed — which is not an answer about the
+   *  rule, and must not be reported as one. */
+  const [unreachable, setUnreachable] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const checkSudoers = useCallback(async () => {
     setLoading(true);
     setCheckResult(null);
+    setUnreachable(null);
     try {
-      const { data } = await axios.get('/api/timezone/sudoers/check');
+      // Longer than the backend's own five-second cap on `sudo -l`. With both
+      // at five seconds the two raced, the client always lost, and a device
+      // that was merely busy came back as "the rule is missing" — with the
+      // migrations page next door correctly saying it had been installed.
+      const { data } = await axios.get('/api/timezone/sudoers/check', { timeout: 20000 });
       setCheckResult(data);
-    } catch (err: any) {
-      setCheckResult({
-        needs_password: true,
-        sudoers_file_exists: false,
-        error: err.message || 'Request failed',
-      });
+    } catch (err: unknown) {
+      // "Could not ask" is a third state. Reporting it as "not installed" sent
+      // people to apply migrations that were already applied.
+      const message = err instanceof Error ? err.message : String(err);
+      setUnreachable(message || 'Request failed');
     } finally {
       setLoading(false);
     }
@@ -102,6 +109,19 @@ export default function FixTimezoneSudoers() {
             variant="success"
             title={t('timezone_sudoers.status_ok')}
             message={t('timezone_sudoers.status_ok_hint')}
+          />
+        )}
+
+        {unreachable && !loading && (
+          <NoticeCallout
+            variant="warning"
+            title={t('timezone_sudoers.unknown')}
+            message={
+              <>
+                <span className="block">{t('timezone_sudoers.unknown_hint')}</span>
+                <span className="block font-mono text-xs opacity-60 mt-1">{unreachable}</span>
+              </>
+            }
           />
         )}
 

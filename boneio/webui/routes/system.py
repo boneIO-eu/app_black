@@ -48,6 +48,27 @@ from boneio.webui.services.logs import (
 
 _LOGGER = logging.getLogger(__name__)
 
+def _invalidate_sun(reason: str) -> None:
+    """Drop cached sun times after the clock or the zone moved under them.
+
+    Anchors are cached per (local date, timezone). Changing the zone without
+    this leaves the provider answering with the old one until a restart —
+    sunset an hour out, and every sun schedule with it.
+
+    Never fatal: the timezone was already changed by the time this runs, and
+    failing the request afterwards would report a success as an error.
+    """
+    try:
+        from boneio.webui.app import get_manager as _app_manager
+
+        manager = _app_manager()
+        if manager is not None and getattr(manager, "sun", None) is not None:
+            manager.sun.invalidate()
+            _LOGGER.info("Sun times recomputed: %s", reason)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning("Could not refresh sun times after %s: %s", reason, err)
+
+
 router = APIRouter(prefix="/api", tags=["system"])
 
 # These will be set by app initialization
@@ -637,7 +658,8 @@ async def get_hostname():
         Dictionary with hostname string.
     """
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["hostname"],
             capture_output=True,
             text=True,
@@ -706,7 +728,8 @@ async def reboot_device(background_tasks: BackgroundTasks):
     async def execute_reboot():
         await asyncio.sleep(1)
         try:
-            subprocess.run(
+            await asyncio.to_thread(
+                subprocess.run,
                 ["sudo", "reboot"],
                 check=True,
                 capture_output=True,
@@ -810,7 +833,8 @@ async def shutdown_device(background_tasks: BackgroundTasks):
     async def execute_shutdown():
         await asyncio.sleep(1)
         try:
-            subprocess.run(
+            await asyncio.to_thread(
+                subprocess.run,
                 ["sudo", "shutdown", "-h", "now"],
                 check=True,
                 capture_output=True,
@@ -898,7 +922,7 @@ async def get_timezone():
     Returns:
         Dictionary with timezone, NTP status, and current time.
     """
-    info = _parse_timedatectl()
+    info = await asyncio.to_thread(_parse_timedatectl)
 
     # timedatectl show uses key=value pairs
     timezone = info.get("Timezone", "")
@@ -986,13 +1010,15 @@ async def set_timezone(request: TimezoneRequest):
         )
 
     try:
-        subprocess.run(
+        await asyncio.to_thread(
+            subprocess.run,
             ["sudo", "timedatectl", "set-timezone", tz],
             check=True,
             capture_output=True,
             text=True,
         )
         _LOGGER.info("Timezone changed to: %s", tz)
+        _invalidate_sun(f"timezone changed to {tz}")
         return {"status": "success", "timezone": tz}
     except subprocess.CalledProcessError as e:
         _LOGGER.error("Failed to set timezone: %s", e.stderr)
@@ -1066,7 +1092,7 @@ async def get_ntp():
     Returns:
         Dict describing the current time synchronisation setup.
     """
-    info = _parse_timedatectl()
+    info = await asyncio.to_thread(_parse_timedatectl)
     servers, source = _configured_ntp_servers()
     return {
         "enabled": info.get("NTP", "").lower() in ("yes", "active"),
@@ -1074,7 +1100,7 @@ async def get_ntp():
         "servers": servers,
         "source": source,
         "max_servers": _NTP_MAX_SERVERS,
-        **_timesync_status(),
+        **(await asyncio.to_thread(_timesync_status)),
     }
 
 
@@ -1122,7 +1148,8 @@ async def set_ntp(request: NtpRequest):
     if request.enabled is not None:
         action = "true" if request.enabled else "false"
         try:
-            subprocess.run(
+            await asyncio.to_thread(
+                subprocess.run,
                 ["sudo", "timedatectl", "set-ntp", action],
                 check=True,
                 capture_output=True,
@@ -1138,8 +1165,8 @@ async def set_ntp(request: NtpRequest):
             _LOGGER.error("Error setting NTP: %s", e)
             raise HTTPException(status_code=500, detail=str(e)) from e
 
-    servers_now, source = _configured_ntp_servers()
-    info = _parse_timedatectl()
+    servers_now, source = await asyncio.to_thread(_configured_ntp_servers)
+    info = await asyncio.to_thread(_parse_timedatectl)
     return {
         "status": "success",
         "ntp_enabled": info.get("NTP", "").lower() in ("yes", "active"),
@@ -1157,7 +1184,8 @@ async def list_timezones():
         List of timezone strings.
     """
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["timedatectl", "list-timezones"],
             capture_output=True,
             text=True,

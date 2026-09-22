@@ -686,7 +686,7 @@
       "board_sensors": "Konfiguruj czujniki I2C na płytce: czujnik temperatury LM75/PCT2075, monitor zasilania INA219 i czujnik temperatury MCP9808.",
       "oled": "Skonfiguruj wyświetlacz OLED: wybierz ekrany, ustaw kolejność, dodaj dodatkowe czujniki i czas wygaszacza.",
       "hostname": "Zarządzaj nazwą hosta urządzenia w sieci lokalnej (mDNS).",
-      "timezone": "Ustawienia strefy czasowej i synchronizacji czasu NTP.",
+      "timezone": "Strefa czasowa i synchronizacja czasu przez NTP.\n\nBeagleBone Black nie ma podtrzymywanego bateryjnie zegara. Po zaniku zasilania wstaje przekonany, że jest 1 stycznia 2000, dopóki nie odpowie NTP — a do tego musi najpierw wstać sieć. Wszystko, co zależy od czasu, czeka na ten moment: harmonogramy słoneczne, warunki z oknem godzinowym, każdy znacznik czasu.\n\nWarto to zabezpieczyć UPS-em. Kilka minut na baterii pokrywa podnapięcia, które odpowiadają za większość restartów, a sterownik ma zegar, którego nie musiał zgadywać.",
       "mosquitto": "Zarządzanie hasłami użytkowników lokalnego brokera Mosquitto MQTT.",
       "nodered_service": "Zarządzanie usługą Node-RED, aktualizacjami i kopiami zapasowymi.",
       "update": "Sprawdzanie dostępności aktualizacji oprogramowania boneIO i instalacja nowych wersji.",
@@ -1949,14 +1949,16 @@
     "ntp_servers_active": "Zegar synchronizuje się z"
   },
   "timezone_sudoers": {
-    "title": "Uprawnienia strefy czasowej",
-    "description": "Skonfiguruj reguły sudoers NOPASSWD, aby aplikacja mogła zmieniać strefę czasową i ustawienia NTP (timedatectl) bez pytania o hasło.",
-    "checking": "Sprawdzanie konfiguracji sudoers...",
     "check_now": "Sprawdź uprawnienia",
+    "checking": "Sprawdzanie konfiguracji sudoers...",
+    "description": "Skonfiguruj reguły sudoers NOPASSWD, aby aplikacja mogła zmieniać strefę czasową i ustawienia NTP (timedatectl) bez pytania o hasło.",
     "missing": "Uprawnienia strefy czasowej nie są jeszcze zainstalowane",
     "missing_hint": "Regułę pozwalającą aplikacji uruchomić 'timedatectl set-timezone' i 'set-ntp' instaluje migracja systemowa. Zastosuj oczekujące migracje i sprawdź ponownie.",
     "status_ok": "Uprawnienia strefy czasowej OK",
-    "status_ok_hint": "Sudoers NOPASSWD jest poprawnie skonfigurowany. Aplikacja może zmieniać strefę czasową i ustawienia NTP bez hasła."
+    "status_ok_hint": "Sudoers NOPASSWD jest poprawnie skonfigurowany. Aplikacja może zmieniać strefę czasową i ustawienia NTP bez hasła.",
+    "title": "Uprawnienia strefy czasowej",
+    "unknown": "Nie udało się sprawdzić uprawnienia",
+    "unknown_hint": "Sterownik nie odpowiedział na czas, więc to nie mówi nic o tym, czy reguła jest zainstalowana — to widać na stronie Migracje systemowe. Spróbuj za chwilę."
   },
   "irrigation": {
     "title": "Nawadnianie",

@@ -376,3 +376,58 @@ def test_replanning_does_not_rearm_the_same_moment(monkeypatch):
     for _ in range(5):
         scheduler._plan()
     assert len(armed) == 1
+
+
+# ── the clock arriving late ──────────────────────────────────────────────
+
+
+def _prime_anchor_cache(manager, day=EQUINOX) -> int:
+    """Compute a day's anchors so there is something stale to throw away."""
+    manager.sun._anchors_for(day)
+    return len(manager.sun._anchor_cache)
+
+
+def test_sun_times_are_recomputed_when_the_clock_is_set(monkeypatch):
+    """The board has no battery-backed RTC: it boots in the year 2000 and stays
+    there until NTP answers. Anchors cached in the meantime were computed
+    against a date that never happened, so they have to go — asserted on the
+    cache itself rather than on invalidate() being called, because clearing it
+    is the part that matters."""
+    manager = make_manager(monkeypatch)
+    scheduler = Scheduler(manager, [schedule()])
+
+    # Boots with an unset clock: nothing armed.
+    assert scheduler._clock_ready(at("2000-01-01 00:05")) is False
+
+    assert _prime_anchor_cache(manager) == 1
+
+    # NTP answers.
+    assert scheduler._clock_ready(at("2025-03-20 12:00")) is True
+    assert manager.sun._anchor_cache == {}, "cached anchors survived the clock step"
+
+
+def test_a_clock_that_was_always_set_throws_nothing_away(monkeypatch):
+    """The usual boot, with a fast NTP reply. Re-planning happens every minute;
+    dropping the cache each time would recompute the same day forever."""
+    manager = make_manager(monkeypatch)
+    scheduler = Scheduler(manager, [schedule()])
+    _prime_anchor_cache(manager)
+
+    for _ in range(3):
+        assert scheduler._clock_ready(at("2025-03-20 12:00")) is True
+    assert len(manager.sun._anchor_cache) == 1
+
+
+def test_the_clock_going_bad_again_is_noticed_twice(monkeypatch):
+    manager = make_manager(monkeypatch)
+    scheduler = Scheduler(manager, [schedule()])
+
+    scheduler._clock_ready(at("2000-01-01 00:05"))
+    _prime_anchor_cache(manager)
+    scheduler._clock_ready(at("2025-03-20 12:00"))
+    assert manager.sun._anchor_cache == {}
+
+    scheduler._clock_ready(at("2000-01-01 00:05"))
+    _prime_anchor_cache(manager)
+    scheduler._clock_ready(at("2025-03-21 12:00"))
+    assert manager.sun._anchor_cache == {}, "the second step did not refresh them"

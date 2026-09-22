@@ -211,8 +211,27 @@ class Scheduler:
     # ── planning ─────────────────────────────────────────────────────────
 
     def _clock_ready(self, now: datetime) -> bool:
-        """Whether the system clock is plausible enough to schedule against."""
+        """Whether the system clock is plausible enough to schedule against.
+
+        Also the place the clock being *set* is noticed. The board has no
+        battery-backed RTC, so it boots in the year 2000 and stays there until
+        NTP answers — which needs the network up first, and on a site where the
+        NTP server is a minute behind the switch, that can be well after boot.
+        When the step finally lands, every cached sun anchor was computed
+        against a date that never happened, so they go.
+
+        The timers themselves need no help here: the plan is rebuilt from the
+        wall clock every minute anyway, which is what that interval is for.
+        """
         if self._manager.sun.clock_ready(now):
+            if self._warned_clock:
+                self._warned_clock = False
+                _LOGGER.info(
+                    "System clock is set (%s); recomputing sun times and arming "
+                    "schedules.",
+                    now.isoformat(timespec="seconds"),
+                )
+                self._manager.sun.invalidate()
             return True
         if not self._warned_clock:
             self._warned_clock = True

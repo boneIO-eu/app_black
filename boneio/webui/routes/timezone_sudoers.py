@@ -120,7 +120,15 @@ async def check_sudo_nopasswd_for_timedatectl() -> dict:
             )
 
     except TimeoutError:
-        result["error"] = "sudo check timed out"
+        # `sudo -l` can block on name resolution when the network is down,
+        # which is the same outage that makes NTP unreachable — so this is
+        # exactly the moment somebody opens this page. Say what is still
+        # known: the file either exists or it does not, and that answers
+        # "did the migration run" without asking sudo anything.
+        result["error"] = (
+            "sudo check timed out; the rule file "
+            + ("is present" if result["sudoers_file_exists"] else "is missing")
+        )
     except FileNotFoundError:
         result["error"] = "sudo command not found"
     except Exception as e:

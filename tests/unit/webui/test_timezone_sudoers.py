@@ -190,3 +190,84 @@ def test_the_ui_no_longer_advises_chowning_it_back():
         strings = json.loads(text)
         blob = json.dumps(strings, ensure_ascii=False)
         assert "chown $USER" not in blob, f"{locale} still advises chowning it back"
+
+
+# ----------------------------------------------- "could not ask" is not "no"
+
+
+class TestTimedOutCheck:
+    """A check that could not run is not a check that found the rule missing.
+
+    The panel used to conflate them: a request that timed out was rendered as
+    "the permission is not installed — apply your pending migrations", on a
+    device whose migrations page correctly said all forty-four were applied.
+    The device this was seen on had the rule installed and working.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_timeout_still_reports_the_file(self, monkeypatch, tmp_path):
+        """`sudo -l` can block on name resolution when the network is down —
+        the same outage that makes NTP unreachable, which is exactly when
+        somebody opens this page. Whether the migration ran is still knowable
+        without asking sudo anything."""
+        from boneio.webui.routes import timezone_sudoers as mod
+
+        present = tmp_path / "boneio-timedatectl"
+        present.write_text("boneio ALL=(root) NOPASSWD: /usr/bin/timedatectl set-ntp *\n")
+        monkeypatch.setattr(mod, "SUDOERS_FILE", str(present))
+
+        async def never_answers(*args, **kwargs):
+            raise TimeoutError
+
+        monkeypatch.setattr(mod.asyncio, "wait_for", never_answers)
+
+        result = await mod.check_sudo_nopasswd_for_timedatectl()
+
+        assert result["sudoers_file_exists"] is True
+        assert "is present" in result["error"], result["error"]
+        assert "timed out" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_a_timeout_says_so_when_the_file_is_missing_too(
+        self, monkeypatch, tmp_path
+    ):
+        from boneio.webui.routes import timezone_sudoers as mod
+
+        monkeypatch.setattr(mod, "SUDOERS_FILE", str(tmp_path / "absent"))
+
+        async def never_answers(*args, **kwargs):
+            raise TimeoutError
+
+        monkeypatch.setattr(mod.asyncio, "wait_for", never_answers)
+
+        result = await mod.check_sudo_nopasswd_for_timedatectl()
+
+        assert result["sudoers_file_exists"] is False
+        assert "is missing" in result["error"], result["error"]
+
+
+class TestTimezoneRoutesDoNotBlockTheLoop:
+    """`timedatectl show-timesync` hangs for seconds when the NTP server is
+    unreachable. Called straight from an async route it stalls every other
+    request — including the permission check next to it on the same page,
+    which is how a working rule came to be reported as missing."""
+
+    def test_no_async_route_calls_subprocess_run_directly(self):
+        import inspect
+        import re
+
+        from boneio.webui.routes import system as mod
+
+        source = inspect.getsource(mod).splitlines()
+        offenders, in_async = [], False
+        for line in source:
+            match = re.match(r"(async )?def (\w+)", line)
+            if match and not line.startswith((" ", "\t")):
+                in_async = bool(match.group(1))
+            if in_async and re.search(r"(?<!to_thread\()\bsubprocess\.run\(", line):
+                offenders.append(line.strip())
+
+        assert offenders == [], (
+            "these run on the event loop and stall every other request: "
+            + "; ".join(offenders)
+        )
