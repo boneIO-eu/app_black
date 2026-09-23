@@ -1,6 +1,6 @@
 import React, { useState, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { WebSocketContext } from '@/App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/hooks/useAuth';
 import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';

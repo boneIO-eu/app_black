@@ -79,9 +79,20 @@ class Device:
 
         self.release_key = _genkey(self.keys / "release.pem")
         self.recovery_key = _genkey(self.keys / "recovery.pem")
-        _pubkey(self.release_key, self.etc / "migrations.pem")
-        _pubkey(self.recovery_key, self.etc / "migrations-recovery.pem")
+        for name, key in (("migrations.pem", self.release_key),
+                          ("migrations-recovery.pem", self.recovery_key)):
+            os.chmod(_pubkey(key, self.etc / name), 0o644)
         self.release = "1.6.0"
+
+    def plant(self, path: Path, text: str) -> None:
+        """Write a file the helper will only trust if it is not group-writable.
+
+        The mode is set explicitly so the result does not depend on the umask
+        of whoever runs the suite: Debian's login umask is 0002, and a 0664
+        anchor, floor or flag is — correctly — refused by the helper.
+        """
+        path.write_text(text)
+        os.chmod(path, 0o644)
 
     def add_asset(self, rel: str, content: bytes) -> str:
         """Write an asset and return its digest."""
@@ -196,7 +207,7 @@ def test_applying_records_the_release_floor(device, helper, monkeypatch, tmp_pat
 def test_an_already_applied_migration_is_a_no_op(device, helper, monkeypatch, tmp_path):
     target = tmp_path / "out.conf"
     device.publish({"1.6.1": _touch_plan(device, target)})
-    (device.applied / "1.6.1.applied").write_text("applied_at=earlier\n")
+    device.plant(device.applied / "1.6.1.applied", "applied_at=earlier\n")
 
     assert device.ask(helper, monkeypatch, "1.6.1") == 0
     assert not target.exists(), "the plan ran again for an applied migration"
@@ -325,7 +336,7 @@ def test_an_older_release_cannot_replay_a_migration(
     So without a floor, an attacker restores an old release wholesale and
     presents a migration this device never applied.
     """
-    (device.applied / ".release-floor").write_text("1.6.4\n")
+    device.plant(device.applied / ".release-floor", "1.6.4\n")
     device.publish(
         {"1.6.1": _touch_plan(device, tmp_path / "out.conf")}, release="1.5.0"
     )
@@ -333,13 +344,13 @@ def test_an_older_release_cannot_replay_a_migration(
 
 
 def test_the_same_release_is_still_accepted(device, helper, monkeypatch, tmp_path):
-    (device.applied / ".release-floor").write_text("1.6.0\n")
+    device.plant(device.applied / ".release-floor", "1.6.0\n")
     device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
     assert device.ask(helper, monkeypatch, "1.6.1") == 0
 
 
 def test_the_floor_only_moves_forward(device, helper, monkeypatch, tmp_path):
-    (device.applied / ".release-floor").write_text("1.7.0\n")
+    device.plant(device.applied / ".release-floor", "1.7.0\n")
     device.publish({"1.6.1": _touch_plan(device, tmp_path / "out.conf")})
     device.ask(helper, monkeypatch, "1.6.1")
     assert (device.applied / ".release-floor").read_text().strip() == "1.7.0"
@@ -513,7 +524,7 @@ def test_a_disallowed_action_type_is_refused(device, helper, monkeypatch):
 
 
 def test_the_dev_hatch_allows_an_unsigned_plan(device, helper, monkeypatch, tmp_path):
-    (device.etc / "allow-unsigned-migrations").write_text("dev\n")
+    device.plant(device.etc / "allow-unsigned-migrations", "dev\n")
     target = tmp_path / "unsigned.conf"
     digest = device.add_asset("hello.conf", b"hello\n")
     status = device.run(helper, monkeypatch, {

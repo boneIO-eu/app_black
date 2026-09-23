@@ -91,7 +91,11 @@ function ArraySectionContent({
   // to show once it had run.
   const extraActions = activeSection === 'schedule' ? (
     <>
-      <button className="btn btn-ghost btn-sm gap-1" onClick={() => setWizardOpen(true)}>
+      <button
+        className="btn btn-outline btn-primary btn-sm gap-2 max-sm:btn-square"
+        onClick={() => setWizardOpen(true)}
+        title={t('presence.button')}
+      >
         <FaWandMagicSparkles />
         <span className="hidden sm:inline">{t('presence.button')}</span>
       </button>
@@ -101,6 +105,7 @@ function ArraySectionContent({
         <PresenceSimulationWizard
           open
           onOpenChange={setWizardOpen}
+          formData={formData}
           onDone={() => window.location.reload()}
         />
       )}

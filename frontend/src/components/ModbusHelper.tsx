@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { FaPlay, FaSearch, FaCog, FaPlus, FaPause, FaFlask, FaCode, FaCopy, FaCheck, FaImage } from 'react-icons/fa';
+import React from 'react';
+import {
+  FaPlay, FaSearch, FaPlus, FaPause, FaFlask, FaCode, FaCopy, FaCheck, FaImage,
+  FaBookOpen, FaPen, FaSlidersH, FaMagic, FaStop, FaTrash, FaCheckCircle, FaTimesCircle,
+} from 'react-icons/fa';
 import ModbusDeviceCreator from './ModbusDeviceCreator';
 import axios from '@/api/axios';
 import { MODBUS_DEVICE_CATALOG } from '../generated/modbusDeviceCatalog';
@@ -12,6 +16,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NumericInput } from '@/components/ui/NumericInput';
+import { cn } from '@/lib/utils';
+import {
+  SettingsPage,
+  SettingsCard,
+  FormActions,
+  FormField,
+  NoticeCallout,
+  ToggleRow,
+} from './UISettings/ui';
 
 interface ModbusConfig {
   configured: boolean;
@@ -432,431 +445,383 @@ export default function ModbusHelper() {
   // Show warning if Modbus is not configured
   if (config && !config.configured) {
     return (
-      <div>
-        <div className="alert alert-warning">
-          <span>{t('modbus_helper.not_configured')}</span>
-        </div>
-      </div>
+      <SettingsPage>
+        <NoticeCallout variant="warning" message={t('modbus_helper.not_configured')} />
+      </SettingsPage>
     );
   }
 
-  return (
-    <><div>
+  const baudrateItems = (
+    <>
+      <SelectItem value="2400">2400</SelectItem>
+      <SelectItem value="4800">4800</SelectItem>
+      <SelectItem value="9600">9600</SelectItem>
+      <SelectItem value="19200">19200</SelectItem>
+    </>
+  );
 
-      {/* Suspended banner */}
+  const addressField = (
+    <FormField label={t('modbus_helper.address')}>
+      <NumericInput
+        value={address}
+        onChange={(v) => setAddress(v === '' ? 1 : v)}
+        min={1}
+        max={247}
+      />
+    </FormField>
+  );
+
+  const tabs: { id: typeof activeTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'get', label: t('modbus_helper.get'), icon: <FaBookOpen /> },
+    { id: 'set', label: t('modbus_helper.set'), icon: <FaPen /> },
+    { id: 'search', label: t('modbus_helper.search'), icon: <FaSearch /> },
+    { id: 'configure', label: t('modbus_helper.configure'), icon: <FaSlidersH /> },
+    { id: 'creator', label: t('modbus_helper.creator'), icon: <FaMagic /> },
+    ...(showSimulator
+      ? [{ id: 'simulator' as const, label: t('modbus_helper.simulator'), icon: <FaFlask /> }]
+      : []),
+  ];
+
+  return (
+    <><SettingsPage>
+
+      {/* Suspended notice — the same callout every other page uses, not a
+          solid bar that reads louder than the tools under it. */}
       {suspended && (
-        <div className="alert alert-info mb-4 shadow-sm">
-          <FaPause className="shrink-0" />
-          <span>{t('tools.modbus_paused')}</span>
-        </div>
+        <NoticeCallout
+          variant="info"
+          icon={<FaPause />}
+          message={t('tools.modbus_paused')}
+        />
       )}
 
-      {/* Tabs */}
-      <div className="tabs tabs-box mb-6">
-        <button
-          className={`tab ${activeTab === 'get' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('get')}
-        >
-          <FaPlay className="mr-2" /> {t('modbus_helper.get')}
-        </button>
-        <button
-          className={`tab ${activeTab === 'set' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('set')}
-        >
-          <FaCog className="mr-2" /> {t('modbus_helper.set')}
-        </button>
-        <button
-          className={`tab ${activeTab === 'search' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('search')}
-        >
-          <FaSearch className="mr-2" /> {t('modbus_helper.search')}
-        </button>
-        <button
-          className={`tab ${activeTab === 'configure' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('configure')}
-        >
-          <FaCog className="mr-2" /> {t('modbus_helper.configure')}
-        </button>
-        <button
-          className={`tab ${activeTab === 'creator' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('creator')}
-        >
-          <FaPlus className="mr-2" /> {t('modbus_helper.creator')}
-        </button>
-        {showSimulator && (
-          <button
-            className={`tab ${activeTab === 'simulator' ? 'tab-active' : ''}`}
-            onClick={() => setActiveTab('simulator')}
-          >
-            <FaFlask className="mr-2" /> {t('modbus_helper.simulator')}
-          </button>
-        )}
+      {/* Tabs — a segmented control on the canvas, like the rest of the app */}
+      <div
+        role="tablist"
+        className="stg-card flex gap-1 overflow-x-auto no-scrollbar p-1.5"
+      >
+        {tabs.map(tab => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-base-content/55 hover:bg-base-content/5 hover:text-base-content/85',
+              )}
+            >
+              <span className="text-[12px]">{tab.icon}</span>
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* GET Tab */}
       {activeTab === 'get' && (
-        <div className="stg-card mb-6">
-          <div className="card-body">
-            <h2 className="card-title text-lg">{t('modbus_helper.read_register')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Device Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.address')}</span>
-                </label>
-                <NumericInput
-                  value={address}
-                  onChange={(v) => setAddress(v === '' ? 1 : v)}
-                  min={1}
-                  max={247}
-                />
-              </div>
-
-              {/* Register Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.register_address')}</span>
-                </label>
-                <NumericInput
-                  value={registerAddress}
-                  onChange={(v) => setRegisterAddress(v === '' ? 0 : v)}
-                  min={0}
-                />
-              </div>
-
-              {/* Register Type */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.register_type')}</span>
-                </label>
-                <Select value={registerType} onValueChange={setRegisterType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {config?.register_types.map(rt => (
-                      <SelectItem key={rt} value={rt}>{rt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Value Type */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.value_type')}</span>
-                </label>
-                <Select value={valueType} onValueChange={setValueType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {config?.value_types.map(vt => (
-                      <SelectItem key={vt} value={vt}>{vt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="card-actions justify-end mt-4">
+        <SettingsCard
+          icon={<FaBookOpen />}
+          title={t('modbus_helper.read_register')}
+          description={t('modbus_helper.read_register_desc')}
+          footer={
+            <FormActions className="w-full">
               <button
-                className={`btn btn-primary ${loading ? 'loading' : ''}`}
+                className="btn btn-primary btn-sm"
                 onClick={handleGet}
                 disabled={loading}
               >
-                <FaPlay className="mr-2" /> {t('modbus_helper.read')}
+                {loading ? <span className="loading loading-spinner loading-xs" /> : <FaPlay />}
+                {t('modbus_helper.read')}
               </button>
-            </div>
+            </FormActions>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {addressField}
+
+            <FormField label={t('modbus_helper.register_address')}>
+              <NumericInput
+                value={registerAddress}
+                onChange={(v) => setRegisterAddress(v === '' ? 0 : v)}
+                min={0}
+              />
+            </FormField>
+
+            <FormField label={t('modbus_helper.register_type')}>
+              <Select value={registerType} onValueChange={setRegisterType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {config?.register_types.map(rt => (
+                    <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField label={t('modbus_helper.value_type')}>
+              <Select value={valueType} onValueChange={setValueType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {config?.value_types.map(vt => (
+                    <SelectItem key={vt} value={vt}>{vt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
-        </div>
+        </SettingsCard>
       )}
 
       {/* SET Tab */}
       {activeTab === 'set' && (
-        <div className="stg-card mb-6">
-          <div className="card-body">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="card-title text-lg">{t('modbus_helper.write_register')}</h2>
-              {/* FC06 / FC16 toggle */}
-              <div className="flex gap-1 bg-base-300 rounded-lg p-1">
+        <SettingsCard
+          icon={<FaPen />}
+          title={t('modbus_helper.write_register')}
+          description={t('modbus_helper.write_register_desc')}
+          action={
+            /* FC06 / FC16 toggle */
+            <div className="flex gap-1 rounded-lg bg-base-content/5 p-1">
+              {(['fc06', 'fc16'] as const).map(mode => (
                 <button
-                  className={`btn btn-sm ${writeMode === 'fc06' ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setWriteMode('fc06')}
+                  key={mode}
+                  type="button"
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                    writeMode === mode
+                      ? 'bg-base-100 text-base-content shadow-sm'
+                      : 'text-base-content/55 hover:text-base-content/85',
+                  )}
+                  onClick={() => setWriteMode(mode)}
                 >
-                  FC06 – {t('modbus_helper.fc06_single')}
+                  {mode === 'fc06'
+                    ? `FC06 – ${t('modbus_helper.fc06_single')}`
+                    : `FC16 – ${t('modbus_helper.fc16_multiple')}`}
                 </button>
-                <button
-                  className={`btn btn-sm ${writeMode === 'fc16' ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setWriteMode('fc16')}
-                >
-                  FC16 – {t('modbus_helper.fc16_multiple')}
-                </button>
-              </div>
+              ))}
             </div>
+          }
+          footer={
+            <FormActions className="w-full">
+              {writeMode === 'fc06' ? (
+                <button
+                  className="btn btn-warning btn-sm"
+                  onClick={handleSet}
+                  disabled={loading || writeValue === ''}
+                >
+                  {loading ? <span className="loading loading-spinner loading-xs" /> : <FaPen />}
+                  {t('modbus_helper.write')}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-warning btn-sm"
+                  onClick={handleSetMultiple}
+                  disabled={loading || !parseMultipleValues(writeMultipleValues)}
+                >
+                  {loading ? <span className="loading loading-spinner loading-xs" /> : <FaPen />}
+                  {t('modbus_helper.fc16_write_button')}
+                </button>
+              )}
+            </FormActions>
+          }
+        >
+          {/* FC06 – single register */}
+          {writeMode === 'fc06' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {addressField}
 
-            {/* FC06 – single register */}
-            {writeMode === 'fc06' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                  {/* Device Address */}
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">{t('modbus_helper.address')}</span>
-                    </label>
-                    <NumericInput
-                      value={address}
-                      onChange={(v) => setAddress(v === '' ? 1 : v)}
-                      min={1}
-                      max={247}
-                    />
-                  </div>
+              <FormField label={t('modbus_helper.register_address')}>
+                <NumericInput
+                  value={writeRegisterAddress}
+                  onChange={(v) => setWriteRegisterAddress(v === '' ? 0 : v)}
+                  min={0}
+                />
+              </FormField>
 
-                  {/* Register Address */}
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">{t('modbus_helper.register_address')}</span>
-                    </label>
-                    <NumericInput
-                      value={writeRegisterAddress}
-                      onChange={(v) => setWriteRegisterAddress(v === '' ? 0 : v)}
-                      min={0}
-                    />
-                  </div>
+              <FormField label={t('modbus_helper.custom_value')}>
+                <NumericInput
+                  value={writeValue}
+                  onChange={(v) => setWriteValue(v)}
+                  decimal
+                  placeholder={t('modbus_helper.fc06_value_placeholder')}
+                />
+              </FormField>
+            </div>
+          )}
 
-                  {/* Value */}
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">{t('modbus_helper.custom_value')}</span>
-                    </label>
-                    <NumericInput
-                      value={writeValue}
-                      onChange={(v) => setWriteValue(v)}
-                      decimal
-                      placeholder={t('modbus_helper.fc06_value_placeholder')}
-                    />
-                  </div>
-                </div>
+          {/* FC16 – multiple registers */}
+          {writeMode === 'fc16' && (
+            <div className="space-y-4">
+              <p className="text-[13px] text-base-content/60 leading-relaxed">
+                {t('modbus_helper.fc16_hint')}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {addressField}
 
-                <div className="card-actions justify-end mt-4">
-                  <button
-                    className={`btn btn-warning ${loading ? 'loading' : ''}`}
-                    onClick={handleSet}
-                    disabled={loading || writeValue === ''}
-                  >
-                    <FaCog className="mr-2" /> {t('modbus_helper.write')}
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* FC16 – multiple registers */}
-            {writeMode === 'fc16' && (
-              <>
-                <p className="text-sm text-base-content/70 mt-2">
-                  {t('modbus_helper.fc16_hint')}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                  {/* Device Address */}
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text">{t('modbus_helper.address')}</span>
-                    </label>
-                    <NumericInput
-                      value={address}
-                      onChange={(v) => setAddress(v === '' ? 1 : v)}
-                      min={1}
-                      max={247}
-                    />
-                  </div>
-
-                  {/* Starting Register Address */}
-                  <div className="form-control md:col-span-2">
-                    <label className="label">
-                      <span className="label-text">{t('modbus_helper.fc16_start_register')}</span>
-                    </label>
-                    <NumericInput
-                      value={writeRegisterAddress}
-                      onChange={(v) => setWriteRegisterAddress(v === '' ? 0 : v)}
-                      min={0}
-                    />
-                  </div>
-                </div>
-
-                {/* Values (comma-separated) */}
-                <div className="form-control mt-4">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.fc16_values')}</span>
-                    <span className="label-text-alt">{t('modbus_helper.fc16_values_hint')}</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input input-bordered w-full"
-                    value={writeMultipleValues}
-                    onChange={(e) => setWriteMultipleValues(e.target.value)}
-                    placeholder={t('modbus_helper.fc16_values_placeholder')}
+                <FormField
+                  label={t('modbus_helper.fc16_start_register')}
+                  className="md:col-span-2"
+                >
+                  <NumericInput
+                    value={writeRegisterAddress}
+                    onChange={(v) => setWriteRegisterAddress(v === '' ? 0 : v)}
+                    min={0}
                   />
-                  {writeMultipleValues && parseMultipleValues(writeMultipleValues) && (
-                    <label className="label">
-                      <span className="label-text-alt text-info">
-                        {t('modbus_helper.fc16_registers_count')}: {parseMultipleValues(writeMultipleValues)!.length}
-                      </span>
-                    </label>
-                  )}
-                  {writeMultipleValues && !parseMultipleValues(writeMultipleValues) && (
-                    <label className="label">
-                      <span className="label-text-alt text-error">
-                        {t('modbus_helper.fc16_invalid_values')}
-                      </span>
-                    </label>
-                  )}
-                </div>
+                </FormField>
+              </div>
 
-                <div className="card-actions justify-end mt-4">
-                  <button
-                    className={`btn btn-warning ${loading ? 'loading' : ''}`}
-                    onClick={handleSetMultiple}
-                    disabled={loading || !parseMultipleValues(writeMultipleValues)}
-                  >
-                    <FaCog className="mr-2" /> {t('modbus_helper.fc16_write_button')}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+              <FormField
+                label={t('modbus_helper.fc16_values')}
+                error={
+                  writeMultipleValues && !parseMultipleValues(writeMultipleValues)
+                    ? t('modbus_helper.fc16_invalid_values')
+                    : undefined
+                }
+                help={
+                  writeMultipleValues && parseMultipleValues(writeMultipleValues)
+                    ? `${t('modbus_helper.fc16_registers_count')}: ${parseMultipleValues(writeMultipleValues)!.length}`
+                    : t('modbus_helper.fc16_values_hint')
+                }
+              >
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  value={writeMultipleValues}
+                  onChange={(e) => setWriteMultipleValues(e.target.value)}
+                  placeholder={t('modbus_helper.fc16_values_placeholder')}
+                />
+              </FormField>
+            </div>
+          )}
+        </SettingsCard>
       )}
 
       {/* SEARCH Tab */}
       {activeTab === 'search' && (
-        <div className="stg-card mb-6">
-          <div className="card-body">
-            <h2 className="card-title text-lg">{t('modbus_helper.search_devices')}</h2>
-            <p className="text-sm text-base-content/70 mb-4">
-              {t('modbus_helper.search_hint')}
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Start Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.start_address')}</span>
-                </label>
-                <NumericInput
-                  value={searchStartAddress}
-                  onChange={(v) => setSearchStartAddress(v === '' ? 1 : v)}
-                  min={1}
-                  max={247}
-                />
-              </div>
-
-              {/* End Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.end_address')}</span>
-                </label>
-                <NumericInput
-                  value={searchEndAddress}
-                  onChange={(v) => setSearchEndAddress(v === '' ? 247 : v)}
-                  min={1}
-                  max={247}
-                />
-              </div>
-
-              {/* Register Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.register_address')}</span>
-                </label>
-                <NumericInput
-                  value={searchRegisterAddress}
-                  onChange={(v) => setSearchRegisterAddress(v === '' ? 0 : v)}
-                  min={0}
-                />
-              </div>
-
-              {/* Register Type */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.register_type')}</span>
-                </label>
-                <Select value={searchRegisterType} onValueChange={setSearchRegisterType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {config?.register_types.map(rt => (
-                      <SelectItem key={rt} value={rt}>{rt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Timeout */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.timeout')}</span>
-                </label>
-                <Select value={String(searchTimeout)} onValueChange={(v) => setSearchTimeout(parseFloat(v))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0.2">0.2s</SelectItem>
-                    <SelectItem value="0.3">0.3s</SelectItem>
-                    <SelectItem value="0.5">0.5s</SelectItem>
-                    <SelectItem value="1">1.0s</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="alert alert-info mt-4">
-              <span>{t('modbus_helper.search_time_warning')}</span>
-            </div>
-
-            <div className="card-actions justify-end mt-4 gap-2">
-              {loading && activeTab === 'search' ? (
-                <button
-                  className="btn btn-error"
-                  onClick={handleCancelSearch}
-                >
-                  {t('modbus_helper.stop')}
+        <SettingsCard
+          icon={<FaSearch />}
+          title={t('modbus_helper.search_devices')}
+          description={t('modbus_helper.search_hint')}
+          footer={
+            <FormActions className="w-full" hint={t('modbus_helper.search_time_warning')}>
+              {loading ? (
+                <button className="btn btn-error btn-sm" onClick={handleCancelSearch}>
+                  <FaStop /> {t('modbus_helper.stop')}
                 </button>
               ) : (
-                <button
-                  className={`btn btn-info ${loading ? 'loading' : ''}`}
-                  onClick={handleSearch}
-                  disabled={loading}
-                >
-                  <FaSearch className="mr-2" /> {t('modbus_helper.search')}
+                <button className="btn btn-primary btn-sm" onClick={handleSearch}>
+                  <FaSearch /> {t('modbus_helper.search')}
                 </button>
               )}
-            </div>
+            </FormActions>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <FormField label={t('modbus_helper.start_address')}>
+              <NumericInput
+                value={searchStartAddress}
+                onChange={(v) => setSearchStartAddress(v === '' ? 1 : v)}
+                min={1}
+                max={247}
+              />
+            </FormField>
+
+            <FormField label={t('modbus_helper.end_address')}>
+              <NumericInput
+                value={searchEndAddress}
+                onChange={(v) => setSearchEndAddress(v === '' ? 247 : v)}
+                min={1}
+                max={247}
+              />
+            </FormField>
+
+            <FormField label={t('modbus_helper.register_address')}>
+              <NumericInput
+                value={searchRegisterAddress}
+                onChange={(v) => setSearchRegisterAddress(v === '' ? 0 : v)}
+                min={0}
+              />
+            </FormField>
+
+            <FormField label={t('modbus_helper.register_type')}>
+              <Select value={searchRegisterType} onValueChange={setSearchRegisterType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {config?.register_types.map(rt => (
+                    <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField label={t('modbus_helper.timeout')}>
+              <Select value={String(searchTimeout)} onValueChange={(v) => setSearchTimeout(parseFloat(v))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.2">0.2s</SelectItem>
+                  <SelectItem value="0.3">0.3s</SelectItem>
+                  <SelectItem value="0.5">0.5s</SelectItem>
+                  <SelectItem value="1">1.0s</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
-        </div>
+
+          {/* Progress while the scan runs */}
+          {loading && result?.total ? (
+            <div className="stg-inset mt-4 p-4">
+              <div className="flex items-center justify-between mb-2 text-[13px]">
+                <span className="font-medium">{t('modbus_helper.scanning')}…</span>
+                <span className="font-mono text-base-content/60">{result.scanned}/{result.total}</span>
+              </div>
+              <progress
+                className="progress progress-primary w-full"
+                value={result.scanned || 0}
+                max={result.total}
+              ></progress>
+              {result.devices && result.devices.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {result.devices.map((addr, idx) => (
+                    <span key={idx} className="badge badge-primary animate-pulse">
+                      {t('modbus_helper.address')}: {addr}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </SettingsCard>
       )}
 
-      {/* Results - hide during active search.
-
-          A tinted `bg-*` utility would lose to `.stg-card`'s own background:
-          the surface classes are unlayered and Tailwind's utilities are not.
-          The failure case gets the danger cap instead, which is how every
-          other page says the same thing. */}
+      {/* Results - hide during active search. The failure case gets the
+          danger cap, which is how every other page says the same thing. */}
       {result && !loading && (
-        <div className={`stg-card ${result.success ? '' : 'stg-card-danger'} mb-6`}>
-          <div className="card-body">
-            <h2 className="card-title text-lg">
-              {result.success ? '✅ ' : '❌ '}
-              {t('modbus_helper.result')}
-            </h2>
-
+        <SettingsCard
+          variant={result.success ? 'default' : 'danger'}
+          icon={result.success ? <FaCheckCircle className="text-success" /> : <FaTimesCircle />}
+          title={t('modbus_helper.result')}
+        >
+          <div className="space-y-3">
             {result.value !== undefined && (
-              <div className="stat">
-                <div className="stat-title">{t('modbus_helper.value')}</div>
-                <div className="stat-value text-primary">{result.value}</div>
+              <div className="stg-inset px-4 py-3">
+                <div className="text-xs font-medium text-base-content/55">{t('modbus_helper.value')}</div>
+                <div className="text-3xl font-semibold tracking-tight text-primary mt-0.5">{result.value}</div>
                 {result.raw_registers && (
-                  <div className="stat-desc">
+                  <div className="text-xs font-mono text-base-content/50 mt-1">
                     Raw: [{result.raw_registers.join(', ')}]
                   </div>
                 )}
@@ -864,43 +829,44 @@ export default function ModbusHelper() {
             )}
 
             {result.message && (
-              <p className="text-base-content">{result.message}</p>
+              <p className="text-sm text-base-content">{result.message}</p>
             )}
 
             {result.message_key && (
-              <p className="text-base-content">{t(`modbus_helper.${result.message_key}`)}</p>
+              <p className="text-sm text-base-content">{t(`modbus_helper.${result.message_key}`)}</p>
             )}
 
             {result.error && (
-              <p className="text-error">{result.error}</p>
+              <p className="text-sm text-error">{result.error}</p>
             )}
 
             {result.error_key && (
-              <p className="text-error">
+              <p className="text-sm text-error">
                 {t(`modbus_helper.${result.error_key}`)}
                 {result.error_params?.supported && ` ${result.error_params.supported}`}
               </p>
             )}
 
             {result.cancelled && (
-              <div className="alert alert-warning mb-4">
-                <span>{t('modbus_helper.search_cancelled')} ({result.scanned}/{result.total})</span>
-              </div>
+              <NoticeCallout
+                variant="warning"
+                message={`${t('modbus_helper.search_cancelled')} (${result.scanned}/${result.total})`}
+              />
             )}
 
             {result.devices && result.devices.length > 0 && (
               <div>
-                <p className="font-medium mb-2">
+                <p className="text-sm font-medium mb-2">
                   {t('modbus_helper.found_devices')}: {result.count}
                   {result.scanned !== undefined && result.total !== undefined && (
-                    <span className="text-base-content/70 ml-2">
+                    <span className="text-base-content/60 font-normal ml-2">
                       ({result.scanned}/{result.total} {t('modbus_helper.scanned')})
                     </span>
                   )}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {result.devices.map(addr => (
-                    <span key={addr} className="badge badge-primary badge-lg">
+                    <span key={addr} className="badge badge-primary">
                       {t('modbus_helper.address')}: {addr}
                     </span>
                   ))}
@@ -909,58 +875,40 @@ export default function ModbusHelper() {
             )}
 
             {result.devices && result.devices.length === 0 && result.success && !result.cancelled && (
-              <p className="text-base-content/70">{t('modbus_helper.no_devices_found')}</p>
+              <p className="text-sm text-base-content/60">{t('modbus_helper.no_devices_found')}</p>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Loading indicator with progress */}
-      {loading && activeTab === 'search' && result && result.total && (
-        <div className="stg-card mb-6">
-          <div className="card-body">
-            <div className="flex items-center justify-between mb-2">
-              <span>{t('modbus_helper.scanning')}...</span>
-              <span className="text-sm">{result.scanned}/{result.total}</span>
-            </div>
-            <progress
-              className="progress progress-primary w-full"
-              value={result.scanned || 0}
-              max={result.total}
-            ></progress>
-            {result.devices && result.devices.length > 0 && (
-              <div className="mt-4">
-                <p className="font-medium mb-2">
-                  {t('modbus_helper.found_devices')}: {result.devices.join(', ')}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {result.devices.map((addr, idx) => (
-                    <span key={idx} className="badge badge-primary badge-lg animate-pulse">
-                      {t('modbus_helper.address')}: {addr}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        </SettingsCard>
       )}
 
       {/* CONFIGURE Tab */}
       {activeTab === 'configure' && (
-        <div className="stg-card mb-6">
-          <div className="card-body">
-            <h2 className="card-title text-lg">{t('modbus_helper.configure_device')}</h2>
-            <div className="alert alert-warning mb-4">
-              <span>⚠️ {t('modbus_helper.configure_warning')}</span>
-            </div>
+        <SettingsCard
+          icon={<FaSlidersH />}
+          title={t('modbus_helper.configure_device')}
+          description={t('modbus_helper.configure_desc')}
+          footer={
+            <FormActions className="w-full">
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleConfigure}
+                disabled={
+                  loading ||
+                  (configOperation === 'address' && !configNewAddress) ||
+                  (configOperation === 'baudrate' && !configNewBaudrate)
+                }
+              >
+                {loading ? <span className="loading loading-spinner loading-xs" /> : <FaSlidersH />}
+                {configOperation === 'address' ? t('modbus_helper.set_new_address') : t('modbus_helper.set_new_baudrate')}
+              </button>
+            </FormActions>
+          }
+        >
+          <div className="space-y-4">
+            <NoticeCallout variant="warning" message={t('modbus_helper.configure_warning')} />
 
-            {/* Device Model - First */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-semibold">{t('modbus_helper.device_model')}</span>
-                </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label={t('modbus_helper.device_model')}>
                 <Select value={configDevice} onValueChange={(v) => {
                     setConfigDevice(v);
                     setConfigBroadcast(false);
@@ -981,13 +929,9 @@ export default function ModbusHelper() {
                     <SelectItem value="dyp-a12-ultrasonic">DYP-A12 (Ultrasonic Distance)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
 
-              {/* UART */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-semibold">{t('modbus_helper.uart')}</span>
-                </label>
+              <FormField label={t('modbus_helper.uart')}>
                 <Select value={configUart} onValueChange={setConfigUart}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -999,113 +943,96 @@ export default function ModbusHelper() {
                     <SelectItem value="uart5">UART5</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             </div>
 
             {/* Broadcast mode for edge-temp */}
             {configDevice === 'boneio-edge-temp' && (
-              <div className="form-control mb-4">
-                <label className="label cursor-pointer justify-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="toggle toggle-warning"
-                    checked={configBroadcast}
-                    onChange={(e) => {
-                      setConfigBroadcast(e.target.checked);
-                      if (e.target.checked) {
-                        setConfigOperation('baudrate');
-                        setConfigCurrentAddress(0);
-                      } else {
-                        setConfigCurrentAddress(1);
-                      }
-                    }}
-                  />
-                  <span className="label-text font-semibold">{t('modbus_helper.broadcast_mode') || 'Broadcast Mode (address 0)'}</span>
-                </label>
+              <div className="space-y-2">
+                <ToggleRow
+                  checked={configBroadcast}
+                  tone="warning"
+                  label={t('modbus_helper.broadcast_mode') || 'Broadcast Mode (address 0)'}
+                  onChange={(checked) => {
+                    setConfigBroadcast(checked);
+                    if (checked) {
+                      setConfigOperation('baudrate');
+                      setConfigCurrentAddress(0);
+                    } else {
+                      setConfigCurrentAddress(1);
+                    }
+                  }}
+                />
                 {configBroadcast && (
-                  <div className="alert alert-error mt-2">
-                    <span>⚠️ {t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this UART bus!'}</span>
-                  </div>
+                  <NoticeCallout
+                    variant="error"
+                    message={t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this UART bus!'}
+                  />
                 )}
               </div>
             )}
 
             {/* Operation Type Selection */}
-            <div className="form-control mb-4">
-              <label className="label">
-                <span className="label-text font-semibold">{t('modbus_helper.select_operation')}</span>
-              </label>
-              <div className="flex gap-4">
+            <FormField label={t('modbus_helper.select_operation')}>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
                 {!configBroadcast && (
-                  <label className="label cursor-pointer gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
                     <input
                       type="radio"
                       name="operation"
-                      className="radio radio-primary"
+                      className="radio radio-primary radio-sm"
                       checked={configOperation === 'address'}
                       onChange={() => setConfigOperation('address')}
                     />
-                    <span className="label-text">{t('modbus_helper.change_address')}</span>
+                    {t('modbus_helper.change_address')}
                   </label>
                 )}
                 {configDevice !== 'dyp-a12-ultrasonic' && (
-                  <label className="label cursor-pointer gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
                     <input
                       type="radio"
                       name="operation"
-                      className="radio radio-primary"
+                      className="radio radio-primary radio-sm"
                       checked={configOperation === 'baudrate'}
                       onChange={() => setConfigOperation('baudrate')}
                     />
-                    <span className="label-text">{t('modbus_helper.change_baudrate')}</span>
+                    {t('modbus_helper.change_baudrate')}
                   </label>
                 )}
               </div>
-            </div>
+            </FormField>
 
-            {/* Address change fields */}
-            {configOperation === 'address' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.current_address')}</span>
-                  </label>
-                  <NumericInput
-                    value={configCurrentAddress}
-                    onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
-                    min={1}
-                    max={247}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label={t('modbus_helper.current_address')}>
+                <NumericInput
+                  value={configCurrentAddress}
+                  onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
+                  min={1}
+                  max={247}
+                />
+              </FormField>
+
+              <FormField label={t('modbus_helper.current_baudrate')}>
+                {configOperation === 'address' && configDevice === 'dyp-a12-ultrasonic' ? (
+                  <input
+                    type="text"
+                    className="input input-bordered w-full"
+                    value="9600"
+                    disabled
                   />
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.current_baudrate')}</span>
-                  </label>
-                  {configDevice === 'dyp-a12-ultrasonic' ? (
-                    <input
-                      type="text"
-                      className="input input-bordered w-full"
-                      value="9600"
-                      disabled
-                    />
-                  ) : (
-                    <Select value={String(configCurrentBaudrate)} onValueChange={(v) => setConfigCurrentBaudrate(Number(v))}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2400">2400</SelectItem>
-                        <SelectItem value="4800">4800</SelectItem>
-                        <SelectItem value="9600">9600</SelectItem>
-                        <SelectItem value="19200">19200</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="form-control md:col-span-2">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.new_address')} *</span>
-                  </label>
+                ) : (
+                  <Select value={String(configCurrentBaudrate)} onValueChange={(v) => setConfigCurrentBaudrate(Number(v))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>{baudrateItems}</SelectContent>
+                  </Select>
+                )}
+              </FormField>
+
+              {/* Address change */}
+              {configOperation === 'address' && (
+                <FormField label={t('modbus_helper.new_address')} required className="md:col-span-2">
                   <NumericInput
                     value={configNewAddress}
                     onChange={(v) => setConfigNewAddress(v)}
@@ -1113,230 +1040,157 @@ export default function ModbusHelper() {
                     max={247}
                     placeholder={t('modbus_helper.new_address_placeholder')}
                   />
-                </div>
-              </div>
-            )}
+                </FormField>
+              )}
 
-            {/* Baudrate change fields */}
-            {configOperation === 'baudrate' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.current_address')}</span>
-                  </label>
-                  <NumericInput
-                    value={configCurrentAddress}
-                    onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
-                    min={1}
-                    max={247}
-                  />
-                </div>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.current_baudrate')}</span>
-                  </label>
-                  <Select value={String(configCurrentBaudrate)} onValueChange={(v) => setConfigCurrentBaudrate(Number(v))}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2400">2400</SelectItem>
-                      <SelectItem value="4800">4800</SelectItem>
-                      <SelectItem value="9600">9600</SelectItem>
-                      <SelectItem value="19200">19200</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="form-control md:col-span-2">
-                  <label className="label">
-                    <span className="label-text">{t('modbus_helper.new_baudrate')} *</span>
-                  </label>
+              {/* Baudrate change */}
+              {configOperation === 'baudrate' && (
+                <FormField label={t('modbus_helper.new_baudrate')} required className="md:col-span-2">
                   <Select value={configNewBaudrate ? String(configNewBaudrate) : undefined} onValueChange={(v) => setConfigNewBaudrate(v ? Number(v) : '')}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder={t('modbus_helper.new_baudrate_placeholder')} />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2400">2400</SelectItem>
-                      <SelectItem value="4800">4800</SelectItem>
-                      <SelectItem value="9600">9600</SelectItem>
-                      <SelectItem value="19200">19200</SelectItem>
-                    </SelectContent>
+                    <SelectContent>{baudrateItems}</SelectContent>
                   </Select>
-                </div>
-              </div>
-            )}
-
-            <div className="card-actions justify-end mt-4">
-              <button
-                className="btn btn-primary"
-                onClick={handleConfigure}
-                disabled={
-                  loading ||
-                  (configOperation === 'address' && !configNewAddress) ||
-                  (configOperation === 'baudrate' && !configNewBaudrate)
-                }
-              >
-                <FaCog className="mr-2" />
-                {configOperation === 'address' ? t('modbus_helper.set_new_address') : t('modbus_helper.set_new_baudrate')}
-              </button>
+                </FormField>
+              )}
             </div>
 
-            <div className="alert alert-info mt-4">
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold">⚠️ {t('modbus_helper.configure_important')}</span>
-                <span>1. {t('modbus_helper.configure_step1')}</span>
-                <span>2. {t('modbus_helper.configure_step2')}</span>
-              </div>
-            </div>
+            <NoticeCallout
+              variant="neutral"
+              title={t('modbus_helper.configure_important')}
+              message={
+                <ol className="list-decimal pl-4 space-y-0.5">
+                  <li>{t('modbus_helper.configure_step1')}</li>
+                  <li>{t('modbus_helper.configure_step2')}</li>
+                </ol>
+              }
+            />
           </div>
-        </div>
+        </SettingsCard>
       )}
 
       {/* CREATOR Tab */}
       {activeTab === 'creator' && (
-        <div className="stg-card mb-6">
-          <div className="card-body">
-            <h2 className="card-title text-lg">{t('modbus_helper.device_creator')}</h2>
-            <ModbusDeviceCreator />
-          </div>
-        </div>
+        <SettingsCard
+          icon={<FaMagic />}
+          title={t('modbus_helper.device_creator')}
+          description={t('modbus_helper.creator_desc')}
+        >
+          <ModbusDeviceCreator />
+        </SettingsCard>
       )}
 
       {/* SIMULATOR Tab */}
       {activeTab === 'simulator' && showSimulator && (
-        <div className="space-y-4">
-          {/* Create form card */}
-          <div className="stg-card">
-            <div className="card-body p-4 sm:p-6">
-              <h2 className="card-title text-base sm:text-lg flex items-center gap-2">
-                <FaFlask className="text-primary shrink-0" /> {t('modbus_helper.simulator_title')}
-              </h2>
-              <p className="text-xs sm:text-sm text-base-content/70 mt-1">
-                {t('modbus_helper.simulator_hint')}
-              </p>
+        <>
+          <SettingsCard
+            icon={<FaFlask />}
+            title={t('modbus_helper.simulator_title')}
+            description={t('modbus_helper.simulator_hint')}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_6rem_auto] gap-4 items-end">
+              <FormField label={t('modbus_wizard.step2_title')}>
+                <Select value={selectedSimModel} onValueChange={setSelectedSimModel}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(MODBUS_DEVICE_CATALOG).map(d => (
+                      <SelectItem key={d.modelKey} value={d.modelKey}>
+                        {d.displayName} ({d.manufacturer})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
 
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_6rem_auto] gap-4 mt-4">
-                {/* Select Model */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text text-xs font-semibold">{t('modbus_wizard.step2_title')}</span>
-                  </label>
-                  <Select value={selectedSimModel} onValueChange={setSelectedSimModel}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(MODBUS_DEVICE_CATALOG).map(d => (
-                        <SelectItem key={d.modelKey} value={d.modelKey}>
-                          {d.displayName} ({d.manufacturer})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <FormField label={t('modbus_wizard.address')}>
+                <NumericInput
+                  value={simAddress}
+                  onChange={(v) => setSimAddress(v === '' ? 1 : v)}
+                  min={1}
+                  max={247}
+                />
+              </FormField>
 
-                {/* Address */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text text-xs font-semibold">{t('modbus_wizard.address')}</span>
-                  </label>
-                  <NumericInput
-                    value={simAddress}
-                    onChange={(v) => setSimAddress(v === '' ? 1 : v)}
-                    min={1}
-                    max={247}
-                  />
-                </div>
-
-                {/* Action Button — aligned to bottom of the row */}
-                <div className="flex items-end">
-                  <button
-                    className={`btn btn-primary w-full md:w-auto whitespace-nowrap ${loading ? 'loading' : ''}`}
-                    onClick={handleCreateFakeDevice}
-                    disabled={loading}
-                  >
-                    <FaPlus className="mr-1.5" /> {t('modbus_helper.simulator_create')}
-                  </button>
-                </div>
-              </div>
+              <button
+                className="btn btn-primary w-full md:w-auto whitespace-nowrap"
+                onClick={handleCreateFakeDevice}
+                disabled={loading}
+              >
+                {loading ? <span className="loading loading-spinner loading-xs" /> : <FaPlus />}
+                {t('modbus_helper.simulator_create')}
+              </button>
             </div>
-          </div>
+          </SettingsCard>
 
           {/* Active Simulations — card per device */}
           {Array.isArray(fakeDevices) && fakeDevices.length > 0 && (
-            <div>
-              <h3 className="font-bold text-sm sm:text-md mb-3 px-1">
-                {t('modbus_helper.active_simulations')}
-              </h3>
-              <div className="space-y-3">
-                {fakeDevices.map((dev) => (
-                  <div key={dev.device_id} className="stg-card">
-                    <div className="card-body p-4">
-                      {/* Top row: device info */}
-                      <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm sm:text-base truncate">{dev.model}</div>
-                          <div className="text-xs text-base-content/60">{dev.manufacturer}</div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="badge badge-outline badge-sm capitalize">{dev.category}</span>
-                          <span className="badge badge-ghost badge-sm font-mono">{dev.entity_count} entities</span>
-                        </div>
-                      </div>
-
-                      <div className="text-xs font-mono text-primary mt-1">ID: {dev.device_id}</div>
-
-                      {/* Action buttons — always visible, wrap on mobile */}
-                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-300">
-                        <button
-                          className="btn btn-sm btn-info flex-1 sm:flex-none min-w-0"
-                          onClick={() => handleUpdateFakeDevice(dev.device_id)}
-                          disabled={loading}
-                        >
-                          <FaPlay className="mr-1.5 shrink-0" />
-                          <span className="truncate">{t('modbus_helper.simulation_send_update')}</span>
-                        </button>
-                        <button
-                          className="btn btn-sm btn-accent flex-1 sm:flex-none min-w-0"
-                          onClick={() => handleDashboardYaml(dev.device_id)}
-                          disabled={loading}
-                        >
-                          <FaCode className="mr-1.5 shrink-0" />
-                          <span className="truncate">{t('modbus_helper.simulation_dashboard')}</span>
-                        </button>
-                        <button
-                          className="btn btn-sm btn-secondary flex-1 sm:flex-none min-w-0"
-                          onClick={() => handleDashboardYaml(dev.device_id, 'visual')}
-                          disabled={loading}
-                        >
-                          <FaImage className="mr-1.5 shrink-0" />
-                          <span className="truncate">{t('modbus_helper.simulation_visual')}</span>
-                        </button>
-                        <button
-                          className="btn btn-sm btn-error flex-1 sm:flex-none min-w-0"
-                          onClick={() => handleRemoveFakeDevice(dev.device_id)}
-                          disabled={loading}
-                        >
-                          {t('modbus_helper.simulation_delete')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            <div className="space-y-3">
+              <div className="px-1">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-base-content/50">
+                  {t('modbus_helper.active_simulations')}
+                </h3>
+                <p className="text-xs text-base-content/50 mt-0.5">
+                  {t('modbus_helper.active_simulations_desc')}
+                </p>
               </div>
+              {fakeDevices.map((dev) => (
+                <SettingsCard
+                  key={dev.device_id}
+                  title={dev.model}
+                  description={
+                    <>
+                      {dev.manufacturer}
+                      <span className="font-mono text-base-content/45 ml-2">ID: {dev.device_id}</span>
+                    </>
+                  }
+                  action={
+                    <>
+                      <span className="badge badge-outline badge-sm capitalize">{dev.category}</span>
+                      <span className="badge badge-ghost badge-sm font-mono">{dev.entity_count} entities</span>
+                    </>
+                  }
+                  footer={
+                    <div className="flex flex-wrap gap-2 w-full">
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => handleUpdateFakeDevice(dev.device_id)}
+                        disabled={loading}
+                      >
+                        <FaPlay /> {t('modbus_helper.simulation_send_update')}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => handleDashboardYaml(dev.device_id)}
+                        disabled={loading}
+                      >
+                        <FaCode /> {t('modbus_helper.simulation_dashboard')}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => handleDashboardYaml(dev.device_id, 'visual')}
+                        disabled={loading}
+                      >
+                        <FaImage /> {t('modbus_helper.simulation_visual')}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-ghost text-error sm:ml-auto"
+                        onClick={() => handleRemoveFakeDevice(dev.device_id)}
+                        disabled={loading}
+                      >
+                        <FaTrash /> {t('modbus_helper.simulation_delete')}
+                      </button>
+                    </div>
+                  }
+                />
+              ))}
             </div>
           )}
-        </div>
+        </>
       )}
-
-      {/* Loading indicator for other operations */}
-      {loading && (activeTab !== 'search' && activeTab !== 'creator' && activeTab !== 'simulator' || !result?.total) && (
-        <div className="flex justify-center items-center py-8">
-          <span className="loading loading-spinner loading-lg"></span>
-          <span className="ml-4">{t('modbus_helper.loading')}</span>
-        </div>
-      )}
-    </div>
+    </SettingsPage>
 
     {/* Dashboard YAML Modal */}
     {dashboardYaml && (

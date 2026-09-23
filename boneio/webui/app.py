@@ -325,6 +325,7 @@ def remove_all_websocket_listeners(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws_input_global")
     boneio_manager.event_bus.remove_event_listener(event_type="modbus_device", listener_id="ws_modbus_global")
     boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws_sensor_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="schedule", listener_id="ws_schedule_global")
 
 
 async def broadcast_initial_states(boneio_manager: Manager) -> None:

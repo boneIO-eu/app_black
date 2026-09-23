@@ -12,6 +12,12 @@ import {
 } from '../ui';
 
 /**
+ * A DNS label, the rule boneio-system applies before it runs hostnamectl.
+ * Checked here as well so the operator hears why before anything is sent.
+ */
+const HOSTNAME_RE = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
+
+/**
  * Section for viewing and changing the device hostname.
  */
 export default function HostnameSection() {
@@ -36,12 +42,20 @@ export default function HostnameSection() {
   }, [fetchHostname]);
 
   const changeHostname = async () => {
-    if (!newHostname.trim()) {
+    // Hostnames are case-insensitive; the backend lower-cases too.
+    const hostname = newHostname.trim().toLowerCase();
+
+    if (!hostname) {
       setHostnameResult({ status: 'error', message: t('settings.hostname_empty') });
       return;
     }
 
-    if (newHostname === currentHostname) {
+    if (!HOSTNAME_RE.test(hostname)) {
+      setHostnameResult({ status: 'error', message: t('settings.hostname_invalid') });
+      return;
+    }
+
+    if (hostname === currentHostname) {
       setHostnameResult({ status: 'error', message: t('settings.hostname_unchanged') });
       return;
     }
@@ -50,11 +64,13 @@ export default function HostnameSection() {
     setHostnameResult(null);
 
     try {
-      const { data } = await axios.post('/api/hostname', { hostname: newHostname });
+      const { data } = await axios.post('/api/hostname', { hostname });
       setCurrentHostname(data.hostname);
+      setNewHostname(data.hostname);
       setHostnameResult({ status: 'success', message: t('settings.hostname_changed') });
     } catch (err: any) {
-      setHostnameResult({ status: 'error', message: err.message || t('settings.hostname_change_failed') });
+      const message = err?.response?.data?.detail || t('settings.hostname_change_failed');
+      setHostnameResult({ status: 'error', message });
     } finally {
       setIsChangingHostname(false);
     }

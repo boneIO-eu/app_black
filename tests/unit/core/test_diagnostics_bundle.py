@@ -168,6 +168,12 @@ def test_a_remote_broker_is_not_looked_for_locally(tmp_path):
 def test_a_missing_command_does_not_break_the_bundle(device, monkeypatch):
     """A bundle that fails because one tool is absent is a bundle nobody gets."""
     monkeypatch.setattr("boneio.core.diagnostics.collect.shutil.which", lambda _: None)
+    # Docker is reached through boneio-containers first, so a device that has
+    # the helper installed (the dev controller does) would still report it.
+    monkeypatch.setattr(
+        "boneio.core.diagnostics.collect.containers.helper_available",
+        lambda recheck=False: False,
+    )
     payload, _ = build(config_of(device), device / "config.yaml")
     assert "is not installed" in members(payload)["status/docker.txt"]
 

@@ -1,7 +1,7 @@
 import { useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '@/api/axios';
-import { WebSocketContext } from '../App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 import ViewToggle from './ViewToggle';
 import { isModbusDeviceEvent, ModbusDeviceState } from '../hooks/useWebSocket';
 import { useTranslation } from '../hooks/useTranslation';

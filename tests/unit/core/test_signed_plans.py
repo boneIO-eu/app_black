@@ -249,7 +249,11 @@ def test_the_portability_guard_rejects_the_build_user():
         gen._assert_portable("9.9.9", payload)
 
 
-def test_the_portability_guard_passes_a_device_agnostic_plan():
+def test_the_portability_guard_passes_a_device_agnostic_plan(monkeypatch):
+    # Signing happens in CI or on a laptop, never as the device's service
+    # account. Run as ``boneio`` (on the dev controller), every path naming the
+    # account would look like a leaked build user, so pin a build-machine name.
+    monkeypatch.setattr(gen.getpass, "getuser", lambda: "runner")
     payload = [
         {"action": "remove_file", "path": "/etc/sudoers.d/boneio-setup"},
         {"action": "systemctl_reload", "unit": "ssh"},

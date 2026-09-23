@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { WebSocketContext } from '../App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 
 import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';

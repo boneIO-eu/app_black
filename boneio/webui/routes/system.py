@@ -644,6 +644,12 @@ async def get_hardware_errors():
     return {"errors": errors}
 
 
+#: The same rule ``boneio-system`` applies before it runs hostnamectl. Checked
+#: here too so a name the helper would refuse comes back as a 400 that says
+#: why, not as a 500 carrying the helper's stderr.
+_HOSTNAME_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)$")
+
+
 class HostnameRequest(BaseModel):
     """Request model for hostname change."""
     hostname: str
@@ -686,22 +692,27 @@ async def set_hostname(request: HostnameRequest):
     Returns:
         Status response indicating if hostname was changed.
     """
-    new_hostname = request.hostname.strip()
-    
+    # Lower-cased rather than refused: hostnames are case-insensitive, and
+    # "Kotlownia" typed into the panel means kotlownia, not a mistake.
+    new_hostname = request.hostname.strip().lower()
+
     if not new_hostname:
         raise HTTPException(status_code=400, detail="Hostname cannot be empty")
-    
+
     if len(new_hostname) > 63:
         raise HTTPException(status_code=400, detail="Hostname too long (max 63 characters)")
-    
-    if not all(c.isalnum() or c in '-_' for c in new_hostname):
-        raise HTTPException(status_code=400, detail="Hostname can only contain alphanumeric characters, hyphens, and underscores")
-    
+
+    if not _HOSTNAME_RE.match(new_hostname):
+        raise HTTPException(
+            status_code=400,
+            detail="Hostname can only contain letters, digits and hyphens, "
+            "and cannot start or end with a hyphen",
+        )
+
     # Through the helper rather than `sudo hostnamectl set-hostname *`: that
-    # rule's wildcard took whatever this endpoint passed, and the check above
-    # accepts underscores, which are not valid in a DNS label. The helper
-    # applies DNS label rules of its own, so the two cannot disagree in the
-    # direction that matters.
+    # rule's wildcard took whatever this endpoint passed. The helper checks
+    # the name again on the root side, which is the check that matters; the
+    # one above only makes a refusal readable.
     result = await asyncio.get_event_loop().run_in_executor(
         None, system_ops.hostname_set, new_hostname
     )

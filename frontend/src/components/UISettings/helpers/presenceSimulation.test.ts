@@ -163,3 +163,23 @@ describe('isGenerated', () => {
     expect(isGenerated({})).toBe(false);
   });
 });
+
+describe('remote lights', () => {
+  const remotes = { 'remote:esp_hall/lamp': { remote_device: 'esp_hall', output_id: 'lamp' } };
+
+  it('switches a remote light with remote_output, never a local output action', () => {
+    const { schedules, virtualSwitch } = build({ lights: ['out_living', 'remote:esp_hall/lamp'], remotes });
+    const all = [
+      ...schedules.flatMap((s) => s.actions as Record<string, unknown>[]),
+      ...Object.values((virtualSwitch.actions as Record<string, Record<string, unknown>[]>)),
+    ].flat() as Record<string, unknown>[];
+    const remoteActions = all.filter((a) => a.action === 'remote_output');
+
+    expect(remoteActions.length).toBeGreaterThan(0);
+    for (const action of remoteActions) {
+      expect(action).toMatchObject({ remote_device: 'esp_hall', output_id: 'lamp' });
+      expect(action).not.toHaveProperty('boneio_output');
+    }
+    expect(all.some((a) => a.boneio_output === 'remote:esp_hall/lamp')).toBe(false);
+  });
+});

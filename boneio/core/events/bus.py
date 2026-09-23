@@ -102,6 +102,10 @@ class EventBus:
             "host": {},
             "group": {},
             "inputs_reloaded": {},
+            # The web UI listens for schedule status. Without the key, adding
+            # that listener raised KeyError and the WebSocket handler died
+            # right after its first state dump.
+            "schedule": {},
         }
         self._listener_id_index = {}
         self._worker_task = None

@@ -2,7 +2,7 @@ import { NoticeCallout } from './ui';
 import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import axios from '@/api/axios';
 import { FaPlay, FaCheck, FaForward, FaTimes, FaSpinner, FaLightbulb, FaToggleOn, FaHandPointer } from 'react-icons/fa';
-import { WebSocketContext } from '../../App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 import { OutputEvent, InputEvent } from '../../hooks/useWebSocket';
 
 type TestPhase = 'idle' | 'outputs' | 'inputs' | 'complete';

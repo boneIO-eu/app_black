@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useTranslation } from '@/hooks/useTranslation';
-import { WebSocketContext } from '@/App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';
 import type { EntityItem } from '@/components/UISettings/EntitySelectDropdown';
 import SearchableEntityPicker from '@/components/UISettings/SearchableEntityPicker';

@@ -38,6 +38,15 @@ export interface PresenceOptions {
   namePrefix?: string;
   /** What the final "everything off" schedule is called. */
   endName?: string;
+  /** Lights that live on a remote device, keyed by the id used in `lights`.
+   *  They are switched with a `remote_output` action — `output` would name a
+   *  relay on this board that does not exist. */
+  remotes?: Record<string, RemoteTarget>;
+}
+
+export interface RemoteTarget {
+  remote_device: string;
+  output_id: string;
 }
 
 export interface PresenceResult {
@@ -68,6 +77,19 @@ function toClock(minutes: number): string {
   const wrapped = ((minutes % 1440) + 1440) % 1440;
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(Math.floor(wrapped / 60))}:${pad(wrapped % 60)}`;
+}
+
+/** The action that switches one light, local or remote. */
+function switchAction(
+  options: PresenceOptions,
+  light: string,
+  state: 'ON' | 'OFF',
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const remote = options.remotes?.[light];
+  return remote
+    ? { action: 'remote_output', remote_device: remote.remote_device, output_id: remote.output_id, action_output: state, ...extra }
+    : { action: 'output', boneio_output: light, action_output: state, ...extra };
 }
 
 /** The gate every generated schedule carries: only while the flag is on. */
@@ -121,8 +143,8 @@ export function buildPresenceSimulation(options: PresenceOptions): PresenceResul
         // Turning the previous one off as the next comes on is what makes it
         // look like someone walking through the house rather than the whole
         // ground floor lighting up.
-        ...(first ? [] : [{ action: 'output', boneio_output: lights[index - 1], action_output: 'OFF', probability }]),
-        { action: 'output', boneio_output: light, action_output: 'ON', probability },
+        ...(first ? [] : [switchAction(options, lights[index - 1], 'OFF', { probability })]),
+        switchAction(options, light, 'ON', { probability }),
       ],
     });
     preview.push({ at: first ? `~${cap}` : `~${at}`, label: light });
@@ -138,7 +160,7 @@ export function buildPresenceSimulation(options: PresenceOptions): PresenceResul
       // No probability here, ever. A step that might not happen is realistic;
       // a light that might not go off burns until morning and announces that
       // nobody is home, which is the opposite of the point.
-      actions: lights.map((light) => ({ action: 'output', boneio_output: light, action_output: 'OFF' })),
+      actions: lights.map((light) => switchAction(options, light, 'OFF')),
     });
     preview.push({ at: options.endsAt, label: 'off' });
   }
@@ -154,10 +176,7 @@ export function buildPresenceSimulation(options: PresenceOptions): PresenceResul
       // passed with the flag off. The schedule cannot help — its moment is
       // gone — but this can, because it carries its own conditions.
       on_turn_on: lights.length === 0 ? [] : [
-        {
-          action: 'output',
-          boneio_output: lights[0],
-          action_output: 'ON',
+        switchAction(options, lights[0], 'ON', {
           conditions: {
             mode: 'and',
             list: [
@@ -165,14 +184,10 @@ export function buildPresenceSimulation(options: PresenceOptions): PresenceResul
               { type: 'time', before: options.endsAt },
             ],
           },
-        },
+        }),
       ],
       // Cleaning up: coming home must put back whatever the simulation left on.
-      on_turn_off: lights.map((light) => ({
-        action: 'output',
-        boneio_output: light,
-        action_output: 'OFF',
-      })),
+      on_turn_off: lights.map((light) => switchAction(options, light, 'OFF')),
     },
   };
 

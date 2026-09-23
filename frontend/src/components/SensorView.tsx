@@ -1,6 +1,6 @@
 import { useContext, useState, useMemo } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { WebSocketContext } from '../App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 import ViewToggle from './ViewToggle';
 import GraphCard from './GraphCard';
 import { EntityGrid, SENSOR_GRID_CLASS } from './EntityGrid';

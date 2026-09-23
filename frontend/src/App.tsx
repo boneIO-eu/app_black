@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { createContext, useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { getRouterBasename } from './api/basePath';
 
 // Lazy-load all route-level components for code splitting.
@@ -37,6 +37,7 @@ function prefetchRouteChunks() {
   const schedule = window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 100));
   // Prefetch everything except ConfigEditor (Monaco is too large)
   const toPrefetch = [
+    lazyImports.OutputsView,
     lazyImports.InputsView,
     lazyImports.SensorView,
     lazyImports.ModbusView,
@@ -65,25 +66,10 @@ import { NoticeCallout, SettingsPage } from './components/UISettings/ui';
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import NotAvailable from './components/NotAvailable';
 import { ConfigProvider } from './contexts/ConfigContext';
+import { WebSocketContext } from './contexts/WebSocketContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 import { appendModbusHistoryPointToStorage, clearModbusHistoryStorage } from './hooks/useModbusHistory';
 import { readProvisioningHint } from '@/utils/provisioning';
-
-export const WebSocketContext = createContext<{
-  outputs: OutputEvent[];
-  inputs: InputEvent[];
-  sensors: SensorEvent[];
-  modbus_devices: ModbusDeviceEvent[];
-  covers: CoverEvent[];
-  groups: GroupEvent[];
-}>({
-  outputs: [],
-  inputs: [],
-  sensors: [],
-  modbus_devices: [],
-  covers: [],
-  groups: [],
-});
 
 /**
  * Gate for an authenticated route, optionally an administrator-only one.

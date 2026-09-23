@@ -508,15 +508,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           )}
         </div>
 
-        {extraActions}
+        {/* Section-specific actions sit beside Add New, not adrift in the
+            middle of the row where justify-between would put a third child. */}
+        <div className="flex items-center gap-2">
+          {extraActions}
 
-        {/* Add New — primary action */}
-        <div className={`tooltip tooltip-left ${allUsed ? 'tooltip-warning' : 'tooltip-info'}`}
-          data-tip={allUsed ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
-          <button onClick={handleAdd} className="btn btn-primary btn-sm" disabled={allUsed}>
-            <FaPlus className="mr-1" />
-            {t('settings.add_new')}
-          </button>
+          {/* Add New — primary action */}
+          <div className={`tooltip tooltip-left ${allUsed ? 'tooltip-warning' : 'tooltip-info'}`}
+            data-tip={allUsed ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
+            <button onClick={handleAdd} className="btn btn-primary btn-sm" disabled={allUsed}>
+              <FaPlus className="mr-1" />
+              {t('settings.add_new')}
+            </button>
+          </div>
         </div>
       </div>
 

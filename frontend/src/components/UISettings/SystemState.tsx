@@ -21,7 +21,7 @@ interface SystemStateProps {
 }
 
 import { useLocation } from 'react-router-dom';
-import { WebSocketContext } from '../../App';
+import { WebSocketContext } from '@/contexts/WebSocketContext';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
