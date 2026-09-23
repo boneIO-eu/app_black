@@ -132,10 +132,11 @@ The pristine copies of every privileged helper live in
 restores from there at boot if one goes missing.
 
 There is deliberately **no sudo rule for reinstalling the helpers or the
-anchors.** The password for the `boneio` account is shared across controllers,
-and a recovery path that could reinstall the *public key* would let an attacker
-re-pin their own anchor and then sign every future "trusted" plan — a
-persistence that would survive this entire design.
+anchors.** The `boneio` account's password was shared across every controller
+on images before 1.6, and even where it is the owner's own, whoever holds the
+account is not necessarily the owner. A recovery path that could reinstall the
+*public key* would let an attacker re-pin their own anchor and then sign every
+future "trusted" plan — a persistence that would survive this entire design.
 
 ## What this does not protect against
 
@@ -148,9 +149,17 @@ limits are hidden is worse than one whose limits are written down.
 - **The operator's own route to root.** The `boneio` account is in a group
   carrying a password-gated `(ALL:ALL) ALL` rule inherited from the stock
   BeagleBone image. It is retained on purpose: it is how an operator reaches a
-  root shell on a controller in a cabinet. It is behind a password, and on
-  images from 1.6 onwards the shipped password is expired at first login so the
-  owner sets their own — but anyone who learns that password has root.
+  root shell on a controller in a cabinet. It is behind a password, which is
+  therefore the root password. Images from 1.6 ship the account *locked*: no
+  password logs in until the owner's first one, typed into the first-run
+  wizard for the panel's administrator, becomes it. The helper that sets it
+  (`boneio-system service-password-init`) does so once, and only while the
+  account is locked, on the old shipped password, or has none — states in which
+  whoever holds the account has nothing to gain from it. A password the owner
+  chose is never replaced this way. Two limits remain: the wizard itself is
+  open to whoever reaches a fresh device first, and anyone who learns the
+  password has root. Devices set up from older images may still carry the
+  shipped password; the panel's security section reports it.
 - **A development escape hatch.** While the root-owned file
   `/etc/boneio/allow-unsigned-migrations` exists, the helper accepts an
   unsigned plan over standard input — that is the old behaviour, and it

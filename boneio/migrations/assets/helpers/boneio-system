@@ -20,6 +20,8 @@ This replaces both with named operations:
     ntp-set <servers|default>      point systemd-timesyncd at given servers
     mqtt-password <account>        set a broker password, read from stdin
     mqtt-reload                    have the broker re-read its password file
+    service-password-state         is the boneio login locked, shipped or set
+    service-password-init          set it once, from stdin — see below
 
 Every argument is checked against a closed set before anything runs, and the
 uEnv.txt edit is done here with a compiled pattern rather than by handing a
@@ -44,6 +46,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 LOG_FILE = "/var/log/boneio-system.log"
@@ -108,6 +111,24 @@ MQTT_ACCOUNTS = ("boneio", "homeassistant", "mqtt")
 MOSQUITTO_PASSWD_MODE = 0o640
 MOSQUITTO_PASSWD_OWNER = ("root", "mosquitto")
 
+#: The login this helper serves, and the only account whose password it may
+#: touch. Not a parameter: a verb that set "an account's password" would be a
+#: way to give any local account a password its owner never chose.
+SERVICE_ACCOUNT = "boneio"
+SHADOW = Path("/etc/shadow")
+#: What every image before 1.6 shipped as that account's password, identical on
+#: every unit and published. Recognised so the panel can say it is still there;
+#: never written by this helper.
+SHIPPED_PASSWORD = "Black"
+#: Written once the owner's password has been set. Root-owned and outside the
+#: application's reach, so the one-shot cannot be re-armed by relocking the
+#: account — see _service_password_init.
+SERVICE_PASSWORD_FLAG = Path("/var/lib/boneio/service-password.set")
+#: Generous, and well above anything a person types. chpasswd has no limit of
+#: its own worth relying on, and a caller able to hand root a megabyte on stdin
+#: is a caller who should be told no.
+SERVICE_PASSWORD_MAX = 1024
+
 #: One DNS name. Addresses are validated with :mod:`ipaddress` instead, so this
 #: only has to cover hostnames.
 #:
@@ -126,6 +147,7 @@ VERBS = (
     "hostname-set",
     "ntp-get", "ntp-set",
     "mqtt-password", "mqtt-reload",
+    "service-password-state", "service-password-init",
 )
 
 
@@ -644,6 +666,176 @@ def _ntp_set(argument: str | None) -> int:
     return _run(["systemctl", "try-restart", "systemd-timesyncd"], tolerate=True)
 
 
+# ---------------------------------------------------------- service password
+#
+# The boneio account carries a password-gated (ALL:ALL) ALL, so its password is
+# the root password. Images before 1.6 shipped it as "Black" on every unit;
+# images from 1.6 ship it locked, and the owner's first password — the one they
+# give the first-run wizard — becomes it.
+#
+# Setting it is the one thing here that could undo F-04. This helper runs as
+# root, without a password, for anyone holding the boneio account. An operation
+# that sets that account's password whenever asked is boneio -> root in two
+# steps: set a password, then sudo with it. So it is allowed in exactly the two
+# states where it grants nothing new:
+#
+#   locked   nobody has chosen a password yet — the factory state.
+#   shipped  the password is "Black". Whoever holds boneio already has root,
+#            through sudo with a password everybody knows.
+#   empty    no password at all, which is the same thing without the typing.
+#
+# and never where the owner has chosen one. The flag makes it once-only even if
+# somebody later locks the account again by hand.
+
+
+def _shadow_hash(account: str = SERVICE_ACCOUNT) -> str | None:
+    """The password field of *account* in /etc/shadow, or None if absent.
+
+    Args:
+        account: The account to look up.
+
+    Returns:
+        The hash field, possibly empty or carrying a lock prefix.
+
+    Raises:
+        Refused: If the shadow file cannot be read.
+    """
+    try:
+        lines = SHADOW.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise Refused(f"cannot read {SHADOW}: {exc}") from exc
+    for line in lines:
+        name, _, rest = line.partition(":")
+        if name == account:
+            return rest.split(":", 1)[0]
+    return None
+
+
+def _crypt_matches(password: str, stored: str) -> bool | None:
+    """Whether *password* verifies against the crypt(3) hash *stored*.
+
+    Through libcrypt directly: Python 3.13 removed the crypt module, and the
+    alternatives — su, sudo -S, an expect script — all mean trying the password
+    against a live login and leaving a failed attempt in the log for every
+    check.
+
+    Returns:
+        True or False, or None when libcrypt cannot be used here.
+    """
+    import ctypes
+    import ctypes.util
+
+    name = ctypes.util.find_library("crypt") or "libcrypt.so.1"
+    try:
+        libcrypt = ctypes.CDLL(name)
+    except OSError:
+        return None
+    libcrypt.crypt.restype = ctypes.c_char_p
+    libcrypt.crypt.argtypes = (ctypes.c_char_p, ctypes.c_char_p)
+    result = libcrypt.crypt(password.encode(), stored.encode())
+    if not result:
+        return None
+    return result.decode(errors="replace") == stored
+
+
+def _service_password_state() -> str:
+    """Classify the boneio login.
+
+    Returns:
+        ``locked``, ``empty``, ``shipped``, ``set`` or ``unknown``.
+
+    Raises:
+        Refused: If the account does not exist.
+    """
+    stored = _shadow_hash()
+    if stored is None:
+        raise Refused(f"no {SERVICE_ACCOUNT} account in {SHADOW}")
+    if stored.startswith(("!", "*")):
+        return "locked"
+    if stored == "":
+        # An empty field is a login with no password at all.
+        return "empty"
+    matches = _crypt_matches(SHIPPED_PASSWORD, stored)
+    if matches is None:
+        return "unknown"
+    return "shipped" if matches else "set"
+
+
+def _service_password_state_verb() -> int:
+    """Print the state as JSON. Changes nothing.
+
+    Returns:
+        Process exit status.
+    """
+    state = _service_password_state()
+    print(json.dumps({"state": state, "initialised": SERVICE_PASSWORD_FLAG.exists()}))
+    return 0
+
+
+def _service_password_init() -> int:
+    """Set the boneio password once, from stdin.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If a password has already been set this way, if the owner has
+            chosen one, or if the password on stdin is unusable.
+    """
+    if SERVICE_PASSWORD_FLAG.exists():
+        raise Refused(
+            "the service account password has already been set once; change it "
+            "with passwd, which asks for the current one"
+        )
+    state = _service_password_state()
+    if state not in ("locked", "shipped", "empty"):
+        raise Refused(
+            f"the service account password is {state!r}, not one the factory "
+            "left; it is the owner's to change, with passwd"
+        )
+
+    password = sys.stdin.read()
+    password = password[:-1] if password.endswith("\n") else password
+    if not password:
+        raise Refused("no password on stdin")
+    if "\n" in password or "\r" in password:
+        raise Refused("a password cannot contain a line break")
+    if len(password) > SERVICE_PASSWORD_MAX:
+        raise Refused(f"a password longer than {SERVICE_PASSWORD_MAX} characters")
+
+    try:
+        result = subprocess.run(
+            ["chpasswd"],
+            # chpasswd splits on the first colon, so one in the password is
+            # fine. Over stdin, never as an argument: ps would show it.
+            input=f"{SERVICE_ACCOUNT}:{password}\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise Refused(f"cannot run chpasswd: {exc}") from exc
+    if result.returncode != 0:
+        _LOGGER.error("chpasswd failed for %s (rc=%d)", SERVICE_ACCOUNT, result.returncode)
+        return result.returncode
+
+    # A password set from the expired 1.6-era state would still demand a change
+    # at the first login; the owner has just chosen this one, so it is current.
+    subprocess.run(
+        ["chage", "-d", str(int(time.time()) // 86400), SERVICE_ACCOUNT],
+        capture_output=True,
+        timeout=30,
+    )
+
+    SERVICE_PASSWORD_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    SERVICE_PASSWORD_FLAG.write_text(
+        f"set from state {state} at {int(time.time())}\n", encoding="utf-8"
+    )
+    os.chmod(SERVICE_PASSWORD_FLAG, 0o644)
+    _LOGGER.info("Service account password set (was %s)", state)
+    return 0
+
+
 # ----------------------------------------------------------------- selftest
 
 
@@ -660,6 +852,8 @@ def selftest() -> int:
         problems.append("hostnamectl is not installed")
     if shutil.which("systemctl") is None:
         problems.append("systemctl is not installed, so NTP servers cannot be applied")
+    if shutil.which("chpasswd") is None:
+        problems.append("chpasswd is not installed, so the service password cannot be set")
     try:
         _find_uenv()
     except Refused as exc:
@@ -727,6 +921,10 @@ def main(argv: list[str] | None = None) -> int:
             return _mqtt_password(args.argument)
         if args.verb == "mqtt-reload":
             return _mqtt_reload()
+        if args.verb == "service-password-state":
+            return _service_password_state_verb()
+        if args.verb == "service-password-init":
+            return _service_password_init()
         if args.verb == "hostname-set":
             return _hostname_set(args.argument)
         if args.verb == "ntp-get":

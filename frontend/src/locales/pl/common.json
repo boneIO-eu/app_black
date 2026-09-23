@@ -2657,7 +2657,11 @@
     "cloud_skip": "Pomiń",
     "cloud_done": "Rejestracja włączona. Nazwa i certyfikat są właśnie przygotowywane — to potrwa minutę lub dwie.",
     "cloud_failed": "Nie udało się włączyć rejestracji w chmurze.",
-    "cloud_done_deferred": "Rejestracja zapisana. Uruchomi się przy następnym starcie urządzenia, bo jego adres nie był jeszcze znany."
+    "cloud_done_deferred": "Rejestracja zapisana. Uruchomi się przy następnym starcie urządzenia, bo jego adres nie był jeszcze znany.",
+    "ssh_password_notice": "To hasło będzie też hasłem SSH użytkownika boneio, z którego da się zostać rootem. Późniejsza zmiana hasła w panelu go nie zmieni — do tego służy passwd po SSH.",
+    "ssh_set": "Hasło SSH użytkownika {{username}} jest teraz takie samo jak hasło do panelu.",
+    "ssh_kept": "Hasło SSH zostało bez zmian — ktoś ustawił je już wcześniej, więc nie jest to rola kreatora.",
+    "ssh_failed": "Nie udało się ustawić hasła SSH. Logowanie hasłem po SSH pozostaje zablokowane."
   },
   "accounts": {
     "title": "Konta użytkowników",
@@ -2682,7 +2686,7 @@
     "confirm_delete": "Usunąć konto „{{username}}”?",
     "role_failed": "Nie udało się zmienić roli.",
     "prompt_new_password": "Nowe hasło dla konta „{{username}}” (min. 8 znaków):",
-    "password_reset": "Hasło konta „{{username}}” zostało zmienione.",
+    "password_reset": "Hasło konta „{{username}}” zostało zmienione. Hasło SSH użytkownika boneio zostaje bez zmian — zmienisz je po SSH poleceniem passwd.",
     "password_failed": "Nie udało się zmienić hasła.",
     "load_failed": "Nie udało się wczytać listy kont."
   },
@@ -2724,6 +2728,12 @@
         "detail": "Broker nadal używa hasła, z którym boneIO wychodzi z fabryki — jest opublikowane i identyczne na każdym urządzeniu.",
         "ok": "Hasło brokera zostało zmienione.",
         "remedy": "Ustaw nowe hasło brokera, a potem wpisz je w Home Assistant."
+      },
+      "ssh_password": {
+        "title": "Hasło logowania SSH",
+        "detail": "Konto boneio loguje się po SSH hasłem fabrycznym, takim samym na każdym urządzeniu, albo bez hasła. To konto może zostać rootem, więc każdy, kto dotrze do tego urządzenia po SSH, też może.",
+        "remedy": "Zaloguj się po SSH jako boneio i uruchom passwd.",
+        "ok": "Logowanie SSH nie używa hasła fabrycznego."
       },
       "legacy_web_auth": {
         "title": "Stare dane logowania w config.yaml",

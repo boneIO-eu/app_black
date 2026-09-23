@@ -237,6 +237,7 @@ def evaluate(
     proxy_serving: bool | None = None,
     custom_certificate: bool = False,
     cloud_error: str | None = None,
+    service_password: str | None = None,
 ) -> Posture:
     """Work out what is still unlocked.
 
@@ -250,6 +251,9 @@ def evaluate(
             panel right now. None when nobody looked.
         custom_certificate: Whether an uploaded certificate is installed.
         cloud_error: What cloud registration last failed with, if anything.
+        service_password: How the boneio SSH login stands, from boneio-system:
+            ``locked``, ``empty``, ``shipped``, ``set`` or ``unknown``. None
+            when nobody could ask.
 
     Returns:
         The full set of checks.
@@ -351,6 +355,46 @@ def evaluate(
             detail=mqtt_detail,
             remedy="Set a new broker password, then update Home Assistant with it.",
             settings_section="mosquitto",
+        )
+    )
+
+    # The boneio login carries a password-gated (ALL:ALL) ALL, so its password
+    # is the root password. Images before 1.6 shipped it as "Black" on every
+    # unit, and that password is published; a device still using it can be
+    # taken over by anyone who reaches it over SSH first.
+    ssh_known = service_password in ("locked", "shipped", "empty", "set")
+    ssh_exposed = service_password in ("shipped", "empty")
+    checks.append(
+        Check(
+            id="ssh_password",
+            title="SSH login password",
+            severity=Severity.CRITICAL,
+            state=(
+                State.UNKNOWN
+                if not ssh_known
+                else State.FAILED
+                if ssh_exposed
+                else State.OK
+            ),
+            detail=(
+                "The boneio account logs in over SSH with the password shipped "
+                "on every unit, or with none. That account can become root, so "
+                "anyone who reaches this device over SSH can too."
+                if ssh_exposed
+                else "Could not ask how the SSH login stands."
+                if not ssh_known
+                else "The SSH login does not use the shipped password."
+            ),
+            # Not a button in the panel, on purpose: an operation that set this
+            # account's password from the panel whenever asked would be a way
+            # from the account to root. The first-run wizard sets it once; after
+            # that it is passwd, which asks for the current one.
+            remedy=(
+                "Log in over SSH as boneio and run passwd."
+                if ssh_exposed
+                else ""
+            ),
+            settings_section=None,
         )
     )
 

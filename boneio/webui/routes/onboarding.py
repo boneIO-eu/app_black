@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from boneio.core.auth.models import Role
+from boneio.core import system_ops
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.version import __version__
 from boneio.webui.middleware.auth import create_token
@@ -177,5 +178,42 @@ async def create_first_admin(payload: FirstAdminRequest):
 
     _LOGGER.info("First-run wizard created administrator '%s'", user.username)
 
+    ssh = await asyncio.to_thread(_set_service_password, payload.password)
+
     token = create_token({"sub": user.username, "role": str(user.role)})
-    return {"user": user.to_public_dict(), "token": token}
+    return {"user": user.to_public_dict(), "token": token, "ssh": ssh}
+
+
+def _set_service_password(password: str) -> str:
+    """Make the owner's first password the boneio login too, where allowed.
+
+    The image ships that account locked, so until this runs nobody can log in
+    over SSH with a password at all — not with the "Black" that every unit used
+    to share, and not with anything else. The wizard says in so many words that
+    the password it is asking for becomes the SSH one as well.
+
+    Never fails the wizard. The account now exists, and an owner who cannot get
+    past this step because a helper is missing is worse off than one told the
+    SSH password was not set.
+
+    Args:
+        password: The password the owner just chose.
+
+    Returns:
+        ``set`` when the login now uses it; ``kept`` when the owner already has
+        a password of their own there, which is not this wizard's to replace;
+        ``unavailable`` when there is no helper to ask; ``failed`` otherwise.
+    """
+    state = system_ops.service_password_state()
+    if state is None:
+        return "unavailable"
+    if state == "set":
+        return "kept"
+    if state not in ("locked", "shipped", "empty"):
+        return "failed"
+    result = system_ops.service_password_init(password)
+    if not result.ok:
+        _LOGGER.warning("Could not set the SSH password: %s", result.stderr.strip())
+        return "failed"
+    _LOGGER.info("The first administrator's password is now the SSH password (was %s)", state)
+    return "set"

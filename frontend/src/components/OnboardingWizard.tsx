@@ -83,6 +83,15 @@ export default function OnboardingWizard() {
   const [devicesDone, setDevicesDone] = useState(false);
   const [isApplyingDevices, setIsApplyingDevices] = useState(false);
 
+  /**
+   * What happened to the SSH login when the account was created.
+   *
+   * The image ships that login locked, and the owner's first password becomes
+   * it — once, and only while nobody has chosen one. The done step says which
+   * of those it was, because "your SSH password is now X" is not something to
+   * leave anybody guessing about.
+   */
+  const [sshOutcome, setSshOutcome] = useState<string | null>(null);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [cloudDone, setCloudDone] = useState<'live' | 'deferred' | false>(false);
   const [isEnablingCloud, setIsEnablingCloud] = useState(false);
@@ -170,6 +179,7 @@ export default function OnboardingWizard() {
       // The device is now ours; adopt the token before anything else so the
       // remaining steps run authenticated rather than through the open window.
       loginWithToken(response.data.token);
+      setSshOutcome(typeof response.data.ssh === 'string' ? response.data.ssh : null);
       // Deliberately NOT refetching /api/init here. The gate in App.tsx keys
       // the wizard off needs_onboarding, so refreshing it the moment the
       // account exists unmounts this component mid-flow and the import and
@@ -518,6 +528,13 @@ export default function OnboardingWizard() {
               )}
             </div>
 
+            {/* Said before the password is sent, not after. It becomes the
+                root-capable SSH login as well, and somebody choosing a
+                password deserves to know what it will open. */}
+            <div className="alert alert-info text-xs">
+              <span>{t('onboarding.ssh_password_notice')}</span>
+            </div>
+
             {error && <div className="text-error text-sm text-center">{error}</div>}
 
             <div className="flex flex-wrap gap-2 mt-auto">
@@ -780,6 +797,22 @@ export default function OnboardingWizard() {
             {importDone && (
               <div className="alert alert-info text-sm">
                 <span>{t('onboarding.done_import_skipped')}</span>
+              </div>
+            )}
+
+            {sshOutcome === 'set' && (
+              <div className="alert alert-info text-sm">
+                <span>{t('onboarding.ssh_set', { username: 'boneio' })}</span>
+              </div>
+            )}
+            {sshOutcome === 'kept' && (
+              <div className="alert alert-info text-sm">
+                <span>{t('onboarding.ssh_kept')}</span>
+              </div>
+            )}
+            {sshOutcome === 'failed' && (
+              <div className="alert alert-warning text-sm">
+                <span>{t('onboarding.ssh_failed')}</span>
               </div>
             )}
 

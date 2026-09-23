@@ -26,7 +26,7 @@ from boneio.core.config.yaml_patch import (
     set_block_list,
 )
 from boneio.core.config.yaml_util import load_yaml_file
-from boneio.core import containers
+from boneio.core import containers, system_ops
 from boneio.core.security import certificate as certs, framing
 from boneio.core.security.certificate import ROOT_CA, device_addresses
 from boneio.core.system.monitor import get_network_info
@@ -181,7 +181,36 @@ def current_posture() -> Posture:
         proxy_serving=_proxy_serving(config),
         custom_certificate=certs.installed() is not None,
         cloud_error=cloud_error,
+        service_password=_service_password_state(),
     )
+
+
+_SERVICE_PASSWORD_TTL = 60.0
+_service_password_cache: tuple[float, str | None] | None = None
+
+
+def _service_password_state() -> str | None:
+    """How the boneio SSH login stands, asked of boneio-system at most once a minute.
+
+    The posture is read by the panel, the post-update prompt and the Home
+    Assistant sensor; each read would otherwise be a sudo call. A minute is
+    short enough that someone who has just run passwd sees the check turn
+    green on the next refresh.
+
+    Returns:
+        The state, or None when the helper is not there.
+    """
+    global _service_password_cache
+    now = time.monotonic()
+    if _service_password_cache and now - _service_password_cache[0] < _SERVICE_PASSWORD_TTL:
+        return _service_password_cache[1]
+    try:
+        state = system_ops.service_password_state()
+    except Exception as err:  # noqa: BLE001 — the posture must never raise
+        _LOGGER.warning("Could not read the SSH login state: %s", err)
+        state = None
+    _service_password_cache = (now, state)
+    return state
 
 
 @router.get("/posture")

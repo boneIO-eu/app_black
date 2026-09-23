@@ -180,6 +180,39 @@ def mqtt_password(account: str, password: str, timeout: int = 60) -> Result:
     return run("mqtt-password", account, timeout=timeout, stdin=f"{password}\n")
 
 
+def service_password_state(timeout: int = 30) -> str | None:
+    """How the boneio login stands: locked, empty, shipped, set or unknown.
+
+    Returns:
+        The state, or None when the helper is not there to ask.
+    """
+    result = run("service-password-state", timeout=timeout)
+    if not result.ok:
+        return None
+    parsed = result.json() or {}
+    state = parsed.get("state")
+    return state if isinstance(state, str) else None
+
+
+def service_password_init(password: str, timeout: int = 60) -> Result:
+    """Set the boneio login password, once.
+
+    The helper allows this only while the account is still in a state the
+    factory left — locked, on the shipped password, or with none — and only the
+    first time. Anything else is the owner's password, and changing it is
+    theirs to do with ``passwd``. The password goes over stdin, never as an
+    argument.
+
+    Args:
+        password: The password the owner chose.
+        timeout: Seconds to allow.
+
+    Returns:
+        The outcome.
+    """
+    return run("service-password-init", timeout=timeout, stdin=f"{password}\n")
+
+
 def mqtt_reload(timeout: int = 30) -> Result:
     """Have the broker re-read its password file."""
     return run("mqtt-reload", timeout=timeout)
