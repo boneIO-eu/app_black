@@ -57,6 +57,12 @@ class WebServer:
         self.manager = manager
         self.initial_config = initial_config
         self._shutdown_event = asyncio.Event()
+        #: Set once the UI has actually been served something. What follows the
+        #: web server coming up is several seconds of import that blocks the
+        #: loop whichever thread runs it, and landing that on the very first
+        #: request means the page waits on it. Work that can wait, waits for
+        #: this.
+        self.first_response = asyncio.Event()
         #: Set once the web stack is in sys.modules. Importing it is the single
         #: heaviest thing this controller does at boot, and on a one-core
         #: BeagleBone anything else importing at the same time just takes the
@@ -245,9 +251,28 @@ class WebServer:
         if hasattr(self.app, "state") and hasattr(self.app.state, "websocket_manager"):
             self.manager._websocket_manager = self.app.state.websocket_manager
 
+        served = self.first_response
+
+        async def _announce_first_response(scope, receive, send):
+            """The app, wrapped so we learn when it has answered something."""
+            if served.is_set():
+                await self.app(scope, receive, send)
+                return
+
+            async def _send(message):
+                await send(message)
+                # response.complete for HTTP, accept for a WebSocket: either
+                # way somebody is looking at the UI now.
+                if message["type"] in ("http.response.body", "websocket.accept") and not message.get(
+                    "more_body", False
+                ):
+                    served.set()
+
+            await self.app(scope, receive, _send)
+
         server_task = asyncio.create_task(
             serve(
-                app=cast("Framework", self.app),
+                app=cast("Framework", _announce_first_response),
                 config=self._hypercorn_config,
                 shutdown_trigger=shutdown_trigger,
             )

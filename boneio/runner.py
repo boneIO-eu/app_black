@@ -435,6 +435,16 @@ async def async_run(
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(web_server.stack_imported.wait(), timeout=120)
                 waited_for_web = True
+            # And then for the UI to have been served, because importing the
+            # remote backends blocks the loop for seconds even from a worker
+            # thread - it is CPU work, so it holds the GIL - and the first page
+            # load is the worst moment for that. Capped: on a controller nobody
+            # ever opens, there is nothing to wait for.
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(web_server.first_response.wait(), timeout=8)
+                # Let the page finish pulling its assets before we take the
+                # loop away from it.
+                await asyncio.sleep(3)
         # initialize()'s own delay exists to keep these connections off the
         # startup path. Having just waited for the web stack, that job is done -
         # delaying again only keeps the remote entities away for longer.
