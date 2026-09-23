@@ -7,8 +7,10 @@ Supports autodiscovery of neighboring BoneIO Black devices via MQTT.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any, cast
 
 from boneio.core.remote.base import (
@@ -85,6 +87,42 @@ class RemoteDeviceManager:
             device.name,
             device.protocol.value,
         )
+
+    async def _warm_backends(self, config: list[dict[str, Any]]) -> None:
+        """Import the backends these devices need, off the event loop.
+
+        _configure_devices is synchronous, and the imports it triggers are not
+        small: aioesphomeapi is 5-8s of module-level work on a BeagleBone. Doing
+        that inside the coroutine stalls the loop for the whole time, and the
+        rest of startup - MQTT discovery, CAN, the templates - stops dead behind
+        it, which shows up as a gap of several seconds in the log with nothing
+        in between. Importing in a worker thread first leaves the modules in
+        sys.modules, so the inline imports below cost nothing and the loop keeps
+        serving everything else while this happens.
+
+        Only what the config actually asks for: a controller with one WLED
+        should not pay for the ESPHome stack.
+        """
+        backends = {
+            RemoteDeviceProtocol.ESPHOME_API: "boneio.core.remote.esphome",
+            RemoteDeviceProtocol.WLED: "boneio.core.remote.wled",
+        }
+        wanted = {
+            module
+            for device_config in config
+            for protocol, module in backends.items()
+            if device_config.get("protocol") == protocol.value
+        }
+        for module in sorted(wanted):
+            started = time.monotonic()
+            try:
+                await asyncio.to_thread(importlib.import_module, module)
+            except Exception as err:
+                # The inline import will fail the same way and report it per
+                # device; nothing here is worth interrupting startup for.
+                _LOGGER.debug("Could not warm %s: %s", module, err)
+            else:
+                _LOGGER.debug("Warmed %s in %.2fs", module, time.monotonic() - started)
 
     def _configure_devices(self, config: list[dict[str, Any]]) -> None:
         """Configure remote devices from config.
@@ -318,6 +356,7 @@ class RemoteDeviceManager:
         # 1. Configure devices (this triggers lazy module imports)
         if self._pending_config:
             _LOGGER.debug("Configuring %d remote device(s) in background...", len(self._pending_config))
+            await self._warm_backends(self._pending_config)
             self._configure_devices(self._pending_config)
             self._pending_config = None
         self._initialized = True

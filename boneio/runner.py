@@ -395,8 +395,25 @@ async def async_run(
     # Initialize remote devices in background (configure + start connections)
     # This defers heavy module imports (aioesphomeapi, aiohttp) to background
     async def _init_remote_devices_and_inputs() -> None:
-        """Initialize remote devices, then register ESPHome binary sensor inputs."""
-        await manager.remote_devices.initialize()
+        """Initialize remote devices, then register ESPHome binary sensor inputs.
+
+        Held until the web stack has finished importing. Both this and the web
+        server have several seconds of module-level work to do, and with one
+        core they only slow each other down - measured on a BeagleBone, running
+        them at once put the UI six seconds further away. Nothing waits for a
+        remote device: its entities appear when it connects, which is
+        asynchronous anyway. The wait is capped so a web server that never
+        comes up cannot strand them.
+        """
+        waited_for_web = False
+        if web_server is not None:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(web_server.stack_imported.wait(), timeout=120)
+                waited_for_web = True
+        # initialize()'s own delay exists to keep these connections off the
+        # startup path. Having just waited for the web stack, that job is done -
+        # delaying again only keeps the remote entities away for longer.
+        await manager.remote_devices.initialize(delay_seconds=0.0 if waited_for_web else 10.0)
         manager.register_esphome_binary_sensors()
 
     remote_task = manager.append_task(coro=_init_remote_devices_and_inputs, name="remote_devices_init")

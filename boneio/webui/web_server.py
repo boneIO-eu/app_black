@@ -57,6 +57,12 @@ class WebServer:
         self.manager = manager
         self.initial_config = initial_config
         self._shutdown_event = asyncio.Event()
+        #: Set once the web stack is in sys.modules. Importing it is the single
+        #: heaviest thing this controller does at boot, and on a one-core
+        #: BeagleBone anything else importing at the same time just takes the
+        #: CPU away from it. Whoever else has bulky imports to do waits for
+        #: this, so the UI is not the thing that pays for them.
+        self.stack_imported = asyncio.Event()
         self._port = port
 
         # Get yaml config file path
@@ -175,6 +181,7 @@ class WebServer:
 
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, _do_heavy_imports)
+        self.stack_imported.set()
 
         if dummy_server:
             dummy_server.close()
