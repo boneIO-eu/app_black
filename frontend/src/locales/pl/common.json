@@ -14,7 +14,8 @@
     "templates": "Szablony",
     "experimental": "EKSPERYMENTALNE",
     "irrigation": "Nawadnianie",
-    "diagnostics": "Diagnostyka"
+    "diagnostics": "Diagnostyka",
+    "more": "Więcej"
   },
   "outputs": {
     "title": "Wyjścia",

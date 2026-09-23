@@ -14,7 +14,8 @@
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
     "irrigation": "Irrigation",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "more": "More"
   },
   "outputs": {
     "title": "Outputs",

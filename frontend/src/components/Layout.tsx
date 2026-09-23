@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import Navigation, { DrawerSide } from './Navigation';
+import Navigation, { BottomNav } from './Navigation';
 import StartupBanner from './StartupBanner';
 import MigrationBanner from './MigrationBanner';
 import AnonymousAccessBanner from './AnonymousAccessBanner';
@@ -22,10 +22,11 @@ interface LayoutProps {
 export default function Layout({ children, fullHeight = false }: LayoutProps) {
 
   return (
-    <div className="w-full max-w-screen h-screen drawer">
-      <input id="my-drawer" type="checkbox" className="drawer-toggle" />
-      
-      <div className={clsx("flex flex-col drawer-content", { "max-h-screen": fullHeight })}>
+    // A one-cell grid, as the daisyUI drawer that used to wrap this was: the
+    // column stretches to at least the viewport, and on ordinary pages grows
+    // with the content so the document scrolls under the sticky bars.
+    <div className="w-full max-w-screen h-screen grid">
+      <div className={clsx("flex flex-col min-w-0", { "max-h-screen": fullHeight })}>
         <Navigation />
         <AnonymousAccessBanner />
         <StartupBanner />
@@ -41,8 +42,8 @@ export default function Layout({ children, fullHeight = false }: LayoutProps) {
         >
           {children}
         </main>
+        <BottomNav />
       </div>
-      <DrawerSide />
     </div>
   );
 }
