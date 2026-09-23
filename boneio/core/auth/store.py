@@ -328,7 +328,7 @@ class UserStore:
         """
         user = self.get_user(username)
         if user is None:
-            verify_password(password or "x", _DUMMY_HASH)
+            verify_password(password or "x", dummy_hash())
             return None
 
         if not verify_password(password, user.password_hash):
@@ -496,5 +496,27 @@ class UserStore:
             )
 
 
-# Hashed once at import so an unknown username costs the same as a known one.
-_DUMMY_HASH = hash_password("boneio-nonexistent-account-placeholder")
+#: Verified against when the username does not exist, so that answering an
+#: unknown username costs the same as answering a known one.
+#:
+#: Producing it is a real password hash - about a second on a BeagleBone - and
+#: it used to be computed at import, which put it on the boot path of every
+#: controller: runner.py imports this module before it even knows whether the
+#: device needs the "setup required" notice. It is computed on first use
+#: instead, and warmed by the web server as it comes up, so a login still finds
+#: it ready. Recomputed rather than stored as a constant on purpose: a hash
+#: carries the cost parameters it was made with, and a stale one would verify
+#: faster than a real password - handing back exactly the timing difference
+#: this exists to erase.
+_DUMMY_HASH: str | None = None
+_DUMMY_HASH_LOCK = threading.Lock()
+
+
+def dummy_hash() -> str:
+    """The placeholder hash, computed once."""
+    global _DUMMY_HASH
+
+    with _DUMMY_HASH_LOCK:
+        if _DUMMY_HASH is None:
+            _DUMMY_HASH = hash_password("boneio-nonexistent-account-placeholder")
+        return _DUMMY_HASH

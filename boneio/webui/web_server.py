@@ -164,6 +164,15 @@ class WebServer:
 
             import boneio.webui.app
 
+            # While we are off the critical path anyway: the placeholder hash
+            # that makes an unknown username cost the same as a known one is a
+            # real password hash, about a second on a BeagleBone. Warming it
+            # here means the first login finds it ready without it having been
+            # computed while the controller was still bringing up its I/O.
+            from boneio.core.auth.store import dummy_hash
+
+            dummy_hash()
+
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, _do_heavy_imports)
 
