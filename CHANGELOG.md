@@ -6,6 +6,25 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev13 (2026-09-23) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🔐 The SSH password is the owner's, set once
+
+- **The image ships the `boneio` account locked** instead of expired. Expiry
+  made whoever logged in first choose the next password, which need not be the
+  owner; locked, nothing logs in until a password is set.
+- **The first-run wizard sets it.** The password given for the panel's first
+  administrator becomes the SSH password for `boneio`, and the wizard says so
+  before asking. A panel password change later leaves it alone, and says so.
+- **`boneio-system` can set it exactly once** (`service-password-init`), and
+  only from states that grant nothing new: locked, still on `Black`, or empty.
+  A password the owner chose is refused. The password travels on stdin.
+- **New security check, `ssh_password`.** `Black` or no password is critical;
+  the remedy is `passwd` over SSH.
+- Migration 1.6.17 reinstalls `boneio-system`.
+
 ## v1.6.0.dev12 (2026-09-23) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

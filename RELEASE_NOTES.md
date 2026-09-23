@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev12` exists so that we can test the new system-migration chain on a
+`1.6.0.dev13` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,34 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev13 — internal test build
+
+## Since dev12
+
+The SSH login no longer has a password anyone can look up. Images before 1.6
+gave the `boneio` account `Black`, the same on every unit and published, and
+that account can become root. Expiring it — what the first 1.6 images did —
+only made whoever logged in *first* choose a new one, which need not be the
+owner: somebody on the same network could get there first with the published
+password and lock the owner out.
+
+New images ship the account locked, so no password works over SSH at all until
+the owner runs the first-run wizard. The password given there for the panel's
+administrator becomes the SSH password for `boneio` too, and the wizard says so
+before asking. It is set once. Changing the panel password later does not
+change it; `passwd` over SSH does, and asks for the current one.
+
+A device already in service keeps whatever SSH password it has. The security
+section now reports when that is still `Black`, as a critical finding, and
+the remedy is `passwd`.
+
+Migration 1.6.17 reinstalls `boneio-system`, which is where the password is set
+from. The helper refuses to set it except where it grants nothing new — the
+account locked, still on `Black`, or with no password — and never replaces a
+password the owner chose.
 
 ---
 
