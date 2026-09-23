@@ -140,6 +140,11 @@ class ConfigHelper:
         self._cloud_reg: Any = None
 
     @property
+    def config_file_path(self) -> str | None:
+        """The config.yaml this application was started with."""
+        return self._config_file_path
+
+    @property
     def restart_required(self) -> bool:
         """Check if application restart is required."""
         return self._restart_required

@@ -27,6 +27,14 @@ class CompositeMessageBus(MessageBus):
         """Add a new bus to the composite."""
         self._buses.append(bus)
 
+    @property
+    def buses(self) -> list[MessageBus]:
+        """The buses this one delegates to.
+
+        A copy: adding one goes through :meth:`add_bus`.
+        """
+        return list(self._buses)
+
     def send_message(
         self,
         topic: str,

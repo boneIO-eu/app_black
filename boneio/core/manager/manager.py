@@ -1412,6 +1412,40 @@ class Manager:
         # on every update, so new coordinates reach them by themselves.
         self.sensors.configure_sun_sensors()
 
+    async def _reload_mqtt_credentials(self) -> None:
+        """Adopt new broker credentials without a restart.
+
+        Host, port, username and password only. The rest of the mqtt section —
+        the topic prefix, Home Assistant discovery, the update channel — is
+        read into entity names and subscriptions all over the application while
+        it starts, and still takes a restart.
+
+        A key the configuration does not carry is left as it is: the broker
+        credentials can also come from the command line, and a reload must not
+        throw those away.
+        """
+        from boneio.const import HOST, PASSWORD, PORT, USERNAME
+
+        config = self._config_helper.get_config() or {}
+        mqtt = config.get(MQTT)
+        if not isinstance(mqtt, dict) or not mqtt:
+            # No broker configured: there is nothing to reconnect to, and
+            # falling through would reconnect on the running values for no
+            # reason at all.
+            return
+
+        buses = getattr(self._message_bus, "buses", [self._message_bus])
+        for bus in buses:
+            reload_credentials = getattr(bus, "reload_credentials", None)
+            if reload_credentials is None:
+                continue
+            await reload_credentials(
+                host=str(mqtt.get(HOST) or bus.host),
+                port=int(mqtt.get(PORT) or bus.port),
+                username=mqtt.get(USERNAME, bus.client_options.get(USERNAME)),
+                password=mqtt.get(PASSWORD, bus.client_options.get(PASSWORD)),
+            )
+
     def _reload_logger(self) -> None:
         """Reload logger configuration from config file.
 
@@ -1825,6 +1859,7 @@ class Manager:
             "sensor": self.sensors.reload_dallas_sensors,  # Dallas temperature sensors
             "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
+            MQTT: self._reload_mqtt_credentials,  # Broker host/port/credentials
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
             "remote_inputs": self._reload_remote_inputs,  # Remote inputs (binary sensors from remote devices)
             "remote_outputs": self._reload_remote_outputs,  # Remote outputs (switches/lights from remote devices)

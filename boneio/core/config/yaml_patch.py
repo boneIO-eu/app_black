@@ -381,3 +381,183 @@ def remove_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
     del lines[start:end]
     file_path.write_text("".join(lines), encoding="utf-8")
     return True
+
+
+#: A field that defers to secrets.yaml, with the name it defers under. The
+#: trailing part is deliberately greedy about nothing: a reference is one word,
+#: and anything else is a value that happens to start with the tag.
+_SECRET_REFERENCE = re.compile(r"^!secret\s+(\S+)$")
+
+#: A section kept in a file of its own.
+_INCLUDE_REFERENCE = re.compile(r"^!include\s+(\S+)$")
+
+
+def resolve_field(config_file: str | Path, path: tuple[str, ...]) -> tuple[Path, tuple[str, ...]]:
+    """Follow a top-level ``!include`` to the file that really holds a field.
+
+    Every shipped controller has ``mqtt: !include mqtt.yaml`` — that file is
+    the per-device one, and the broker password is the thing it exists for. A
+    line edit against config.yaml would find no ``mqtt:`` block to edit there
+    and create one, which YAML then reads instead of the include: the password
+    would be written twice, in two places, and the device would use neither the
+    old one nor reliably the new.
+
+    Only the outermost level is followed, because that is the only level the
+    loader can put in another file.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Field path, outermost first, e.g. ``("mqtt", "password")``.
+
+    Returns:
+        The file to edit, and the path within it. Inside an included file the
+        contents *are* the section, so the first element is dropped.
+    """
+    file_path = Path(config_file)
+    if len(path) < 2:
+        return file_path, path
+
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    index = _find_section_line(lines, path[:1])
+    if index is None:
+        return file_path, path
+    parsed = _line_key(lines[index])
+    if parsed is None:
+        return file_path, path
+    match = _INCLUDE_REFERENCE.match(_strip_comment(parsed[2]))
+    if match is None:
+        return file_path, path
+    # Same rule as BoneIOLoader.include: relative to the file that names it.
+    return file_path.parent / match.group(1), path[1:]
+
+
+def _strip_comment(rest: str) -> str:
+    """Drop a trailing comment from a line's value.
+
+    Only used on lines being *read* to find a ``!secret`` reference, where the
+    value is one word, so the ``#`` cannot be part of it.
+
+    Args:
+        rest: Whatever followed the colon.
+
+    Returns:
+        The value, without a trailing comment.
+    """
+    return rest.split("#", 1)[0].strip()
+
+
+def secret_reference(config_file: str | Path, path: tuple[str, ...]) -> str | None:
+    """The name a field defers to in secrets.yaml, if it defers at all.
+
+    ``mqtt.password: !secret mqtt_pass`` means the password lives in
+    secrets.yaml — quite possibly because config.yaml is in somebody's git
+    repository. Writing the new password over the reference would put it there
+    too, so a caller changing such a field has to know.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Field path, outermost first, e.g. ``("mqtt", "password")``.
+
+    A section kept in a file of its own is followed first, so the answer is
+    about the line the device actually reads.
+
+    Returns:
+        The secret's name, or None when the field holds a plain value or is
+        not in the file.
+    """
+    file_path, path = resolve_field(config_file, path)
+    if not file_path.is_file():
+        return None
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    index = _find_section_line(lines, path)
+    if index is None:
+        return None
+    parsed = _line_key(lines[index])
+    if parsed is None:
+        return None
+    match = _SECRET_REFERENCE.match(_strip_comment(parsed[2]))
+    return match.group(1) if match else None
+
+
+def set_scalar(config_file: str | Path, path: tuple[str, ...], value: str) -> None:
+    """Write a single value, creating the field if it is not there.
+
+    ``update_yaml_field`` does nearly this, but writes the value unquoted and
+    logs it — neither of which a password survives. Here the value is always a
+    double-quoted scalar and never reaches the log.
+
+    A section kept in a file of its own is followed first — every shipped
+    controller keeps its mqtt section that way — so the value is written to
+    the line the device actually reads.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Field path, outermost first, e.g. ``("mqtt", "password")``.
+        value: The value to store.
+
+    Raises:
+        YamlPatchError: If the section cannot be created — see
+            :func:`ensure_section` — or if a section kept in its own file
+            points at a file that is not there.
+    """
+    file_path, path = resolve_field(config_file, path)
+    section, field = path[:-1], path[-1]
+    if section:
+        ensure_section(file_path, section)
+    elif not file_path.is_file():
+        # An include naming a file nothing created. Writing one here would
+        # invent a section out of a typo.
+        raise YamlPatchError(f"{file_path} does not exist.")
+
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    indent = INDENT * len(section)
+    line = f"{indent}{field}: {quote_scalar(value)}\n"
+
+    index = _find_section_line(lines, path)
+    if index is not None:
+        lines[index] = line
+    elif section:
+        lines.insert(_section_body_start(lines, section), line)
+    else:
+        # A file whose whole contents are the section: it has no header to
+        # insert under, so the field goes at the end.
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(line)
+
+    file_path.write_text("".join(lines), encoding="utf-8")
+    # The value is the point of this function and stays out of the log.
+    _LOGGER.info("Wrote %s in %s", ".".join(path), file_path.name)
+
+
+def set_secret(secrets_file: str | Path, name: str, value: str) -> None:
+    """Store a value in secrets.yaml, leaving every other secret alone.
+
+    Args:
+        secrets_file: Path to secrets.yaml.
+        name: The secret's name.
+        value: The value to store.
+
+    Raises:
+        YamlPatchError: If the file is missing. A reference pointing at a file
+            that is not there is not something to paper over by creating one.
+    """
+    file_path = Path(secrets_file)
+    if not file_path.is_file():
+        raise YamlPatchError(f"{file_path} does not exist.")
+
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    line = f"{name}: {quote_scalar(value)}\n"
+
+    for index, existing in enumerate(lines):
+        parsed = _line_key(existing)
+        if parsed is not None and parsed[0] == name and parsed[1] == 0:
+            lines[index] = line
+            break
+    else:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(line)
+
+    file_path.write_text("".join(lines), encoding="utf-8")
+    _LOGGER.info("Wrote the secret %s", name)

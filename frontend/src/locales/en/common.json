@@ -488,6 +488,12 @@
     "https_secure": "Secure HTTPS connection",
     "boneio_user_warning": "This is the user that the application uses to connect to MQTT. After changing this password, you must update the password in the application configuration and restart the application.",
     "changing": "Changing...",
+    "update_config": "Also update boneIO's own configuration",
+    "update_config_help": "Store the new password where boneIO reads its own from and reconnect to the broker with it. Without this, the device keeps presenting the old password and goes offline.",
+    "config_adopted": "boneIO's configuration was updated and it is reconnecting to the broker.",
+    "config_adopted_secret": "The new password was written to secrets.yaml and boneIO is reconnecting to the broker.",
+    "config_written_restart": "boneIO's configuration was updated, but the reconnect did not complete — restart the application.",
+    "config_not_updated": "boneIO's configuration was left unchanged — update the MQTT password there yourself.",
     "remote_broker_notice": "boneIO connects to the broker at {{host}}, not to the one on this controller. Changing the passwords below will not affect boneIO — only whatever else uses the local broker."
   },
   "covers": {

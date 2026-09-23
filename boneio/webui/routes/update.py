@@ -1217,22 +1217,142 @@ class MqttPasswordChangeRequest(BaseModel):
     """Request model for MQTT password change."""
     username: str
     new_password: str
+    #: Also store the new password in this device's own configuration and
+    #: reconnect with it. Only meaningful for the account boneIO connects
+    #: with, on the broker installed here; see :func:`_adopt_broker_password`.
+    update_config: bool = False
+
+
+#: Hosts that mean "the broker installed on this controller". An empty host is
+#: the client library's own default, which is loopback. Kept in step with
+#: :func:`get_mqtt_username`, which shows the panel the same thing.
+LOCAL_BROKER_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", ""})
+
+
+def _store_broker_password(config_file: str, password: str) -> str:
+    """Write a new broker password where this device reads its own from.
+
+    BLOCKING: file I/O, called through an executor.
+
+    Args:
+        config_file: Path to config.yaml.
+        password: The password just set in the broker.
+
+    Returns:
+        ``"config"``, or ``"secret"`` when the field defers to secrets.yaml and
+        the password was written there instead — which is the whole reason this
+        does not simply overwrite the line: ``password: !secret mqtt_pass``
+        usually means config.yaml is somewhere the password must not be.
+
+    Raises:
+        YamlPatchError: If the mqtt section cannot be edited, such as an
+            include naming a file that is not there.
+    """
+    from boneio.core.config.yaml_patch import (
+        resolve_field,
+        secret_reference,
+        set_scalar,
+        set_secret,
+    )
+
+    field = ("mqtt", "password")
+    # Every shipped controller has `mqtt: !include mqtt.yaml`, and that file is
+    # the per-device one the broker password exists in. A secrets.yaml beside
+    # it is the one BoneIOLoader would read from there.
+    target, _ = resolve_field(config_file, field)
+    reference = secret_reference(config_file, field)
+    if reference is not None:
+        set_secret(target.parent / "secrets.yaml", reference, password)
+        return "secret"
+    set_scalar(config_file, field, password)
+    return "config"
+
+
+async def _adopt_broker_password(manager: Manager, username: str, password: str) -> dict:
+    """Have boneIO start using a password that was just set in the broker.
+
+    The account boneIO connects with is also the account whose password the
+    panel changes, so changing it there and nowhere else takes the device off
+    its own broker until somebody edits the configuration and restarts. That
+    gap is what testers reported as the password change not working.
+
+    Only for the broker installed on this controller: with ``mqtt.host``
+    pointing somewhere else, the accounts in the local password file are not
+    the ones boneIO uses, and its configuration must not be touched.
+
+    Args:
+        manager: The running manager.
+        username: The account whose password was changed.
+        password: The new password.
+
+    Returns:
+        What happened, as ``{"status": ..., "reason": ...}``. Never raises: the
+        broker password is already changed by the time this runs, and reporting
+        that as a failure would be worse than saying what was skipped.
+    """
+    try:
+        config = manager.config_helper.get_config() or {}
+        mqtt = config.get("mqtt")
+        if not isinstance(mqtt, dict):
+            return {"status": "skipped", "reason": "no_mqtt_section"}
+
+        host = str(mqtt.get("host") or "").strip().lower()
+        if host not in LOCAL_BROKER_HOSTS:
+            return {"status": "skipped", "reason": "remote_broker"}
+
+        configured = str(mqtt.get("username") or "boneio")
+        if configured != username:
+            return {"status": "skipped", "reason": "other_account"}
+
+        config_file = manager.config_helper.config_file_path
+        if not config_file:
+            return {"status": "skipped", "reason": "no_config_file"}
+
+        loop = asyncio.get_running_loop()
+        written = await loop.run_in_executor(
+            None, _store_broker_password, config_file, password
+        )
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning("Could not store the new broker password: %s", err)
+        return {"status": "error", "reason": str(err)}
+
+    try:
+        result = await manager.reload_config(reload_sections=["mqtt"])
+    except Exception as err:  # noqa: BLE001
+        # Written but not adopted: a restart will pick it up, and saying so
+        # is better than claiming either success or failure.
+        _LOGGER.warning("Stored the new broker password but could not reconnect: %s", err)
+        return {"status": "written", "reason": str(err), "written_to": written}
+
+    if result.get("status") != "success":
+        _LOGGER.warning("Broker reconnect did not complete: %s", result)
+        return {"status": "written", "reason": "reload_failed", "written_to": written}
+
+    return {"status": "adopted", "written_to": written}
 
 
 @router.post("/mqtt/change_password")
-async def change_mqtt_password(request: MqttPasswordChangeRequest):
+async def change_mqtt_password(
+    request: MqttPasswordChangeRequest,
+    manager: Manager = Depends(get_manager),
+):
     """
     Change MQTT password for specified user.
-    
+
     Supports three users: boneio, homeassistant, mqtt
     Uses mosquitto_passwd to update password file.
-    
+
+    With ``update_config`` set, and only for the account boneIO itself
+    connects with on the broker installed here, the new password is also
+    stored in this device's configuration and adopted without a restart.
+
     WARNING: This endpoint sends passwords in plain text over HTTP.
     Use only over HTTPS or in a trusted local network.
-    
+
     Args:
-        request: Username and new password
-        
+        request: Username, new password, and whether to adopt it here.
+        manager: The running manager.
+
     Returns:
         Status response with success/error message
     """
@@ -1278,11 +1398,18 @@ async def change_mqtt_password(request: MqttPasswordChangeRequest):
                 "Could not reload mosquitto: %s", reload_result.stderr.strip()
             )
 
-        return {
+        response = {
             "status": "success",
             "message": f"Password changed successfully for user: {request.username}"
         }
-        
+
+        if request.update_config:
+            response["config"] = await _adopt_broker_password(
+                manager, request.username, request.new_password
+            )
+
+        return response
+
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr if e.stderr else str(e)
         _LOGGER.error(f"Failed to change MQTT password for {request.username}: {error_msg}")

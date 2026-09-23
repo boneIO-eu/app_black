@@ -417,6 +417,87 @@ def _web_changed_apart_from_cloud(previous: object, current: object) -> bool:
     return before != after
 
 
+#: The keys of the ``mqtt`` section the running client can adopt in place.
+#: Everything else there — the topic prefix, discovery, the update channel —
+#: is read into entity names and subscriptions while the application starts.
+MQTT_HOT_RELOADABLE_KEYS = frozenset({"host", "port", "username", "password"})
+
+
+def _mqtt_changed_apart_from_credentials(previous: object, current: object) -> bool:
+    """Whether anything outside the broker credentials differs.
+
+    Args:
+        previous: The section as it was.
+        current: The section as saved.
+
+    Returns:
+        True when some other setting changed, so a restart is still needed.
+    """
+    before = (
+        {k: v for k, v in previous.items() if k not in MQTT_HOT_RELOADABLE_KEYS}
+        if isinstance(previous, dict) else {}
+    )
+    after = (
+        {k: v for k, v in current.items() if k not in MQTT_HOT_RELOADABLE_KEYS}
+        if isinstance(current, dict) else {}
+    )
+    return before != after
+
+
+def _mqtt_credentials_changed(previous: object, current: object) -> bool:
+    """Whether the broker, the account or its password differs.
+
+    Args:
+        previous: The section as it was.
+        current: The section as saved.
+
+    Returns:
+        True when a reconnect would present something different.
+    """
+    before = (
+        {k: v for k, v in previous.items() if k in MQTT_HOT_RELOADABLE_KEYS}
+        if isinstance(previous, dict) else {}
+    )
+    after = (
+        {k: v for k, v in current.items() if k in MQTT_HOT_RELOADABLE_KEYS}
+        if isinstance(current, dict) else {}
+    )
+    return before != after
+
+
+async def _apply_mqtt_credentials(app_state, previous: object, current: object) -> str | None:
+    """Reconnect to the broker with what was just saved.
+
+    The credentials are read once, when the client is built, so a new password
+    used to sit in the file doing nothing until the service was restarted. That
+    is the other half of "changing the mosquitto password does not work": the
+    broker had the new password, this client kept presenting the old one.
+
+    Args:
+        app_state: The running application state.
+        previous: The ``mqtt`` section before the save.
+        current: The ``mqtt`` section being saved.
+
+    Returns:
+        What happened, or None when the credentials did not change.
+    """
+    if not _mqtt_credentials_changed(previous, current):
+        return None
+
+    try:
+        result = await app_state.manager.reload_config(reload_sections=["mqtt"])
+    except Exception as err:  # noqa: BLE001
+        # The file is written either way. Failing the request here would
+        # report a save that did happen as broken.
+        _LOGGER.warning("Could not reconnect to the broker: %s", err)
+        return "failed"
+
+    if result.get("status") == "success":
+        return "reconnecting"
+    _LOGGER.warning("Broker reconnect did not complete: %s", result)
+    return "failed"
+
+
 async def _guard_expose_change(previous: object, current: object) -> None:
     """Refuse to take the panel off the network when nothing else serves it.
 
@@ -666,6 +747,13 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         invalidate_config_cache(section=section, section_data=data)
 
         cloud_outcome = None
+        mqtt_outcome = None
+        if section == "mqtt":
+            mqtt_outcome = await _apply_mqtt_credentials(
+                app_state, previous_section, data
+            )
+            if mqtt_outcome:
+                result["mqtt"] = mqtt_outcome
         if section == "web":
             cloud_outcome = await _apply_cloud_toggle(
                 app_state, previous_section, data
@@ -684,6 +772,13 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             and cloud_outcome in ("started", "stopped")
             and not _web_changed_apart_from_cloud(previous_section, data)
         )
+        # Same shape for the broker credentials: they are adopted where the
+        # change is made, so asking for a restart on top of that would tell
+        # somebody their device is half-configured when it is not.
+        if section == "mqtt" and mqtt_outcome == "reconnecting":
+            needs_restart = _mqtt_changed_apart_from_credentials(
+                previous_section, data
+            )
         if needs_restart:
             manager: Manager = app_state.manager
             manager.config_helper.set_restart_required(section)

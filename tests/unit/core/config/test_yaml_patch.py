@@ -7,6 +7,8 @@ the quoting that decides whether a CSP keyword survives the round trip.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 import yaml
 
@@ -14,7 +16,11 @@ from boneio.core.config.yaml_patch import (
     YamlPatchError,
     ensure_section,
     quote_scalar,
+    resolve_field,
+    secret_reference,
     set_block_list,
+    set_scalar,
+    set_secret,
 )
 from boneio.core.config.yaml_util import update_yaml_field
 
@@ -256,3 +262,147 @@ def test_the_wildcard_is_quoted_because_yaml_would_choke(tmp_path):
     set_block_list(path, ("web", "security"), "frame_ancestors", ["*"])
     assert '- "*"' in path.read_text()
     assert yaml.safe_load(path.read_text())["web"]["security"]["frame_ancestors"] == ["*"]
+
+
+# ---------------------------------------------------------------------------
+# Writing a value, and following a !secret reference to where it really lives
+# ---------------------------------------------------------------------------
+
+
+def test_a_plain_field_has_no_secret_reference(tmp_path):
+    path = write(tmp_path, "mqtt:\n  password: boneio123\n")
+    assert secret_reference(path, ("mqtt", "password")) is None
+
+
+def test_a_reference_names_the_secret(tmp_path):
+    path = write(tmp_path, "mqtt:\n  password: !secret mqtt_pass  # do not commit\n")
+    assert secret_reference(path, ("mqtt", "password")) == "mqtt_pass"
+
+
+def test_a_field_that_is_not_there_has_no_reference(tmp_path):
+    path = write(tmp_path, "mqtt:\n  host: localhost\n")
+    assert secret_reference(path, ("mqtt", "password")) is None
+
+
+def test_a_value_is_replaced_in_place(tmp_path):
+    path = write(tmp_path, "mqtt:\n  host: localhost\n  password: boneio123\n")
+    set_scalar(path, ("mqtt", "password"), "nowe-haslo")
+    loaded = yaml.safe_load(path.read_text())
+    assert loaded["mqtt"] == {"host": "localhost", "password": "nowe-haslo"}
+
+
+def test_a_missing_field_is_created(tmp_path):
+    path = write(tmp_path, "mqtt:\n  host: localhost\n")
+    set_scalar(path, ("mqtt", "password"), "nowe-haslo")
+    assert yaml.safe_load(path.read_text())["mqtt"]["password"] == "nowe-haslo"
+
+
+def test_the_rest_of_the_file_is_left_alone(tmp_path):
+    path = write(
+        tmp_path,
+        "# boneIO\nmqtt:\n  host: localhost  # broker\n  password: stare\nweb:\n  port: 8090\n",
+    )
+    set_scalar(path, ("mqtt", "password"), "nowe-haslo")
+    text = path.read_text()
+    assert "# boneIO" in text
+    assert "host: localhost  # broker" in text
+    assert "port: 8090" in text
+
+
+def test_a_password_yaml_would_misread_survives(tmp_path):
+    """`no`, `1234`, a leading `*`: all of them stop being that password."""
+    path = write(tmp_path, "mqtt:\n  password: stare\n")
+    for password in ("no", "1234", "*tajne*", 'ma "cudzyslow"'):
+        set_scalar(path, ("mqtt", "password"), password)
+        assert yaml.safe_load(path.read_text())["mqtt"]["password"] == password
+
+
+def test_the_value_does_not_reach_the_log(tmp_path, caplog):
+    """update_yaml_field logs what it wrote, which a password must not be."""
+    path = write(tmp_path, "mqtt:\n  password: stare\n")
+    with caplog.at_level(logging.INFO):
+        set_scalar(path, ("mqtt", "password"), "bardzo-tajne")
+    assert "bardzo-tajne" not in caplog.text
+
+
+def test_a_secret_is_replaced_without_disturbing_the_others(tmp_path):
+    secrets = tmp_path / "secrets.yaml"
+    secrets.write_text(
+        "# not in git\nmqtt_pass: stare\nweb_pass: inne\n", encoding="utf-8"
+    )
+    set_secret(secrets, "mqtt_pass", "nowe-haslo")
+    loaded = yaml.safe_load(secrets.read_text())
+    assert loaded == {"mqtt_pass": "nowe-haslo", "web_pass": "inne"}
+    assert "# not in git" in secrets.read_text()
+
+
+def test_a_secret_that_is_not_there_yet_is_appended(tmp_path):
+    secrets = tmp_path / "secrets.yaml"
+    secrets.write_text("web_pass: inne", encoding="utf-8")
+    set_secret(secrets, "mqtt_pass", "nowe-haslo")
+    assert yaml.safe_load(secrets.read_text())["mqtt_pass"] == "nowe-haslo"
+
+
+def test_a_missing_secrets_file_is_refused(tmp_path):
+    """A reference pointing at a file that is not there is a problem to
+    report, not one to paper over by creating the file."""
+    with pytest.raises(YamlPatchError):
+        set_secret(tmp_path / "secrets.yaml", "mqtt_pass", "nowe-haslo")
+
+
+# ---------------------------------------------------------------------------
+# A section kept in a file of its own — the layout every controller ships with
+# ---------------------------------------------------------------------------
+
+
+def test_a_plain_section_resolves_to_the_same_file(tmp_path):
+    path = write(tmp_path, "mqtt:\n  password: boneio123\n")
+    target, field = resolve_field(path, ("mqtt", "password"))
+    assert (target, field) == (path, ("mqtt", "password"))
+
+
+def test_an_include_resolves_to_the_file_beside_it(tmp_path):
+    path = write(tmp_path, "mqtt: !include mqtt.yaml\n")
+    target, field = resolve_field(path, ("mqtt", "password"))
+    assert (target.name, field) == ("mqtt.yaml", ("password",))
+    assert target.parent == path.parent
+
+
+def test_the_password_is_written_into_the_included_file(tmp_path):
+    path = write(tmp_path, "mqtt: !include mqtt.yaml\nweb:\n  port: 8090\n")
+    included = tmp_path / "mqtt.yaml"
+    included.write_text("host: localhost\npassword: boneio123\n", encoding="utf-8")
+
+    set_scalar(path, ("mqtt", "password"), "nowe-haslo")
+
+    assert yaml.safe_load(included.read_text()) == {
+        "host": "localhost",
+        "password": "nowe-haslo",
+    }
+    assert path.read_text() == "mqtt: !include mqtt.yaml\nweb:\n  port: 8090\n"
+
+
+def test_a_field_missing_from_the_included_file_is_appended(tmp_path):
+    path = write(tmp_path, "mqtt: !include mqtt.yaml\n")
+    included = tmp_path / "mqtt.yaml"
+    included.write_text("host: localhost\n", encoding="utf-8")
+
+    set_scalar(path, ("mqtt", "password"), "nowe-haslo")
+
+    assert yaml.safe_load(included.read_text())["password"] == "nowe-haslo"
+
+
+def test_a_secret_inside_the_included_file_is_found(tmp_path):
+    path = write(tmp_path, "mqtt: !include mqtt.yaml\n")
+    (tmp_path / "mqtt.yaml").write_text(
+        "password: !secret mqtt_pass\n", encoding="utf-8"
+    )
+    assert secret_reference(path, ("mqtt", "password")) == "mqtt_pass"
+
+
+def test_an_include_naming_nothing_is_refused_not_created(tmp_path):
+    """Creating the file would invent a section out of a typo."""
+    path = write(tmp_path, "mqtt: !include mqtt.yaml\n")
+    with pytest.raises(YamlPatchError):
+        set_scalar(path, ("mqtt", "password"), "nowe-haslo")
+    assert not (tmp_path / "mqtt.yaml").exists()

@@ -242,3 +242,242 @@ class TestChangePasswordEndpoint:
         assert '"-c"' not in source
         assert '"-b"' not in source, "the batch form puts the password in argv"
 
+
+
+# ---------------------------------------------------------------------------
+# 4. Adopting the new password here, so the device stays on its own broker
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not _has_fastapi(),
+    reason="fastapi not installed in test environment",
+)
+class TestAdoptingTheNewPassword:
+    """The account the panel changes is the account boneIO connects with.
+
+    Changing it in the broker and nowhere else took the device off its own
+    broker until somebody edited config.yaml and restarted — which is what
+    testers reported as the password change not working.
+    """
+
+    @staticmethod
+    def _device(tmp_path, config_text: str, host: str = "localhost", username: str = "boneio"):
+        """A manager whose configuration is a real file on disk."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(config_text, encoding="utf-8")
+
+        manager = MagicMock()
+        manager.config_helper.config_file_path = str(config_file)
+        manager.config_helper.get_config.return_value = {
+            "mqtt": {"host": host, "username": username, "password": "boneio123"}
+        }
+        manager.reload_config = AsyncMock(return_value={"status": "success"})
+        return manager, config_file
+
+    @staticmethod
+    def _request(username: str = "boneio", **kwargs):
+        from boneio.webui.routes.update import MqttPasswordChangeRequest
+
+        return MqttPasswordChangeRequest(
+            username=username, new_password="nowe-haslo-123", **kwargs
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_new_password_lands_in_the_configuration(self, tmp_path):
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(
+            tmp_path, "mqtt:\n  host: localhost\n  password: boneio123\n"
+        )
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["status"] == "success"
+        assert result["config"] == {"status": "adopted", "written_to": "config"}
+        assert 'password: "nowe-haslo-123"' in config_file.read_text()
+
+    @pytest.mark.asyncio
+    async def test_the_device_reconnects_instead_of_waiting_for_a_restart(self, tmp_path):
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, _ = self._device(
+            tmp_path, "mqtt:\n  host: localhost\n  password: boneio123\n"
+        )
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            await change_mqtt_password(self._request(update_config=True), manager)
+
+        manager.reload_config.assert_awaited_once_with(reload_sections=["mqtt"])
+
+    @pytest.mark.asyncio
+    async def test_a_secret_reference_is_followed_instead_of_overwritten(self, tmp_path):
+        """`password: !secret mqtt_pass` usually means config.yaml is somewhere
+        the password must not be — a git repository, a support bundle."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(
+            tmp_path, "mqtt:\n  host: localhost\n  password: !secret mqtt_pass\n"
+        )
+        (tmp_path / "secrets.yaml").write_text("mqtt_pass: boneio123\n", encoding="utf-8")
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["config"] == {"status": "adopted", "written_to": "secret"}
+        assert "!secret mqtt_pass" in config_file.read_text()
+        assert "nowe-haslo-123" not in config_file.read_text()
+        assert "nowe-haslo-123" in (tmp_path / "secrets.yaml").read_text()
+
+    @pytest.mark.asyncio
+    async def test_a_remote_broker_leaves_the_configuration_alone(self, tmp_path):
+        """Point boneIO at the broker in Home Assistant and the accounts in the
+        local password file are not the ones it uses."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(
+            tmp_path,
+            "mqtt:\n  host: 192.168.1.50\n  password: boneio123\n",
+            host="192.168.1.50",
+        )
+        before = config_file.read_text()
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["config"] == {"status": "skipped", "reason": "remote_broker"}
+        assert config_file.read_text() == before
+        manager.reload_config.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_another_account_leaves_the_configuration_alone(self, tmp_path):
+        """The broker also carries accounts for Home Assistant and whatever
+        else; changing those says nothing about this device's own."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(
+            tmp_path, "mqtt:\n  host: localhost\n  password: boneio123\n"
+        )
+        before = config_file.read_text()
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(
+                self._request(username="homeassistant", update_config=True), manager
+            )
+
+        assert result["config"] == {"status": "skipped", "reason": "other_account"}
+        assert config_file.read_text() == before
+
+    @pytest.mark.asyncio
+    async def test_without_the_option_nothing_here_is_touched(self, tmp_path):
+        """The checkbox is the whole authorisation to edit somebody's file."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(
+            tmp_path, "mqtt:\n  host: localhost\n  password: boneio123\n"
+        )
+        before = config_file.read_text()
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(), manager)
+
+        assert "config" not in result
+        assert config_file.read_text() == before
+        manager.reload_config.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_failed_reconnect_is_reported_not_hidden(self, tmp_path):
+        """The password is already changed in the broker by then. Saying the
+        whole thing failed would be as wrong as saying it worked."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, _ = self._device(
+            tmp_path, "mqtt:\n  host: localhost\n  password: boneio123\n"
+        )
+        manager.reload_config.side_effect = RuntimeError("bus is gone")
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["status"] == "success"
+        assert result["config"]["status"] == "written"
+
+    @pytest.mark.asyncio
+    async def test_the_include_every_controller_ships_with_is_followed(self, tmp_path):
+        """`mqtt: !include mqtt.yaml` is the layout on every shipped device,
+        and that file is the per-device one the broker password lives in.
+
+        Writing to config.yaml instead would create a second mqtt section
+        beside the include — the password stored twice, in two places, and the
+        device reading neither reliably."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(tmp_path, "mqtt: !include mqtt.yaml\n")
+        included = tmp_path / "mqtt.yaml"
+        included.write_text(
+            "host: localhost\nusername: boneio\npassword: boneio123\n", encoding="utf-8"
+        )
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["config"] == {"status": "adopted", "written_to": "config"}
+        assert 'password: "nowe-haslo-123"' in included.read_text()
+        assert config_file.read_text() == "mqtt: !include mqtt.yaml\n"
+
+    @pytest.mark.asyncio
+    async def test_a_secret_inside_the_included_file_is_followed_too(self, tmp_path):
+        """BoneIOLoader resolves a !secret against the directory of the file
+        that names it, so the write has to land in the same secrets.yaml."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, _ = self._device(tmp_path, "mqtt: !include mqtt.yaml\n")
+        (tmp_path / "mqtt.yaml").write_text(
+            "host: localhost\npassword: !secret mqtt_pass\n", encoding="utf-8"
+        )
+        (tmp_path / "secrets.yaml").write_text("mqtt_pass: boneio123\n", encoding="utf-8")
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["config"] == {"status": "adopted", "written_to": "secret"}
+        assert "!secret mqtt_pass" in (tmp_path / "mqtt.yaml").read_text()
+        assert "nowe-haslo-123" in (tmp_path / "secrets.yaml").read_text()
+
+    @pytest.mark.asyncio
+    async def test_an_include_naming_a_file_that_is_not_there_is_refused(self, tmp_path):
+        """Creating it would invent a section out of a typo, and leave the
+        device offline just the same."""
+        from boneio.webui.routes.update import change_mqtt_password
+
+        manager, config_file = self._device(tmp_path, "mqtt: !include mqtt.yaml\n")
+        before = config_file.read_text()
+
+        with patch("boneio.webui.routes.update.system_ops") as ops:
+            ops.mqtt_password.return_value = MagicMock(ok=True, stderr="")
+            ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
+            result = await change_mqtt_password(self._request(update_config=True), manager)
+
+        assert result["status"] == "success"
+        assert result["config"]["status"] == "error"
+        assert config_file.read_text() == before
+        assert not (tmp_path / "mqtt.yaml").exists()

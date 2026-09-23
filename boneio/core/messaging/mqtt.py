@@ -75,6 +75,9 @@ class MQTTClient(MessageBus):
         if self._config_helper.receive_boneio_autodiscovery:
             self._topics.append("boneio/+/discovery/#")
         self._running = True
+        # The running session, so new credentials can end it on purpose.
+        self._session_task: asyncio.Task | None = None
+        self._reloading = False
 
     def create_client(self) -> AsyncioClient:
         """Create the asyncio client."""
@@ -231,6 +234,63 @@ class MQTTClient(MessageBus):
             retain=True,
         )
 
+    async def reload_credentials(
+        self,
+        host: str,
+        port: int,
+        username: str | None,
+        password: str | None,
+    ) -> bool:
+        """Connect again with new broker credentials, without a restart.
+
+        They are only read in :meth:`create_client`, and the loop in
+        :meth:`start_client` only builds a new client after an ``MqttError``.
+        So changing them took a restart of the service — which is what made
+        changing the broker password look broken: the password in the broker
+        was the new one, the password this client kept presenting was not.
+
+        Args:
+            host: Broker host.
+            port: Broker port.
+            username: The account to connect with, or None for an open broker.
+            password: Its password.
+
+        Returns:
+            True when something changed and a reconnect was started.
+        """
+        if (
+            host == self.host
+            and port == self.port
+            and username == self.client_options.get("username")
+            and password == self.client_options.get("password")
+        ):
+            _LOGGER.debug("MQTT credentials unchanged; keeping the connection")
+            return False
+
+        self.host = host
+        self.port = port
+        self.client_options["username"] = username
+        self.client_options["password"] = password
+        # A fresh identifier: a broker drops the older of two connections
+        # sharing one, and the session being replaced may still be on its
+        # way down when the next one arrives.
+        self.client_options["identifier"] = str(uuid.uuid4())
+        self.reconnect_interval = 1
+
+        session = self._session_task
+        if session is None or session.done():
+            # Between attempts: the loop builds its next client from the
+            # options above without being told anything.
+            _LOGGER.info("New MQTT credentials stored; no session to interrupt")
+            return True
+
+        self._reloading = True
+        session.cancel()
+        _LOGGER.info(
+            "Reconnecting to MQTT at %s:%s as %s", host, port, username
+        )
+        return True
+
     @override
     async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
@@ -238,7 +298,22 @@ class MQTTClient(MessageBus):
             while True:
                 try:
                     if self._manager is not None:
-                        await self._subscribe_manager(self._manager)
+                        self._session_task = asyncio.create_task(
+                            self._subscribe_manager(self._manager)
+                        )
+                        await self._session_task
+                except asyncio.CancelledError:
+                    # Ours, from reload_credentials: the session was ended so
+                    # the next one can use the new credentials. A cancel from
+                    # anywhere else leaves the flag down and means shutdown.
+                    if not self._reloading:
+                        raise
+                    self._reloading = False
+                    self._connection_established = False
+                    self.publish_queue.set_connected(False)
+                    if self._manager is not None:
+                        self._manager.display.notify_mqtt_state_changed()
+                    self.asyncio_client = self.create_client()
                 except MqttError as err:
                     self.reconnect_interval = min(
                         self.reconnect_interval * 2, 60
@@ -255,6 +330,10 @@ class MQTTClient(MessageBus):
                         self._manager.display.notify_mqtt_state_changed()
                     await asyncio.sleep(self.reconnect_interval)
                     self.asyncio_client = self.create_client()  # reset connect/reconnect futures
+                finally:
+                    # Nothing to interrupt until the next one is running, so a
+                    # reload arriving now only stores the new options.
+                    self._session_task = None
         except (asyncio.CancelledError, GracefulExit):
             _LOGGER.info("MQTT client shutting down...")
             # Don't call __aexit__ here - AsyncExitStack handles cleanup

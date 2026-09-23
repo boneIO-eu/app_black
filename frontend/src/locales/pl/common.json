@@ -488,6 +488,12 @@
     "http_warning": "Połączenie nie jest szyfrowane (HTTP). Używaj tylko w zaufanej sieci lokalnej.",
     "https_secure": "Bezpieczne połączenie (HTTPS)",
     "boneio_user_warning": "'boneio' to użytkownik, którego aplikacja używa do połączenia z MQTT. Po zmianie tego hasła musisz zaktualizować je w konfiguracji MQTT i zrestartować aplikację.",
+    "update_config": "Zaktualizuj też konfigurację boneIO",
+    "update_config_help": "Zapisz nowe hasło tam, skąd boneIO czyta swoje, i połącz się z brokerem na nowo. Bez tego urządzenie dalej podaje stare hasło i traci połączenie.",
+    "config_adopted": "Konfiguracja boneIO została zaktualizowana, urządzenie łączy się z brokerem na nowo.",
+    "config_adopted_secret": "Nowe hasło zostało zapisane w secrets.yaml, urządzenie łączy się z brokerem na nowo.",
+    "config_written_restart": "Konfiguracja boneIO została zaktualizowana, ale ponowne połączenie się nie udało — zrestartuj aplikację.",
+    "config_not_updated": "Konfiguracja boneIO pozostała bez zmian — zaktualizuj hasło MQTT samodzielnie.",
     "remote_broker_notice": "boneIO łączy się z brokerem pod adresem {{host}}, a nie z brokerem na tym sterowniku. Zmiana poniższych haseł nie wpłynie na boneIO — dotyczy tylko tego, co korzysta z lokalnego brokera."
   },
   "software_update": {

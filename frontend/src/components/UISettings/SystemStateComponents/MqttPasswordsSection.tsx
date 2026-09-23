@@ -11,6 +11,7 @@ import {
   FormField,
   FormActions,
   NoticeCallout,
+  ToggleRow,
 } from '../ui';
 
 /**
@@ -33,6 +34,12 @@ export default function MqttPasswordsSection() {
     homeassistant: { password: '', confirm: '' },
     mqtt: { password: '', confirm: '' },
   });
+  /**
+   * Whether to store the new password in this device's own configuration
+   * too. Only offered for the account boneIO connects with, on the broker
+   * installed here — changing it anywhere else is somebody else's business.
+   */
+  const [updateConfig, setUpdateConfig] = useState(true);
   const [changingPassword, setChangingPassword] = useState<string | null>(null);
   const [passwordResults, setPasswordResults] = useState<{
     [key: string]: { status: 'success' | 'error' | ''; message: string };
@@ -57,6 +64,30 @@ export default function MqttPasswordsSection() {
     void fetchMqttUsername();
   }, [fetchMqttUsername]);
 
+  /**
+   * What the device did with its own configuration, in words.
+   *
+   * The broker password is already changed by the time this matters, so
+   * anything short of "adopted" is reported as a caveat on a success — not
+   * as a failure of the change itself.
+   */
+  const configOutcome = (outcome?: { status: string; written_to?: string }) => {
+    if (!outcome) {
+      return '';
+    }
+    if (outcome.status === 'adopted') {
+      return ` ${
+        outcome.written_to === 'secret'
+          ? t('mqtt_passwords.config_adopted_secret')
+          : t('mqtt_passwords.config_adopted')
+      }`;
+    }
+    if (outcome.status === 'written') {
+      return ` ${t('mqtt_passwords.config_written_restart')}`;
+    }
+    return ` ${t('mqtt_passwords.config_not_updated')}`;
+  };
+
   const changeMqttPassword = async (username: string) => {
     const passwords = mqttPasswords[username];
 
@@ -79,16 +110,24 @@ export default function MqttPasswordsSection() {
     setChangingPassword(username);
     setPasswordResults({ ...passwordResults, [username]: { status: '', message: '' } });
 
+    const isAppAccount = Boolean(
+      appAccount?.usesLocalBroker && username === appAccount.username
+    );
+
     try {
       const { data } = await axios.post('/api/mqtt/change_password', {
         username: username,
         new_password: passwords.password,
+        update_config: isAppAccount && updateConfig,
       });
 
       if (data.status === 'success') {
         setPasswordResults({
           ...passwordResults,
-          [username]: { status: 'success', message: t('mqtt_passwords.password_changed') },
+          [username]: {
+            status: 'success',
+            message: t('mqtt_passwords.password_changed') + configOutcome(data.config),
+          },
         });
         setMqttPasswords({
           ...mqttPasswords,
@@ -181,10 +220,21 @@ export default function MqttPasswordsSection() {
           >
             <div className="space-y-4">
               {isCurrentAppUser && (
-                <NoticeCallout
-                  variant="warning"
-                  message={t('mqtt_passwords.boneio_user_warning')}
-                />
+                <>
+                  <ToggleRow
+                    checked={updateConfig}
+                    onChange={setUpdateConfig}
+                    disabled={changingPassword === username}
+                    label={t('mqtt_passwords.update_config')}
+                    description={t('mqtt_passwords.update_config_help')}
+                  />
+                  {!updateConfig && (
+                    <NoticeCallout
+                      variant="warning"
+                      message={t('mqtt_passwords.boneio_user_warning')}
+                    />
+                  )}
+                </>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
