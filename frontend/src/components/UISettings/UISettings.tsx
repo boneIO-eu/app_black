@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import axios from '@/api/axios';
 import { fetchConfig } from '@/api/configCache';
+import { fetchSchema } from '@/api/schemaCache';
 import { buildLocalInputsSchema, withFilteredInputs } from './helpers/inputSchema';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -30,6 +31,179 @@ import OverlayChangeDialog from './components/OverlayChangeDialog';
 
 /** Lazy-loaded binding matrix component (tool section, not schema-driven). */
 const BindingMatrix = lazy(() => import('./BindingMatrix'));
+
+/**
+ * Filter enum options to show only lowercase variants
+ * while keeping all variants in the schema for validation
+ */
+const filterEnumOptions = (enumValues: string[]): string[] => {
+  if (!enumValues || enumValues.length === 0) return enumValues;
+
+  // Group values by their lowercase version
+  const groups: { [key: string]: string[] } = {};
+  enumValues.forEach(value => {
+    const lowerValue = value.toLowerCase();
+    if (!groups[lowerValue]) {
+      groups[lowerValue] = [];
+    }
+    groups[lowerValue].push(value);
+  });
+
+  // For each group, prefer lowercase variant
+  const filtered: string[] = [];
+  Object.values(groups).forEach(group => {
+    if (group.length === 1) {
+      // Only one variant, keep it
+      filtered.push(group[0]);
+    } else {
+      // Multiple variants, prefer lowercase
+      const lowerCase = group.find(v => v === v.toLowerCase());
+
+      if (lowerCase) {
+        filtered.push(lowerCase);
+      } else {
+        // Fallback to first variant
+        filtered.push(group[0]);
+      }
+    }
+  });
+
+  return filtered;
+};
+
+/**
+ * Rewrite one section's schema into what the form renderer expects.
+ *
+ * Module scope, not a closure inside the component: it reads nothing but its
+ * argument, and out here its results can be cached across mounts. It walks the
+ * whole subtree allocating a new object per node, which for forty sections of
+ * a 434 KB schema is most of the second that entering Settings used to cost.
+ */
+const normalizeSchema = (schema: any): any => {
+  const normalizeProperty = (prop: any): any => {
+    if (!prop || typeof prop !== 'object') return prop;
+
+    const normalized = { ...prop };
+
+    // Handle oneOf with x-yaml-boolean - normalize to simple boolean
+    if (normalized.oneOf && Array.isArray(normalized.oneOf)) {
+      // Check if this is a boolean field with string alternatives
+      const hasBooleanType = normalized.oneOf.some((option: any) => option.type === 'boolean');
+      const hasYamlBooleanString = normalized.oneOf.some(
+        (option: any) => option.type === 'string' && option['x-yaml-boolean'] === true
+      );
+
+      if (hasBooleanType && hasYamlBooleanString) {
+        // Convert to simple boolean type
+        const booleanOption = normalized.oneOf.find((option: any) => option.type === 'boolean');
+        normalized.type = 'boolean';
+        if (booleanOption.default !== undefined) {
+          normalized.default = booleanOption.default;
+        }
+        // Keep title and description from the original
+        delete normalized.oneOf;
+      }
+    }
+
+    // Handle enum with mixed string/number types - normalize to consistent type
+    if (normalized.enum && Array.isArray(normalized.enum) && normalized.type === 'string') {
+      // Check if enum contains numbers that should be strings
+      const hasNumbers = normalized.enum.some((val: any) => typeof val === 'number');
+      const hasStrings = normalized.enum.some((val: any) => typeof val === 'string');
+
+      if (hasNumbers && hasStrings) {
+        // Convert all enum values to strings to match the string type
+        normalized.enum = normalized.enum.map((val: any) => String(val));
+      } else if (hasNumbers && !hasStrings) {
+        // If all enum values are numbers but type is string, convert to strings
+        normalized.enum = normalized.enum.map((val: any) => String(val));
+      }
+    }
+
+    // Handle type arrays - convert to single type if possible
+    if (Array.isArray(normalized.type)) {
+      if (normalized.type.length === 1) {
+        normalized.type = normalized.type[0];
+      } else {
+        // Take the first non-null type, but prefer structural types
+        const validTypes = normalized.type.filter((t: any) => t && t !== 'null');
+        if (validTypes.length > 0) {
+          // Prefer object types for complex structures
+          if (validTypes.includes('object')) {
+            normalized.type = 'object';
+          } else if (validTypes.includes('integer')) {
+            normalized.type = 'integer';
+          } else if (validTypes.includes('array')) {
+            normalized.type = 'array';
+          } else if (validTypes.includes('string') && validTypes.includes('number')) {
+            // For mixed string/number, prefer string for form inputs
+            normalized.type = 'string';
+          } else {
+            normalized.type = validTypes[0];
+          }
+        } else {
+          normalized.type = 'string';
+        }
+      }
+    }
+
+    // Handle x-timeperiod fields - convert to number type for form display
+    if (normalized['x-timeperiod'] === true) {
+      normalized.type = 'number';
+      normalized.minimum = 0;
+      // Remove string-specific properties that don't apply to numbers
+      delete normalized.enum;
+      delete normalized.pattern;
+    }
+
+    // Filter enum options to show only user-friendly variants
+    if (normalized.enum && Array.isArray(normalized.enum) && normalized.enum.length > 5) {
+      // Only filter if there are many options (likely case variants)
+      const allStrings = normalized.enum.every((v: string) => typeof v === 'string');
+      if (allStrings) {
+        normalized.enum = filterEnumOptions(normalized.enum);
+      }
+    }
+
+    // Handle nested properties
+    if (normalized.properties) {
+      const newProperties: any = {};
+      Object.keys(normalized.properties).forEach(key => {
+        newProperties[key] = normalizeProperty(normalized.properties[key]);
+      });
+      normalized.properties = newProperties;
+    }
+
+    // Handle array items
+    if (normalized.items) {
+      normalized.items = normalizeProperty(normalized.items);
+    }
+
+    // Handle additionalProperties (for dynamic dicts)
+    if (normalized.additionalProperties && typeof normalized.additionalProperties === 'object') {
+      normalized.additionalProperties = normalizeProperty(normalized.additionalProperties);
+    }
+
+    return normalized;
+  };
+
+  return normalizeProperty(schema);
+};
+
+/**
+ * Per-section schemas derived from the full schema, cached across mounts.
+ *
+ * Keyed by the input count, which is the only thing about the configuration
+ * that reaches this derivation: the board version decides how many
+ * boneio_input values exist. Everything else here is a pure function of the
+ * schema file, which cannot change while the page is loaded.
+ *
+ * Section *data* is deliberately not cached — that does change, and the caller
+ * merges it in fresh.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sectionSchemaCache = new Map<number, Map<string, { schema: any; normalizedSchema: any }>>();
+
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -349,22 +523,12 @@ export default function UISettings() {
       }));
       setSections(initialSections);
 
-      // Load schema in background (lazy) - only needed for ArrayTableWidget sections
-      const schemaUrl = '/schema/config.schema.json';
-
-      axios.get(schemaUrl, { headers: { 'Cache-Control': 'no-store' } })
-        .then(res => res.data)
+      // Load schema in background (lazy) - only needed for ArrayTableWidget
+      // sections. Cached for the page's lifetime: it is a 434 KB static file
+      // generated at build time, and re-fetching it on every entry into
+      // Settings cost about a second on a BeagleBone for nothing.
+      fetchSchema()
         .then(mainSchema => {
-          // Debug: log all schema keys
-          console.log(
-            '📦 Schema loaded. All property keys:',
-            Object.keys(mainSchema.properties || {})
-          );
-          console.log('📦 Cover schema exists?', !!mainSchema.properties?.cover);
-          if (mainSchema.properties?.cover) {
-            console.log('📦 Cover schema type:', mainSchema.properties.cover.type);
-          }
-
           // Update sections with proper schemas
           // Filter boneio_input enum based on board version:
           // Boards 0.5+ have 49 inputs (CAN uses 3 pins)
@@ -375,7 +539,29 @@ export default function UISettings() {
             `in_${String(i + 1).padStart(2, '0')}`
           );
 
+          // Derived once per board, then reused. Leaving Settings unmounts
+          // this component, so coming back from any other page re-ran the whole
+          // derivation — forty sections walked out of a 434 KB schema — for a
+          // schema that cannot change while the page is loaded.
+          let derived = sectionSchemaCache.get(maxInputs);
+          const alreadyDerived = derived !== undefined;
+          if (!derived) {
+            derived = new Map();
+            sectionSchemaCache.set(maxInputs, derived);
+          }
+
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
+            const hit = derived!.get(sectionConfig.name);
+            if (hit) {
+              return {
+                name: sectionConfig.name,
+                schema: hit.schema,
+                normalizedSchema: hit.normalizedSchema,
+                uiSchema: {},
+                data: configData[sectionConfig.name] || {},
+              };
+            }
+
             let sectionSchema = sectionConfig.name === 'local_inputs'
               ? buildLocalInputsSchema(mainSchema, allowedInputs)
               : mainSchema.properties?.[sectionConfig.name];
@@ -420,10 +606,13 @@ export default function UISettings() {
               sectionSchema = withFilteredInputs(sectionSchema, allowedInputs);
             }
 
+            const normalizedSchema = normalizeSchema(sectionSchema);
+            derived!.set(sectionConfig.name, { schema: sectionSchema, normalizedSchema });
+
             return {
               name: sectionConfig.name,
               schema: sectionSchema,
-              normalizedSchema: normalizeSchema(sectionSchema),
+              normalizedSchema,
               uiSchema: {},
               data: configData[sectionConfig.name] || {},
             };
@@ -437,7 +626,9 @@ export default function UISettings() {
 
           // Mark schema as loaded AFTER data conversion is complete
           setSchemaLoaded(true);
-          console.log('✅ Schema loaded and data converted', convertedFormData);
+          if (!alreadyDerived) {
+            console.debug('Schema derived for %d sections', loadedSections.length);
+          }
         })
         .catch(err => console.warn('Schema loading failed (non-critical):', err));
     } catch (error) {
@@ -969,158 +1160,10 @@ export default function UISettings() {
     }
   };
 
-  /**
-   * Filter enum options to show only lowercase variants
-   * while keeping all variants in the schema for validation
-   */
-  const filterEnumOptions = (enumValues: string[]): string[] => {
-    if (!enumValues || enumValues.length === 0) return enumValues;
-
-    // Group values by their lowercase version
-    const groups: { [key: string]: string[] } = {};
-    enumValues.forEach(value => {
-      const lowerValue = value.toLowerCase();
-      if (!groups[lowerValue]) {
-        groups[lowerValue] = [];
-      }
-      groups[lowerValue].push(value);
-    });
-
-    // For each group, prefer lowercase variant
-    const filtered: string[] = [];
-    Object.values(groups).forEach(group => {
-      if (group.length === 1) {
-        // Only one variant, keep it
-        filtered.push(group[0]);
-      } else {
-        // Multiple variants, prefer lowercase
-        const lowerCase = group.find(v => v === v.toLowerCase());
-
-        if (lowerCase) {
-          filtered.push(lowerCase);
-        } else {
-          // Fallback to first variant
-          filtered.push(group[0]);
-        }
-      }
-    });
-
-    return filtered;
-  };
 
   /**
    * Normalize schema to fix common issues
    */
-  const normalizeSchema = (schema: any): any => {
-    const normalizeProperty = (prop: any): any => {
-      if (!prop || typeof prop !== 'object') return prop;
-
-      const normalized = { ...prop };
-
-      // Handle oneOf with x-yaml-boolean - normalize to simple boolean
-      if (normalized.oneOf && Array.isArray(normalized.oneOf)) {
-        // Check if this is a boolean field with string alternatives
-        const hasBooleanType = normalized.oneOf.some((option: any) => option.type === 'boolean');
-        const hasYamlBooleanString = normalized.oneOf.some(
-          (option: any) => option.type === 'string' && option['x-yaml-boolean'] === true
-        );
-
-        if (hasBooleanType && hasYamlBooleanString) {
-          // Convert to simple boolean type
-          const booleanOption = normalized.oneOf.find((option: any) => option.type === 'boolean');
-          normalized.type = 'boolean';
-          if (booleanOption.default !== undefined) {
-            normalized.default = booleanOption.default;
-          }
-          // Keep title and description from the original
-          delete normalized.oneOf;
-        }
-      }
-
-      // Handle enum with mixed string/number types - normalize to consistent type
-      if (normalized.enum && Array.isArray(normalized.enum) && normalized.type === 'string') {
-        // Check if enum contains numbers that should be strings
-        const hasNumbers = normalized.enum.some((val: any) => typeof val === 'number');
-        const hasStrings = normalized.enum.some((val: any) => typeof val === 'string');
-
-        if (hasNumbers && hasStrings) {
-          // Convert all enum values to strings to match the string type
-          normalized.enum = normalized.enum.map((val: any) => String(val));
-        } else if (hasNumbers && !hasStrings) {
-          // If all enum values are numbers but type is string, convert to strings
-          normalized.enum = normalized.enum.map((val: any) => String(val));
-        }
-      }
-
-      // Handle type arrays - convert to single type if possible
-      if (Array.isArray(normalized.type)) {
-        if (normalized.type.length === 1) {
-          normalized.type = normalized.type[0];
-        } else {
-          // Take the first non-null type, but prefer structural types
-          const validTypes = normalized.type.filter((t: any) => t && t !== 'null');
-          if (validTypes.length > 0) {
-            // Prefer object types for complex structures
-            if (validTypes.includes('object')) {
-              normalized.type = 'object';
-            } else if (validTypes.includes('integer')) {
-              normalized.type = 'integer';
-            } else if (validTypes.includes('array')) {
-              normalized.type = 'array';
-            } else if (validTypes.includes('string') && validTypes.includes('number')) {
-              // For mixed string/number, prefer string for form inputs
-              normalized.type = 'string';
-            } else {
-              normalized.type = validTypes[0];
-            }
-          } else {
-            normalized.type = 'string';
-          }
-        }
-      }
-
-      // Handle x-timeperiod fields - convert to number type for form display
-      if (normalized['x-timeperiod'] === true) {
-        normalized.type = 'number';
-        normalized.minimum = 0;
-        // Remove string-specific properties that don't apply to numbers
-        delete normalized.enum;
-        delete normalized.pattern;
-      }
-
-      // Filter enum options to show only user-friendly variants
-      if (normalized.enum && Array.isArray(normalized.enum) && normalized.enum.length > 5) {
-        // Only filter if there are many options (likely case variants)
-        const allStrings = normalized.enum.every((v: string) => typeof v === 'string');
-        if (allStrings) {
-          normalized.enum = filterEnumOptions(normalized.enum);
-        }
-      }
-
-      // Handle nested properties
-      if (normalized.properties) {
-        const newProperties: any = {};
-        Object.keys(normalized.properties).forEach(key => {
-          newProperties[key] = normalizeProperty(normalized.properties[key]);
-        });
-        normalized.properties = newProperties;
-      }
-
-      // Handle array items
-      if (normalized.items) {
-        normalized.items = normalizeProperty(normalized.items);
-      }
-
-      // Handle additionalProperties (for dynamic dicts)
-      if (normalized.additionalProperties && typeof normalized.additionalProperties === 'object') {
-        normalized.additionalProperties = normalizeProperty(normalized.additionalProperties);
-      }
-
-      return normalized;
-    };
-
-    return normalizeProperty(schema);
-  };
 
   useEffect(() => {
     let isMounted = true;
