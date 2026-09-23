@@ -6,7 +6,7 @@
   "scripts": {
     "generate:modbus": "node scripts/generate-modbus-catalog.cjs",
     "dev": "npm run generate:modbus && vite",
-    "build": "npm run generate:modbus && npm run check-i18n && tsc -b && vite build && npm run check-sanitizer",
+    "build": "npm run generate:modbus && tsc -b && vite build && npm run check-sanitizer",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

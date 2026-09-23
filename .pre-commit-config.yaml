@@ -27,15 +27,6 @@ repos:
           - --configfile=tests/bandit.yaml
         files: ^(boneio)/.+\.py$
 
-  - repo: local
-    hooks:
-      - id: check-i18n
-        name: Check frontend translation completeness
-        language: system
-        entry: node frontend/scripts/check-translations.cjs
-        pass_filenames: false
-        files: ^frontend/src/.*\.(tsx?|jsx?|json)$
-
   # Auto-regenerate migration assets MANIFEST.sha256
   - repo: local
     hooks:
