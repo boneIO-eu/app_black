@@ -179,6 +179,31 @@ async def async_run(
     shutdown_event = asyncio.Event()
     if debug >= 2:
         loop.set_debug(True)
+    async def _loop_watchdog() -> None:
+        """Report when something blocks the event loop.
+
+        A sleep that comes back late can only mean one thing: something
+        synchronous ran where it should not have - an import, a subprocess, a
+        long parse - and for that whole time the controller answered nothing.
+        It is otherwise invisible: the log simply has a gap, and you have to
+        guess what fell into it. Note that a worker thread is no defence when
+        the work is CPU-bound, because it holds the GIL all the same.
+        """
+        import time as _wt
+
+        interval = 0.2
+        last = _wt.monotonic()
+        while True:
+            await asyncio.sleep(interval)
+            now = _wt.monotonic()
+            drift = now - last - interval
+            if drift > 0.4:
+                _LOGGER.warning("[LOOP STALL] blocked for %.2fs", drift)
+            last = now
+
+    if debug >= 1:
+        tasks.add(asyncio.create_task(_loop_watchdog()))
+
     network_state = get_network_info()
 
     def signal_handler():

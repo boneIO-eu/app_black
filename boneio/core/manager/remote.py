@@ -124,13 +124,20 @@ class RemoteDeviceManager:
             else:
                 _LOGGER.debug("Warmed %s in %.2fs", module, time.monotonic() - started)
 
-    def _configure_devices(self, config: list[dict[str, Any]]) -> None:
+    async def _configure_devices(self, config: list[dict[str, Any]]) -> None:
         """Configure remote devices from config.
+
+        Yields between devices. Building one is synchronous work - an ESPHome
+        client is not cheap - and doing them back to back blocked the loop for
+        4.6s, which landed exactly as the web server started listening, so the
+        first page load sat waiting on it. One device per iteration lets the
+        server answer in between.
 
         Args:
             config: List of remote device configurations
         """
         for device_config in config:
+            await asyncio.sleep(0)
             try:
                 device = self._create_device(device_config)
                 if device:
@@ -357,7 +364,7 @@ class RemoteDeviceManager:
         if self._pending_config:
             _LOGGER.debug("Configuring %d remote device(s) in background...", len(self._pending_config))
             await self._warm_backends(self._pending_config)
-            self._configure_devices(self._pending_config)
+            await self._configure_devices(self._pending_config)
             self._pending_config = None
         self._initialized = True
 
@@ -751,7 +758,7 @@ class RemoteDeviceManager:
         self._devices.clear()
 
         if remote_devices_config:
-            self._configure_devices(remote_devices_config)
+            await self._configure_devices(remote_devices_config)
 
         # Start WLED WS listeners immediately
         self._start_wled_ws_listeners()
