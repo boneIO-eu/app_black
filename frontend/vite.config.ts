@@ -79,14 +79,14 @@ export default defineConfig(({ mode }) => {
       // The array form, not the object form, because the dompurify entry below
       // has to be a regular expression.
       alias: [
-        { find: "@", replacement: path.resolve(__dirname, "./src") },
+        { find: "@", replacement: path.resolve(import.meta.dirname, "./src") },
         // monaco-yaml's worker imports Prettier unconditionally for its
         // optional "format document" provider, which only registers when
         // configureMonacoYaml() is given format.enable. boneIO never enables
         // it, so stub Prettier out and keep ~420 kB out of the YAML worker.
-        { find: "prettier/standalone", replacement: path.resolve(__dirname, "./src/stubs/prettier-standalone.ts") },
-        { find: "prettier/plugins/yaml", replacement: path.resolve(__dirname, "./src/stubs/prettier-plugin.ts") },
-        { find: "prettier/plugins/estree", replacement: path.resolve(__dirname, "./src/stubs/prettier-plugin.ts") },
+        { find: "prettier/standalone", replacement: path.resolve(import.meta.dirname, "./src/stubs/prettier-standalone.ts") },
+        { find: "prettier/plugins/yaml", replacement: path.resolve(import.meta.dirname, "./src/stubs/prettier-plugin.ts") },
+        { find: "prettier/plugins/estree", replacement: path.resolve(import.meta.dirname, "./src/stubs/prettier-plugin.ts") },
         // monaco does not import the dompurify it declares in package.json: it
         // imports a copy vendored into its own ESM tree, and on 0.55.1 that
         // copy is 3.2.7, which every open DOMPurify advisory covers. Lifting
@@ -111,7 +111,7 @@ export default defineConfig(({ mode }) => {
       ],
     },
     build: {
-      outDir: path.resolve(__dirname, '../boneio/webui/frontend-dist'),
+      outDir: path.resolve(import.meta.dirname, '../boneio/webui/frontend-dist'),
       emptyOutDir: true,
       rollupOptions: {
         output: {
@@ -151,7 +151,7 @@ export default defineConfig(({ mode }) => {
       environment: 'node',
       include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     server: {
