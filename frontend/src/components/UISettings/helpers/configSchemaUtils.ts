@@ -261,6 +261,45 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
   };
 
 
+/**
+ * Drop the fields of one action that only repeat a default.
+ *
+ * @param actionItem - One action as the form holds it.
+ * @returns The action without its default-valued fields, or null when nothing
+ *   is left of it.
+ */
+const cleanAction = (actionItem: unknown): unknown => {
+  if (typeof actionItem !== 'object' || actionItem === null) return actionItem;
+
+  const action = actionItem as Record<string, unknown>;
+  const cleanedAction: Record<string, unknown> = {};
+
+  for (const [actionKey, actionValue] of Object.entries(action)) {
+    // Skip default values for action fields
+    if (actionKey === 'action_cover' && actionValue === 'TOGGLE') continue;
+    if (actionKey === 'action_output' && actionValue === 'TOGGLE') continue;
+    if (actionKey === 'transition' && (actionValue === 0 || actionValue === 0.0)) continue;
+    if (actionKey === 'data' && typeof actionValue === 'object' && Object.keys(actionValue as object).length === 0) continue;
+    if (actionKey === 'repeat' && !actionValue) continue;
+    if (actionKey === 'repeat_interval' && !action.repeat) continue;
+    if (actionKey === 'colors' && action.action_output !== 'CYCLE_COLOR') continue;
+    if (actionKey === 'presets' && action.action_output !== 'CYCLE_PRESET') continue;
+
+    cleanedAction[actionKey] = actionValue;
+  }
+
+  return Object.keys(cleanedAction).length > 0 ? cleanedAction : null;
+};
+
+/**
+ * Clean every action in a list, dropping the ones nothing is left of.
+ *
+ * @param actionList - Actions in the order they run.
+ * @returns The cleaned list, order kept.
+ */
+const cleanActionList = (actionList: unknown[]): unknown[] =>
+  actionList.map(cleanAction).filter((item) => item !== null);
+
   /**
  * Usuwa z formData:
  * 1. Pola ukryte (ui:widget: "hidden" w uiSchema)
@@ -314,40 +353,31 @@ export const stripHiddenAndDefaults = (
         continue;
       }
       
-      // Special handling for actions
+      // Special handling for actions. Two shapes reach here: inputs keep them
+      // per click type (`{single: [...], double: [...]}`), a schedule keeps a
+      // plain list. The list used to go through the dict branch, where
+      // Object.entries yields ["0", action] pairs whose value is not an array —
+      // so every action was skipped and the whole field dropped, and the
+      // backend then refused the schedule for having no actions.
+      if (key === 'actions' && Array.isArray(fieldValue)) {
+        const cleanedList = cleanActionList(fieldValue);
+        if (cleanedList.length > 0) {
+          result[key] = cleanedList;
+        }
+        continue;
+      }
       if (key === 'actions' && typeof fieldValue === 'object' && fieldValue !== null) {
         const cleanedActions: any = {};
-        
+
         for (const [actionType, actionList] of Object.entries(fieldValue)) {
           if (Array.isArray(actionList)) {
-            const cleanedList = actionList.map((actionItem: any) => {
-              if (typeof actionItem !== 'object' || actionItem === null) return actionItem;
-              
-              const cleanedAction: any = {};
-              
-              for (const [actionKey, actionValue] of Object.entries(actionItem)) {
-                // Skip default values for action fields
-                if (actionKey === 'action_cover' && actionValue === 'TOGGLE') continue;
-                if (actionKey === 'action_output' && actionValue === 'TOGGLE') continue;
-                if (actionKey === 'transition' && (actionValue === 0 || actionValue === 0.0)) continue;
-                if (actionKey === 'data' && typeof actionValue === 'object' && Object.keys(actionValue as object).length === 0) continue;
-                if (actionKey === 'repeat' && !actionValue) continue;
-                if (actionKey === 'repeat_interval' && !actionItem.repeat) continue;
-                if (actionKey === 'colors' && actionItem.action_output !== 'CYCLE_COLOR') continue;
-                if (actionKey === 'presets' && actionItem.action_output !== 'CYCLE_PRESET') continue;
-                
-                cleanedAction[actionKey] = actionValue;
-              }
-              
-              return Object.keys(cleanedAction).length > 0 ? cleanedAction : null;
-            }).filter((item: any) => item !== null);
-            
+            const cleanedList = cleanActionList(actionList);
             if (cleanedList.length > 0) {
               cleanedActions[actionType] = cleanedList;
             }
           }
         }
-        
+
         if (Object.keys(cleanedActions).length > 0) {
           result[key] = cleanedActions;
         }
