@@ -448,8 +448,21 @@ async def async_run(
         # initialize()'s own delay exists to keep these connections off the
         # startup path. Having just waited for the web stack, that job is done -
         # delaying again only keeps the remote entities away for longer.
-        await manager.remote_devices.initialize(delay_seconds=0.0 if waited_for_web else 10.0)
-        manager.register_esphome_binary_sensors()
+        #
+        # Caught here because this task sits in the main gather below: an
+        # exception escaping it ended the whole application, local outputs and
+        # all, and systemd restarted it into the same exception every 3s. A
+        # remote device is somebody else's hardware - it can take its own
+        # entities down, not this controller.
+        try:
+            await manager.remote_devices.initialize(delay_seconds=0.0 if waited_for_web else 10.0)
+            manager.register_esphome_binary_sensors()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception(
+                "Remote devices failed to initialise; continuing without them"
+            )
 
     remote_task = manager.append_task(coro=_init_remote_devices_and_inputs, name="remote_devices_init")
     tasks.add(remote_task)
