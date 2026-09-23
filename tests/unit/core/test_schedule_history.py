@@ -302,6 +302,41 @@ def test_every_schedule_is_announced_with_its_diagnostics(monkeypatch):
     assert ids == ["test", "test_next_fire", "test_last_fire", "test_last_outcome"]
 
 
+def test_all_four_entities_read_the_one_topic_that_is_published(monkeypatch):
+    """The design is one retained message updating four entities. Deriving each
+    sensor's state topic from its own entity id instead pointed three of them
+    at topics nothing ever publishes to, and they sat unknown in Home Assistant
+    forever — which no unit test noticed, because they all looked well-formed."""
+    manager = make_manager(monkeypatch)
+    manager._config_helper.topic_prefix = "boneio/blk1"
+    scheduler = Scheduler(manager, [schedule()])
+
+    scheduler.publish_discovery()
+    scheduler._announce(scheduler._entries[0])
+
+    published_to = manager.send_message.call_args.kwargs["topic"]
+    state_topics = {
+        call.kwargs["payload"]["state_topic"]
+        for call in manager.publish_ha_discovery.call_args_list
+    }
+    assert state_topics == {published_to}
+
+
+def test_each_entity_still_gets_its_own_identity(monkeypatch):
+    """Sharing a topic must not collapse them into one entity."""
+    manager = make_manager(monkeypatch)
+    manager._config_helper.topic_prefix = "boneio/blk1"
+    scheduler = Scheduler(manager, [schedule()])
+
+    scheduler.publish_discovery()
+
+    templates = [
+        call.kwargs["payload"]["value_template"]
+        for call in manager.publish_ha_discovery.call_args_list
+    ]
+    assert len(set(templates)) == 4, "each entity reads a different key"
+
+
 def test_a_disabled_schedule_is_still_announced(monkeypatch):
     """A schedule that disappears from the panel when it is switched off is the
     thing that makes people ask whether it ever existed."""

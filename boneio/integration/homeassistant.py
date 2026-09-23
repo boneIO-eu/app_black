@@ -571,7 +571,8 @@ def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_t
 
 
 def _ha_schedule_entity(
-    id: str,
+    entity_id: str,
+    schedule_id: str,
     name: str,
     entity_type: str,
     config_helper: ConfigHelper,
@@ -583,16 +584,21 @@ def _ha_schedule_entity(
     state topic. One message then updates the switch and all three sensors at
     once, and they cannot disagree with each other — which they would if each
     had its own topic and one publish failed.
+
+    Hence the two ids. ``entity_id`` separates the entities from each other in
+    Home Assistant; ``schedule_id`` names the one topic they all read. Deriving
+    the topic from the entity id instead pointed each sensor at a topic nothing
+    publishes to, and they sat unknown forever.
     """
     msg = ha_availabilty_message(
         device_type=SCHEDULE,
         config_helper=config_helper,
         entity_type=entity_type,
-        id=id,
+        id=entity_id,
         name=name,
         area=area,
     )
-    msg["state_topic"] = f"{config_helper.topic_prefix}/{SCHEDULE}/{id}"
+    msg["state_topic"] = f"{config_helper.topic_prefix}/{SCHEDULE}/{schedule_id}"
     return msg
 
 
@@ -603,7 +609,7 @@ def ha_schedule_switch_message(
     area: str | None = None,
 ) -> dict[str, Any]:
     """The switch that turns one schedule on or off from Home Assistant."""
-    msg = _ha_schedule_entity(id, name, "switch", config_helper, area)
+    msg = _ha_schedule_entity(id, id, name, "switch", config_helper, area)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{SCHEDULE}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
@@ -638,7 +644,12 @@ def ha_schedule_sensor_message(
         area: Optional area id.
     """
     msg = _ha_schedule_entity(
-        f"{id}_{suffix}", f"{name} {suffix.replace('_', ' ')}", "sensor", config_helper, area
+        f"{id}_{suffix}",
+        id,
+        f"{name} {suffix.replace('_', ' ')}",
+        "sensor",
+        config_helper,
+        area,
     )
     # An empty string, not the word "None": that is how the irrigation
     # countdown already says "no time to show", and HA reads it as unknown
