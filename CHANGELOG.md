@@ -6,7 +6,7 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
-## v1.6.0.dev12 (2026-09-22) — 1.6.x security series
+## v1.6.0.dev12 (2026-09-23) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
 
@@ -43,6 +43,59 @@ which is truthy and had been going out as `https://none:8443`. And the old path
 read the network screen's data, so enabling the web screen on a device without
 it raised `KeyError`.
 
+
+### 🔑 Changing the broker password no longer takes the device offline
+
+The account the broker-password panel changes is the account boneIO itself
+connects with, and the client read its credentials once, at startup. After a
+change mosquitto drops the connection whose password no longer matches, and
+boneIO then retried for ever with the old one — offline until somebody edited
+the configuration and restarted it.
+
+The panel now has a toggle, on by default, on the row of the account boneIO
+uses on the local broker: store the new password in boneIO's own configuration
+and reconnect with it. The write follows `mqtt: !include mqtt.yaml`, the layout
+every shipped controller has, and a `!secret` is followed to its secrets.yaml
+instead of being overwritten.
+
+The `mqtt` section reconnects in place when only `host`, `port`, `username` or
+`password` changed. Anything else in it still asks for a restart.
+
+### 🗓️ Saving a schedule keeps its actions
+
+The panel dropped the `actions` list of every schedule on the way out, so a
+schedule with an action showed it in the table and then failed to save with "A
+schedule with no actions would fire and do nothing". Inputs keep their actions
+per click type, schedules as a plain list, and only the first shape was handled.
+
+### ⚡ Shorter startup
+
+- The packaged `schema.yaml` is trusted instead of being re-verified as a
+  cerberus schema on every boot, which was 93% of a cold load: 37.0s → 2.2s on
+  the dev BeagleBone. The check runs in the test suite, and
+  `BONEIO_VALIDATE_SCHEMA=1` brings it back for editing the schema on a device.
+- The ESPHome, WLED and mock-device backends are imported on first use, not
+  when the web UI's routes are built.
+- The login placeholder hash is made on first use instead of at import, which
+  had cost every boot about a second of scrypt.
+- Remote devices are configured after the web UI has served its first
+  response, and the loop yields between them, so the UI no longer binds its
+  port and then answers nothing for four seconds.
+- `-d` adds a watchdog that reports anything blocking the event loop for more
+  than 0.4s.
+
+### 🧰 Config caches
+
+A config or schema cache written by another build is treated as a miss rather
+than a crash, and the boneIO version is part of the schema cache's
+fingerprint. A stale 1.5-era cache that never shipped was removed from the
+repository.
+
+### 🌐 Translations
+
+The settings headers for location, schedules and virtual switches had no
+description and showed a raw key. `check-translations.cjs` now also requires a
+label and a description for every section in every locale.
 
 ## v1.6.0.dev11 (2026-09-22) — 1.6.x security series
 

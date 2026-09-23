@@ -42,6 +42,22 @@ name in Home Assistant and a bare IP on the OLED. The address behind both is
 also refreshed now: it was read once at startup, so a DHCP lease that arrived
 after boneIO was up left Home Assistant with no link until a restart.
 
+Changing the broker password in the panel no longer takes the controller off
+its own broker. The account the panel changes is the one boneIO connects with,
+and boneIO kept presenting the old password until somebody edited the
+configuration and restarted it. The panel now offers to store the new password
+in boneIO's own configuration, and the MQTT section reconnects in place when
+only the broker, the account or the password changed.
+
+Saving a schedule from the panel works. Every save sent the section without its
+actions, and the backend refused it for having none.
+
+Startup is shorter. A cold configuration load on a BeagleBone took 37s and
+takes about 2s: the packaged schema is no longer re-verified on every boot. The
+discovery backends are imported when they are first needed instead of at boot,
+the login placeholder hash is made on first use, and the web UI answers as soon
+as it binds instead of sitting silent while the remote-device backends import.
+
 Migration plans are unchanged since dev10; the manifest names the release, so
 it was re-signed for this one and verifies.
 
