@@ -16,21 +16,32 @@ from boneio.core.net.discovery_guard import (
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
-from boneio.core.remote.esphome import (
-    ESPHOME_API_AVAILABLE,
-    ZEROCONF_AVAILABLE,
-    discover_esphome_entities,
-    scan_esphome_devices,
-)
-from boneio.core.remote.wled import (
-    discover_wled_info,
-    scan_wled_devices,
-)
 
 if TYPE_CHECKING:
     pass
 
 _LOGGER = logging.getLogger(__name__)
+
+
+#: The discovery backends are imported on first use, not at module import.
+#: ``aioesphomeapi`` alone costs ~5s of module-level work on a BeagleBone, and
+#: ``wled`` pulls ``aiohttp`` behind it - paid at every boot by every
+#: controller, including the ones that have no remote device at all, because
+#: importing this module is what builds the web UI's routes. Nothing here is
+#: needed until somebody asks the UI to go and find a device.
+def _esphome():
+    """The ESPHome discovery backend, imported on demand."""
+    from boneio.core.remote import esphome
+
+    return esphome
+
+
+def _wled():
+    """The WLED discovery backend, imported on demand."""
+    from boneio.core.remote import wled
+
+    return wled
+
 
 router = APIRouter(prefix="/api/remote-devices", tags=["remote_devices"])
 
@@ -183,7 +194,8 @@ async def discover_esphome(request: ESPHomeDiscoverRequest):
     Raises:
         HTTPException: 400 if aioesphomeapi not installed, 500 if discovery fails.
     """
-    if not ESPHOME_API_AVAILABLE:
+    esphome = _esphome()
+    if not esphome.ESPHOME_API_AVAILABLE:
         raise HTTPException(
             status_code=400, 
             detail="aioesphomeapi not installed - ESPHome API support disabled"
@@ -196,7 +208,7 @@ async def discover_esphome(request: ESPHomeDiscoverRequest):
 
     _LOGGER.info("Discovering ESPHome entities at %s:%d", request.host, request.port)
 
-    result = await discover_esphome_entities(
+    result = await esphome.discover_esphome_entities(
         host=request.host,
         port=request.port,
         password=request.password,
@@ -245,7 +257,7 @@ async def scan_esphome_network(timeout: float = 3.0):
     Raises:
         HTTPException: 400 if zeroconf not installed, 500 if scan fails.
     """
-    if not ZEROCONF_AVAILABLE:
+    if not _esphome().ZEROCONF_AVAILABLE:
         raise HTTPException(
             status_code=400, 
             detail="zeroconf not installed - mDNS discovery disabled"
@@ -256,7 +268,7 @@ async def scan_esphome_network(timeout: float = 3.0):
     
     _LOGGER.info("Scanning network for ESPHome devices (timeout: %.1fs)", timeout)
     
-    result = await scan_esphome_devices(timeout=timeout)
+    result = await _esphome().scan_esphome_devices(timeout=timeout)
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -297,7 +309,7 @@ async def discover_wled(request: WLEDDiscoverRequest):
 
     _LOGGER.info("Discovering WLED segments at %s:%d", request.host, request.port)
 
-    result = await discover_wled_info(
+    result = await _wled().discover_wled_info(
         host=request.host,
         port=request.port,
     )
@@ -342,7 +354,7 @@ async def scan_wled_network(timeout: float = 3.0):
     Raises:
         HTTPException: 400 if zeroconf not installed, 500 if scan fails.
     """
-    if not ZEROCONF_AVAILABLE:
+    if not _wled().ZEROCONF_AVAILABLE:
         raise HTTPException(
             status_code=400, 
             detail="zeroconf not installed - mDNS discovery disabled"
@@ -353,7 +365,7 @@ async def scan_wled_network(timeout: float = 3.0):
     
     _LOGGER.info("Scanning network for WLED devices (timeout: %.1fs)", timeout)
     
-    result = await scan_wled_devices(timeout=timeout)
+    result = await _wled().scan_wled_devices(timeout=timeout)
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])

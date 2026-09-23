@@ -59,7 +59,6 @@ from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.manager.virtual_switches import VirtualSwitchManager
 from boneio.core.messaging import MessageBus
-from boneio.core.remote.wled import WLEDRemoteDevice
 from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.hardware.i2c.bus import SMBus2I2C
@@ -1601,7 +1600,12 @@ class Manager:
                 if output_type == "light":
                     device = self.remote_devices.get_device(device_id)
                     if device is not None:
-                        # WLED: all outputs support brightness
+                        # WLED: all outputs support brightness. Imported here
+                        # rather than at module level: wled pulls aiohttp, which
+                        # is ~2s of imports on a BeagleBone, on the startup path
+                        # of every controller whether or not it has a WLED.
+                        from boneio.core.remote.wled import WLEDRemoteDevice
+
                         if isinstance(device, WLEDRemoteDevice):
                             sup_brightness = True
                         else:

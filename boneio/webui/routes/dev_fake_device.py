@@ -29,7 +29,6 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Depends, Query
 
 from boneio.const import ONLINE, STATE
-from boneio.modbus.mock_coordinator import MockModbusCoordinator, _find_device_json
 from boneio.version import __version__
 from boneio.webui.dashboard_cards import cards_to_yaml
 from boneio.webui.modbus_card_templates import generate_cards_for_device
@@ -38,6 +37,17 @@ if TYPE_CHECKING:
     from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
+
+
+#: Imported on first use: the mock coordinator drags in boneio.modbus.cli, and
+#: this whole module is a development aid that a controller in the field never
+#: calls - but its import is on everybody's startup path.
+def _mock_coordinator():
+    """The modbus mock backend, imported on demand."""
+    from boneio.modbus.mock_coordinator import MockModbusCoordinator, _find_device_json
+
+    return MockModbusCoordinator, _find_device_json
+
 
 router = APIRouter(prefix="/api/dev", tags=["dev"])
 
@@ -381,6 +391,7 @@ async def create_fake_device(
     """
     # Find device JSON
     try:
+        _, _find_device_json = _mock_coordinator()
         json_path = _find_device_json(model)
     except FileNotFoundError:
         return {"error": f"Model '{model}' not found in device database."}
@@ -625,6 +636,7 @@ async def generate_fake_device_dashboard(
         Dict with device_id, model, category, entity_count, and yaml string.
     """
     try:
+        MockModbusCoordinator, _ = _mock_coordinator()
         mock_coord = MockModbusCoordinator.from_json(
             model_key=model,
             address=address,
