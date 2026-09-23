@@ -66,6 +66,9 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/logs",
     "/api/i2c",
     "/api/can",
+    # Recovery mode (boneio.webui.recovery): the error, the raw config files
+    # and the log, served while the controller cannot start normally.
+    "/api/recovery",
 )
 
 # Writes a viewer may perform: operating the device, never configuring it.

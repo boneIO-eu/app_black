@@ -213,10 +213,11 @@ def run(
     """Run BoneIO."""
     import time as _time
 
-    from yaml import MarkedYAMLError
+    from yaml import YAMLError
 
     from boneio.core.config import load_config_from_file
     from boneio.core.events import GracefulExit
+    from boneio.core.recovery import RecoveryReason, StartupFailures, describe_config_error
     from boneio.core.utils.logger import configure_logger, setup_logging
     from boneio.exceptions import ConfigurationException
     _t0 = _time.monotonic()
@@ -246,6 +247,22 @@ def run(
         def draw_config_error(msg: str) -> None: pass  # noqa: E731
         def draw_crash(exc: BaseException) -> None: pass  # noqa: E731
 
+    def _recover(reason: RecoveryReason) -> int:
+        # Imported only here: the panel's web stack costs seconds to import,
+        # and a controller that starts normally never needs it.
+        from boneio.webui.recovery import run_recovery
+
+        return run_recovery(config, reason)
+
+    failures = StartupFailures(config)
+    if failures.in_crash_loop():
+        _LOGGER.error(
+            "boneIO crashed during startup %d times in a row. Starting the "
+            "recovery panel instead, so the error can be seen and fixed.",
+            failures.count,
+        )
+        return _recover(failures.last_reason())
+
     try:
         _t1 = _time.monotonic()
         _config = load_config_from_file(
@@ -253,9 +270,11 @@ def run(
         )
         _LOGGER.debug("[STARTUP TIMING] load_config_from_file: %.2fs", _time.monotonic() - _t1)
         if not _config:
-            _LOGGER.error("Config not loaded. Exiting.")
+            _LOGGER.error("Config not loaded.")
             draw_config_error("Config file is empty or missing")
-            return 1
+            return _recover(
+                RecoveryReason(kind="config", message="Config file is empty or missing", file=config)
+            )
         configure_logger(log_config=_config.get("logger") or {}, debug=debug)
         draw_status("Importing modules...")
         # Granular timing of runner sub-imports to find the bottleneck
@@ -294,13 +313,14 @@ def run(
     except GracefulExit as err:
         _LOGGER.info("Message: %s", err)
         return 0
-    except (ConfigurationException, MarkedYAMLError) as err:
-        _LOGGER.error("Failed to load config. %s Exiting.", err)
+    except (ConfigurationException, YAMLError) as err:
+        _LOGGER.error("Failed to load config. %s", err)
         draw_config_error(str(err)[:100])
-        return 1
+        return _recover(describe_config_error(err, config))
     except Exception as err:
         _LOGGER.error("Unexpected error during startup: %s", err, exc_info=True)
         draw_crash(err)
+        failures.record(err)
         return 1
 
 

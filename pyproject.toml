@@ -103,6 +103,8 @@ include = ["boneio*"]
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.yaml", "*.yml", "*.ttf", "*.sh", "*.pem", "*.sig"]
 "boneio.webui" = ["frontend-dist/**/*"]
+# Recovery mode's own page: plain files, served when the regular UI cannot be.
+"boneio.webui.recovery" = ["static/*"]
 "boneio.migrations" = [
     "assets/**/*",
     "assets/MANIFEST.sha256",

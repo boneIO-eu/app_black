@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>boneIO recovery</title>
+  <link rel="stylesheet" href="/recovery.css">
+  <script src="/recovery.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <strong>boneIO</strong>
+    <span class="badge">Recovery mode</span>
+    <span id="version" class="muted"></span>
+    <span class="spacer"></span>
+    <button id="logout" class="link" hidden>Sign out</button>
+  </header>
+
+  <main>
+    <section id="login-view" class="card narrow" hidden>
+      <h1>boneIO could not start</h1>
+      <p class="muted">
+        The controller is running only this recovery panel. Outputs are not
+        driven until it starts normally again. Sign in with an administrator
+        account to see what went wrong.
+      </p>
+      <form id="login-form">
+        <label>Username <input name="username" autocomplete="username" required></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary">Sign in</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <div id="app-view" hidden>
+      <section class="card">
+        <div class="row">
+          <h1 id="reason-title">boneIO could not start</h1>
+          <span class="spacer"></span>
+          <button id="restart" class="primary">Restart boneIO</button>
+        </div>
+        <p id="reason-summary" class="muted"></p>
+        <p id="reason-where" class="where"></p>
+        <pre id="reason-message" class="error-box"></pre>
+        <details id="reason-details" hidden>
+          <summary>Traceback</summary>
+          <pre id="reason-traceback"></pre>
+        </details>
+        <p id="retry-note" class="muted" hidden></p>
+        <p id="restart-note" class="muted" role="status"></p>
+      </section>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="editor" aria-selected="true">Config files</button>
+        <button role="tab" data-tab="logs">Log</button>
+        <button role="tab" data-tab="backups">Backups</button>
+      </nav>
+
+      <section id="tab-editor" class="card tab">
+        <div class="row wrap">
+          <label>File <select id="file-select"></select></label>
+          <span id="file-state" class="muted"></span>
+          <span class="spacer"></span>
+          <button id="save">Save</button>
+          <button id="validate">Check config</button>
+        </div>
+        <div class="editor">
+          <pre id="gutter" aria-hidden="true"></pre>
+          <textarea id="content" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+        </div>
+        <div id="validation" class="validation" role="status" hidden></div>
+      </section>
+
+      <section id="tab-logs" class="card tab" hidden>
+        <div class="row">
+          <label><input type="checkbox" id="errors-only"> Warnings and errors only</label>
+          <span class="spacer"></span>
+          <button id="refresh-logs">Refresh</button>
+        </div>
+        <pre id="logs" class="logs"></pre>
+      </section>
+
+      <section id="tab-backups" class="card tab" hidden>
+        <p class="muted">
+          Restoring puts the backup's YAML files back. What is there now is
+          archived first, as a new backup, so a restore can be undone.
+        </p>
+        <table class="backups">
+          <thead><tr><th>Backup</th><th>Date</th><th>Size</th><th></th></tr></thead>
+          <tbody id="backup-rows"></tbody>
+        </table>
+        <p id="backup-note" class="muted" role="status"></p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

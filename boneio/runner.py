@@ -48,6 +48,7 @@ from boneio.core.config import ConfigHelper
 from boneio.core.events import EventBus, GracefulExit
 from boneio.core.manager import Manager
 from boneio.core.messaging import MQTTClient
+from boneio.core.recovery import STABLE_AFTER_SECONDS, StartupFailures
 from boneio.core.state import StateManager
 from boneio.core.system import get_network_info
 from boneio.exceptions import RestartRequestException
@@ -174,6 +175,7 @@ async def async_run(
     """Run BoneIO."""
     web_server = None
     tasks: set[asyncio.Task] = set()
+    startup_failures = StartupFailures(config_file)
     loop = asyncio.get_running_loop()
     event_bus = EventBus(loop=loop)
     shutdown_event = asyncio.Event()
@@ -523,6 +525,17 @@ async def async_run(
         else:
             _LOGGER.warning("Cloud registration enabled but missing serial or IP")
 
+    # A start that stays up this long has proven itself: forget the crashes
+    # before it, so an occasional one weeks apart never adds up to recovery
+    # mode. Not in the main gather - it has nothing to wait for afterwards.
+    async def _forgive_earlier_crashes() -> None:
+        await asyncio.sleep(STABLE_AFTER_SECONDS)
+        if startup_failures.count:
+            _LOGGER.info("Running for %ds; clearing the startup crash count", STABLE_AFTER_SECONDS)
+            startup_failures.clear()
+
+    stable_task = asyncio.create_task(_forgive_earlier_crashes())
+
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
@@ -563,15 +576,18 @@ async def async_run(
         _LOGGER.info("Restart or graceful exit requested")
         raise
     except Exception as e:
-        _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
+        _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}", exc_info=True)
         _draw_crash(e)
+        startup_failures.record(e)
         return 1
     except BaseException as e:
-        _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}")
+        _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}", exc_info=True)
         _draw_crash(e)
+        startup_failures.record(e)
         return 1
     finally:
         _LOGGER.info("Cleaning up resources...")
+        stable_task.cancel()
 
         # Cancel pending deferred state saves and write final state synchronously.
         # This MUST happen before event_bus.stop() which may trigger sigterm

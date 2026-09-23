@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -87,32 +86,9 @@ class WebServer:
         self._server_running = False
 
     def _get_jwt_secret_or_generate(self):
-        config_dir = Path(self._yaml_config_file).parent
-        jwt_secret_file = config_dir / "jwt_secret"
+        from boneio.core.auth.jwt_secret import load_or_create_jwt_secret
 
-        try:
-            if jwt_secret_file.exists():
-                # Read existing secret
-                with open(jwt_secret_file) as f:
-                    jwt_secret = f.read().strip()
-                    if jwt_secret:  # Verify it's not empty
-                        return jwt_secret
-
-            # Generate new secret if file doesn't exist or is empty
-            jwt_secret = secrets.token_hex(32)  # 256-bit random secret
-
-            # Save the secret
-            with open(jwt_secret_file, "w") as f:
-                f.write(jwt_secret)
-
-            # Secure the file permissions (read/write only for owner)
-            os.chmod(jwt_secret_file, 0o600)
-
-        except Exception as e:
-            # If we can't persist the secret, generate a temporary one
-            _LOGGER.error(f"Failed to handle JWT secret file: {e}")
-            jwt_secret = secrets.token_hex(32)
-        return jwt_secret
+        return load_or_create_jwt_secret(Path(self._yaml_config_file).parent)
 
     async def start_webserver(self) -> None:
         """Start the web server."""
