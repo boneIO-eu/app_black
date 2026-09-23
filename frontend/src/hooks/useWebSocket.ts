@@ -124,6 +124,35 @@ export interface GroupEvent {
   state: GroupState;
 }
 
+/** A schedule as the running controller sees it. Mirrors
+ * `boneio/models/state.py::ScheduleState`. */
+export interface ScheduleWsState {
+  id: string;
+  name: string;
+  enabled: boolean;
+  config_enabled?: boolean | null;
+  actions: number;
+  next_fire: string | null;
+  last_fire: string | null;
+  last_outcome: string | null;
+  last_error: string | null;
+  last_duration_ms: number | null;
+  history: {
+    at: string;
+    source: string;
+    outcome: string;
+    actions: number;
+    duration_ms: number;
+    error: string | null;
+  }[];
+}
+
+export interface ScheduleEvent {
+  event_type: 'schedule';
+  entity_id: string;
+  state: ScheduleWsState;
+}
+
 export interface ConfigReloadEvent {
   event_type: 'config_reload';
   sections: string[];
@@ -136,7 +165,7 @@ export interface StartupStatusEvent {
   complete: boolean;
 }
 
-export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | GroupEvent | ConfigReloadEvent | StartupStatusEvent;
+export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | GroupEvent | ScheduleEvent | ConfigReloadEvent | StartupStatusEvent;
 
 // Type guards
 
@@ -162,6 +191,10 @@ export function isModbusDeviceEvent(data: StateUpdate): data is ModbusDeviceEven
 
 export function isGroupEvent(data: StateUpdate): data is GroupEvent {
   return data.event_type === 'group';
+}
+
+export function isScheduleEvent(data: StateUpdate): data is ScheduleEvent {
+  return data.event_type === 'schedule';
 }
 
 export function isConfigReloadEvent(data: StateUpdate): data is ConfigReloadEvent {

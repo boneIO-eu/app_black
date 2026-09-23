@@ -13,8 +13,10 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from boneio.core.manager import Manager
+from boneio.core.manager.scheduler import SOURCE_MANUAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,10 +68,62 @@ async def run_schedule_now(schedule_id: str, manager: Manager = Depends(get_mana
         raise HTTPException(status_code=404, detail=f"No schedule with id {schedule_id!r}.")
 
     _LOGGER.info("Schedule '%s' run manually from the web UI.", schedule_id)
-    await scheduler._run(entry)
-    return {
-        "status": "success",
-        "id": entry.id,
-        "last_fire": entry.last_fire.isoformat() if entry.last_fire else None,
-        "last_error": entry.last_error,
-    }
+    await scheduler._run(entry, source=SOURCE_MANUAL)
+    return {"status": "success", **(scheduler.status_for(entry.id) or {})}
+
+
+class EnableRequest(BaseModel):
+    """Body of the enable/disable call."""
+
+    enabled: bool
+
+
+@router.post("/schedule/{schedule_id}/enable")
+async def set_schedule_enabled(
+    schedule_id: str,
+    body: EnableRequest,
+    manager: Manager = Depends(get_manager),
+):
+    """Turn one schedule on or off without editing the config.
+
+    The same entry point the Home Assistant switch uses. The choice is
+    persisted, so it outlives a restart — until somebody edits ``enabled:`` in
+    the config, which is treated as the more deliberate statement of the two
+    and wins.
+
+    Args:
+        schedule_id: The schedule's id.
+        body: ``{"enabled": bool}``.
+        manager: Injected manager.
+
+    Returns:
+        The schedule's status after the change.
+
+    Raises:
+        HTTPException: 404 when no such schedule exists.
+    """
+    scheduler = getattr(manager, "scheduler", None)
+    if scheduler is None or not scheduler.set_enabled(schedule_id, body.enabled):
+        raise HTTPException(status_code=404, detail=f"No schedule with id {schedule_id!r}.")
+    return {"status": "success", **(scheduler.status_for(schedule_id) or {})}
+
+
+@router.get("/schedule/{schedule_id}/history")
+async def get_schedule_history(schedule_id: str, manager: Manager = Depends(get_manager)):
+    """Every run this schedule still remembers, newest last.
+
+    Args:
+        schedule_id: The schedule's id.
+        manager: Injected manager.
+
+    Returns:
+        Dict with a ``history`` list.
+
+    Raises:
+        HTTPException: 404 when no such schedule exists.
+    """
+    scheduler = getattr(manager, "scheduler", None)
+    status = scheduler.status_for(schedule_id) if scheduler is not None else None
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"No schedule with id {schedule_id!r}.")
+    return {"id": schedule_id, "history": status.get("history", [])}

@@ -31,6 +31,7 @@ from boneio.const import (
     OPEN,
     OPENING,
     OUTPUT,
+    SCHEDULE,
     SELECT,
     SENSOR,
     SINGLE,
@@ -567,6 +568,88 @@ def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_t
     return msg
 
 
+
+
+def _ha_schedule_entity(
+    id: str,
+    name: str,
+    entity_type: str,
+    config_helper: ConfigHelper,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """Shared skeleton for a schedule's entities.
+
+    Every entity a schedule publishes reads the same retained JSON from one
+    state topic. One message then updates the switch and all three sensors at
+    once, and they cannot disagree with each other — which they would if each
+    had its own topic and one publish failed.
+    """
+    msg = ha_availabilty_message(
+        device_type=SCHEDULE,
+        config_helper=config_helper,
+        entity_type=entity_type,
+        id=id,
+        name=name,
+        area=area,
+    )
+    msg["state_topic"] = f"{config_helper.topic_prefix}/{SCHEDULE}/{id}"
+    return msg
+
+
+def ha_schedule_switch_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """The switch that turns one schedule on or off from Home Assistant."""
+    msg = _ha_schedule_entity(id, name, "switch", config_helper, area)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{SCHEDULE}/{id}/set"
+    msg["payload_off"] = OFF
+    msg["payload_on"] = ON
+    msg["value_template"] = "{{ value_json.state }}"
+    msg["icon"] = "mdi:calendar-clock"
+    return msg
+
+
+def ha_schedule_sensor_message(
+    id: str,
+    name: str,
+    suffix: str,
+    key: str,
+    config_helper: ConfigHelper,
+    device_class: str | None = None,
+    icon: str | None = None,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """One diagnostic sensor off a schedule's state topic.
+
+    Marked ``diagnostic`` on purpose: three sensors times a couple of dozen
+    schedules would otherwise bury the controls on the device page.
+
+    Args:
+        id: The schedule's id.
+        name: The schedule's display name.
+        suffix: Entity id suffix, e.g. ``next_fire``.
+        key: Which key of the state JSON this sensor reads.
+        config_helper: For topics and device info.
+        device_class: HA device class, e.g. ``timestamp``.
+        icon: Optional mdi icon.
+        area: Optional area id.
+    """
+    msg = _ha_schedule_entity(
+        f"{id}_{suffix}", f"{name} {suffix.replace('_', ' ')}", "sensor", config_helper, area
+    )
+    # An empty string, not the word "None": that is how the irrigation
+    # countdown already says "no time to show", and HA reads it as unknown
+    # rather than failing to parse a timestamp.
+    msg["value_template"] = "{{ value_json.%s }}" % key
+    msg["entity_category"] = "diagnostic"
+    if device_class:
+        msg["device_class"] = device_class
+    if icon:
+        msg["icon"] = icon
+    return msg
 
 
 def ha_output_duration_number_message(

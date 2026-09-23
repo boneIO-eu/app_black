@@ -53,15 +53,88 @@ export interface ScheduleEntry {
   [key: string]: unknown;
 }
 
-/** What the running controller says about a schedule the config only describes. */
+/** How one run ended. `skipped_condition` is a real outcome, not a missing
+ * one: the schedule fired and its own condition told it to do nothing. */
+export type ScheduleOutcome = 'ran' | 'skipped_condition' | 'failed';
+
+/** Where a run came from. */
+export type ScheduleSource = 'timer' | 'catch_up' | 'manual';
+
+/** One past run, as the controller remembers it. */
+export interface ScheduleRun {
+  at: string;
+  source: ScheduleSource;
+  outcome: ScheduleOutcome;
+  actions: number;
+  duration_ms: number;
+  error: string | null;
+}
+
+/** What the running controller says about a schedule the config only describes.
+ *
+ * `last_fire` is when the timer last fired, whatever came of it — not when it
+ * last succeeded. A schedule stopped by its own condition has fired. */
 export interface ScheduleStatus {
   id: string;
   name: string;
   enabled: boolean;
+  config_enabled?: boolean;
   actions: number;
   next_fire: string | null;
   last_fire: string | null;
+  last_outcome: ScheduleOutcome | null;
   last_error: string | null;
+  last_duration_ms: number | null;
+  history?: ScheduleRun[];
+}
+
+/** The daisyUI colour each outcome reads as. Grey for "it has never run",
+ * because that is not a problem — it is an absence. */
+export const OUTCOME_BADGE: Record<ScheduleOutcome, string> = {
+  ran: 'badge-success',
+  skipped_condition: 'badge-warning',
+  failed: 'badge-error',
+};
+
+/**
+ * "2 hours ago", in the user's language.
+ *
+ * Uses Intl rather than a table of strings so the plural rules are right in
+ * Polish without anybody maintaining them — "2 godziny temu" and "5 godzin
+ * temu" differ, and that is the least of it.
+ *
+ * @param iso The instant, or null.
+ * @param language BCP-47 tag, e.g. "pl".
+ * @param now Injectable for tests.
+ * @returns A phrase, or "—" when there is nothing to say.
+ */
+export function formatAgo(iso: string | null, language: string, now: Date = new Date()): string {
+  if (!iso) return '\u2014';
+  const when = new Date(iso);
+  if (isNaN(when.getTime())) return '\u2014';
+
+  const seconds = Math.round((when.getTime() - now.getTime()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(language || 'en', { numeric: 'auto' });
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['year', 31536000],
+    ['month', 2592000],
+    ['day', 86400],
+    ['hour', 3600],
+    ['minute', 60],
+  ];
+  for (const [unit, size] of steps) {
+    if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit);
+  }
+  return rtf.format(Math.round(seconds), 'second');
+}
+
+/** An absolute local timestamp, for the title attribute behind a relative one. */
+export function formatExact(iso: string | null): string {
+  if (!iso) return '';
+  const when = new Date(iso);
+  if (isNaN(when.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(when.getDate())}.${pad(when.getMonth() + 1)}.${when.getFullYear()} ${pad(when.getHours())}:${pad(when.getMinutes())}:${pad(when.getSeconds())}`;
 }
 
 /** Offsets come back from the backend in seconds; minutes is what people type. */

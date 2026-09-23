@@ -292,6 +292,14 @@ def add_all_websocket_listeners(boneio_manager: Manager):
         target=boneio_state_changed_callback,
     )
 
+    # Schedule events (ran, re-planned, switched on or off)
+    boneio_manager.event_bus.add_event_listener(
+        event_type="schedule",
+        entity_id="",
+        listener_id="ws_schedule_global",
+        target=boneio_state_changed_callback,
+    )
+
     # Modbus device events
     boneio_manager.event_bus.add_event_listener(
         event_type="modbus_device",

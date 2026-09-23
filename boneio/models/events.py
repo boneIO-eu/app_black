@@ -18,6 +18,7 @@ from boneio.models.state import (
     InputState,
     ModbusDeviceState,
     OutputState,
+    ScheduleState,
     SensorState,
 )
 
@@ -124,6 +125,25 @@ class GroupEvent(BaseModel):
     event_type: Literal["group"] = "group"
     entity_id: str
     state: GroupState
+
+
+class ScheduleEvent(BaseModel):
+    """Schedule event — fired when a schedule runs, is re-planned, or is
+    switched on or off.
+
+    The panel is the only place a schedule's runtime is visible, and a page
+    that shows a snapshot from whenever it was opened is worse than no page:
+    it looks current and is not.
+
+    Attributes:
+        event_type: Type of event (always "schedule")
+        entity_id: The schedule's id
+        state: The schedule's full status
+    """
+
+    event_type: Literal["schedule"] = "schedule"
+    entity_id: str
+    state: ScheduleState
 
 
 class ConfigReloadEvent(BaseModel):

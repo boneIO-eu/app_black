@@ -104,6 +104,35 @@ class GroupState(BaseModel):
     timestamp: float | None = None
 
 
+class ScheduleRunState(BaseModel):
+    """One past run of a schedule."""
+    at: str
+    source: str
+    outcome: str
+    actions: int
+    duration_ms: int
+    error: str | None = None
+
+
+class ScheduleState(BaseModel):
+    """A schedule as the running controller sees it.
+
+    ``last_fire`` is when the timer last fired, whatever came of it — a
+    schedule stopped by its own condition has fired.
+    """
+    id: str
+    name: str
+    enabled: bool
+    config_enabled: bool | None = None
+    actions: int = 0
+    next_fire: str | None = None
+    last_fire: str | None = None
+    last_outcome: str | None = None
+    last_error: str | None = None
+    last_duration_ms: int | None = None
+    history: list[ScheduleRunState] = []
+
+
 # Response models for API endpoints
 class InputsResponse(BaseModel):
     """Inputs response model."""

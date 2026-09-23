@@ -27,6 +27,8 @@ import asyncio
 import contextlib
 import logging
 import random
+import time as _time
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
 from typing import TYPE_CHECKING, Any
@@ -50,6 +52,39 @@ _SUPERVISE_INTERVAL = 60.0
 #: weekday filter (7) and a sun event missing for a stretch; beyond that the
 #: honest answer is "not soon" rather than a date months out.
 _MAX_LOOKAHEAD_DAYS = 400
+
+#: How many past runs are kept per schedule. Twenty covers "did it work this
+#: week" for anything that fires daily, and keeps ``state.json`` small enough
+#: that the whole file is still rewritten in one go without anyone noticing.
+_HISTORY_LIMIT = 20
+
+#: The section of ``state.json`` this module owns.
+_STATE_SECTION = "schedule"
+
+#: What a run can end as. Three outcomes, because a schedule that fired and
+#: then declined to act on its condition is neither a success nor a failure —
+#: and telling those apart is the whole reason this record exists.
+OUTCOME_RAN = "ran"
+OUTCOME_SKIPPED = "skipped_condition"
+OUTCOME_FAILED = "failed"
+
+#: Where a run came from. A catch-up and a button press look identical in the
+#: log otherwise, and they are the two people ask about.
+SOURCE_TIMER = "timer"
+SOURCE_CATCH_UP = "catch_up"
+SOURCE_MANUAL = "manual"
+
+#: The MQTT topic segment schedules publish under, kept here so this module
+#: does not import the const table just for one string.
+_SCHEDULE_TOPIC = "schedule"
+
+#: The diagnostic sensors each schedule publishes: (suffix, state key,
+#: HA device class, icon).
+_HA_SENSORS: tuple[tuple[str, str, str | None, str | None], ...] = (
+    ("next_fire", "next_fire", "timestamp", "mdi:clock-outline"),
+    ("last_fire", "last_fire", "timestamp", "mdi:history"),
+    ("last_outcome", "last_outcome", None, "mdi:check-circle-outline"),
+)
 
 #: Day filters, matching the vocabulary the irrigation schedules already use.
 #: Monday is 0, as ``datetime.weekday()`` has it.
@@ -168,6 +203,7 @@ class _Entry:
         "id",
         "name",
         "enabled",
+        "config_enabled",
         "trigger",
         "on_missed",
         "catch_up",
@@ -177,6 +213,9 @@ class _Entry:
         "next_fire",
         "last_fire",
         "last_error",
+        "last_outcome",
+        "last_duration_ms",
+        "history",
     )
 
     def __init__(self, config: dict, index: int) -> None:
@@ -185,7 +224,11 @@ class _Entry:
         # does. The positional fallback is for an entry with neither.
         self.id = resolve_id(config) or f"schedule_{index + 1}"
         self.name = config.get("name") or self.id
-        self.enabled = config.get("enabled", True)
+        # What the YAML says, kept apart from what is in force: a switch in
+        # Home Assistant can disagree with the file, and deciding which of the
+        # two wins needs both values. See Scheduler._restore.
+        self.config_enabled = bool(config.get("enabled", True))
+        self.enabled = self.config_enabled
         self.trigger = config.get("trigger") or {}
         self.on_missed = config.get("on_missed", "skip")
         self.catch_up = float(config.get("catch_up") or 0.0)
@@ -193,8 +236,13 @@ class _Entry:
         self.condition: Any = None
         self.cancel: Any = None
         self.next_fire: datetime | None = None
+        # When the timer last fired, whatever came of it — not "when it last
+        # succeeded". A schedule stopped by its own condition has fired.
         self.last_fire: datetime | None = None
         self.last_error: str | None = None
+        self.last_outcome: str | None = None
+        self.last_duration_ms: int | None = None
+        self.history: deque[dict] = deque(maxlen=_HISTORY_LIMIT)
 
     @property
     def days(self) -> frozenset[int]:
@@ -238,10 +286,13 @@ class Scheduler:
             # exactly what a button's do — including their own conditions.
             parsed = self._manager.parse_actions(entry.id, {"fire": config.get("actions", [])})
             entry.actions = parsed.get("fire", [])
+            self._restore(entry)
             if not entry.actions:
                 _LOGGER.warning(
                     "Schedule '%s' has no usable actions; it will not be armed.", entry.id
                 )
+                # After the restore, deliberately: a schedule with nothing to
+                # do stays unarmed no matter what anyone switched on.
                 entry.enabled = False
             entry.condition = precompile_conditions(config, self._manager.sun)
             self._entries.append(entry)
@@ -253,6 +304,217 @@ class Scheduler:
                 [e.id for e in self._entries],
             )
 
+    # ── persistence ──────────────────────────────────────────────────────
+
+    def _state_manager(self) -> Any:
+        """The state store, or None when there is none to talk to.
+
+        Tests build the manager as a stub and the scheduler has to survive
+        that, so every use of the store goes through here.
+        """
+        store = getattr(self._manager, "_state_manager", None)
+        if store is None or not hasattr(store, "save_attribute"):
+            return None
+        return store
+
+    def _restore(self, entry: _Entry) -> None:
+        """Bring back what this schedule did last time, and whether it is on.
+
+        The interesting half is ``enabled``. A switch in Home Assistant and an
+        ``enabled:`` line in the YAML can disagree, and whichever answer we
+        pick blindly is wrong half the time: honour the stored value always and
+        editing the file appears to do nothing; honour the file always and
+        every reload throws away what someone just switched. So we also store
+        what the file said when the override was written. If the file still
+        says that, nobody touched it and the override stands. If it changed,
+        that is a person expressing an opinion in the file, and it wins.
+        """
+        store = self._state_manager()
+        if store is None:
+            return
+        try:
+            stored = store.get(_STATE_SECTION, entry.id, None)
+        except Exception:  # noqa: BLE001 - a broken store must not stop the boot
+            return
+        if not isinstance(stored, dict):
+            return
+
+        if stored.get("enabled_from_config") == entry.config_enabled:
+            entry.enabled = bool(stored.get("enabled", entry.config_enabled))
+        elif "enabled_from_config" in stored:
+            _LOGGER.info(
+                "Schedule '%s': enabled: changed in the config to %s, dropping the "
+                "stored override.",
+                entry.id,
+                entry.config_enabled,
+            )
+
+        history = stored.get("history")
+        if isinstance(history, list):
+            entry.history = deque(
+                (item for item in history if isinstance(item, dict)),
+                maxlen=_HISTORY_LIMIT,
+            )
+            if entry.history:
+                last = entry.history[-1]
+                entry.last_outcome = last.get("outcome")
+                entry.last_error = last.get("error")
+                entry.last_duration_ms = last.get("duration_ms")
+                with contextlib.suppress(TypeError, ValueError):
+                    entry.last_fire = datetime.fromisoformat(last["at"])
+
+    def _persist(self, entry: _Entry) -> None:
+        """Write one schedule's state out. Debounced by the store itself."""
+        store = self._state_manager()
+        if store is None:
+            return
+        with contextlib.suppress(Exception):
+            store.save_attribute(
+                attr_type=_STATE_SECTION,
+                attribute=entry.id,
+                value={
+                    "enabled": entry.enabled,
+                    "enabled_from_config": entry.config_enabled,
+                    "history": list(entry.history),
+                },
+            )
+
+    # ── Home Assistant ───────────────────────────────────────────────────
+
+    def publish_discovery(self) -> None:
+        """Announce every schedule to Home Assistant.
+
+        A disabled schedule is announced too. "Disabled" is a state worth
+        seeing — a schedule that vanishes from the panel when it is switched
+        off is exactly the thing that makes people ask whether it ever
+        existed.
+        """
+        if not hasattr(self._manager, "publish_ha_discovery"):
+            return
+        from boneio.integration.homeassistant import (
+            ha_schedule_sensor_message,
+            ha_schedule_switch_message,
+        )
+
+        helper = self._manager._config_helper
+        for entry in self._entries:
+            with contextlib.suppress(Exception):
+                self._manager.publish_ha_discovery(
+                    id=entry.id,
+                    ha_type="switch",
+                    payload=ha_schedule_switch_message(
+                        id=entry.id, name=entry.name, config_helper=helper
+                    ),
+                )
+                for suffix, key, device_class, icon in _HA_SENSORS:
+                    self._manager.publish_ha_discovery(
+                        id=f"{entry.id}_{suffix}",
+                        ha_type="sensor",
+                        payload=ha_schedule_sensor_message(
+                            id=entry.id,
+                            name=entry.name,
+                            suffix=suffix,
+                            key=key,
+                            config_helper=helper,
+                            device_class=device_class,
+                            icon=icon,
+                        ),
+                    )
+
+    def _announce(self, entry: _Entry) -> None:
+        """Publish one schedule's state, retained.
+
+        All four entities read this one message, so they move together.
+        """
+        send = getattr(self._manager, "send_message", None)
+        if send is None:
+            return
+        helper = getattr(self._manager, "_config_helper", None)
+        prefix = getattr(helper, "topic_prefix", None)
+        if not isinstance(prefix, str):
+            return
+        with contextlib.suppress(Exception):
+            send(
+                topic=f"{prefix}/{_SCHEDULE_TOPIC}/{entry.id}",
+                payload={
+                    "state": "ON" if entry.enabled else "OFF",
+                    # Empty string, not null: the irrigation countdown already
+                    # says "nothing to show" this way and HA reads it as
+                    # unknown instead of failing to parse a timestamp.
+                    "next_fire": entry.next_fire.isoformat() if entry.next_fire else "",
+                    "last_fire": entry.last_fire.isoformat() if entry.last_fire else "",
+                    "last_outcome": entry.last_outcome or "never",
+                    "last_error": entry.last_error or "",
+                },
+                retain=True,
+            )
+
+    def announce_all(self) -> None:
+        """Re-publish every schedule's state. Used after a reload."""
+        for entry in self._entries:
+            self._announce(entry)
+
+    def _notify_panel(self, entry: _Entry) -> None:
+        """Push this schedule's status to any open web UI.
+
+        Without it the panel shows whatever was true when the page was opened,
+        which is worse than showing nothing: it looks current.
+        """
+        bus = getattr(self._manager, "event_bus", None)
+        trigger = getattr(bus, "trigger_event", None)
+        if trigger is None:
+            return
+        with contextlib.suppress(Exception):
+            from boneio.models.events import ScheduleEvent
+            from boneio.models.state import ScheduleState
+
+            status = self.status_for(entry.id)
+            if status is None:
+                return
+            trigger(
+                ScheduleEvent(
+                    entity_id=entry.id, state=ScheduleState.model_validate(status)
+                )
+            )
+
+    # ── control ──────────────────────────────────────────────────────────
+
+    def set_enabled(self, schedule_id: str, enabled: bool) -> bool:
+        """Turn one schedule on or off at runtime.
+
+        This is what both the web UI and the Home Assistant switch call. The
+        change is persisted, so it survives a restart; see :meth:`_restore` for
+        what happens when the config disagrees afterwards.
+
+        Args:
+            schedule_id: The schedule's id.
+            enabled: The new state.
+
+        Returns:
+            True if a schedule with that id exists, False otherwise.
+        """
+        entry = next((e for e in self._entries if e.id == schedule_id), None)
+        if entry is None:
+            return False
+        if not entry.actions and enabled:
+            _LOGGER.warning(
+                "Schedule '%s' has no usable actions; leaving it off.", schedule_id
+            )
+            return True
+        if entry.enabled == enabled:
+            return True
+
+        entry.enabled = enabled
+        _LOGGER.info("Schedule '%s' %s.", schedule_id, "enabled" if enabled else "disabled")
+        if not enabled:
+            entry.disarm()
+        elif self._running:
+            self._plan()
+        self._persist(entry)
+        self._announce(entry)
+        self._notify_panel(entry)
+        return True
+
     async def reload(self, schedules: list[dict] | None) -> None:
         """Adopt a new ``schedule:`` section, disarming the old one first."""
         for entry in self._entries:
@@ -261,6 +523,8 @@ class Scheduler:
         self._skipped_today.clear()
         if self._running:
             self._plan()
+            self.publish_discovery()
+            self.announce_all()
 
     # ── lifecycle ────────────────────────────────────────────────────────
 
@@ -278,6 +542,8 @@ class Scheduler:
             return
         self._catch_up()
         self._plan()
+        self.publish_discovery()
+        self.announce_all()
         self._task = self._manager.append_task(coro=self._supervise, name="scheduler")
 
     def stop(self) -> None:
@@ -383,6 +649,11 @@ class Scheduler:
                 entry_id=entry.id,
             )
             _LOGGER.debug("Schedule '%s' armed for %s", entry.id, when.isoformat())
+            # The "next firing" sensor in Home Assistant is only worth having
+            # if it moves when the plan does, and the panel shows the same
+            # value from the same place.
+            self._announce(entry)
+            self._notify_panel(entry)
 
     def _next_fire(self, entry: _Entry, now: datetime) -> datetime | None:
         """The next instant this schedule should fire, or None if not soon.
@@ -464,7 +735,7 @@ class Scheduler:
                     entry.id,
                     missed_by,
                 )
-                self._manager.loop.create_task(self._run(entry, catching_up=True))
+                self._manager.loop.create_task(self._run(entry, source=SOURCE_CATCH_UP))
 
     def _previous_fire(self, entry: _Entry, now: datetime) -> datetime | None:
         """The most recent firing at or before *now*, within the catch-up window."""
@@ -485,44 +756,111 @@ class Scheduler:
         await self._run(entry)
         self._plan()
 
-    async def _run(self, entry: _Entry, catching_up: bool = False) -> None:
-        """Check the schedule's own conditions and execute its actions."""
+    async def _run(self, entry: _Entry, source: str = SOURCE_TIMER) -> None:
+        """Check the schedule's own conditions and execute its actions.
+
+        Every exit from here is recorded, including the one where the condition
+        says no. Without that, "it did not run" and "it ran and correctly chose
+        to do nothing" are the same observation from outside, which is the
+        thing that makes a schedule impossible to trust.
+        """
         now = datetime.now().astimezone()
+        started = _time.monotonic()
+
+        def elapsed_ms() -> int:
+            return int((_time.monotonic() - started) * 1000)
 
         if entry.condition is not None and not should_execute_action(
             entry.condition, now, self._manager._resolve_entity_state
         ):
             _LOGGER.info("Schedule '%s': conditions not met, nothing run.", entry.name)
+            self._record(entry, now, source, OUTCOME_SKIPPED, elapsed_ms(), None)
             return
 
         _LOGGER.info(
             "Schedule '%s' firing%s (%d action(s)).",
             entry.name,
-            " (catch-up)" if catching_up else "",
+            "" if source == SOURCE_TIMER else f" ({source.replace('_', '-')})",
             len(entry.actions),
         )
-        entry.last_fire = now
         try:
             await self._manager.execute_actions(entry.actions)
-            entry.last_error = None
         except Exception as err:  # noqa: BLE001 - one schedule must not stop the rest
-            entry.last_error = str(err)
             _LOGGER.error("Schedule '%s' failed: %s", entry.id, err, exc_info=True)
+            self._record(entry, now, source, OUTCOME_FAILED, elapsed_ms(), str(err))
+        else:
+            self._record(entry, now, source, OUTCOME_RAN, elapsed_ms(), None)
+
+    def _record(
+        self,
+        entry: _Entry,
+        at: datetime,
+        source: str,
+        outcome: str,
+        duration_ms: int,
+        error: str | None,
+    ) -> None:
+        """Note what one run came to, in memory and on disk.
+
+        Nothing is written to disk before the clock is set. The board boots in
+        1970 and a manual run from the web UI can happen in that window; a
+        history full of timestamps from a year that never happened is worse
+        than a history with a gap.
+        """
+        entry.last_fire = at
+        entry.last_outcome = outcome
+        entry.last_error = error
+        entry.last_duration_ms = duration_ms
+
+        record = {
+            "at": at.isoformat(),
+            "source": source,
+            "outcome": outcome,
+            "actions": len(entry.actions),
+            "duration_ms": duration_ms,
+            "error": error,
+        }
+        entry.history.append(record)
+
+        if self._manager.sun.clock_ready(at):
+            self._persist(entry)
+        else:
+            _LOGGER.debug(
+                "Schedule '%s': clock not set, keeping this run in memory only.",
+                entry.id,
+            )
+        self._announce(entry)
+        self._notify_panel(entry)
 
     # ── introspection ────────────────────────────────────────────────────
 
     def status(self) -> list[dict]:
-        """What the panel shows: what is armed, and when it next fires."""
+        """What the panel shows: what is armed, when it next fires, and what
+        happened the last times it did.
+
+        Note ``last_fire``: it is when the timer last fired, whatever came of
+        it. Until 1.6.x it was set only when the conditions passed, which made
+        a schedule blocked by its own condition indistinguishable from one that
+        never ran.
+        """
         return [
             {
                 "id": entry.id,
                 "name": entry.name,
                 "enabled": entry.enabled,
+                "config_enabled": entry.config_enabled,
                 "trigger": dict(entry.trigger),
                 "actions": len(entry.actions),
                 "next_fire": entry.next_fire.isoformat() if entry.next_fire else None,
                 "last_fire": entry.last_fire.isoformat() if entry.last_fire else None,
+                "last_outcome": entry.last_outcome,
                 "last_error": entry.last_error,
+                "last_duration_ms": entry.last_duration_ms,
+                "history": list(entry.history),
             }
             for entry in self._entries
         ]
+
+    def status_for(self, schedule_id: str) -> dict | None:
+        """One schedule's status, or None when there is no such schedule."""
+        return next((s for s in self.status() if s["id"] == schedule_id), None)

@@ -32,6 +32,7 @@ from boneio.const import (
     OUTPUT_OVER_MQTT,
     REMOTE_COVER,
     REMOTE_OUTPUT,
+    SCHEDULE,
     SET_BRIGHTNESS,
     STATE,
     TOGGLE,
@@ -2060,6 +2061,22 @@ class Manager:
                 await getattr(target_switch, action_from_msg)()
             else:
                 _LOGGER.debug("Unknown virtual switch command %s.", message.upper())
+            return
+
+        # Handle schedule enable/disable — the same path the web UI toggle
+        # takes, so a schedule switched off in Home Assistant is switched off
+        # everywhere and survives a restart.
+        if msg_type == SCHEDULE and command == "set":
+            scheduler = getattr(self, "scheduler", None)
+            if scheduler is None:
+                _LOGGER.debug("No scheduler to take a command for %s.", device_id)
+                return
+            wanted = message.upper()
+            if wanted not in (ON, OFF):
+                _LOGGER.debug("Unknown schedule command %s.", wanted)
+                return
+            if not scheduler.set_enabled(device_id, wanted == ON):
+                _LOGGER.debug("Schedule not found %s.", device_id)
             return
 
         # Handle relay/output commands

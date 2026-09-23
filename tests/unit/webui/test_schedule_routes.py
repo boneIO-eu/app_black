@@ -83,3 +83,81 @@ def test_an_unknown_schedule_is_a_404(manager):
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(schedule_routes.run_schedule_now(schedule_id="nope", manager=manager))
     assert excinfo.value.status_code == 404
+
+
+def test_running_now_is_recorded_as_a_manual_run(manager):
+    """So the history can say "somebody pressed the button" rather than
+    implying the timer went off at a time it did not."""
+    asyncio.run(schedule_routes.run_schedule_now(schedule_id="evening", manager=manager))
+    assert manager.scheduler._entries[0].history[-1]["source"] == "manual"
+
+
+def test_running_now_returns_the_full_status(manager):
+    payload = asyncio.run(
+        schedule_routes.run_schedule_now(schedule_id="evening", manager=manager)
+    )
+    assert payload["last_outcome"] == "ran"
+    assert payload["next_fire"] is not None
+    assert len(payload["history"]) == 1
+
+
+def test_disabling_a_schedule_through_the_api(manager):
+    payload = asyncio.run(
+        schedule_routes.set_schedule_enabled(
+            schedule_id="evening",
+            body=schedule_routes.EnableRequest(enabled=False),
+            manager=manager,
+        )
+    )
+    assert payload["enabled"] is False
+    assert manager.scheduler._entries[0].next_fire is None, "it should be disarmed too"
+
+
+def test_enabling_it_again_re_arms_it(manager):
+    asyncio.run(
+        schedule_routes.set_schedule_enabled(
+            schedule_id="evening",
+            body=schedule_routes.EnableRequest(enabled=False),
+            manager=manager,
+        )
+    )
+    manager.scheduler._running = True
+    payload = asyncio.run(
+        schedule_routes.set_schedule_enabled(
+            schedule_id="evening",
+            body=schedule_routes.EnableRequest(enabled=True),
+            manager=manager,
+        )
+    )
+    assert payload["enabled"] is True
+    assert manager.scheduler._entries[0].next_fire is not None
+
+
+def test_enabling_an_unknown_schedule_is_a_404(manager):
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(
+            schedule_routes.set_schedule_enabled(
+                schedule_id="nope",
+                body=schedule_routes.EnableRequest(enabled=True),
+                manager=manager,
+            )
+        )
+    assert excinfo.value.status_code == 404
+
+
+def test_history_endpoint_returns_the_runs(manager):
+    asyncio.run(schedule_routes.run_schedule_now(schedule_id="evening", manager=manager))
+    payload = asyncio.run(
+        schedule_routes.get_schedule_history(schedule_id="evening", manager=manager)
+    )
+    assert payload["id"] == "evening"
+    assert len(payload["history"]) == 1
+    assert payload["history"][0]["outcome"] == "ran"
+
+
+def test_history_for_an_unknown_schedule_is_a_404(manager):
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(
+            schedule_routes.get_schedule_history(schedule_id="nope", manager=manager)
+        )
+    assert excinfo.value.status_code == 404
