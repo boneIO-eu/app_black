@@ -283,6 +283,26 @@ class AptInstall(MigrationAction):
 
 
 @dataclass
+class AptPurge(MigrationAction):
+    """Purge Debian packages, and nothing but them (idempotent).
+
+    Packages that are not installed are skipped. The helper simulates the purge
+    first and refuses when apt would take anything off the device that is not
+    on this list — a dependency chain is not allowed to widen what a signed
+    plan said it removes. There is deliberately no autoremove.
+
+    Args:
+        packages: Package names to purge.
+    """
+
+    packages: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        return {"action": "apt_purge", "packages": list(self.packages)}
+
+
+@dataclass
 class PipInstallWheel(MigrationAction):
     """Install a wheel bundled in the migration assets into a virtualenv.
 

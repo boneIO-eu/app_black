@@ -893,3 +893,71 @@ def test_the_migration_asks_for_a_pair_the_helper_accepts(helper):
     for action in (a.to_dict() for a in migration.plan()):
         assert action["action"] in helper.ALLOWED_ACTIONS
         assert (action["account"], action["group"]) in helper.REMOVABLE_MEMBERSHIPS
+
+
+# ------------------------------------------------------------------ apt_purge
+#
+# A purge is resolved against the whole dependency graph of the device it runs
+# on, so the list in a signed plan is only a floor unless the helper checks.
+# These are about that check.
+
+PURGE_LIST = ["packagekit", "packagekit-tools", "cockpit-packagekit"]
+
+
+@pytest.fixture
+def apt(helper, monkeypatch):
+    """Fake dpkg-query and apt-get; record what would run."""
+    state = {"installed": set(PURGE_LIST), "simulated_extra": [], "ran": []}
+
+    def _fake(argv, **kwargs):
+        state["ran"].append(list(argv))
+        if argv[0] == "dpkg-query":
+            pkg = argv[-1]
+            status = "install ok installed" if pkg in state["installed"] else ""
+            return subprocess.CompletedProcess(argv, 0 if status else 1, stdout=status, stderr="")
+        if argv[:2] == ["apt-get", "-s"]:
+            names = [a for a in argv[3:]] + state["simulated_extra"]
+            out = "".join(f"Purg {n} [1.0]\n" for n in names)
+            return subprocess.CompletedProcess(argv, 0, stdout=out, stderr="")
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(helper.subprocess, "run", _fake)
+    return state
+
+
+def _purges(state):
+    return [argv for argv in state["ran"] if argv[0] == "apt-get" and "-s" not in argv]
+
+
+def test_the_listed_packages_are_purged(helper, apt):
+    helper.dispatch_action({"action": "apt_purge", "packages": PURGE_LIST}, "")
+    assert _purges(apt) == [
+        ["apt-get", "-o", "DPkg::Lock::Timeout=120", "-y", "purge", *PURGE_LIST]
+    ]
+
+
+def test_a_purge_that_would_take_more_is_refused(helper, apt):
+    """A dependency chain must not widen what the signed plan removes."""
+    apt["simulated_extra"] = ["boneio-something-important"]
+    with pytest.raises(helper.Refused, match="boneio-something-important"):
+        helper.dispatch_action({"action": "apt_purge", "packages": PURGE_LIST}, "")
+    assert _purges(apt) == []
+
+
+def test_packages_already_gone_are_skipped(helper, apt):
+    apt["installed"] = {"packagekit"}
+    helper.dispatch_action({"action": "apt_purge", "packages": PURGE_LIST}, "")
+    assert _purges(apt) == [["apt-get", "-o", "DPkg::Lock::Timeout=120", "-y", "purge", "packagekit"]]
+
+
+def test_nothing_runs_when_nothing_is_installed(helper, apt):
+    apt["installed"] = set()
+    helper.dispatch_action({"action": "apt_purge", "packages": PURGE_LIST}, "")
+    assert not any(argv[0] == "apt-get" for argv in apt["ran"])
+
+
+@pytest.mark.parametrize("name", ["-o", "../x", "a b", "Packagekit", "", "x;rm"])
+def test_a_suspicious_package_name_is_refused(helper, apt, name):
+    with pytest.raises(helper.Refused):
+        helper.dispatch_action({"action": "apt_purge", "packages": [name]}, "")
+    assert apt["ran"] == []

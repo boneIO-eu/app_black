@@ -1,0 +1,1 @@
+[{"action":"apt_purge","packages":["cockpit-packagekit","packagekit-tools","packagekit","libpackagekit-glib2-18","appstream","libappstream5"]}]

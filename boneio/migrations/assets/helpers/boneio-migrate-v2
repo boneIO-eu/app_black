@@ -127,6 +127,7 @@ ALLOWED_ACTIONS = {
     "append_line_if_missing",
     "ufw_allow",
     "apt_install",
+    "apt_purge",
     "pip_install_wheel",
     "disable_apparmor_profiles",
     "prune_orphaned_journal_dirs",
@@ -869,6 +870,65 @@ def handle_apt_install(action: dict[str, Any], assets_base: str) -> None:
     )
 
 
+#: ``Purg name [version]`` / ``Remv name [version]`` in ``apt-get -s`` output.
+_APT_REMOVAL_RE = re.compile(r"^(?:Purg|Remv) (?P<name>[^\s:]+)")
+
+
+def handle_apt_purge(action: dict[str, Any], assets_base: str) -> None:
+    """Purge installed packages from the list, and refuse to purge more.
+
+    apt resolves a purge against the whole dependency graph: removing one
+    package takes every installed package that depends on it along. A signed
+    plan names what it removes; letting that grow at run time, on whatever the
+    device happens to have installed, would make the signature mean less than it
+    says. So the purge is simulated first and refused when apt would remove
+    anything that is not on the list.
+
+    Args:
+        action: Action dict with a ``packages`` list.
+        assets_base: Unused.
+
+    Raises:
+        Refused: For a suspicious name, or when apt would remove more.
+    """
+    packages = action.get("packages") or []
+    for pkg in packages:
+        if not isinstance(pkg, str) or not _PKG_NAME_RE.match(pkg):
+            raise Refused(f"invalid package name: {pkg!r}")
+
+    present = []
+    for pkg in packages:
+        result = subprocess.run(
+            ["dpkg-query", "-W", "-f=${Status}", pkg],
+            capture_output=True, text=True, timeout=15,
+        )
+        # "deinstall ok config-files" still has conffiles to purge.
+        if result.returncode == 0 and result.stdout.split()[-1:] in (["installed"], ["config-files"]):
+            present.append(pkg)
+
+    if not present:
+        _LOGGER.info("SKIP (not installed): %s", " ".join(packages))
+        return
+
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    simulated = subprocess.run(
+        ["apt-get", "-s", "purge", *present],
+        check=True, capture_output=True, text=True, timeout=120, env=env,
+    )
+    removed = {
+        m.group("name") for m in map(_APT_REMOVAL_RE.match, simulated.stdout.splitlines()) if m
+    }
+    extra = sorted(removed - set(packages))
+    if extra:
+        raise Refused(f"purging {' '.join(present)} would also remove: {' '.join(extra)}")
+
+    _LOGGER.info("apt-get purge %s", " ".join(present))
+    subprocess.run(
+        ["apt-get", "-o", "DPkg::Lock::Timeout=120", "-y", "purge", *present],
+        check=True, capture_output=True, text=True, timeout=600, env=env,
+    )
+
+
 def _run_as_user(user: str, cmd: list[str], timeout: int) -> subprocess.CompletedProcess:
     """Run *cmd* as an unprivileged user with a clean environment.
 
@@ -1309,6 +1369,7 @@ ACTION_HANDLERS = {
     "append_line_if_missing": handle_append_line_if_missing,
     "ufw_allow": handle_ufw_allow,
     "apt_install": handle_apt_install,
+    "apt_purge": handle_apt_purge,
     "pip_install_wheel": handle_pip_install_wheel,
     "disable_apparmor_profiles": handle_disable_apparmor_profiles,
     "prune_orphaned_journal_dirs": handle_prune_orphaned_journal_dirs,
