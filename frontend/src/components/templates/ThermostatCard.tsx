@@ -2,7 +2,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { FaPowerOff, FaMinus, FaPlus, FaThermometerHalf } from 'react-icons/fa';
 import clsx from 'clsx';
 import type { ThermostatState } from './types';
-import { TemplateTile, TILE_BUTTON, type Tone } from './TemplateTile';
+import { TemplateTile } from './TemplateTile';
+import { TILE_BUTTON, type Tone } from './tileStyles';
 
 export default function ThermostatCard({
   data,

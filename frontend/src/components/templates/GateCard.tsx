@@ -2,7 +2,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { FaDoorOpen, FaDoorClosed, FaArrowUp, FaArrowDown, FaStop } from 'react-icons/fa';
 import clsx from 'clsx';
 import type { GateState } from './types';
-import { TemplateTile, TILE_BUTTON_STACKED, type Tone } from './TemplateTile';
+import { TemplateTile } from './TemplateTile';
+import { TILE_BUTTON_STACKED, type Tone } from './tileStyles';
 
 const TONE: Record<string, Tone> = {
   open: 'warning',

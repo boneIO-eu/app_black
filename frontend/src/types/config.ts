@@ -7,9 +7,6 @@
 // Common types
 // ============================================
 
-/** GPIO mode options */
-export type GpioMode = 'gpio' | 'gpio_pu' | 'gpio_pd' | 'gpio_input';
-
 /** Device class for event entities */
 export type EventDeviceClass = 'button' | 'doorbell' | 'motion';
 
@@ -147,7 +144,6 @@ export interface EventEntity {
   /** BoneIO predefined input reference */
   boneio_input?: BoneioInput;
   /** @deprecated GPIO mode — now handled by kernel overlay, ignored at runtime */
-  gpio_mode?: GpioMode;
   /** Bounce time in milliseconds */
   bounce_time?: number | string;
   /** Clear MQTT message after action (like Zigbee2MQTT) */
@@ -218,7 +214,6 @@ export interface BinarySensorEntity {
   /** BoneIO predefined input reference */
   boneio_input?: BoneioInput;
   /** @deprecated GPIO mode — now handled by kernel overlay, ignored at runtime */
-  gpio_mode?: GpioMode;
   /** Bounce time in milliseconds */
   bounce_time?: number | string;
   /** Show entity in Home Assistant */

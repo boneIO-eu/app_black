@@ -3,7 +3,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { FaShieldAlt, FaHome, FaWalking, FaMoon, FaUnlock } from 'react-icons/fa';
 import clsx from 'clsx';
 import type { AlarmState } from './types';
-import { TemplateTile, TILE_BUTTON, TILE_BUTTON_STACKED, type Tone } from './TemplateTile';
+import { TemplateTile } from './TemplateTile';
+import { TILE_BUTTON, TILE_BUTTON_STACKED, type Tone } from './tileStyles';
 
 // Armed is the protected, expected state, not a warning: it gets the app's
 // own colour. Amber is for the moments in between, red only for a real alarm.
