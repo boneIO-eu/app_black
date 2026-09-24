@@ -285,3 +285,8 @@ def os_update_start(mode: str, timeout: int = 30) -> Result:
 def os_update_log(timeout: int = 30) -> Result:
     """The end of the last apt run's log, as text on stdout."""
     return run("os-update-log", timeout=timeout)
+
+
+def os_autoupdate_set(enabled: bool, timeout: int = 60) -> Result:
+    """Switch automatic security updates on or off. Never reboots either way."""
+    return run("os-autoupdate-set", "on" if enabled else "off", timeout=timeout)

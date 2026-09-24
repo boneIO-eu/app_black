@@ -1,0 +1,24 @@
+# Installed by boneIO migration 1.6.22.
+#
+# Finish a package upgrade cut short by a power loss. dpkg left half-done
+# refuses every later apt operation — the panel's system update and the
+# automatic security updates both — until someone runs `dpkg --configure -a`
+# over SSH. On a controller in a cabinet that someone may never come.
+#
+# The condition keeps this free on a healthy boot: it runs only when dpkg's
+# journal has entries or a package is recorded mid-installation.
+[Unit]
+Description=boneIO: finish an interrupted package upgrade
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecCondition=/bin/sh -c 'ls -A /var/lib/dpkg/updates | grep -q . || grep -qE "^Status: [a-z]+ [a-z]+ (half-configured|unpacked|half-installed|triggers-awaited|triggers-pending)$$" /var/lib/dpkg/status'
+Environment=DEBIAN_FRONTEND=noninteractive
+ExecStart=/usr/bin/dpkg --force-confdef --force-confold --configure -a
+Nice=10
+CPUWeight=50
+TimeoutStartSec=45min
+
+[Install]
+WantedBy=multi-user.target

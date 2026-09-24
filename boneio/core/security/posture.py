@@ -238,6 +238,7 @@ def evaluate(
     custom_certificate: bool = False,
     cloud_error: str | None = None,
     service_password: str | None = None,
+    os_update: dict | None = None,
 ) -> Posture:
     """Work out what is still unlocked.
 
@@ -254,6 +255,9 @@ def evaluate(
         service_password: How the boneio SSH login stands, from boneio-system:
             ``locked``, ``empty``, ``shipped``, ``set`` or ``unknown``. None
             when nobody could ask.
+        os_update: boneio-system's ``os-update-state``: restart due, the next
+            boot's kernel, automatic security updates. None when the helper
+            predates it, and then the check is left out rather than guessed.
 
     Returns:
         The full set of checks.
@@ -509,6 +513,9 @@ def evaluate(
         )
     )
 
+    if os_update is not None:
+        checks.append(_os_update_check(os_update))
+
     if os.environ.get("BONEIO_DEV"):
         checks.append(
             Check(
@@ -525,6 +532,72 @@ def evaluate(
         )
 
     return Posture(checks=checks)
+
+
+def _os_update_check(state: dict) -> Check:
+    """Is the operating system patched and running what it was patched to?
+
+    Three ways to fail, worst first. The kernel the next boot would load not
+    being ready is a device that may not come back after a restart. A restart
+    being due means fixes are installed but not running — a patched OpenSSL on
+    disk while the old one serves the panel. Automatic security updates being
+    off is the owner's choice and is reported as information, not a fault.
+
+    Args:
+        state: The helper's report.
+
+    Returns:
+        The check.
+    """
+    kernel = state.get("kernel") or {}
+    auto = state.get("autoupdate") or {}
+    reasons = [str(r) for r in state.get("reboot_reasons") or []]
+    if kernel.get("status") == "problem":
+        return Check(
+            id="os_updates",
+            title="Operating system updates",
+            severity=Severity.CRITICAL,
+            state=State.FAILED,
+            detail="The kernel the next boot would load is not ready; a restart "
+            "may leave the controller down or without its board overlay.",
+            remedy="Do not restart. Report this to boneIO support.",
+            context=str(kernel.get("message") or ""),
+            variant="kernel",
+            settings_section="update",
+        )
+    if state.get("reboot_required"):
+        return Check(
+            id="os_updates",
+            title="Operating system updates",
+            severity=Severity.WARNING,
+            state=State.FAILED,
+            detail="Updates are installed but not running until the controller restarts.",
+            remedy="Restart the controller when a short break does no harm.",
+            context=" · ".join(reasons),
+            variant="reboot",
+            settings_section="update",
+        )
+    if auto.get("configured") and not auto.get("enabled"):
+        return Check(
+            id="os_updates",
+            title="Operating system updates",
+            severity=Severity.INFO,
+            state=State.FAILED,
+            detail="Automatic security updates are switched off, so fixes wait "
+            "until someone installs them by hand.",
+            remedy="Switch automatic security updates back on, or check for "
+            "system updates regularly.",
+            variant="autoupdate_off",
+            settings_section="update",
+        )
+    return Check(
+        id="os_updates",
+        title="Operating system updates",
+        severity=Severity.WARNING,
+        state=State.OK,
+        detail="Security updates are installed and running.",
+        settings_section="update",
+    )
 
 
 def evaluate_config(

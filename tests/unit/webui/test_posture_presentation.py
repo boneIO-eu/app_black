@@ -44,19 +44,30 @@ def _all_checks():
         {"web": {"cloud": {"declined": True}}},
         {"web": {"cloud": {"enabled": True}}},
     )
+    # The update check needs the helper's report, and each of its wordings a
+    # different one.
+    os_updates: tuple[dict | None, ...] = (
+        None,
+        {"kernel": {"status": "ok"}, "reboot_required": False},
+        {"kernel": {"status": "ok"}, "reboot_required": True, "reboot_reasons": ["x"]},
+        {"kernel": {"status": "problem", "message": "x"}},
+        {"kernel": {"status": "ok"}, "autoupdate": {"configured": True, "enabled": False}},
+    )
     checks = []
     for environ in ({}, {"BONEIO_DEV": "1"}):
         with patch.dict(os.environ, environ, clear=False):
             for config in configs:
-                checks.extend(
-                    evaluate(
-                        config,
-                        is_provisioned=False,
-                        anonymous_allowed=True,
-                        auth_required=False,
-                        cloud_active=False,
-                    ).checks
-                )
+                for os_update in os_updates:
+                    checks.extend(
+                        evaluate(
+                            config,
+                            is_provisioned=False,
+                            anonymous_allowed=True,
+                            auth_required=False,
+                            cloud_active=False,
+                            os_update=os_update,
+                        ).checks
+                    )
     return checks
 
 

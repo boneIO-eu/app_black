@@ -1,0 +1,33 @@
+// Installed by boneIO migration 1.6.22. Managed by boneIO.
+//
+// Automatic updates on a controller take security fixes and nothing else.
+// Debian's default also takes every point-release update from the main
+// archive; a behaviour change arriving unattended at night is not what an
+// owner agreed to when they left automatic security updates on.
+//
+// The BeagleBoard kernel comes from the rcn-ee archive, not Debian-Security,
+// so it never arrives this way: a kernel changes what the next boot loads, and
+// the panel's system update checks the boneIO overlay before offering the
+// restart that switches to it.
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+};
+
+// A controller in a cabinet restarts when its owner says so. The panel shows
+// "restart required" and why.
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Nothing is removed unattended: removal is where a dependency chain takes
+// something along that nobody named.
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "false";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
+
+// Keep configuration files boneIO migrations installed (mosquitto, sshd,
+// journald) instead of the distribution's defaults.
+Dpkg::Options {
+        "--force-confdef";
+        "--force-confold";
+};

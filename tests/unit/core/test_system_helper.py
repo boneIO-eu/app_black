@@ -844,3 +844,76 @@ def test_a_step_that_hangs_is_killed(helper, tmp_path):
     with (tmp_path / "log").open("w") as log:
         rc, _ = helper._stream(["sleep", "30"], log, timeout=1)
     assert rc != 0
+
+
+# --------------------------------------------------- automatic security updates
+
+
+@pytest.fixture
+def periodic(helper, monkeypatch, tmp_path):
+    path = tmp_path / "52boneio-periodic"
+    path.write_text('APT::Periodic::Unattended-Upgrade "1";\n')
+    monkeypatch.setattr(helper, "AUTOUPDATE_PERIODIC", path)
+    monkeypatch.setattr(helper, "AUTOUPDATE_LOG", tmp_path / "unattended-upgrades.log")
+    monkeypatch.setattr(helper, "_autoupdate_state", lambda: {"enabled": None})
+    return path
+
+
+def test_switching_off_writes_the_template_and_stops_the_timers(helper, ran, periodic):
+    assert helper.main(["os-autoupdate-set", "off"]) == 0
+    text = periodic.read_text()
+    assert 'APT::Periodic::Unattended-Upgrade "0";' in text
+    assert 'APT::Periodic::Update-Package-Lists "0";' in text
+    assert ran == [
+        ["systemctl", "disable", "--now", "apt-daily.timer"],
+        ["systemctl", "disable", "--now", "apt-daily-upgrade.timer"],
+    ]
+
+
+def test_switching_on_enables_the_timers(helper, ran, periodic):
+    helper.main(["os-autoupdate-set", "off"])
+    ran.clear()
+    assert helper.main(["os-autoupdate-set", "on"]) == 0
+    assert 'APT::Periodic::Unattended-Upgrade "1";' in periodic.read_text()
+    assert ran[0] == ["systemctl", "enable", "--now", "apt-daily.timer"]
+
+
+@pytest.mark.parametrize("argument", ["", "1", "true", 'on"; APT::Evil "1', "ON"])
+def test_only_on_or_off_is_accepted(helper, ran, periodic, argument):
+    before = periodic.read_text()
+    assert helper.main(["os-autoupdate-set", argument]) == 1
+    assert periodic.read_text() == before
+    assert ran == []
+
+
+def test_the_switch_needs_the_migration(helper, ran, periodic):
+    """Without 52boneio-unattended beside it, 'on' would mean Debian's defaults."""
+    periodic.unlink()
+    assert helper.main(["os-autoupdate-set", "on"]) == 1
+    assert not periodic.exists()
+
+
+def test_the_last_automatic_run_is_read_from_its_log(helper, monkeypatch, tmp_path):
+    log = tmp_path / "unattended-upgrades.log"
+    log.write_text(
+        "2026-09-24 06:10:01,100 INFO Starting unattended upgrades script\n"
+        "2026-09-24 06:10:40,200 INFO Packages that will be upgraded: libssl3t64 openssl\n"
+        "2026-09-25 06:12:03,300 INFO Starting unattended upgrades script\n"
+        "2026-09-25 06:12:30,400 INFO No packages found that can be upgraded unattended\n"
+    )
+    monkeypatch.setattr(helper, "AUTOUPDATE_LOG", log)
+    monkeypatch.setattr(helper, "AUTOUPDATE_PERIODIC", tmp_path / "missing")
+    state = helper._autoupdate_state()
+    assert state["last_run"] == "2026-09-25 06:12:03"
+    assert state["last_packages"] == ["libssl3t64", "openssl"]
+    assert state["last_packages_at"] == "2026-09-24 06:10:40"
+    assert state["enabled"] is False
+
+
+def test_the_shipped_unattended_config_takes_security_fixes_only():
+    conf = (REPO_ROOT / "boneio" / "migrations" / "assets" / "apt" / "52boneio-unattended").read_text()
+    code = "\n".join(line for line in conf.splitlines() if not line.strip().startswith("//"))
+    assert "#clear Unattended-Upgrade::Origins-Pattern;" in code
+    patterns = [line.strip() for line in code.splitlines() if line.strip().startswith('"origin=')]
+    assert patterns and all("label=Debian-Security" in p for p in patterns)
+    assert 'Unattended-Upgrade::Automatic-Reboot "false";' in code

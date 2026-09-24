@@ -74,6 +74,18 @@ _NODERED_IMAGE_RE = re.compile(
     re.MULTILINE,
 )
 
+#: The Caddy image line, in a template or in the live compose file.
+_CADDY_IMAGE_RE = re.compile(
+    r"^(?P<prefix>\s*image:\s*)(?P<image>caddy:\S+)(?P<suffix>\s*)$",
+    re.MULTILINE,
+)
+#: What a pinned Caddy image looks like: an exact tag and, normally, the digest
+#: of the multi-arch index. Checked even though it comes from a root-owned
+#: template, because it is written into the file ``docker compose up`` executes.
+_PINNED_CADDY_RE = re.compile(
+    r"^caddy:[A-Za-z0-9_][A-Za-z0-9._-]{0,127}(@sha256:[0-9a-f]{64})?$"
+)
+
 
 def _configure_logging() -> logging.Logger:
     """Set up logging without making the log file a hard requirement.
@@ -181,13 +193,17 @@ PARAMETERISED_VERBS = {
     "logs-container",
 }
 
-ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS)
+#: Verbs that take no argument but do more than one compose command.
+COMPOSITE_VERBS = {"caddy-image-state", "caddy-image-apply"}
+
+ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS | COMPOSITE_VERBS)
 
 #: Verbs that only read. They are allowed to run even when the compose file is
 #: not yet root-owned, because refusing them would leave the UI unable to say
 #: what is wrong.
 READ_ONLY_VERBS = {
     "status", "ps", "names", "logs-caddy", "logs-nodered", "logs-container",
+    "caddy-image-state",
 }
 
 
@@ -482,6 +498,96 @@ def _set_nodered_image(argument: str | None) -> int:
     return 0
 
 
+def _caddy_images() -> tuple[str, str | None]:
+    """The Caddy image this release pins, and the one the compose file uses.
+
+    Returns:
+        ``(pinned, configured)`` — configured is None when the compose file has
+        no Caddy image line.
+
+    Raises:
+        Refused: If the template is not root-owned or pins nothing usable.
+    """
+    if not _root_owned(COMPOSE_TEMPLATE):
+        raise Refused(f"template {COMPOSE_TEMPLATE} is missing or not root-owned")
+    match = _CADDY_IMAGE_RE.search(COMPOSE_TEMPLATE.read_text(encoding="utf-8"))
+    if match is None or not _PINNED_CADDY_RE.match(match.group("image")):
+        raise Refused(f"{COMPOSE_TEMPLATE} pins no Caddy image this helper accepts")
+    pinned = match.group("image")
+    try:
+        current = _CADDY_IMAGE_RE.search(COMPOSE_FILE.read_text(encoding="utf-8"))
+    except OSError:
+        current = None
+    return pinned, current.group("image") if current else None
+
+
+def _caddy_image_state() -> int:
+    """Print the pinned and the configured Caddy image. Changes nothing.
+
+    Returns:
+        0, with JSON on stdout.
+    """
+    pinned, configured = _caddy_images()
+    print(json.dumps({
+        "pinned": pinned,
+        "configured": configured,
+        "update_available": configured != pinned,
+    }))
+    return 0
+
+
+def _caddy_image_apply() -> int:
+    """Move Caddy to the image this boneIO release pins.
+
+    Caddy sat on ``caddy:2-alpine``: whatever that tag meant the day an image
+    was built, never updated after, and different on every controller. The
+    release now pins an exact version and digest in the root-owned template,
+    and this takes that one value into the live compose file — the one line,
+    nothing else, the way set-nodered-image changes only Node-RED's tag. There
+    is no argument: which version Caddy runs is the release's decision, not the
+    caller's.
+
+    Then the image is pulled and only Caddy is recreated. The HTTPS panel drops
+    for the seconds that takes.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: If there is nothing to pin or no Caddy line to change.
+    """
+    pinned, configured = _caddy_images()
+    if configured is None:
+        raise Refused(f"no 'image: caddy:...' line in {COMPOSE_FILE}; refusing to guess")
+    if configured != pinned:
+        content = COMPOSE_FILE.read_text(encoding="utf-8")
+        updated = _CADDY_IMAGE_RE.sub(
+            lambda m: f"{m.group('prefix')}{pinned}{m.group('suffix')}", content, count=1
+        )
+        _back_up_if_customised(updated)
+        with tempfile.NamedTemporaryFile(
+            dir=PROJECT_DIR, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+        ) as tmp:
+            tmp.write(updated)
+            tmp_path = tmp.name
+        try:
+            os.chmod(tmp_path, 0o644)
+            if os.geteuid() == 0:
+                os.chown(tmp_path, 0, 0)
+            os.replace(tmp_path, COMPOSE_FILE)
+        except OSError:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+        _LOGGER.info("Caddy image set to %s (was %s)", pinned, configured)
+    rc = _run(_compose("pull", CADDY_SERVICE), timeout=900)
+    if rc != 0:
+        return rc
+    return _run(_compose("up", "-d", CADDY_SERVICE), timeout=300)
+
+
 def _apply_cloud_template(argument: str | None) -> int:
     """Switch the compose project to the cloud template.
 
@@ -605,6 +711,12 @@ def main(argv: list[str] | None = None) -> int:
             return _logs_container(args.argument)
         if args.verb == "set-nodered-image":
             return _set_nodered_image(args.argument)
+        if args.verb in COMPOSITE_VERBS and args.argument is not None:
+            raise Refused(f"verb {args.verb!r} takes no argument")
+        if args.verb == "caddy-image-state":
+            return _caddy_image_state()
+        if args.verb == "caddy-image-apply":
+            return _caddy_image_apply()
         if args.verb == "apply-cloud-template":
             return _apply_cloud_template(args.argument)
         if args.verb == "remove-cloud-template":

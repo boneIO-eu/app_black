@@ -88,6 +88,9 @@ _HELPER_ONLY = {
     "apply-cloud-template",
     "remove-cloud-template",
     "set-nodered-image",
+    # Read the root-owned template and rewrite the compose file's Caddy line.
+    "caddy-image-state",
+    "caddy-image-apply",
 }
 
 
@@ -422,6 +425,33 @@ def set_nodered_image(tag: str, timeout: int = 60) -> Result:
         The outcome.
     """
     return run("set-nodered-image", argument=tag, timeout=timeout)
+
+
+def helper_supports(verb: str) -> bool:
+    """Whether the installed helper knows *verb* (``--list-verbs`` needs no root)."""
+    try:
+        completed = subprocess.run(
+            [HELPER_PATH, "--list-verbs"], capture_output=True, text=True, timeout=15
+        )
+        verbs = json.loads(completed.stdout.strip() or "[]")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return isinstance(verbs, list) and verb in verbs
+
+
+def caddy_image_state(timeout: int = 30) -> Result:
+    """The Caddy image this release pins and the one in use, as JSON on stdout."""
+    return run("caddy-image-state", timeout=timeout)
+
+
+def caddy_image_apply(timeout: int = 1300) -> Result:
+    """Move Caddy to the pinned image: one compose line, pull, recreate Caddy.
+
+    No argument: the version is the release's, from a root-owned template. The
+    pull can take minutes on a BeagleBone, and the HTTPS panel drops while the
+    container is recreated.
+    """
+    return run("caddy-image-apply", timeout=timeout)
 
 
 def remove_cloud_template(timeout: int = 60) -> Result:

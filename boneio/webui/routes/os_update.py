@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import time
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-from boneio.core import system_ops
+from boneio.core import containers, system_ops
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,3 +94,88 @@ async def get_log():
         return {"log": ""}
     result = await asyncio.to_thread(system_ops.os_update_log)
     return {"log": result.stdout if result.ok else ""}
+
+
+class AutoUpdateRequest(BaseModel):
+    """Switch for automatic security updates."""
+
+    enabled: bool
+
+
+@router.post("/autoupdate")
+async def set_autoupdate(request: AutoUpdateRequest):
+    """Switch automatic security updates on or off.
+
+    Only the switch. Which archive they come from — Debian-Security alone — and
+    that they never reboot are fixed in a file a signed migration installs.
+    """
+    if not await asyncio.to_thread(system_ops.helper_supports, "os-autoupdate-set"):
+        raise HTTPException(
+            status_code=409,
+            detail="The installed system helper cannot switch automatic updates yet. "
+            "Apply the pending system migrations (1.6.22) and try again.",
+        )
+    result = await asyncio.to_thread(system_ops.os_autoupdate_set, request.enabled)
+    if not result.ok:
+        detail = (result.stderr or result.stdout).strip() or "Could not switch automatic updates"
+        raise HTTPException(status_code=500, detail=detail)
+    _LOGGER.info("Automatic security updates %s from the panel",
+                 "enabled" if request.enabled else "disabled")
+    return {"status": "success", "autoupdate": result.json()}
+
+
+# ---------------------------------------------------------------------- Caddy
+#
+# Applying the pinned Caddy image pulls it and recreates the container. The
+# request that asks for it very likely arrives through that same Caddy, so the
+# connection is cut when the container is recreated: the work runs in a thread
+# and the panel polls GET /caddy, retrying through the gap.
+
+_caddy_task: dict = {"status": "idle", "started": None, "finished": None, "message": None}
+_caddy_lock = threading.Lock()
+
+
+def _apply_caddy() -> None:
+    result = containers.caddy_image_apply()
+    with _caddy_lock:
+        _caddy_task["finished"] = time.time()
+        if result.ok:
+            _caddy_task["status"] = "success"
+            _caddy_task["message"] = None
+        else:
+            _caddy_task["status"] = "failed"
+            _caddy_task["message"] = (result.stderr or result.stdout).strip()[-500:] or None
+    _LOGGER.info("Caddy image apply finished: %s", _caddy_task["status"])
+
+
+@router.get("/caddy")
+async def get_caddy():
+    """The Caddy image this release pins, the one in use, and any apply in progress."""
+    if not await asyncio.to_thread(containers.helper_supports, "caddy-image-state"):
+        return {"supported": False, "task": dict(_caddy_task)}
+    result = await asyncio.to_thread(containers.caddy_image_state)
+    state = result.json() if result.ok else None
+    if state is None:
+        detail = (result.stderr or result.stdout).strip() or "Could not read the Caddy image"
+        raise HTTPException(status_code=500, detail=detail)
+    with _caddy_lock:
+        task = dict(_caddy_task)
+    return {"supported": True, **state, "task": task}
+
+
+@router.post("/caddy/apply")
+async def apply_caddy():
+    """Move Caddy to the pinned image. Returns at once; poll GET /caddy."""
+    if not await asyncio.to_thread(containers.helper_supports, "caddy-image-apply"):
+        raise HTTPException(
+            status_code=409,
+            detail="The installed container helper cannot update Caddy yet. "
+            "Apply the pending system migrations (1.6.21) and try again.",
+        )
+    with _caddy_lock:
+        if _caddy_task["status"] == "running":
+            raise HTTPException(status_code=409, detail="Caddy is already being updated")
+        _caddy_task.update(status="running", started=time.time(), finished=None, message=None)
+    threading.Thread(target=_apply_caddy, name="caddy-image-apply", daemon=True).start()
+    _LOGGER.info("Caddy image apply started from the panel")
+    return {"status": "started"}

@@ -182,7 +182,33 @@ def current_posture() -> Posture:
         custom_certificate=certs.installed() is not None,
         cloud_error=cloud_error,
         service_password=_service_password_state(),
+        os_update=_os_update_state(),
     )
+
+
+_OS_UPDATE_TTL = 60.0
+_os_update_cache: tuple[float, dict | None] | None = None
+
+
+def _os_update_state() -> dict | None:
+    """boneio-system's update report, asked at most once a minute, like the SSH state.
+
+    Returns:
+        The report, or None on a helper that predates it.
+    """
+    global _os_update_cache
+    now = time.monotonic()
+    if _os_update_cache and now - _os_update_cache[0] < _OS_UPDATE_TTL:
+        return _os_update_cache[1]
+    state: dict | None = None
+    try:
+        if system_ops.helper_supports("os-update-state"):
+            result = system_ops.os_update_state()
+            state = result.json() if result.ok else None
+    except Exception as err:  # noqa: BLE001 — the posture must never raise
+        _LOGGER.warning("Could not read the operating system update state: %s", err)
+    _os_update_cache = (now, state)
+    return state
 
 
 _SERVICE_PASSWORD_TTL = 60.0

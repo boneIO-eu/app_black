@@ -163,6 +163,8 @@ def test_viewer_may_operate_the_device(path):
         "/api/nodered/update/perform",
         "/api/os-update/check",
         "/api/os-update/upgrade",
+        "/api/os-update/autoupdate",
+        "/api/os-update/caddy/apply",
         "/api/caddy/config",
         "/api/can/send",
         "/api/migrations/apply",

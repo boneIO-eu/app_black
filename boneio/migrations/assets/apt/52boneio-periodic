@@ -1,0 +1,4 @@
+// Installed by boneIO migration 1.6.22; switched from the panel through
+// boneio-system os-autoupdate-set. Overrides 20auto-upgrades.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";

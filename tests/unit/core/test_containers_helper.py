@@ -351,3 +351,79 @@ def test_a_malformed_container_name_is_refused(helper, project, name):
 def test_names_is_a_read_only_verb(helper):
     assert "names" in helper.READ_ONLY_VERBS
     assert "names" in helper.DAEMON_VERBS
+
+
+# ---------------------------------------------------------------------- Caddy
+#
+# Which Caddy runs is the release's decision, carried in a root-owned template.
+# So the tests are about the caller having no say, and about the one line.
+
+PINNED = "caddy:2.11.4-alpine@sha256:" + "a" * 64
+
+
+@pytest.fixture
+def pinned(project, helper):
+    """A template that pins Caddy, as a release installs it."""
+    template = helper.COMPOSE_TEMPLATE
+    template.write_text(f"services:\n  caddy:\n    image: {PINNED}\n")
+    os.chmod(template, 0o644)
+    return template
+
+
+def test_the_state_reports_pinned_and_configured(helper, pinned, capsys):
+    assert helper.main(["caddy-image-state"]) == 0
+    state = json.loads(capsys.readouterr().out)
+    assert state == {"pinned": PINNED, "configured": "caddy:2-alpine", "update_available": True}
+
+
+def test_apply_changes_only_the_caddy_line_then_pulls_and_recreates_caddy(
+    helper, pinned, project, ran
+):
+    compose = project / "docker-compose.yaml"
+    before = compose.read_text().splitlines()
+    assert helper.main(["caddy-image-apply"]) == 0
+    after = compose.read_text().splitlines()
+    changed = [(a, b) for a, b in zip(before, after) if a != b]
+    assert changed == [("    image: caddy:2-alpine", f"    image: {PINNED}")]
+    assert ran == [
+        ["docker", "compose", "-f", str(compose), "pull", "caddy"],
+        ["docker", "compose", "-f", str(compose), "up", "-d", "caddy"],
+    ]
+
+
+@pytest.mark.parametrize("argument", ["caddy:latest", "2.11.4-alpine", "x"])
+def test_the_caller_cannot_choose_the_caddy_image(helper, pinned, project, ran, argument):
+    assert helper.main(["caddy-image-apply", argument]) == 1
+    assert ran == []
+    assert "caddy:2-alpine" in (project / "docker-compose.yaml").read_text()
+
+
+@pytest.mark.parametrize("image", [
+    "caddy:latest; rm -rf /",
+    "caddy:2-alpine@sha256:short",
+    "evil/caddy:2",
+    "caddy:",
+])
+def test_a_template_pinning_something_odd_is_refused(helper, project, ran, image):
+    template = helper.COMPOSE_TEMPLATE
+    template.write_text(f"services:\n  caddy:\n    image: {image}\n")
+    assert helper.main(["caddy-image-apply"]) == 1
+    assert ran == []
+
+
+def test_a_template_the_application_could_write_is_refused(helper, pinned, project, ran):
+    os.chmod(pinned, 0o666)
+    assert helper.main(["caddy-image-apply"]) == 1
+    assert ran == []
+
+
+def test_the_shipped_templates_pin_caddy_by_digest(helper):
+    """caddy:2-alpine meant something different on every controller."""
+    for name in ("docker-compose.yaml", "docker-compose-cloud.yaml"):
+        text = (REPO_ROOT / "boneio" / "migrations" / "assets" / "docker" / "nodered" / name).read_text()
+        match = helper._CADDY_IMAGE_RE.search(text)
+        assert match, name
+        assert "@sha256:" in match.group("image"), name
+        assert helper._PINNED_CADDY_RE.match(match.group("image")), name
+    package = (REPO_ROOT / "boneio" / "core" / "cloud" / "data" / "docker-compose.yaml").read_text()
+    assert helper._CADDY_IMAGE_RE.search(package).group("image") == match.group("image")

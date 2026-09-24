@@ -26,6 +26,7 @@ This replaces both with named operations:
     os-update-start <check|upgrade>  run apt in its own unit, return at once
     os-update-run <check|upgrade>  what that unit runs; refused anywhere else
     os-update-log                  the end of the last run's log
+    os-autoupdate-set <on|off>     automatic security updates (never a reboot)
 
 Every argument is checked against a closed set before anything runs, and the
 uEnv.txt edit is done here with a compiled pattern rather than by handing a
@@ -186,6 +187,28 @@ APT_OPTIONS = (
     "-o", "Dpkg::Options::=--force-confdef",
     "-o", "Dpkg::Options::=--force-confold",
 )
+#: Automatic security updates: the switch the panel flips, and the timers that
+#: run them. The origin restriction and the no-reboot rule live in
+#: 52boneio-unattended, which this helper never writes.
+AUTOUPDATE_PERIODIC = Path("/etc/apt/apt.conf.d/52boneio-periodic")
+AUTOUPDATE_TIMERS = ("apt-daily.timer", "apt-daily-upgrade.timer")
+AUTOUPDATE_LOG = Path("/var/log/unattended-upgrades/unattended-upgrades.log")
+AUTOUPDATE_BINARY = Path("/usr/bin/unattended-upgrade")
+_PERIODIC_TEMPLATE = (
+    "// Installed by boneIO migration 1.6.22; switched from the panel through\n"
+    "// boneio-system os-autoupdate-set. Overrides 20auto-upgrades.\n"
+    'APT::Periodic::Update-Package-Lists "{value}";\n'
+    'APT::Periodic::Unattended-Upgrade "{value}";\n'
+)
+_PERIODIC_ON_RE = re.compile(r'^APT::Periodic::Unattended-Upgrade\s+"1";', re.MULTILINE)
+#: ``2026-09-25 06:31:12,114 INFO Packages that will be upgraded: libssl3t64 openssl``
+_UNATTENDED_PACKAGES_RE = re.compile(
+    r"^(?P<when>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d),\d+ INFO Packages that will be upgraded: (?P<pkgs>.*)$"
+)
+_UNATTENDED_RUN_RE = re.compile(
+    r"^(?P<when>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d),\d+ INFO Starting unattended upgrades script"
+)
+
 #: ``Inst libssl3t64 [3.5.1-1] (3.5.4-1~deb13u1 Debian-Security:13/stable [armhf])``
 #: — the bracketed installed version is absent for a package that is new.
 _APT_INST_RE = re.compile(
@@ -199,6 +222,7 @@ VERBS = (
     "mqtt-password", "mqtt-reload",
     "service-password-state", "service-password-init",
     "os-update-state", "os-update-start", "os-update-run", "os-update-log",
+    "os-autoupdate-set",
 )
 
 
@@ -1166,6 +1190,7 @@ def _os_update_state_verb() -> int:
         "kernel": kernel,
         "free_mb": usage.free // (1024 * 1024),
         "min_free_mb": OS_UPDATE_MIN_FREE_MB,
+        "autoupdate": _autoupdate_state(),
     }))
     return 0
 
@@ -1339,6 +1364,93 @@ def _os_update_run(mode: str | None) -> int:
     return 0 if state["result"] == "success" else 1
 
 
+def _autoupdate_state() -> dict:
+    """Whether automatic security updates are on, and what they last did.
+
+    Returns:
+        ``installed``, ``enabled``, ``last_run`` and ``last_packages``.
+    """
+    try:
+        periodic_on = bool(_PERIODIC_ON_RE.search(AUTOUPDATE_PERIODIC.read_text(encoding="utf-8")))
+    except OSError:
+        periodic_on = False
+    timers_on = True
+    for timer in AUTOUPDATE_TIMERS:
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-enabled", timer], capture_output=True, text=True, timeout=15
+            )
+        except (OSError, subprocess.SubprocessError):
+            timers_on = False
+            break
+        if result.stdout.strip() != "enabled":
+            timers_on = False
+    last_run = last_packages_at = None
+    last_packages: list[str] = []
+    try:
+        lines = AUTOUPDATE_LOG.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        run = _UNATTENDED_RUN_RE.match(line)
+        if run:
+            last_run = run.group("when")
+        pkgs = _UNATTENDED_PACKAGES_RE.match(line)
+        if pkgs:
+            last_packages_at = pkgs.group("when")
+            last_packages = pkgs.group("pkgs").split()
+    return {
+        "installed": AUTOUPDATE_BINARY.exists(),
+        "configured": AUTOUPDATE_PERIODIC.exists(),
+        "enabled": periodic_on and timers_on,
+        "last_run": last_run,
+        "last_packages_at": last_packages_at,
+        "last_packages": last_packages,
+    }
+
+
+def _os_autoupdate_set(argument: str | None) -> int:
+    """Switch automatic security updates on or off.
+
+    Only the switch: which archive they come from (Debian-Security alone) and
+    that they never reboot are in 52boneio-unattended, installed by a signed
+    migration and not writable from here. The file written is a fixed template
+    with one of two values, so nothing the caller sends reaches apt's config.
+
+    Args:
+        argument: ``on`` or ``off``.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: For anything else, or before migration 1.6.22 has run.
+    """
+    if argument not in ("on", "off"):
+        raise Refused(f"expected on or off, not {argument!r}")
+    if not AUTOUPDATE_PERIODIC.exists():
+        raise Refused(
+            f"{AUTOUPDATE_PERIODIC} is missing; apply boneIO migration 1.6.22 first"
+        )
+    value = "1" if argument == "on" else "0"
+    with tempfile.NamedTemporaryFile(
+        dir=AUTOUPDATE_PERIODIC.parent, delete=False, suffix=".tmp", mode="w",
+        encoding="utf-8",
+    ) as tmp:
+        tmp.write(_PERIODIC_TEMPLATE.format(value=value))
+        tmp_path = tmp.name
+    os.chmod(tmp_path, 0o644)
+    os.replace(tmp_path, AUTOUPDATE_PERIODIC)
+    verb = "enable" if argument == "on" else "disable"
+    rc = 0
+    for timer in AUTOUPDATE_TIMERS:
+        rc |= _run(["systemctl", verb, "--now", timer])
+    _LOGGER.info("Automatic security updates switched %s", argument)
+    if rc == 0:
+        print(json.dumps(_autoupdate_state()))
+    return rc
+
+
 def _os_update_log() -> int:
     """Print the end of the last run's log.
 
@@ -1456,6 +1568,8 @@ def main(argv: list[str] | None = None) -> int:
             return _os_update_run(args.argument)
         if args.verb == "os-update-log":
             return _os_update_log()
+        if args.verb == "os-autoupdate-set":
+            return _os_autoupdate_set(args.argument)
         raise Refused(f"unknown verb {args.verb!r}. Allowed: {', '.join(VERBS)}")
     except Refused as exc:
         _LOGGER.error("REFUSED: %s", exc)

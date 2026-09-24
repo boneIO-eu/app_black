@@ -323,3 +323,49 @@ def test_it_points_at_the_section_holding_the_certificate():
     """The card that uploads one is in Security; the check used to send people
     to the Web Server settings, where there is nothing to do about it."""
     assert _certificate().settings_section == "security"
+
+
+# ------------------------------------------------------------ OS updates
+
+
+def _os_check(**state):
+    posture = _posture(os_update={"reboot_required": False, "reboot_reasons": [],
+                                  "kernel": {"status": "ok"}, "autoupdate": {}, **state})
+    return _check(posture, "os_updates")
+
+
+def test_no_helper_report_means_no_update_check():
+    """A pre-1.6.22 helper has nothing to say; guessing would be worse."""
+    assert all(c.id != "os_updates" for c in _posture().checks)
+
+
+def test_a_patched_and_restarted_device_passes():
+    check = _os_check(autoupdate={"configured": True, "enabled": True})
+    assert check.state is State.OK
+
+
+def test_installed_but_not_running_fixes_are_a_warning():
+    check = _os_check(reboot_required=True, reboot_reasons=["kernel a -> b"])
+    assert check.state is State.FAILED
+    assert check.severity is Severity.WARNING
+    assert check.variant == "reboot"
+    assert "kernel a -> b" in check.context
+
+
+def test_a_kernel_that_is_not_ready_outranks_the_restart():
+    """Offering a restart then is offering to take the controller down."""
+    check = _os_check(reboot_required=True, kernel={"status": "problem", "message": "no initrd"})
+    assert check.severity is Severity.CRITICAL
+    assert check.variant == "kernel"
+    assert check.context == "no initrd"
+
+
+def test_automatic_updates_switched_off_is_information():
+    check = _os_check(autoupdate={"configured": True, "enabled": False})
+    assert check.state is State.FAILED
+    assert check.severity is Severity.INFO
+    assert check.variant == "autoupdate_off"
+
+
+def test_a_device_before_the_migration_is_not_told_it_switched_them_off():
+    assert _os_check(autoupdate={"configured": False, "enabled": False}).state is State.OK
