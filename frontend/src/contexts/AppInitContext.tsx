@@ -5,7 +5,7 @@
  *   GET /api/version (x3), GET /api/auth/required, GET /api/pwa_name, GET /api/cloud/status (x2)
  *
  * Now all of this data comes from a single GET /api/init call and is distributed
- * via React context to all consumers (Navigation, DrawerSide, useAuth, etc.).
+ * via React context to all consumers (Navigation, BottomNav, useAuth, etc.).
  */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import axios from '@/api/axios';

@@ -14,7 +14,15 @@
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
     "irrigation": "Irrigation",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "more": "More",
+    "version": "Version",
+    "serial": "Serial number",
+    "serial_override": "presents as {{serial}}",
+    "cloud": "Cloud",
+    "logout": "Log out",
+    "logout_confirm_title": "Log out?",
+    "logout_confirm": "Are you sure you want to log out?"
   },
   "outputs": {
     "title": "Outputs",
@@ -2842,7 +2850,10 @@
     }
   },
   "login": {
-    "title": "Sign in to your",
+    "heading": "Sign in",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "signing_in": "Signing in…",
     "username": "Username",
     "password": "Password",
     "submit": "Sign in",

@@ -47,6 +47,35 @@ body {
   display: none;
 }
 
+/* Height of the bottom navigation (Navigation.tsx, BottomNav), which is
+   shown below xl. Anything fixed to the bottom of the screen — the
+   settings/diagnostics peek bar — stands on it instead of under it. */
+:root {
+  --bottom-nav-h: 0px;
+}
+@media (max-width: 1279.98px) {
+  :root {
+    --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Active navigation item: a tinted pill with text dark enough to read.
+   Plain text-primary on its own tint is about 3:1 in the light theme. */
+.nav-active {
+  background: color-mix(in oklab, var(--color-primary) 16%, transparent);
+  color: color-mix(in oklab, var(--color-primary) 62%, black);
+}
+.nav-active-text {
+  color: color-mix(in oklab, var(--color-primary) 62%, black);
+}
+[data-theme="dark"] .nav-active {
+  background: color-mix(in oklab, var(--color-primary) 26%, transparent);
+  color: color-mix(in oklab, var(--color-primary) 75%, white);
+}
+[data-theme="dark"] .nav-active-text {
+  color: color-mix(in oklab, var(--color-primary) 75%, white);
+}
+
 /* Utility: safe area padding for iOS home indicator */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

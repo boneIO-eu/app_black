@@ -120,7 +120,10 @@ export function BottomPeekBar({
     <div className="lg:hidden">
       {/* Fixed bottom peek bar */}
       <div
-        className="fixed bottom-0 inset-x-0 z-40 safe-area-bottom touch-none"
+        // Sits on top of the app's bottom navigation, which below xl is always
+        // there and already pads for the iOS home indicator.
+        className="fixed inset-x-0 z-40 touch-none"
+        style={{ bottom: 'var(--bottom-nav-h, 0px)' }}
         onTouchStart={handleTouchStart}
         onTouchMove={(e) => handleTouchMove(e, 'up')}
         onTouchEnd={handleTouchEnd}
