@@ -40,9 +40,16 @@ appears as a switch with three diagnostic sensors.
 
 The panel's navigation is new: a bottom bar on phones and tablets, a slimmer
 desktop header, a redesigned login page, and a confirmation before logout.
+The Templates page — thermostats, alarms, gates and irrigation — is redrawn
+around one tile with large controls.
 
-No migration changed since dev13; only the manifest was re-signed, because it
-names the release.
+`gpio_mode` and `clear_message` leave the schema; both had been ignored at
+runtime. Config migration v6 removes them from `event` and `binary_sensor` on
+the next start, including sections kept in a separate file via `!include`, and
+takes `config_version` to 6.
+
+No system migration changed since dev13; only the manifest was re-signed,
+because it names the release.
 
 ---
 

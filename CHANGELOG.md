@@ -6,19 +6,6 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
-- **`gpio_mode` and `clear_message` removed from the schema.** Both had been
-  ignored at runtime, but they stayed in `schema.yaml`. So anyone who gave
-  the schema to an LLM got configs full of them.
-  - `gpio_mode`: pull-up/pull-down comes from the kernel overlay.
-  - `clear_message`: sent an empty MQTT message after a click, the way
-    Zigbee2MQTT clears its `action` sensor. It only mattered while clicks
-    reached Home Assistant as a sensor, and it quietly stopped working in the
-    2025 input refactor. Its toggle is gone from the binary sensor form.
-
-  Config migration v6 deletes both keys from `event` and `binary_sensor` on
-  the next start. That includes sections kept in a separate file via
-  `!include`. `config_version` goes to 6.
-
 ## v1.6.0.dev14 (2026-09-24) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
@@ -63,6 +50,30 @@ Still a beta. See RELEASE_NOTES.md before installing anything.
 - **Login**: redesigned, with theme and language pickers, visible labels,
   a show-password toggle and the device name. **Logout asks first.**
 - **Language picker** is a bottom sheet on phones.
+- **Templates**: thermostats, alarms, gates and irrigation share one tile —
+  icon, name, state in words, 44 px controls. Groups share a row instead of
+  each taking a full-width card. The alarm's modes are no longer coloured as
+  if armed-away were an emergency; gates fill the button that undoes the
+  current state and label Opening and Closing.
+- **Irrigation**: the controller tile shows the state, the countdown, the
+  cycle controls and the zones; schedules and settings open in a dialog, so
+  switching between them no longer changes the tile's height. A disabled
+  schedule or a skipped next cycle is said on the tile.
+
+### ⚙️ Configuration
+
+- **`gpio_mode` and `clear_message` removed from the schema.** Both had been
+  ignored at runtime, but they stayed in `schema.yaml`. So anyone who gave
+  the schema to an LLM got configs full of them.
+  - `gpio_mode`: pull-up/pull-down comes from the kernel overlay.
+  - `clear_message`: sent an empty MQTT message after a click, the way
+    Zigbee2MQTT clears its `action` sensor. It only mattered while clicks
+    reached Home Assistant as a sensor, and it quietly stopped working in the
+    2025 input refactor. Its toggle is gone from the binary sensor form.
+
+  Config migration v6 deletes both keys from `event` and `binary_sensor` on
+  the next start. That includes sections kept in a separate file via
+  `!include`. `config_version` goes to 6.
 
 ### 🐛 Fixes
 
