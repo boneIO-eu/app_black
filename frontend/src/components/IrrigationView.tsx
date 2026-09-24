@@ -13,10 +13,10 @@ import {
   FaClock,
   FaCalendarAlt,
   FaCog,
+  FaChevronRight,
 } from 'react-icons/fa';
 import { GiValve } from 'react-icons/gi';
 import clsx from 'clsx';
-import { TabsBox } from '@/components/ui/tabs-box';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import {
   Dialog,
@@ -220,7 +220,10 @@ function ControllerCard({
   const isRunning = ctrl.state === 'RUNNING';
   const isPaused = ctrl.state === 'PAUSED';
   const isActive = isRunning || isPaused;
-  const [activeTab, setActiveTab] = useState('zones');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  // Focus the title, not the first field: that is the multiplier input, and on
+  // a phone focusing it throws a keyboard over half the sheet.
+  const detailsTitleRef = useRef<HTMLHeadingElement>(null);
 
   // ── Live countdown ──────────────────────────────────────────────────────
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -540,32 +543,64 @@ function ControllerCard({
 
       {controls}
 
-        {/* Tabs: Zones / Schedules / Settings */}
-        <TabsBox
-          name={`irrigation_${ctrl.id}`}
-          bordered={false}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          tabs={[
-            {
-              id: 'zones',
-              label: t('irrigation.zones'),
-              badge: ctrl.zones.length,
-              content: zonesContent,
-            },
-            {
-              id: 'schedules',
-              label: t('irrigation.schedules'),
-              badge: ctrl.schedules.length,
-              content: schedulesContent,
-            },
-            {
-              id: 'settings',
-              label: t('irrigation.settings'),
-              content: settingsContent,
-            },
-          ]}
-        />
+      {/* What the hidden settings are doing to the next run, said on the tile:
+          with them one click away, a skipped cycle would otherwise just look
+          like a controller that forgot to water. */}
+      {(ctrl.standby || ctrl.skip_next_run) && (
+        <div className="flex flex-col gap-1.5">
+          {ctrl.standby && (
+            <p className="text-sm bg-warning/20 rounded-lg px-3 py-2">{t('irrigation.standby_active')}</p>
+          )}
+          {ctrl.skip_next_run && (
+            <p className="text-sm bg-warning/20 rounded-lg px-3 py-2">{t('irrigation.skip_next_active')}</p>
+          )}
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-sm font-semibold text-base-content/80 px-2 mb-1">
+          {t('irrigation.zones')} <span className="font-normal text-base-content/60">({ctrl.zones.length})</span>
+        </h4>
+        {zonesContent}
+      </div>
+
+      {/* Schedules and settings change rarely, so they live in a dialog. As
+          tabs on the tile they changed its height at every switch and moved
+          every tile below it. */}
+      <button
+        type="button"
+        className={clsx(TILE_BUTTON, 'btn-ghost bg-base-content/5 w-full mt-auto justify-between')}
+        onClick={() => setDetailsOpen(true)}
+      >
+        <span className="flex items-center gap-2">
+          <FaCog className="w-4 h-4 opacity-70" />
+          {t('irrigation.schedules_and_settings')}
+        </span>
+        <span className="flex items-center gap-2 text-base-content/60 font-normal">
+          {ctrl.schedules.length > 0 && (
+            <span className="badge badge-sm" aria-label={`${t('irrigation.schedules')}: ${ctrl.schedules.length}`}>
+              {ctrl.schedules.length}
+            </span>
+          )}
+          <FaChevronRight className="w-3 h-3" />
+        </span>
+      </button>
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent maxWidthClass="sm:max-w-lg" className="overflow-y-auto" showCloseButton initialFocus={detailsTitleRef}>
+          <DialogHeader>
+            <DialogTitle ref={detailsTitleRef} tabIndex={-1} className="outline-none">{ctrl.name}</DialogTitle>
+          </DialogHeader>
+          <section className="flex flex-col gap-2">
+            <h4 className="text-base font-semibold">{t('irrigation.schedules')}</h4>
+            {schedulesContent}
+          </section>
+          <section className="flex flex-col gap-2">
+            <h4 className="text-base font-semibold">{t('irrigation.settings')}</h4>
+            {settingsContent}
+          </section>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
