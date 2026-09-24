@@ -64,7 +64,7 @@ export default function Navigation() {
                 <FaChevronDown className="w-3 h-3 opacity-50 shrink-0" />
               </div>
               <div tabIndex={0} className="dropdown-content z-40 mt-2 w-80 p-4 rounded-box bg-base-100 shadow-xl border border-base-content/10">
-                <DeviceDetails className="flex flex-col gap-1.5 text-sm" />
+                <DeviceDetails />
               </div>
             </div>
           )}
@@ -289,51 +289,68 @@ export function BottomNav() {
               </li>
             ))}
           </ul>
-          <DeviceDetails />
+          <DeviceDetails className="mt-1 px-4 pt-4 border-t border-base-300" />
         </DialogContent>
       </Dialog>
     </nav>
   );
 }
 
-/** Version, serial and cloud link: what the xl header shows, for the sheet. */
-function DeviceDetails({ className = 'flex flex-col gap-1 opacity-80 mt-1 px-4 pt-3 border-base-300 border-t text-sm' }: { className?: string }) {
+/**
+ * Name, version, serial and cloud link as label/value pairs. The xl chip
+ * opens it in a popover and the mobile "More" sheet ends with it.
+ */
+function DeviceDetails({ className = '' }: { className?: string }) {
+  const { t } = useTranslation();
   const { data: initData } = useAppInit();
   const deviceName = initData?.name || '';
+  const pwaName = initData?.pwa_name || '';
   const version = initData?.version || '';
   const serialNo = initData?.serial_no || '';
   const serialOverride = initData?.serial_override || '';
   const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
     ? initData.cloud.domain : '';
 
-  return (
-    <div className={className}>
-      {deviceName && (
-        <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
-      )}
-      {version && (
-        <span><span className="opacity-60">v</span>{version}</span>
-      )}
-      {serialNo && (
-        <span>
-          <span className="opacity-60">S/N:</span> {serialNo}
-          {serialOverride && (
-            <span className="ml-1 font-semibold text-warning">
-              (as: {serialOverride})
-            </span>
-          )}
+  const rows: [string, React.ReactNode][] = [];
+  if (version) rows.push([t('navigation.version'), <span className="font-mono">{version}</span>]);
+  if (serialNo) rows.push([t('navigation.serial'), (
+    <span className="font-mono">
+      {serialNo}
+      {serialOverride && (
+        <span className="block font-sans text-xs font-semibold text-warning">
+          {t('navigation.serial_override', { serial: serialOverride })}
         </span>
       )}
-      {cloudDomain && (
-        <a
-          href={`https://${cloudDomain}:8443`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline no-underline truncate link link-primary"
-          title={`https://${cloudDomain}:8443`}
-        >
-          🌐 {cloudDomain}
-        </a>
+    </span>
+  )]);
+  if (cloudDomain) rows.push([t('navigation.cloud'), (
+    <a
+      href={`https://${cloudDomain}:8443`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="link link-primary no-underline hover:underline break-all"
+    >
+      {cloudDomain}
+    </a>
+  )]);
+
+  return (
+    <div className={clsx('flex flex-col gap-3 text-sm', className)}>
+      {deviceName && (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-semibold text-base leading-snug break-words">{deviceName}</span>
+          {pwaName && <span className="text-base-content/60">{pwaName}</span>}
+        </div>
+      )}
+      {rows.length > 0 && (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 pt-3 border-t border-base-content/10">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-base-content/60">{label}</dt>
+              <dd className="min-w-0">{value}</dd>
+            </div>
+          ))}
+        </dl>
       )}
     </div>
   );

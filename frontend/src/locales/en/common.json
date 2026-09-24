@@ -17,6 +17,10 @@
     "diagnostics": "Diagnostics",
     "more": "More",
     "device_details": "Device details",
+    "version": "Version",
+    "serial": "Serial number",
+    "serial_override": "presents as {{serial}}",
+    "cloud": "Cloud",
     "logout": "Log out",
     "logout_confirm_title": "Log out?",
     "logout_confirm": "Are you sure you want to log out?"

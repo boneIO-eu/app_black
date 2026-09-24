@@ -17,6 +17,10 @@
     "diagnostics": "Diagnostyka",
     "more": "Więcej",
     "device_details": "Szczegóły urządzenia",
+    "version": "Wersja",
+    "serial": "Numer seryjny",
+    "serial_override": "przedstawia się jako {{serial}}",
+    "cloud": "Chmura",
     "logout": "Wyloguj",
     "logout_confirm_title": "Wylogować się?",
     "logout_confirm": "Czy na pewno chcesz się wylogować?"
