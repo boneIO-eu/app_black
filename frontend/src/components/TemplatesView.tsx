@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,24 @@ import AlarmCard from './templates/AlarmCard';
 import GateCard from './templates/GateCard';
 import IrrigationView from './IrrigationView';
 import { EntityPanel } from './EntityGrid';
+
+/**
+ * Template tiles carry a row of three buttons, which an output tile does not,
+ * so they get fewer, wider columns than ENTITY_GRID_CLASS — but a grid all the
+ * same, so a group fills its panel instead of huddling in the left corner.
+ */
+const TEMPLATE_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4';
+
+/**
+ * A group is as wide as its tiles, not as wide as the page. With one
+ * thermostat, one alarm and two gates, full-width panels each left a single
+ * tile in the corner of an empty card; sized by count they share a row, and
+ * a group with many tiles still gets a whole row to itself by growing.
+ */
+const groupStyle = (tiles: number): React.CSSProperties => ({
+  flex: `${tiles} 1 calc(${tiles} * 16rem + ${tiles - 1} * 1rem + 2.5rem)`,
+  minWidth: 0,
+});
 import { useConfig } from '../contexts/ConfigContext';
 
 /**
@@ -157,10 +175,12 @@ export default function TemplatesView() {
             </div>
           )}
 
+          <div className="flex flex-wrap gap-5">
           {/* Thermostats */}
           {thermostats.length > 0 && (
-            <>
+            <div style={groupStyle(thermostats.length)}>
               <EntityPanel
+                className="mb-0 h-full"
                 title={
                   <>
                     <FaThermometerHalf className="text-orange-500" />
@@ -168,9 +188,9 @@ export default function TemplatesView() {
                   </>
                 }
               >
-                <div className="flex flex-wrap gap-2">
+                <div className={TEMPLATE_GRID_CLASS}>
                 {thermostats.map((th) => (
-                  <LongPressWrapper key={th.id} onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
+                  <LongPressWrapper key={th.id} className="h-full" onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
                     <ThermostatCard
                       data={th}
                       onSetMode={setThermostatMode}
@@ -180,13 +200,14 @@ export default function TemplatesView() {
                 ))}
                 </div>
               </EntityPanel>
-            </>
+            </div>
           )}
 
           {/* Alarms */}
           {alarms.length > 0 && (
-            <>
+            <div style={groupStyle(alarms.length)}>
               <EntityPanel
+                className="mb-0 h-full"
                 title={
                   <>
                     <FaShieldAlt className="text-red-500" />
@@ -194,9 +215,9 @@ export default function TemplatesView() {
                   </>
                 }
               >
-                <div className="flex flex-wrap gap-2">
+                <div className={TEMPLATE_GRID_CLASS}>
                 {alarms.map((al) => (
-                  <LongPressWrapper key={al.id} onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
+                  <LongPressWrapper key={al.id} className="h-full" onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
                     <AlarmCard
                       data={al}
                       onCommand={sendAlarmCommand}
@@ -205,13 +226,14 @@ export default function TemplatesView() {
                 ))}
                 </div>
               </EntityPanel>
-            </>
+            </div>
           )}
 
           {/* Gates */}
           {gates.length > 0 && (
-            <>
+            <div style={groupStyle(gates.length)}>
               <EntityPanel
+                className="mb-0 h-full"
                 title={
                   <>
                     <FaDoorOpen className="text-blue-500" />
@@ -219,9 +241,9 @@ export default function TemplatesView() {
                   </>
                 }
               >
-                <div className="flex flex-wrap gap-2">
+                <div className={TEMPLATE_GRID_CLASS}>
                 {gates.map((g) => (
-                  <LongPressWrapper key={g.id} onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
+                  <LongPressWrapper key={g.id} className="h-full" onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
                     <GateCard
                       data={g}
                       onCommand={sendGateCommand}
@@ -230,13 +252,14 @@ export default function TemplatesView() {
                 ))}
                 </div>
               </EntityPanel>
-            </>
+            </div>
           )}
 
           {/* Irrigation */}
           {hasIrrigationSection && (
-            <>
+            <div className="basis-full">
               <EntityPanel
+                className="mb-0"
                 title={
                   <>
                     <FaTint className="text-blue-400" />
@@ -246,8 +269,9 @@ export default function TemplatesView() {
               >
                 <IrrigationView />
               </EntityPanel>
-            </>
+            </div>
           )}
+          </div>
         </div>
       </div>
 
