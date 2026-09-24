@@ -15,7 +15,10 @@
     "experimental": "EKSPERYMENTALNE",
     "irrigation": "Nawadnianie",
     "diagnostics": "Diagnostyka",
-    "more": "Więcej"
+    "more": "Więcej",
+    "logout": "Wyloguj",
+    "logout_confirm_title": "Wylogować się?",
+    "logout_confirm": "Czy na pewno chcesz się wylogować?"
   },
   "outputs": {
     "title": "Wyjścia",
@@ -2842,7 +2845,10 @@
     }
   },
   "login": {
-    "title": "Zaloguj się do",
+    "heading": "Zaloguj się",
+    "show_password": "Pokaż hasło",
+    "hide_password": "Ukryj hasło",
+    "signing_in": "Logowanie…",
     "username": "Nazwa użytkownika",
     "password": "Hasło",
     "submit": "Zaloguj",

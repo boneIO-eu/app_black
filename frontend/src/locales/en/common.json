@@ -15,7 +15,10 @@
     "experimental": "EXPERIMENTAL",
     "irrigation": "Irrigation",
     "diagnostics": "Diagnostics",
-    "more": "More"
+    "more": "More",
+    "logout": "Log out",
+    "logout_confirm_title": "Log out?",
+    "logout_confirm": "Are you sure you want to log out?"
   },
   "outputs": {
     "title": "Outputs",
@@ -2843,7 +2846,10 @@
     }
   },
   "login": {
-    "title": "Sign in to your",
+    "heading": "Sign in",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "signing_in": "Signing in…",
     "username": "Username",
     "password": "Password",
     "submit": "Sign in",

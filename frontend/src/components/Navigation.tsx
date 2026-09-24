@@ -11,10 +11,12 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useAppInit } from '../contexts/AppInitContext';
 import Logo from "./Logo"
 import { HelpDialog } from './HelpView';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 
 export default function Navigation() {
+  const { t } = useTranslation();
   const { isAuthenticated, logout } = useAuth();
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const { data: initData } = useAppInit();
   const deviceName = initData?.name || '';
 
@@ -34,70 +36,94 @@ export default function Navigation() {
 
   return (
     <>
-    <div className="navbar bg-base-200 border-b border-base-content/10 px-4 sticky top-0 z-30 gap-3">
-      <div className="flex-1 flex items-center min-w-0 gap-3">
-        <a className="normal-case text-xl xl:mx-2 shrink-0">
-          <Logo />
-        </a>
-        {/* Below xl the name is all that fits, and it is the one detail that
+      <div className="top-0 z-30 sticky gap-3 bg-base-200 px-4 border-base-content/10 border-b navbar">
+        <div className="flex flex-1 items-center gap-3 min-w-0">
+          <a className="xl:mx-2 text-xl normal-case shrink-0">
+            <Logo />
+          </a>
+          {/* Below xl the name is all that fits, and it is the one detail that
             cannot move to the "More" sheet: with several controllers on the
             network it is how you know which one you are about to switch. */}
-        {deviceName && (
-          <div className="xl:hidden min-w-0 flex flex-col leading-tight text-sm">
-            <span className="line-clamp-2 break-words font-medium">{deviceName}</span>
-            {pwaName && <span className="truncate text-xs opacity-60">{pwaName}</span>}
-          </div>
-        )}
-        <div className="hidden xl:flex xl:ml-4 flex-col text-xs">
           {deviceName && (
-            <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
+            <div className="xl:hidden flex flex-col min-w-0 text-xs leading-tight">
+              <span className="font-medium wrap-break-word line-clamp-2">{deviceName}</span>
+              {pwaName && <span className="opacity-60 truncate">{pwaName}</span>}
+            </div>
           )}
-          {version && (
-            <span><span className="opacity-60">v</span>{version}</span>
-          )}
-          {serialNo && (
-            <span>
-              <span className="opacity-60">S/N:</span> {serialNo}
-              {serialOverride && (
-                <span className="text-warning font-semibold ml-1">
-                  (as: {serialOverride})
-                </span>
-              )}
-            </span>
-          )}
-          {cloudDomain && (
-            <a
-              href={`https://${cloudDomain}:8443`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="link link-primary no-underline hover:underline truncate max-w-48"
-              title={`https://${cloudDomain}:8443`}
+          <div className="hidden xl:flex flex-col xl:ml-4 text-xs">
+            {deviceName && (
+              <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
+            )}
+            {version && (
+              <span><span className="opacity-60">v</span>{version}</span>
+            )}
+            {serialNo && (
+              <span>
+                <span className="opacity-60">S/N:</span> {serialNo}
+                {serialOverride && (
+                  <span className="ml-1 font-semibold text-warning">
+                    (as: {serialOverride})
+                  </span>
+                )}
+              </span>
+            )}
+            {cloudDomain && (
+              <a
+                href={`https://${cloudDomain}:8443`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="max-w-48 hover:underline no-underline truncate link link-primary"
+                title={`https://${cloudDomain}:8443`}
+              >
+                {cloudDomain}
+              </a>
+            )}
+          </div>
+        </div>
+        <div className="flex xl:gap-2 shrink-0">
+          <ThemeChanger />
+          <LanguageSelector />
+          {isAuthenticated && (
+            <button
+              onClick={() => setLogoutOpen(true)}
+              className="btn btn-ghost btn-circle"
+              title={t('navigation.logout')}
+              aria-label={t('navigation.logout')}
             >
-              {cloudDomain}
-            </a>
+              <FaSignOutAlt className="w-5 h-5" />
+            </button>
           )}
+          {/* It sits right next to the language and theme buttons, where a
+              stray tap is easy — and on a phone the way back is typing the
+              password again. */}
+          <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>{t('navigation.logout_confirm_title')}</DialogTitle>
+                <DialogDescription>{t('navigation.logout_confirm')}</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <button type="button" className="btn btn-ghost max-sm:btn-lg" onClick={() => setLogoutOpen(false)}>
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary max-sm:btn-lg"
+                  onClick={() => { setLogoutOpen(false); logout(); }}
+                >
+                  <FaSignOutAlt className="w-4 h-4" />
+                  {t('navigation.logout')}
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
-      <div className="flex shrink-0 xl:gap-2">
-        <ThemeChanger />
-        <LanguageSelector />
-        {isAuthenticated && (
-          <button
-            onClick={logout}
-            className="btn btn-ghost btn-circle"
-            title="Logout"
-            aria-label="Logout"
-          >
-            <FaSignOutAlt className="h-5 w-5" />
-          </button>
-        )}
-      </div>
-    </div>
-    {/* Desktop second row: navigation menu. Solid background: at /80 the
+      {/* Desktop second row: navigation menu. Solid background: at /80 the
         page's own sub-navigation showed through it while scrolling. */}
-    <div className="hidden xl:block bg-base-200 border-b border-base-content/10 sticky top-16 z-20">
-      <Menu />
-    </div>
+      <div className="hidden xl:block top-16 z-20 sticky bg-base-200 border-base-content/10 border-b">
+        <Menu />
+      </div>
     </>
   );
 }
@@ -149,7 +175,7 @@ function useMenuItems() {
 
 /** Shared look of a top-bar tab: 40px tall, active one a tinted pill. */
 const tabClass = (active: boolean) => clsx(
-  'flex items-center gap-2 h-10 px-4 rounded-lg text-sm transition-colors cursor-pointer',
+  'flex items-center gap-2 px-4 rounded-lg h-10 text-sm transition-colors cursor-pointer',
   active ? 'nav-active font-semibold' : 'font-medium text-base-content/80 hover:bg-base-content/8 hover:text-base-content',
 );
 
@@ -168,7 +194,7 @@ function Menu() {
         aria-current={isActive(item) ? 'page' : undefined}
         className={tabClass(!!isActive(item))}
       >
-        <item.icon className="h-4 w-4" />
+        <item.icon className="w-4 h-4" />
         <span>
           {item.label}
           {item.experimental && <span className="ml-1 badge badge-warning badge-xs">{t('navigation.experimental')}</span>}
@@ -178,7 +204,7 @@ function Menu() {
   );
 
   return (
-    <div className="flex justify-between items-center w-full px-3 py-1.5">
+    <div className="flex justify-between items-center px-3 py-1.5 w-full">
       <ul className="flex flex-wrap gap-1">
         {leftItems.map(renderItem)}
       </ul>
@@ -188,7 +214,7 @@ function Menu() {
           <HelpDialog
             trigger={
               <button className={tabClass(false)}>
-                <FaQuestionCircle className="h-4 w-4" />
+                <FaQuestionCircle className="w-4 h-4" />
                 <span>{t('navigation.help')}</span>
               </button>
             }
@@ -230,19 +256,19 @@ export function BottomNav() {
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={clsx(
-        'flex flex-col items-center justify-center gap-1 min-w-0 h-16 cursor-pointer active:bg-base-content/5',
+        'flex flex-col justify-center items-center gap-1 active:bg-base-content/5 min-w-0 h-16 cursor-pointer',
         active ? 'font-semibold' : 'font-medium text-base-content/75',
       )}
     >
-      <span className={clsx('flex items-center justify-center w-14 h-8 rounded-full transition-colors', active && 'nav-active')}>
-        <Icon className="h-5 w-5" />
+      <span className={clsx('flex justify-center items-center rounded-full w-14 h-8 transition-colors', active && 'nav-active')}>
+        <Icon className="w-5 h-5" />
       </span>
-      <span className={clsx('text-xs leading-none truncate max-w-full px-1', active && 'nav-active-text')}>{label}</span>
+      <span className={clsx('px-1 max-w-full text-xs truncate leading-none', active && 'nav-active-text')}>{label}</span>
     </button>
   );
 
   return (
-    <nav className="xl:hidden sticky bottom-0 z-30 bg-base-200 border-t border-base-content/10 safe-area-bottom">
+    <nav className="xl:hidden bottom-0 safe-area-bottom z-30 sticky bg-base-200 border-base-content/10 border-t">
       <div className="grid" style={{ gridTemplateColumns: `repeat(${primaryItems.length + 1}, minmax(0, 1fr))` }}>
         {primaryItems.map((item) => slot(item.path, item.label, item.icon, !!isActive(item), () => go(item.path)))}
         {slot('more', t('navigation.more'), FaEllipsisH, moreActive, () => setMoreOpen(true))}
@@ -255,7 +281,7 @@ export function BottomNav() {
           </DialogHeader>
           <ul className="flex flex-col gap-1">
             {[...moreItems.map((item) => ({ key: item.path, label: item.label, icon: item.icon, active: !!isActive(item) })),
-              { key: '/help', label: t('navigation.help'), icon: FaQuestionCircle, active: helpActive },
+            { key: '/help', label: t('navigation.help'), icon: FaQuestionCircle, active: helpActive },
             ].map(({ key, label, icon: Icon, active }) => (
               <li key={key}>
                 <button
@@ -263,13 +289,13 @@ export function BottomNav() {
                   onClick={() => go(key)}
                   aria-current={active ? 'page' : undefined}
                   className={clsx(
-                    'flex items-center gap-4 w-full h-14 px-4 rounded-xl text-base text-left cursor-pointer transition-colors',
+                    'flex items-center gap-4 px-4 rounded-xl w-full h-14 text-base text-left transition-colors cursor-pointer',
                     active ? 'nav-active font-semibold' : 'font-medium hover:bg-base-content/8 active:bg-base-content/10',
                   )}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  <Icon className="w-5 h-5 shrink-0" />
                   <span className="flex-1">{label}</span>
-                  <FaChevronRight className="h-3.5 w-3.5 opacity-40" />
+                  <FaChevronRight className="opacity-40 w-3.5 h-3.5" />
                 </button>
               </li>
             ))}
@@ -292,7 +318,7 @@ function DeviceDetails() {
     ? initData.cloud.domain : '';
 
   return (
-    <div className="pt-3 mt-1 border-t border-base-300 px-4 text-sm flex flex-col gap-1 opacity-80">
+    <div className="flex flex-col gap-1 opacity-80 mt-1 px-4 pt-3 border-base-300 border-t text-sm">
       {deviceName && (
         <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
       )}
@@ -303,7 +329,7 @@ function DeviceDetails() {
         <span>
           <span className="opacity-60">S/N:</span> {serialNo}
           {serialOverride && (
-            <span className="text-warning font-semibold ml-1">
+            <span className="ml-1 font-semibold text-warning">
               (as: {serialOverride})
             </span>
           )}
@@ -314,7 +340,7 @@ function DeviceDetails() {
           href={`https://${cloudDomain}:8443`}
           target="_blank"
           rel="noopener noreferrer"
-          className="link link-primary no-underline hover:underline truncate"
+          className="hover:underline no-underline truncate link link-primary"
           title={`https://${cloudDomain}:8443`}
         >
           🌐 {cloudDomain}
