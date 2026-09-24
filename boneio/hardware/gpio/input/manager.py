@@ -68,16 +68,13 @@ class GpioManager:
         # The best we can do is wait a bit and let the kernel clean up
         await asyncio.sleep(0.1)
 
-    def add_input(
-        self, name: str, pin: str, detector: MultiClickDetector | BinarySensorDetector, gpio_mode: str = "gpio"
-    ) -> None:
+    def add_input(self, name: str, pin: str, detector: MultiClickDetector | BinarySensorDetector) -> None:
         """Add a GPIO input to monitor.
 
         Args:
             name: Name of the input
             pin: Pin name (e.g., "P8_30")
             detector: Detector instance (MultiClickDetector or BinarySensorDetector)
-            gpio_mode: GPIO mode (gpio, gpio_pu, gpio_pd)
         """
         if pin not in PINS:
             _LOGGER.error("Pin %s not found in PINS mapping", pin)
@@ -107,14 +104,7 @@ class GpioManager:
             )
             return
 
-        # gpio_mode is deprecated — kernel overlay handles pull-up/pull-down.
-        # All modes now map to Bias.AS_IS. Accept silently for backward compat.
-        if gpio_mode != "gpio":
-            _LOGGER.debug(
-                "gpio_mode='%s' for %s is deprecated and ignored — kernel overlay handles GPIO configuration",
-                gpio_mode,
-                name,
-            )
+        # Pull-up/pull-down comes from the kernel overlay, not from us.
         bias = Bias.AS_IS
 
         input_def = GpioInputDefinition(

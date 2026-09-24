@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 // Re-implement the transformation functions from InputTypeSwitcher for testing
 // (these are the same as in the component, extracted for testability)
 
-const BS_ONLY_FIELDS = ['device_class', 'show_in_ha', 'inverted', 'initial_send', 'clear_message'];
+const BS_ONLY_FIELDS = ['device_class', 'show_in_ha', 'inverted', 'initial_send'];
 const EVENT_ONLY_FIELDS = [
   'double_click_duration', 'long_press_duration', 'sequence_window_duration',
   'sequence_mode', 'enable_triple_click', 'long_press_mqtt_mode',
@@ -140,7 +140,6 @@ describe('binarySensorToEvent', () => {
       show_in_ha: true,
       inverted: false,
       initial_send: true,
-      clear_message: false,
       actions: {},
     };
 
@@ -150,7 +149,6 @@ describe('binarySensorToEvent', () => {
     expect(result.show_in_ha).toBeUndefined();
     expect(result.inverted).toBeUndefined();
     expect(result.initial_send).toBeUndefined();
-    expect(result.clear_message).toBeUndefined();
   });
 
   it('handles empty actions', () => {

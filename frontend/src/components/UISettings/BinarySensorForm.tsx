@@ -437,13 +437,6 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                       checked: data.initial_send === true,
                       onChange: (checked) => updateField('initial_send', checked),
                     },
-                    {
-                      key: 'clear_message',
-                      label: t('inputs.clear_message'),
-                      description: t('inputs.clear_message_hint'),
-                      checked: data.clear_message === true,
-                      onChange: (checked) => updateField('clear_message', checked),
-                    },
                   ]}
                 />
               </div>

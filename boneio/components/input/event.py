@@ -140,7 +140,6 @@ class GpioEventButton(GpioBaseClass):
             name=self._name,
             pin=self._pin,
             detector=self._detector,
-            gpio_mode=kwargs.get("gpio_mode", "gpio"),
         )
 
         _LOGGER.debug("Configured event input %s on pin %s", self._name, self._pin)

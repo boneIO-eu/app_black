@@ -80,7 +80,6 @@ const EVENT_ALLOWED_FIELDS = new Set([
   'boneio_input',
   'area',
   'bounce_time',
-  'clear_message',
   'show_in_ha',
   'inverted',
   'device_class',
@@ -100,7 +99,6 @@ const BINARY_SENSOR_ALLOWED_FIELDS = new Set([
   'boneio_input',
   'area',
   'bounce_time',
-  'clear_message',
   'show_in_ha',
   'inverted',
   'device_class',
@@ -658,7 +656,7 @@ export function applyAiConfigResponse<T extends SupportedEntity>({
       continue;
     }
 
-    if (['clear_message', 'show_in_ha', 'inverted', 'enable_triple_click', 'initial_send'].includes(field)) {
+    if (['show_in_ha', 'inverted', 'enable_triple_click', 'initial_send'].includes(field)) {
       if (rawValue !== null && typeof rawValue !== 'boolean') {
         errors.push(`${field}: ${t('event_form.ai_boolean_required')}`);
         continue;
