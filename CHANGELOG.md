@@ -6,6 +6,64 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev14 (2026-09-24) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🛟 A recovery panel for a controller that cannot start
+
+- **A config that does not load no longer ends in a restart loop.** boneIO
+  serves a small recovery panel on the panel's own port instead, with outputs,
+  buses and the broker left alone: the error with file, line and column, an
+  editor for the YAML files, "Check config", the service log with secrets
+  scrubbed, restoring a backup, and a restart back to normal operation.
+- **Three crashed starts in a row lead there too**, and recovery retries a
+  normal start by itself after 10 idle minutes.
+- **Access is the regular panel's**: same accounts, token, CSRF and login
+  limiter; every `/api/recovery` route is admin-only. A device without an
+  account gets no panel.
+- The OLED says recovery mode and shows the panel's address.
+
+### ⏰ Schedules say what they did
+
+- **Every run is recorded**: ran, skipped by its own condition, or failed;
+  from the timer, a catch-up or by hand; with its duration and error. The last
+  twenty runs per schedule are kept, and nothing is written before the clock
+  is set.
+- **The panel** gets a "last run" column, the run history, and an on/off
+  switch, updated live over the WebSocket.
+- **Home Assistant** gets each schedule as a switch plus three diagnostic
+  sensors (next firing, last firing, last outcome), all from one retained
+  message. A switch set from Home Assistant stands until `enabled:` in the
+  YAML is changed.
+- **`last_fire` changed meaning**: it is set whenever the timer fires,
+  whatever the outcome, and after the actions rather than before.
+
+### 🧭 Navigation, login and header
+
+- **Phones and tablets (below 1280 px)**: a bottom bar with Outputs, Inputs,
+  Sensors, Modbus and "More" replaces the burger and side drawer. The
+  settings and diagnostics section bar sits on top of it.
+- **Desktop**: a 48 px top row with the device name, version and serial as
+  plain text; 40 px tabs, the active one a tinted pill readable in both
+  themes; the menu row no longer lets the page show through.
+- **Login**: redesigned, with theme and language pickers, visible labels,
+  a show-password toggle and the device name. **Logout asks first.**
+- **Language picker** is a bottom sheet on phones.
+
+### 🐛 Fixes
+
+- **A remote device can no longer take the controller down.** An exception
+  while setting up remote devices ended the whole application; it is now
+  logged and the controller runs without them.
+- **Schedule sensors in Home Assistant** listened to topics nothing published.
+- **Hostname**: names the system helper refuses (capitals, underscores) get a
+  readable 400 instead of a 500.
+- **Live views survive a reload**: a missing `schedule` event type killed the
+  WebSocket handler after its first message.
+- **Settings open faster**: the config schema is fetched and normalised once
+  per page load instead of on every visit.
+
 ## v1.6.0.dev13 (2026-09-23) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

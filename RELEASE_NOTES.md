@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev13` exists so that we can test the new system-migration chain on a
+`1.6.0.dev14` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,28 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev14 — internal test build
+
+## Since dev13
+
+A controller whose configuration does not load used to restart into the same
+error every three seconds, with a hundred characters on the OLED as the only
+clue. It now serves a recovery panel instead: the error with its line, an
+editor, the log, backup restore and a restart. Three crashed starts in a row
+lead there as well. It uses the regular panel's accounts and is admin-only.
+
+Schedules now record every run, including the ones their own condition
+skipped, and show it in the panel and in Home Assistant, where each schedule
+appears as a switch with three diagnostic sensors.
+
+The panel's navigation is new: a bottom bar on phones and tablets, a slimmer
+desktop header, a redesigned login page, and a confirmation before logout.
+
+No migration changed since dev13; only the manifest was re-signed, because it
+names the release.
 
 ---
 
