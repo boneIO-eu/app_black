@@ -25,9 +25,16 @@ services:
       - "${HTTPS_PORT:-8443}:443"
     environment:
       - HOST_HOSTNAME=${HOSTNAME:-boneio}
-      # The port the host publishes 443 on. Caddy only sees 443 from
-      # inside the container, so a redirect built from what it sees
-      # would send browsers to a port nothing listens on.
+      # The panel's own port. Caddy proxies to it, and until this was passed in
+      # the Caddyfile carried a hardcoded 8090 — so changing web.port left a
+      # device whose expose is 'proxy' answering on no port at all.
+      #
+      # Changing this needs `up -d`, not `restart`: a container's environment
+      # is fixed when it is created.
+      - WEB_PORT=${WEB_PORT:-8090}
+      # The port the host publishes 443 on. Caddy only ever sees 443 from
+      # inside the container, so a redirect built from what it sees would send
+      # browsers to a port nothing listens on.
       - PUBLIC_HTTPS_PORT=${HTTPS_PORT:-8443}
     volumes:
       - ./caddy/502.html:/srv/502.html:ro
