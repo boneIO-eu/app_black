@@ -17,6 +17,7 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useNodeRedManagement, NodeRedBackup } from '../hooks/useNodeRedManagement';
 import { SettingsPage, SettingsCard, StatusTile, NoticeCallout } from '../ui';
+import { UpdateSafetyNotice } from './UpdateSafetyNotice';
 
 /**
  * Compute SHA256 hash of a File using the Web Crypto API.
@@ -230,6 +231,7 @@ export default function NodeRedManagement() {
       )}
 
       {/* ── UPDATE SECTION ── */}
+      <UpdateSafetyNotice nodeRed />
       <SettingsCard
         icon={<FaDownload />}
         title={t('nodered_management.update_title')}

@@ -12,6 +12,8 @@ import {
 } from 'react-icons/fa';
 import SelfTest from './SelfTest';
 import HardwareErrors from './HardwareErrors';
+import { UpdateSafetyNotice } from './SystemStateComponents/UpdateSafetyNotice';
+import { OsUpdateCard } from './SystemStateComponents/OsUpdateCard';
 
 /** Which block of the old System page to render. */
 export type SystemSection = 'update' | 'tools' | 'hardware_errors';
@@ -382,6 +384,10 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
           />
         )}
 
+        {/* Before any update: take the configuration off the device, and know
+            where the image is if it does not come back. */}
+        <UpdateSafetyNotice nodeRed />
+
         {/* Installed version */}
         <SettingsCard
           footer={
@@ -622,6 +628,9 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
             </div>
           </SettingsCard>
         )}
+
+        {/* The Debian system under boneIO: packages and the kernel. */}
+        <OsUpdateCard />
 
         {/* Available versions / rollback */}
         <SettingsCard
