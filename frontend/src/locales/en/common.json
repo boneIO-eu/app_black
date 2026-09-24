@@ -2789,6 +2789,18 @@
         "detail": "The panel answers on its own port on every network interface, without TLS. Anyone who can see the traffic sees the login form, the token it hands back, and a configuration that carries passwords.",
         "ok": "The panel is reachable only through the encrypted proxy.",
         "remedy": "Move it behind the proxy. It then answers over HTTPS and through an SSH tunnel, and not on the local network in the clear."
+      },
+      "os_updates": {
+        "title": "Operating system updates",
+        "ok": "Security updates are installed and running.",
+        "detail_reboot": "Updates are installed but not running until the controller restarts.",
+        "remedy_reboot": "Restart the controller when a short break does no harm.",
+        "detail_kernel": "The kernel the next boot would load is not ready — a restart may leave the controller down or without its board overlay.",
+        "remedy_kernel": "Do not restart. Report this to boneIO support.",
+        "detail_autoupdate_off": "Automatic security updates are switched off, so fixes wait until someone installs them by hand.",
+        "remedy_autoupdate_off": "Switch automatic security updates back on, or check for system updates regularly.",
+        "detail": "Security updates are installed and running.",
+        "remedy": "Open Updates and check for system updates."
       }
     },
     "after_update": {
@@ -3153,6 +3165,25 @@
     "estimate": "{{count}} packages to update — about {{min}}–{{max}} min",
     "interruptions": "The controller keeps working meanwhile, but be ready for short interruptions: as individual services are updated, MQTT (Home Assistant), Node-RED, the HTTPS panel and SSH may drop for a moment. boneIO outputs and automations keep running. Plan the update for a time when such a break does no harm.",
     "interruptions_now": "The system is being updated. Short interruptions of MQTT, Node-RED, the HTTPS panel and SSH are normal. Do not cut the power.",
-    "kernel_pending": "The updates include a new kernel — the controller will need a restart at the end (a few minutes of downtime)."
+    "kernel_pending": "The updates include a new kernel — the controller will need a restart at the end (a few minutes of downtime).",
+    "autoupdate": "Automatic security updates",
+    "autoupdate_hint": "Once a day, installs Debian security fixes only, without restarting the controller. The kernel and other updates stay manual (the \"Update system\" button).",
+    "autoupdate_last_run": "Last checked: {{when}}",
+    "autoupdate_last_packages": "installed {{when}}: {{packages}}",
+    "autoupdate_failed": "Could not switch automatic updates."
+  },
+  "caddy_update": {
+    "title": "Caddy (HTTPS panel)",
+    "description": "The server that serves the panel over HTTPS. Every boneIO release names an exact Caddy version — this moves the controller to it.",
+    "available": "Newer version available",
+    "running": "Updating…",
+    "running_hint": "Pulling and starting the new Caddy. The HTTPS panel drops for about 15 seconds — this page refreshes the state by itself.",
+    "apply": "Update Caddy to {{version}}",
+    "confirm": "Update Caddy?\n\nThe download takes a few minutes, and at the end the HTTPS panel (and Node-RED through Caddy) drops for about 15 seconds. boneIO outputs and automations keep running.",
+    "interruption": "At the end of the update the HTTPS panel drops for about 15 seconds while Caddy restarts.",
+    "failed": "The Caddy update failed:",
+    "done": "Caddy runs the version from this boneIO release.",
+    "current": "Version in use",
+    "release": "Version in this boneIO release"
   }
 }

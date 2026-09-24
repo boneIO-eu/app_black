@@ -3,7 +3,7 @@ import { FaLinux, FaPowerOff, FaSearch, FaSpinner, FaSync } from 'react-icons/fa
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useDevicePower } from '../hooks/useDevicePower';
-import { SettingsCard, FormActions, NoticeCallout, CodeBlock, StatGrid } from '../ui';
+import { SettingsCard, FormActions, NoticeCallout, CodeBlock, StatGrid, ToggleRow } from '../ui';
 
 interface OsPackage {
   name: string;
@@ -29,8 +29,18 @@ interface OsUpdateRun {
   kernel: KernelReport | null;
 }
 
+interface AutoUpdateState {
+  installed: boolean;
+  configured: boolean;
+  enabled: boolean;
+  last_run: string | null;
+  last_packages_at: string | null;
+  last_packages: string[];
+}
+
 interface OsUpdateState {
   supported: boolean;
+  autoupdate?: AutoUpdateState;
   message?: string;
   running?: boolean;
   last?: OsUpdateRun | null;
@@ -126,6 +136,20 @@ export const OsUpdateCard: React.FC = () => {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [refresh, starting]);
+
+  const [switching, setSwitching] = useState(false);
+  const setAutoUpdate = async (enabled: boolean) => {
+    setError(null);
+    setSwitching(true);
+    try {
+      await axios.post('/api/os-update/autoupdate', { enabled });
+      await refresh();
+    } catch (err) {
+      setError(apiDetail(err) || t('os_update.autoupdate_failed'));
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const start = async (mode: 'check' | 'upgrade') => {
     if (mode === 'upgrade') {
@@ -280,6 +304,31 @@ export const OsUpdateCard: React.FC = () => {
 
         {last?.kernel?.status === 'repaired' && (
           <NoticeCallout variant="info" message={`${t('os_update.kernel_repaired')} ${last.kernel.message ?? ''}`} />
+        )}
+
+        {state?.autoupdate?.configured && (
+          <ToggleRow
+            checked={state.autoupdate.enabled}
+            onChange={setAutoUpdate}
+            busy={switching}
+            disabled={switching || !state.autoupdate.installed}
+            label={t('os_update.autoupdate')}
+            description={
+              <>
+                {t('os_update.autoupdate_hint')}
+                {state.autoupdate.last_run && (
+                  <span className="block mt-1 font-mono text-xs">
+                    {t('os_update.autoupdate_last_run', { when: state.autoupdate.last_run })}
+                    {state.autoupdate.last_packages.length > 0 &&
+                      ` · ${t('os_update.autoupdate_last_packages', {
+                        when: state.autoupdate.last_packages_at ?? '',
+                        packages: state.autoupdate.last_packages.join(', '),
+                      })}`}
+                  </span>
+                )}
+              </>
+            }
+          />
         )}
 
         <StatGrid

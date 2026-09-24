@@ -2788,6 +2788,18 @@
         "detail": "Panel odpowiada na swoim porcie na każdym interfejsie sieciowym, bez TLS. Kto widzi ten ruch, widzi formularz logowania, wydawany token i konfigurację z hasłami.",
         "ok": "Panel jest osiągalny wyłącznie przez szyfrowane proxy.",
         "remedy": "Schowaj go za proxy. Będzie wtedy odpowiadał przez HTTPS i przez tunel SSH, a nie otwartym tekstem w sieci lokalnej."
+      },
+      "os_updates": {
+        "title": "Aktualizacje systemu",
+        "ok": "Poprawki bezpieczeństwa są zainstalowane i działają.",
+        "detail_reboot": "Aktualizacje są zainstalowane, ale zaczną działać dopiero po restarcie sterownika.",
+        "remedy_reboot": "Uruchom ponownie sterownik, gdy krótka przerwa nie przeszkadza.",
+        "detail_kernel": "Kernel, który uruchomi się przy następnym starcie, nie jest gotowy — restart może zostawić sterownik bez działania albo bez overlaya płytki.",
+        "remedy_kernel": "Nie restartuj. Zgłoś to do wsparcia boneIO.",
+        "detail_autoupdate_off": "Automatyczne poprawki bezpieczeństwa są wyłączone, więc poprawki czekają, aż ktoś zainstaluje je ręcznie.",
+        "remedy_autoupdate_off": "Włącz z powrotem automatyczne poprawki bezpieczeństwa albo regularnie sprawdzaj aktualizacje systemu.",
+        "detail": "Poprawki bezpieczeństwa są zainstalowane i działają.",
+        "remedy": "Otwórz Aktualizacje i sprawdź aktualizacje systemu."
       }
     },
     "after_update": {
@@ -3152,6 +3164,25 @@
     "estimate": "{{count}} pakietów do aktualizacji — potrwa ok. {{min}}–{{max}} min",
     "interruptions": "Sterownik działa w tym czasie, ale bądź gotów na krótkie przerwy: gdy aktualizują się poszczególne usługi, mogą na chwilę zniknąć MQTT (Home Assistant), Node-RED, panel przez HTTPS i SSH. Wyjścia i automatyki boneIO działają dalej. Zaplanuj aktualizację na czas, gdy taka przerwa nie przeszkadza.",
     "interruptions_now": "Trwa aktualizacja systemu. Możliwe krótkie przerwy w MQTT, Node-RED, panelu HTTPS i SSH — to normalne. Nie wyłączaj zasilania.",
-    "kernel_pending": "Wśród aktualizacji jest nowy kernel — na koniec potrzebny będzie restart sterownika (kilka minut przerwy w działaniu)."
+    "kernel_pending": "Wśród aktualizacji jest nowy kernel — na koniec potrzebny będzie restart sterownika (kilka minut przerwy w działaniu).",
+    "autoupdate": "Automatyczne poprawki bezpieczeństwa",
+    "autoupdate_hint": "Raz dziennie instaluje wyłącznie poprawki bezpieczeństwa Debiana, bez restartu sterownika. Kernel i pozostałe aktualizacje zostają ręczne (przycisk „Aktualizuj system”).",
+    "autoupdate_last_run": "Ostatnio sprawdzono: {{when}}",
+    "autoupdate_last_packages": "zainstalowano {{when}}: {{packages}}",
+    "autoupdate_failed": "Nie udało się przełączyć automatycznych poprawek."
+  },
+  "caddy_update": {
+    "title": "Caddy (panel przez HTTPS)",
+    "description": "Serwer, który obsługuje panel po HTTPS. Każde wydanie boneIO wskazuje dokładną wersję Caddy — tu przełączasz na nią sterownik.",
+    "available": "Dostępna nowsza wersja",
+    "running": "Aktualizacja…",
+    "running_hint": "Pobieranie i uruchamianie nowego Caddy. Panel przez HTTPS zniknie na kilkanaście sekund — strona odświeży stan sama.",
+    "apply": "Aktualizuj Caddy do {{version}}",
+    "confirm": "Zaktualizować Caddy?\n\nPobranie trwa kilka minut, a na koniec panel przez HTTPS (i Node-RED przez Caddy) zniknie na kilkanaście sekund. Wyjścia i automatyki boneIO działają dalej.",
+    "interruption": "Na koniec aktualizacji panel przez HTTPS zniknie na kilkanaście sekund, gdy Caddy się uruchamia ponownie.",
+    "failed": "Aktualizacja Caddy nie powiodła się:",
+    "done": "Caddy działa w wersji z tego wydania boneIO.",
+    "current": "Używana wersja",
+    "release": "Wersja z wydania boneIO"
   }
 }

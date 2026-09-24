@@ -14,6 +14,7 @@ import SelfTest from './SelfTest';
 import HardwareErrors from './HardwareErrors';
 import { UpdateSafetyNotice } from './SystemStateComponents/UpdateSafetyNotice';
 import { OsUpdateCard } from './SystemStateComponents/OsUpdateCard';
+import { CaddyUpdateCard } from './SystemStateComponents/CaddyUpdateCard';
 
 /** Which block of the old System page to render. */
 export type SystemSection = 'update' | 'tools' | 'hardware_errors';
@@ -631,6 +632,9 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
 
         {/* The Debian system under boneIO: packages and the kernel. */}
         <OsUpdateCard />
+
+        {/* Caddy, which serves the panel over HTTPS, pinned per release. */}
+        <CaddyUpdateCard />
 
         {/* Available versions / rollback */}
         <SettingsCard
