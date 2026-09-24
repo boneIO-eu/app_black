@@ -23,43 +23,6 @@
             "description": "PIN to use.",
             "title": "Pin"
           },
-          "gpio_mode": {
-            "type": "string",
-            "default": "gpio",
-            "enum": [
-              "gpio",
-              "gpio_pu",
-              "gpio_pd",
-              "gpio_input"
-            ],
-            "examples": [
-              "gpio"
-            ],
-            "description": "[Deprecated] GPIO mode \u2014 now handled by kernel overlay. Ignored at runtime.",
-            "title": "Gpio mode"
-          },
-          "clear_message": {
-            "oneOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "yes",
-                  "no",
-                  "true",
-                  "false",
-                  "on",
-                  "off"
-                ],
-                "x-yaml-boolean": true
-              }
-            ],
-            "default": false,
-            "description": "Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.",
-            "title": "Clear message"
-          },
           "bounce_time": {
             "type": [
               "number",

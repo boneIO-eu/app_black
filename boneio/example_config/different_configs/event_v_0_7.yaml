@@ -1,6 +1,5 @@
 - name: IN_01
   pin: P8_37
-  gpio_mode: gpio_pu
   detection_type: new
   actions:
     single:
@@ -8,7 +7,6 @@
         pin: OUT_01
 - name: IN_02
   pin: P8_38
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -58,14 +56,12 @@
 - name: IN_09
   pin: P8_45
   detection_type: new
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
         pin: OUT_09
 - name: IN_10
   pin: P8_46
-  gpio_mode: gpio_pu
   detection_type: new
   actions:
     single:
@@ -139,7 +135,6 @@
 - name: IN_19
   detection_type: new
   pin: P9_22
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -147,7 +142,6 @@
 - name: IN_20
   detection_type: new
   pin: P9_21
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -209,7 +203,6 @@
 - name: IN_29
   detection_type: new
   pin: P8_36
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -217,7 +210,6 @@
 - name: IN_30
   detection_type: new
   pin: P8_35
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -225,7 +217,6 @@
 - name: IN_31
   detection_type: new
   pin: P8_34
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -233,7 +224,6 @@
 - name: IN_32
   detection_type: new
   pin: P8_33
-  gpio_mode: gpio_pu
   actions:
     single:
       - action: output
@@ -241,7 +231,6 @@
 - name: IN_33
   detection_type: new
   pin: P8_32
-  gpio_mode: gpio_pu
 - name: IN_34
   detection_type: new
   pin: P8_31

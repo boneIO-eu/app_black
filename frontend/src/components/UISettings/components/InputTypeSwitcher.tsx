@@ -23,7 +23,7 @@ interface InputTypeSwitcherProps {
 }
 
 /** Fields that are specific to binary_sensor and should be removed when switching to event. */
-const BS_ONLY_FIELDS = ['device_class', 'show_in_ha', 'inverted', 'initial_send', 'clear_message'];
+const BS_ONLY_FIELDS = ['device_class', 'show_in_ha', 'inverted', 'initial_send'];
 
 /** Fields that are specific to event and should be removed when switching to binary_sensor. */
 const EVENT_ONLY_FIELDS = [

@@ -6,7 +6,6 @@
  *   - boneio_input (replaced by read-only sensor ID)
  *   - bounce_time  (not applicable to remote inputs)
  *   - initial_send (not applicable)
- *   - clear_message (not applicable)
  *
  * The show_in_ha toggle defaults to OFF and uses remote-specific labels.
  */

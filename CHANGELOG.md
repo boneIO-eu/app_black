@@ -6,6 +6,19 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+- **`gpio_mode` and `clear_message` removed from the schema.** Both had been
+  ignored at runtime, but they stayed in `schema.yaml`. So anyone who gave
+  the schema to an LLM got configs full of them.
+  - `gpio_mode`: pull-up/pull-down comes from the kernel overlay.
+  - `clear_message`: sent an empty MQTT message after a click, the way
+    Zigbee2MQTT clears its `action` sensor. It only mattered while clicks
+    reached Home Assistant as a sensor, and it quietly stopped working in the
+    2025 input refactor. Its toggle is gone from the binary sensor form.
+
+  Config migration v6 deletes both keys from `event` and `binary_sensor` on
+  the next start. That includes sections kept in a separate file via
+  `!include`. `config_version` goes to 6.
+
 ## v1.6.0.dev14 (2026-09-24) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 _LOGGER = logging.getLogger(__name__)
 
 # Current schema version — bump this when adding new migrations
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 # Minimum app version that introduced each schema version.
 # Used by the WebUI to warn before rolling back to an incompatible version.
@@ -28,6 +28,7 @@ SCHEMA_VERSION_APP_MAP: dict[int, str] = {
     3: "1.3.0dev7",   # irrigation section
     4: "1.5.0dev13",  # WLED effects/palettes → JSON cache
     5: "1.5.0dev35",  # OLED screen name: ina219 → ina
+    6: "1.6.0dev15",  # gpio_mode, clear_message removed from inputs
 }
 
 
@@ -151,6 +152,15 @@ def _has_legacy_fields(doc: dict) -> bool:
     if isinstance(oled, dict):
         screens = oled.get("screens")
         if isinstance(screens, list) and "ina219" in screens:
+            return True
+
+    # v6: dead gpio_mode / clear_message keys on inputs
+    for section_key in ("event", "binary_sensor"):
+        items = doc.get(section_key)
+        if isinstance(items, list) and any(
+            isinstance(item, dict) and ("gpio_mode" in item or "clear_message" in item)
+            for item in items
+        ):
             return True
 
     return False
@@ -310,4 +320,5 @@ from boneio.core.config.migrations import (
     v2_transition,  # noqa: E402, F401
     v4_wled_cache,  # noqa: E402, F401
     v5_ina_screen,  # noqa: E402, F401
+    v6_input_keys,  # noqa: E402, F401
 )

@@ -1224,19 +1224,6 @@ binary_sensor:
         required: False
         meta:
           label: PIN to use.
-      gpio_mode:
-        type: string
-        required: False
-        default: 'gpio'
-        allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
-        meta:
-          label: "[Deprecated] GPIO mode — now handled by kernel overlay. Ignored at runtime."
-          hidden: true
-      clear_message:
-        type: boolean
-        default: False
-        meta:
-          label: Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.
       bounce_time:
         type:
           - string
@@ -1348,19 +1335,6 @@ event:
         required: False
         meta:
           label: PIN to use.
-      gpio_mode:
-        type: string
-        required: False
-        default: 'gpio'
-        allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
-        meta:
-          label: "[Deprecated] GPIO mode — now handled by kernel overlay. Ignored at runtime."
-          hidden: true
-      clear_message:
-        type: boolean
-        default: False
-        meta:
-          label: Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.
       bounce_time:
         type:
           - string

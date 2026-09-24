@@ -53,7 +53,6 @@ class GpioInputBinarySensor(GpioBaseClass):
             name=self._name,
             pin=self._pin,
             detector=self._detector,
-            gpio_mode=kwargs.get("gpio_mode", "gpio"),
         )
         
         _LOGGER.debug("Configured binary sensor %s on pin %s (inverted=%s)", 

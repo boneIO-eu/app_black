@@ -1,16 +1,21 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { FaShieldAlt } from 'react-icons/fa';
+import { FaShieldAlt, FaHome, FaWalking, FaMoon, FaUnlock } from 'react-icons/fa';
+import clsx from 'clsx';
 import type { AlarmState } from './types';
+import { TemplateTile } from './TemplateTile';
+import { TILE_BUTTON, TILE_BUTTON_STACKED, type Tone } from './tileStyles';
 
-const STATE_BADGE: Record<string, string> = {
-  disarmed: 'badge-success',
-  armed_home: 'badge-warning',
-  armed_away: 'badge-error',
-  armed_night: 'badge-info',
-  arming: 'badge-warning animate-pulse',
-  pending: 'badge-warning animate-pulse',
-  triggered: 'badge-error animate-pulse',
+// Armed is the protected, expected state, not a warning: it gets the app's
+// own colour. Amber is for the moments in between, red only for a real alarm.
+const TONE: Record<string, Tone> = {
+  disarmed: 'neutral',
+  armed_home: 'primary',
+  armed_away: 'primary',
+  armed_night: 'primary',
+  arming: 'warning',
+  pending: 'warning',
+  triggered: 'error',
 };
 
 export default function AlarmCard({
@@ -79,85 +84,88 @@ export default function AlarmCard({
     }
   }, [pinDialogCommand]);
 
-  return (
-    <div className="stg-inset px-4 py-6 max-w-xs w-full">
-      {/* Header row: icon + name + state badge */}
-      <div className="flex items-center gap-2">
-        <FaShieldAlt className={`h-4 w-4 shrink-0 ${isArmed ? 'text-error' : 'text-success'}`} />
-        <span className="font-medium text-sm truncate flex-1">{data.name || data.id}</span>
-        <span className={`badge badge-sm ${STATE_BADGE[data.state] || 'badge-ghost'}`}>
-          {stateLabel[data.state] || data.state}
-          {data.state === 'arming' && data.arming_remaining_s != null && (
-            <span className="ml-1 tabular-nums">{Math.ceil(data.arming_remaining_s)}s</span>
-          )}
-        </span>
+  const state = (
+    <>
+      {stateLabel[data.state] || data.state}
+      {data.state === 'arming' && data.arming_remaining_s != null && (
+        <span className="ml-1 tabular-nums">{Math.ceil(data.arming_remaining_s)}s</span>
+      )}
+    </>
+  );
+
+  // Three modes, one look: which one to pick is the owner's call, so none of
+  // them is coloured as more urgent than the others.
+  const armButtons: [string, string, React.ComponentType<{ className?: string }>][] = [
+    ['ARM_HOME', t('templates.arm_home'), FaHome],
+    ['ARM_AWAY', t('templates.arm_away'), FaWalking],
+    ['ARM_NIGHT', t('templates.arm_night'), FaMoon],
+  ];
+
+  let footer: React.ReactNode = null;
+  if (!data.allow_frontend_control) {
+    footer = <p className="text-xs text-base-content/60">{t('templates.frontend_control_disabled')}</p>;
+  } else if (pinDialogCommand) {
+    footer = (
+      <div className="flex flex-col gap-2">
+        <input
+          ref={inputRef}
+          type="password"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          aria-label={t('templates.enter_pin')}
+          className={clsx('input input-lg w-full text-center tracking-[0.4em]', pinError && 'input-error')}
+          placeholder={t('templates.enter_pin')}
+          value={pin}
+          onChange={(e) => { setPin(e.target.value); setPinError(false); }}
+          onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" className={clsx(TILE_BUTTON, 'btn-ghost')} onClick={handlePinCancel}>
+            {t('templates.cancel')}
+          </button>
+          <button type="button" className={clsx(TILE_BUTTON, 'btn-primary')} onClick={handlePinSubmit}>
+            OK
+          </button>
+        </div>
       </div>
+    );
+  } else if (isArmed || data.state === 'triggered') {
+    footer = (
+      <button
+        type="button"
+        className={clsx(TILE_BUTTON, 'w-full', data.state === 'triggered' ? 'btn-error' : 'btn-primary')}
+        onClick={() => handleAction('DISARM')}
+      >
+        <FaUnlock className="w-4 h-4" />
+        {t('templates.disarm')}
+      </button>
+    );
+  } else if (isDisarmed) {
+    footer = (
+      <div className="grid grid-cols-3 gap-2">
+        {armButtons.map(([command, label, Icon]) => (
+          <button
+            key={command}
+            type="button"
+            className={TILE_BUTTON_STACKED}
+            onClick={() => handleAction(command)}
+          >
+            <Icon className="w-4 h-4" />
+            <span className="text-xs leading-tight text-center">{label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
 
-      {/* PIN dialog */}
-      {pinDialogCommand && (
-        <div className="mt-3 flex flex-col gap-2">
-          <input
-            ref={inputRef}
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            className={`input input-sm input-bordered w-full text-center tracking-widest ${pinError ? 'input-error' : ''}`}
-            placeholder="PIN"
-            value={pin}
-            onChange={(e) => { setPin(e.target.value); setPinError(false); }}
-            onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
-          />
-          <div className="flex gap-1.5">
-            <button className="btn btn-xs btn-ghost flex-1" onClick={handlePinCancel}>
-              {t('templates.cancel') || 'Cancel'}
-            </button>
-            <button className="btn btn-xs btn-primary flex-1" onClick={handlePinSubmit}>
-              OK
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Controls */}
-      {data.allow_frontend_control && !pinDialogCommand && (
-        <div className="flex gap-2 mt-4">
-          {isArmed || data.state === 'triggered' ? (
-            <button
-              className="btn btn-sm h-auto py-2 btn-success flex-1"
-              onClick={() => handleAction('DISARM')}
-            >
-              {t('templates.disarm')}
-            </button>
-          ) : isDisarmed ? (
-            <>
-              <button
-                className="btn btn-sm h-auto py-2 btn-warning flex-1 leading-tight"
-                onClick={() => handleAction('ARM_HOME')}
-              >
-                {t('templates.arm_home')}
-              </button>
-              <button
-                className="btn btn-sm h-auto py-2 btn-error flex-1 leading-tight"
-                onClick={() => handleAction('ARM_AWAY')}
-              >
-                {t('templates.arm_away')}
-              </button>
-              <button
-                className="btn btn-sm h-auto py-2 btn-info flex-1 leading-tight"
-                onClick={() => handleAction('ARM_NIGHT')}
-              >
-                {t('templates.arm_night')}
-              </button>
-            </>
-          ) : null}
-        </div>
-      )}
-
-      {!data.allow_frontend_control && (
-        <p className="text-[10px] text-base-content/40 mt-1">
-          {t('templates.frontend_control_disabled')}
-        </p>
-      )}
-    </div>
+  return (
+    <TemplateTile
+      icon={FaShieldAlt}
+      tone={TONE[data.state] ?? 'neutral'}
+      name={data.name || data.id}
+      state={state}
+      footer={footer}
+    />
   );
 }

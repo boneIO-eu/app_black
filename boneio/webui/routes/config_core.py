@@ -669,6 +669,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
                 status_code=422,
                 detail={"message": "Invalid action configuration", "errors": errors},
             )
+        # gpio_mode left the schema in 1.6; drop it from older configs on save.
         for entry in data:
             entry.pop("gpio_mode", None)
 
