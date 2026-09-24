@@ -236,3 +236,52 @@ def ntp_set(servers: list[str], timeout: int = 60) -> Result:
     where it matters: the value is written into a file systemd parses as root.
     """
     return run("ntp-set", ",".join(servers) if servers else "default", timeout=timeout)
+
+
+#: Modes the helper accepts for an operating system update.
+OS_UPDATE_MODES = ("check", "upgrade")
+
+
+def helper_supports(verb: str) -> bool:
+    """Whether the installed helper knows *verb*.
+
+    A device that has not applied the migration shipping a verb still has the
+    older helper, and the panel should say "apply the pending migration" rather
+    than show a button that can only fail. ``--list-verbs`` needs no root, so
+    this asks the binary directly instead of through sudo.
+
+    Args:
+        verb: The verb to look for.
+
+    Returns:
+        True when the helper is installed and lists it.
+    """
+    try:
+        completed = subprocess.run(
+            [HELPER_PATH, "--list-verbs"], capture_output=True, text=True, timeout=15
+        )
+        verbs = json.loads(completed.stdout.strip() or "[]")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return isinstance(verbs, list) and verb in verbs
+
+
+def os_update_state(timeout: int = 30) -> Result:
+    """Last apt run, whether a reboot is needed, and the next boot's kernel."""
+    return run("os-update-state", timeout=timeout)
+
+
+def os_update_start(mode: str, timeout: int = 30) -> Result:
+    """Start ``check`` or ``upgrade`` in its own unit; returns at once.
+
+    The helper validates *mode* again. It is checked here only so a typo in the
+    application fails with a clear error instead of a refusal in the log.
+    """
+    if mode not in OS_UPDATE_MODES:
+        return Result(1, "", f"unknown mode {mode!r}")
+    return run("os-update-start", mode, timeout=timeout)
+
+
+def os_update_log(timeout: int = 30) -> Result:
+    """The end of the last apt run's log, as text on stdout."""
+    return run("os-update-log", timeout=timeout)

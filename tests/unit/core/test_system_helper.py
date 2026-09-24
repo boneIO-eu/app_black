@@ -564,3 +564,283 @@ def test_the_permissions_are_restored_after_a_write(helper, tmp_path, monkeypatc
     assert path.stat().st_mode & 0o777 == helper.MOSQUITTO_PASSWD_MODE
     assert helper.MOSQUITTO_PASSWD_MODE & 0o040, "the broker must still be able to read it"
     assert helper.MOSQUITTO_PASSWD_MODE & 0o007 == 0, "world still has access"
+
+
+# ----------------------------------------------------------------- OS updates
+#
+# apt run as root with caller-chosen arguments is a root shell, so the tests
+# are mostly about what the caller cannot say: a mode outside the closed set,
+# the executor outside its own unit, and a kernel upgrade that would boot
+# without the boneIO pinmux.
+
+APT_SIMULATION = """\
+Reading package lists...
+Inst libssl3t64 [3.5.1-1] (3.5.4-1~deb13u1 Debian-Security:13/stable [armhf])
+Inst linux-image-6.18.60-bone56 (1bookworm Beagle:13/stable [armhf])
+Conf libssl3t64 (3.5.4-1~deb13u1 Debian-Security:13/stable [armhf])
+"""
+
+
+def test_the_simulation_is_parsed_into_packages(helper):
+    assert helper._os_update_list(APT_SIMULATION) == [
+        {"name": "libssl3t64", "from": "3.5.1-1", "to": "3.5.4-1~deb13u1"},
+        {"name": "linux-image-6.18.60-bone56", "from": None, "to": "1bookworm"},
+    ]
+
+
+@pytest.mark.parametrize("mode", [
+    "", "install", "upgrade -o APT::Update::Pre-Invoke=sh", "../upgrade", "UPGRADE",
+])
+def test_an_unknown_update_mode_is_refused(helper, ran, monkeypatch, mode):
+    monkeypatch.setattr(helper, "_os_update_unit_active", lambda: False)
+    assert helper.main(["os-update-start", mode]) == 1
+    assert ran == []
+
+
+def test_an_update_starts_in_its_own_unit_with_a_fixed_command(helper, ran, monkeypatch):
+    """Outside boneio.service: an upgrade that restarts boneIO must not kill dpkg."""
+    monkeypatch.setattr(helper, "_os_update_unit_active", lambda: False)
+    assert helper.main(["os-update-start", "upgrade"]) == 0
+    assert len(ran) == 1
+    argv = ran[0]
+    assert argv[:3] == ["systemd-run", "--unit", "boneio-os-update.service"]
+    assert argv[-3:] == ["/usr/sbin/boneio-system", "os-update-run", "upgrade"]
+
+
+def test_a_second_update_is_refused_while_one_runs(helper, ran, monkeypatch):
+    monkeypatch.setattr(helper, "_os_update_unit_active", lambda: True)
+    assert helper.main(["os-update-start", "check"]) == 1
+    assert ran == []
+
+
+def test_the_executor_refuses_outside_its_unit(helper, monkeypatch, tmp_path):
+    """Run straight from boneio.service it would die with boneIO mid-upgrade."""
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    monkeypatch.setattr(helper, "_in_update_unit", lambda: False)
+    monkeypatch.setattr(helper, "OS_UPDATE_STATE", tmp_path / "state.json")
+
+    def _no_subprocess(*args, **kwargs):
+        raise AssertionError("nothing may run outside the unit")
+
+    monkeypatch.setattr(helper.subprocess, "run", _no_subprocess)
+    assert helper.main(["os-update-run", "upgrade"]) == 1
+    assert not (tmp_path / "state.json").exists()
+
+
+@pytest.fixture
+def os_update(helper, monkeypatch, tmp_path):
+    """An executor inside its unit, with apt faked and state in tmp_path."""
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    monkeypatch.setattr(helper, "_in_update_unit", lambda: True)
+    monkeypatch.setattr(helper, "OS_UPDATE_STATE", tmp_path / "state.json")
+    monkeypatch.setattr(helper, "OS_UPDATE_LOG", tmp_path / "update.log")
+    monkeypatch.setattr(
+        helper, "_kernel_check",
+        lambda repair=False: {"status": "ok", "kernel": "k", "running": "k", "message": None},
+    )
+    calls: list[list[str]] = []
+
+    def _fake(argv, log, timeout):
+        calls.append(list(argv))
+        out = APT_SIMULATION if "-s" in argv else ""
+        log.write(out)
+        return 0, out
+
+    monkeypatch.setattr(helper, "_stream", _fake)
+    return calls
+
+
+def test_a_check_changes_nothing_on_the_system(helper, os_update, tmp_path):
+    assert helper.main(["os-update-run", "check"]) == 0
+    commands = os_update
+    assert not any("-y" in argv for argv in commands)
+    assert not any(argv[0] == "dpkg" for argv in commands)
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["result"] == "success"
+    assert [p["name"] for p in state["packages"]] == [
+        "libssl3t64", "linux-image-6.18.60-bone56",
+    ]
+
+
+def test_an_upgrade_keeps_local_configuration_and_a_clean_environment(
+    helper, os_update, tmp_path
+):
+    assert helper.main(["os-update-run", "upgrade"]) == 0
+    commands = os_update
+    assert ["dpkg", "--configure", "-a"] in commands
+    upgrade = next(argv for argv in commands if "dist-upgrade" in argv and "-y" in argv)
+    # Migrations install mosquitto, sshd and journald settings; the
+    # distribution's defaults must not come back with a package upgrade.
+    assert "Dpkg::Options::=--force-confold" in upgrade
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["reboot_recommended"] is True
+
+
+def test_an_upgrade_is_refused_without_room(helper, os_update, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        helper.shutil, "disk_usage",
+        lambda path: helper.shutil._ntuple_diskusage(10**9, 10**9 - 10**6, 10**6),
+    )
+    assert helper.main(["os-update-run", "upgrade"]) == 1
+    assert os_update == []
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["result"] == "failed"
+    assert "MB free" in state["message"]
+
+
+def test_a_failed_step_is_recorded(helper, os_update, monkeypatch, tmp_path):
+    def _fails(argv, log, timeout):
+        log.write("E: no network\n")
+        return 100, "E: no network\n"
+
+    monkeypatch.setattr(helper, "_stream", _fails)
+    assert helper.main(["os-update-run", "check"]) == 1
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["result"] == "failed"
+    assert "update failed" in state["message"]
+    assert "no network" in (tmp_path / "update.log").read_text()
+
+
+# ------------------------------------------------------- kernel after upgrade
+
+
+@pytest.fixture
+def boot(helper, monkeypatch, tmp_path):
+    """A /boot with a running kernel that has the overlay, and a new one."""
+    root = tmp_path / "boot"
+    for kernel in ("6.18.52-bone54", "6.18.60-bone56"):
+        (root / "dtbs" / kernel / "overlays").mkdir(parents=True)
+        (root / f"vmlinuz-{kernel}").write_text("k")
+        (root / f"initrd.img-{kernel}").write_text("i")
+    (root / "dtbs" / "6.18.52-bone54" / "BONEIO-BLACK-PINS-v1.0.dtbo").write_text("dtbo")
+    uenv = root / "uEnv.txt"
+    uenv.write_text(
+        "uname_r=6.18.60-bone56\nenable_uboot_overlays=1\n"
+        "uboot_overlay_addr0=BONEIO-BLACK-PINS-v1.0.dtbo\n"
+    )
+    monkeypatch.setattr(helper, "BOOT_DIR", root)
+    monkeypatch.setattr(helper, "UENV_PATHS", (uenv,))
+    monkeypatch.setattr(
+        helper.os, "uname", lambda: os.uname_result(("Linux", "h", "6.18.52-bone54", "", "armv7l"))
+    )
+    return root
+
+
+def test_a_new_kernel_without_the_overlay_is_a_problem(helper, boot):
+    """U-Boot would boot the stock pinmux, silently."""
+    report = helper._kernel_check(repair=False)
+    assert report["status"] == "problem"
+    assert "BONEIO-BLACK-PINS-v1.0.dtbo" in report["message"]
+    assert not (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v1.0.dtbo").exists()
+
+
+def test_the_overlay_is_copied_to_the_new_kernel(helper, boot):
+    report = helper._kernel_check(repair=True)
+    assert report["status"] == "repaired"
+    new = boot / "dtbs" / "6.18.60-bone56"
+    assert (new / "BONEIO-BLACK-PINS-v1.0.dtbo").read_text() == "dtbo"
+    assert (new / "overlays" / "BONEIO-BLACK-PINS-v1.0.dtbo").read_text() == "dtbo"
+    assert helper._kernel_check()["status"] == "ok"
+
+
+def test_a_missing_initrd_is_a_problem(helper, boot):
+    (boot / "initrd.img-6.18.60-bone56").unlink()
+    assert helper._kernel_check(repair=True)["status"] == "problem"
+
+
+def test_an_overlay_the_board_does_not_ship_is_not_copied(helper, boot):
+    uenv = boot / "uEnv.txt"
+    uenv.write_text(uenv.read_text().replace("v1.0.dtbo", "v9.dtbo"))
+    (boot / "dtbs" / "6.18.52-bone54" / "BONEIO-BLACK-PINS-v9.dtbo").write_text("x")
+    report = helper._kernel_check(repair=True)
+    assert report["status"] == "problem"
+    assert not (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v9.dtbo").exists()
+
+
+def test_the_state_asks_for_a_reboot_after_a_kernel_upgrade(
+    helper, boot, monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setattr(helper, "OS_UPDATE_STATE", tmp_path / "none.json")
+    monkeypatch.setattr(helper, "REBOOT_REQUIRED", tmp_path / "reboot-required")
+    monkeypatch.setattr(helper, "_os_update_unit_active", lambda: False)
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    assert helper.main(["os-update-state"]) == 0
+    state = json.loads(capsys.readouterr().out)
+    assert state["reboot_required"] is True
+    assert state["kernel"]["kernel"] == "6.18.60-bone56"
+    assert state["running"] is False
+
+
+def _path_form(boot):
+    """The overlay written as a path into the running kernel's directory —
+    what the dev controller carries: /boot/dtbs/<old>/overlays/<name>."""
+    uenv = boot / "uEnv.txt"
+    uenv.write_text(uenv.read_text().replace(
+        "uboot_overlay_addr0=BONEIO-BLACK-PINS-v1.0.dtbo",
+        "uboot_overlay_addr0=/boot/dtbs/6.18.52-bone54/overlays/BONEIO-BLACK-PINS-v1.0.dtbo",
+    ))
+    (boot / "dtbs" / "6.18.52-bone54" / "overlays" / "BONEIO-BLACK-PINS-v1.0.dtbo").write_text("dtbo")
+    return uenv
+
+
+def test_a_path_to_the_old_kernel_is_not_reported_as_fine(helper, boot):
+    """U-Boot reads that exact path; the new kernel's copy is irrelevant to it."""
+    _path_form(boot)
+    (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v1.0.dtbo").write_text("dtbo")
+    report = helper._kernel_check(repair=False)
+    assert report["status"] == "ok"
+    assert "/boot/dtbs/6.18.52-bone54/overlays/" in report["message"]
+
+
+def test_a_path_that_no_longer_exists_is_a_problem(helper, boot):
+    _path_form(boot)
+    (boot / "dtbs" / "6.18.52-bone54" / "overlays" / "BONEIO-BLACK-PINS-v1.0.dtbo").unlink()
+    (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v1.0.dtbo").write_text("dtbo")
+    assert helper._kernel_check(repair=False)["status"] == "problem"
+
+
+def test_repair_switches_a_path_to_the_bare_name(helper, boot):
+    """So the overlay follows every later kernel, and survives the old one's removal."""
+    uenv = _path_form(boot)
+    report = helper._kernel_check(repair=True)
+    assert report["status"] == "repaired"
+    assert "uboot_overlay_addr0=BONEIO-BLACK-PINS-v1.0.dtbo\n" in uenv.read_text()
+    assert (boot / "uEnv.txt.boneio.bak").exists()
+    assert (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v1.0.dtbo").is_file()
+    assert helper._kernel_check(repair=False) == {
+        "status": "ok", "kernel": "6.18.60-bone56", "running": "6.18.52-bone54", "message": None,
+    }
+
+
+def test_the_overlay_is_copied_from_the_overlays_subdirectory(helper, boot):
+    """Early installs put the .dtbo only under overlays/."""
+    old = boot / "dtbs" / "6.18.52-bone54"
+    (old / "BONEIO-BLACK-PINS-v1.0.dtbo").rename(old / "overlays" / "BONEIO-BLACK-PINS-v1.0.dtbo")
+    assert helper._kernel_check(repair=True)["status"] == "repaired"
+    assert (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v1.0.dtbo").is_file()
+
+
+def test_apt_output_reaches_the_log_while_the_step_runs(helper, tmp_path):
+    """Written only at the end, a 30-minute configure looked hung in the panel."""
+    log_path = tmp_path / "update.log"
+    with log_path.open("w", encoding="utf-8") as log:
+        rc, out = helper._stream(
+            ["sh", "-c", "echo one; echo two >&2; exit 3"], log, timeout=30
+        )
+    assert rc == 3
+    assert out.splitlines() == ["one", "two"]
+    assert log_path.read_text().splitlines() == ["one", "two"]
+
+
+def test_the_apt_environment_is_the_only_environment(helper, tmp_path, monkeypatch):
+    monkeypatch.setenv("APT_CONFIG", "/tmp/evil.conf")
+    with (tmp_path / "log").open("w") as log:
+        _, out = helper._stream(["sh", "-c", "env"], log, timeout=30)
+    assert "APT_CONFIG" not in out
+    assert "NEEDRESTART_MODE=l" in out
+
+
+def test_a_step_that_hangs_is_killed(helper, tmp_path):
+    with (tmp_path / "log").open("w") as log:
+        rc, _ = helper._stream(["sleep", "30"], log, timeout=1)
+    assert rc != 0

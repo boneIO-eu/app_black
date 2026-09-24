@@ -22,6 +22,10 @@ This replaces both with named operations:
     mqtt-reload                    have the broker re-read its password file
     service-password-state         is the boneio login locked, shipped or set
     service-password-init          set it once, from stdin — see below
+    os-update-state                apt: last run, reboot needed, will the kernel boot
+    os-update-start <check|upgrade>  run apt in its own unit, return at once
+    os-update-run <check|upgrade>  what that unit runs; refused anywhere else
+    os-update-log                  the end of the last run's log
 
 Every argument is checked against a closed set before anything runs, and the
 uEnv.txt edit is done here with a compiled pattern rather than by handing a
@@ -46,6 +50,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -142,12 +147,58 @@ _NTP_HOSTNAME_RE = re.compile(
     r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$"
 )
 
+#: This helper's own path: the transient update unit runs it again, as root,
+#: outside boneio.service.
+HELPER_SELF = "/usr/sbin/boneio-system"
+#: What the caller may ask of apt. Nothing else reaches it.
+OS_UPDATE_MODES = ("check", "upgrade")
+#: A fixed name, so systemd itself refuses a second update while one runs.
+OS_UPDATE_UNIT = "boneio-os-update.service"
+OS_UPDATE_STATE = Path("/var/lib/boneio/os-update/state.json")
+OS_UPDATE_LOG = Path("/var/log/boneio-os-update.log")
+OS_UPDATE_LOG_TAIL = 400
+#: A kernel upgrade alone unpacks ~60 MB and builds an initramfs next to the old
+#: one; the eMMC rootfs has little to spare. Below this, refuse up front rather
+#: than let dpkg run out of space halfway through.
+OS_UPDATE_MIN_FREE_MB = 300
+#: Debian writes these only when a package asks; the kernel check below is what
+#: actually tells a BeagleBone it needs a reboot.
+REBOOT_REQUIRED = Path("/run/reboot-required")
+REBOOT_REQUIRED_PKGS = Path("/run/reboot-required.pkgs")
+#: Packages whose new code is not in use until the device restarts.
+REBOOT_PACKAGE_PREFIXES = ("linux-image", "libc6", "systemd", "dbus", "libssl")
+BOOT_DIR = Path("/boot")
+#: A clean environment for apt: nothing from the caller's is passed through.
+#: NEEDRESTART_MODE=l lists stale services instead of restarting them — the
+#: panel asks for a reboot instead of services bouncing under the operator.
+APT_ENV = {
+    "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+    "LC_ALL": "C",
+    "DEBIAN_FRONTEND": "noninteractive",
+    "NEEDRESTART_MODE": "l",
+    "APT_LISTCHANGES_FRONTEND": "none",
+}
+#: --force-confold keeps configuration files the device has changed. Migrations
+#: install mosquitto, sshd and journald settings; a package upgrade that put the
+#: distribution's defaults back would silently undo that hardening.
+APT_OPTIONS = (
+    "-o", "DPkg::Lock::Timeout=300",
+    "-o", "Dpkg::Options::=--force-confdef",
+    "-o", "Dpkg::Options::=--force-confold",
+)
+#: ``Inst libssl3t64 [3.5.1-1] (3.5.4-1~deb13u1 Debian-Security:13/stable [armhf])``
+#: — the bracketed installed version is absent for a package that is new.
+_APT_INST_RE = re.compile(
+    r"^Inst (?P<name>\S+) (?:\[(?P<old>[^\]]+)\] )?\((?P<new>\S+)"
+)
+
 VERBS = (
     "can-up", "can-down", "can-restart", "overlay-get", "overlay-set",
     "hostname-set",
     "ntp-get", "ntp-set",
     "mqtt-password", "mqtt-reload",
     "service-password-state", "service-password-init",
+    "os-update-state", "os-update-start", "os-update-run", "os-update-log",
 )
 
 
@@ -836,6 +887,472 @@ def _service_password_init() -> int:
     return 0
 
 
+# ----------------------------------------------------------------- OS updates
+#
+# A controller shipped a year ago still runs the kernel, OpenSSL and everything
+# else it left the factory with: updating boneIO does not touch the system under
+# it. These verbs give the panel `apt-get dist-upgrade`, and the reason they look
+# the way they do is F-04. apt run as root with anything the caller chooses is a
+# root shell — `-o APT::Update::Pre-Invoke=...`, a `.deb` path, another
+# sources.list. So the caller picks a mode from a closed set and nothing else;
+# the command lines, options and repositories are all fixed here, and what gets
+# installed is whatever the signed Debian and BeagleBoard archives already
+# configured on the device publish.
+
+
+def _os_update_list(text: str) -> list[dict[str, str | None]]:
+    """Parse the ``Inst`` lines of ``apt-get -s dist-upgrade``.
+
+    Args:
+        text: The simulation's output.
+
+    Returns:
+        One entry per package: name, installed version (None when new),
+        candidate version.
+    """
+    packages: list[dict[str, str | None]] = []
+    for line in text.splitlines():
+        match = _APT_INST_RE.match(line)
+        if match:
+            packages.append({
+                "name": match.group("name"),
+                "from": match.group("old"),
+                "to": match.group("new"),
+            })
+    return packages
+
+
+def _os_update_unit_active() -> bool:
+    """Whether an update is running right now.
+
+    Returns:
+        True while the transient unit exists and is not finished.
+    """
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", OS_UPDATE_UNIT],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.stdout.strip() in ("active", "activating", "reloading")
+
+
+def _os_update_load() -> dict:
+    """The last run's record.
+
+    Returns:
+        The stored state, or an empty dict when nothing has run yet.
+    """
+    try:
+        data = json.loads(OS_UPDATE_STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _os_update_save(state: dict) -> None:
+    """Write the run's record atomically.
+
+    Args:
+        state: What to store.
+    """
+    OS_UPDATE_STATE.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=OS_UPDATE_STATE.parent, delete=False, suffix=".tmp", mode="w",
+        encoding="utf-8",
+    ) as tmp:
+        json.dump(state, tmp, indent=1)
+        tmp_path = tmp.name
+    os.chmod(tmp_path, 0o644)
+    os.replace(tmp_path, OS_UPDATE_STATE)
+
+
+def _configured_overlay() -> tuple[str, str | None] | None:
+    """The boneIO overlay uEnv.txt asks U-Boot for, if any.
+
+    Returns:
+        ``(name, directory)`` — the directory as written, or None when the line
+        uses the bare name U-Boot resolves against /boot/dtbs/$uname_r/.
+    """
+    try:
+        uenv = _find_uenv()
+    except Refused:
+        return None
+    for line in uenv.read_text(encoding="utf-8").splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        match = _OVERLAY_LINE_RE.match(line)
+        if match:
+            return match.group("name"), match.group("dir")
+    return None
+
+
+def _on_boot(path: str) -> Path:
+    """A path from uEnv.txt, with /boot/ taken relative to BOOT_DIR."""
+    return BOOT_DIR / path[len("/boot/"):] if path.startswith("/boot/") else Path(path)
+
+
+def _overlay_to_bare_name(uenv: Path) -> int:
+    """Drop the directory from boneIO overlay lines in uEnv.txt.
+
+    Older images wrote the overlay as a full path into one kernel's dtbs
+    directory, e.g. ``/boot/dtbs/6.18.2-bone12/overlays/BONEIO-BLACK-PINS.dtbo``.
+    That keeps loading the old kernel's copy after an upgrade, and stops loading
+    anything once that kernel is removed. The bare name is what U-Boot resolves
+    against /boot/dtbs/$uname_r/, so it follows every kernel.
+
+    Args:
+        uenv: The file to edit.
+
+    Returns:
+        How many lines were changed.
+    """
+    original = uenv.read_text(encoding="utf-8")
+    lines = original.splitlines(keepends=True)
+    changed = 0
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            continue
+        match = _OVERLAY_LINE_RE.match(line.rstrip("\n"))
+        if not match or not match.group("dir"):
+            continue
+        newline = "\n" if line.endswith("\n") else ""
+        lines[index] = (
+            f"{match.group('indent')}{match.group('key')}"
+            f"{match.group('name')}{match.group('rest')}{newline}"
+        )
+        changed += 1
+    if not changed:
+        return 0
+    backup = uenv.with_suffix(uenv.suffix + ".boneio.bak")
+    if not backup.exists():
+        shutil.copy2(uenv, backup)
+    with tempfile.NamedTemporaryFile(
+        dir=uenv.parent, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+    ) as tmp:
+        tmp.write("".join(lines))
+        tmp_path = tmp.name
+    os.chmod(tmp_path, uenv.stat().st_mode & 0o7777)
+    os.replace(tmp_path, uenv)
+    _LOGGER.warning("uEnv.txt: overlay path replaced by its bare name (%d line(s))", changed)
+    return changed
+
+
+def _boot_kernel() -> str | None:
+    """The kernel U-Boot will load: ``uname_r`` in uEnv.txt."""
+    for path in UENV_PATHS:
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("uname_r="):
+                value = line.split("=", 1)[1].strip()
+                if value:
+                    return value
+    return None
+
+
+def _kernel_check(repair: bool = False) -> dict[str, str | None]:
+    """Will the next boot come up with the boneIO pinmux?
+
+    A kernel upgrade brings a new /boot/dtbs/<version>/ that has never heard of
+    the boneIO overlay. U-Boot looks the overlay up there by bare name, and when
+    it is missing it boots the stock BeagleBone pinmux without a word: 1-Wire,
+    CAN and the buzzer are simply gone, and nothing in userspace says why. The
+    kernel postinst hook (zz-boneio-overlay) is meant to copy it across; this
+    checks that it did, and with *repair* does the copy itself — only for a file
+    from VALID_OVERLAYS, only from another kernel's dtbs directory.
+
+    Args:
+        repair: Copy a missing overlay into the boot kernel's directory.
+
+    Returns:
+        ``status`` (ok, repaired, problem), ``kernel`` (what will boot),
+        ``running`` and ``message``.
+    """
+    running = os.uname().release
+    kernel = _boot_kernel()
+    report: dict[str, str | None] = {
+        "status": "ok", "kernel": kernel, "running": running, "message": None,
+    }
+
+    def _problem(message: str) -> dict[str, str | None]:
+        report["status"] = "problem"
+        report["message"] = message
+        return report
+
+    if not kernel:
+        return _problem("uEnv.txt names no kernel (uname_r)")
+    for name in (f"vmlinuz-{kernel}", f"initrd.img-{kernel}"):
+        if not (BOOT_DIR / name).is_file():
+            return _problem(f"/boot/{name} is missing")
+    dtbs = BOOT_DIR / "dtbs" / kernel
+    if not dtbs.is_dir():
+        return _problem(f"/boot/dtbs/{kernel}/ is missing")
+
+    configured = _configured_overlay()
+    if configured is None:
+        return report
+    overlay, directory = configured
+    if overlay not in VALID_OVERLAYS:
+        return _problem(f"uEnv.txt names an overlay this board does not ship: {overlay}")
+
+    notes: list[str] = []
+    if not (dtbs / overlay).is_file():
+        if not repair:
+            return _problem(f"{overlay} is missing from /boot/dtbs/{kernel}/")
+        running_dtbs = BOOT_DIR / "dtbs" / running
+        sources = [running_dtbs / overlay, running_dtbs / "overlays" / overlay]
+        sources += sorted((BOOT_DIR / "dtbs").glob(f"*/{overlay}"))
+        sources += sorted((BOOT_DIR / "dtbs").glob(f"*/overlays/{overlay}"))
+        source = next(
+            (s for s in sources if s.is_file() and dtbs not in (s.parent, s.parent.parent)),
+            None,
+        )
+        if source is None:
+            return _problem(
+                f"{overlay} is missing from /boot/dtbs/{kernel}/ and no other kernel has it"
+            )
+        (dtbs / "overlays").mkdir(exist_ok=True)
+        shutil.copy2(source, dtbs / overlay)
+        shutil.copy2(source, dtbs / "overlays" / overlay)
+        _LOGGER.warning("Copied %s from %s into /boot/dtbs/%s/", overlay, source.parent, kernel)
+        notes.append(f"{overlay} was missing for kernel {kernel}; copied from {source.parent}")
+
+    if directory:
+        # U-Boot reads exactly this path, not /boot/dtbs/$uname_r/.
+        written = f"{directory}{overlay}"
+        if repair:
+            _overlay_to_bare_name(_find_uenv())
+            notes.append(f"uEnv.txt pointed at {written}; now uses the bare name")
+        elif not _on_boot(written).is_file():
+            return _problem(f"uEnv.txt loads the overlay from {written}, which does not exist")
+        else:
+            report["message"] = (
+                f"uEnv.txt loads the overlay from {written}, not from the boot kernel's directory"
+            )
+
+    if notes:
+        report["status"] = "repaired"
+        report["message"] = "; ".join(notes)
+    return report
+
+
+def _os_update_state_verb() -> int:
+    """Print what the panel needs to show. Changes nothing.
+
+    Returns:
+        0, with a JSON object on stdout.
+    """
+    state = _os_update_load()
+    kernel = _kernel_check(repair=False)
+    reboot_reasons: list[str] = []
+    if REBOOT_REQUIRED.exists():
+        try:
+            pkgs = REBOOT_REQUIRED_PKGS.read_text(encoding="utf-8").split()
+        except OSError:
+            pkgs = []
+        reboot_reasons.append("packages: " + ", ".join(pkgs) if pkgs else "packages")
+    if kernel["kernel"] and kernel["kernel"] != kernel["running"]:
+        reboot_reasons.append(f"kernel {kernel['running']} -> {kernel['kernel']}")
+    if state.get("reboot_recommended") and (state.get("finished") or 0) > _boot_time():
+        reboot_reasons.append("core libraries updated")
+    usage = shutil.disk_usage("/")
+    print(json.dumps({
+        "running": _os_update_unit_active(),
+        "last": state or None,
+        "reboot_required": bool(reboot_reasons),
+        "reboot_reasons": reboot_reasons,
+        "kernel": kernel,
+        "free_mb": usage.free // (1024 * 1024),
+        "min_free_mb": OS_UPDATE_MIN_FREE_MB,
+    }))
+    return 0
+
+
+def _boot_time() -> float:
+    """When the running system booted, as a Unix timestamp."""
+    try:
+        for line in Path("/proc/stat").read_text(encoding="utf-8").splitlines():
+            if line.startswith("btime "):
+                return float(line.split()[1])
+    except (OSError, ValueError):
+        pass
+    return 0.0
+
+
+def _os_update_start(mode: str | None) -> int:
+    """Start a check or an upgrade in its own systemd unit, and return.
+
+    The work does not run here, and it must not: this process is a child of
+    boneio.service, and an upgrade that restarts boneIO — through needrestart,
+    or because python itself was upgraded — would kill dpkg halfway through.
+    A transient unit lives outside that cgroup, and its fixed name means
+    systemd itself refuses a second run while one is going.
+
+    Args:
+        mode: ``check`` or ``upgrade``.
+
+    Returns:
+        0 when the unit was started.
+
+    Raises:
+        Refused: For an unknown mode, or while a run is in progress.
+    """
+    if mode not in OS_UPDATE_MODES:
+        raise Refused(f"unknown mode: {mode!r}. Allowed: {', '.join(OS_UPDATE_MODES)}")
+    if _os_update_unit_active():
+        raise Refused("an operating system update is already running")
+    rc = _run([
+        "systemd-run", "--unit", OS_UPDATE_UNIT, "--collect", "--no-block", "--quiet",
+        "--description", "boneIO operating system update",
+        # boneIO runs at CPUWeight=1000; the update must not starve it.
+        "--property", "CPUWeight=50", "--property", "IOWeight=50",
+        HELPER_SELF, "os-update-run", mode,
+    ])
+    if rc == 0:
+        print(json.dumps({"started": mode}))
+    return rc
+
+
+def _in_update_unit() -> bool:
+    """Whether this process runs inside the update's own unit."""
+    try:
+        cgroup = Path("/proc/self/cgroup").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return f"/{OS_UPDATE_UNIT}" in cgroup
+
+
+def _stream(argv: list[str], log, timeout: int) -> tuple[int, str]:
+    """Run one apt step, writing its output to *log* as it comes.
+
+    A dist-upgrade on a BeagleBone configures packages for tens of minutes;
+    written only at the end, the log the panel shows sits on the step's header
+    the whole time and looks hung.
+
+    Args:
+        argv: The command, with APT_ENV as its whole environment.
+        log: Open log file.
+        timeout: Seconds before the step is killed.
+
+    Returns:
+        Exit status and the full output.
+    """
+    process = subprocess.Popen(
+        argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        env=APT_ENV, stdin=subprocess.DEVNULL, errors="replace",
+    )
+    timer = threading.Timer(timeout, process.kill)
+    timer.start()
+    output: list[str] = []
+    try:
+        assert process.stdout is not None
+        for line in process.stdout:
+            output.append(line)
+            log.write(line)
+            log.flush()
+        returncode = process.wait()
+    finally:
+        timer.cancel()
+    if returncode < 0:
+        log.write(f"\n=== killed after {timeout}s\n")
+    return returncode, "".join(output)
+
+
+def _os_update_run(mode: str | None) -> int:
+    """Do the work. Only inside the unit that os-update-start created.
+
+    Args:
+        mode: ``check`` or ``upgrade``.
+
+    Returns:
+        0 on success.
+
+    Raises:
+        Refused: For an unknown mode, or when called any other way.
+    """
+    if mode not in OS_UPDATE_MODES:
+        raise Refused(f"unknown mode: {mode!r}. Allowed: {', '.join(OS_UPDATE_MODES)}")
+    if not _in_update_unit():
+        raise Refused(f"os-update-run only runs inside {OS_UPDATE_UNIT}; use os-update-start")
+
+    state: dict = {
+        "mode": mode, "started": time.time(), "finished": None,
+        "result": "running", "step": None, "message": None,
+        "packages": [], "reboot_recommended": False, "kernel": None,
+    }
+    _os_update_save(state)
+    OS_UPDATE_LOG.parent.mkdir(parents=True, exist_ok=True)
+
+    with OS_UPDATE_LOG.open("w", encoding="utf-8") as log:
+        os.chmod(OS_UPDATE_LOG, 0o644)
+
+        def step(name: str, argv: list[str], timeout: int) -> str:
+            state["step"] = name
+            _os_update_save(state)
+            log.write(f"\n=== {name}: {' '.join(argv)}\n")
+            log.flush()
+            returncode, output = _stream(argv, log, timeout)
+            if returncode != 0:
+                raise Refused(f"{name} failed (rc={returncode})")
+            return output
+
+        try:
+            if mode == "upgrade":
+                free_mb = shutil.disk_usage("/").free // (1024 * 1024)
+                if free_mb < OS_UPDATE_MIN_FREE_MB:
+                    raise Refused(
+                        f"only {free_mb} MB free on /, {OS_UPDATE_MIN_FREE_MB} MB needed"
+                    )
+                # An upgrade cut short by a power loss leaves dpkg half-done, and
+                # apt refuses to do anything until this has run.
+                step("dpkg-configure", ["dpkg", "--configure", "-a"], 1800)
+            step("update", ["apt-get", *APT_OPTIONS, "update"], 900)
+            simulated = step(
+                "simulate", ["apt-get", *APT_OPTIONS, "-s", "dist-upgrade"], 600
+            )
+            state["packages"] = _os_update_list(simulated)
+            if mode == "upgrade" and state["packages"]:
+                step("dist-upgrade", ["apt-get", *APT_OPTIONS, "-y", "dist-upgrade"], 3 * 3600)
+                step("autoremove", ["apt-get", *APT_OPTIONS, "-y", "autoremove", "--purge"], 1800)
+                step("clean", ["apt-get", "clean"], 300)
+                state["reboot_recommended"] = any(
+                    p["name"].startswith(REBOOT_PACKAGE_PREFIXES) for p in state["packages"]
+                )
+            if mode == "upgrade":
+                state["kernel"] = _kernel_check(repair=True)
+                log.write(f"\n=== kernel check: {json.dumps(state['kernel'])}\n")
+            state["result"] = (
+                "problem" if (state["kernel"] or {}).get("status") == "problem" else "success"
+            )
+        except (Refused, OSError, subprocess.SubprocessError) as exc:
+            state["result"] = "failed"
+            state["message"] = str(exc)
+            log.write(f"\n=== FAILED: {exc}\n")
+        finally:
+            state["finished"] = time.time()
+            state["step"] = None
+            _os_update_save(state)
+
+    _LOGGER.info("os-update %s: %s (%d package(s))", mode, state["result"], len(state["packages"]))
+    return 0 if state["result"] == "success" else 1
+
+
+def _os_update_log() -> int:
+    """Print the end of the last run's log.
+
+    Returns:
+        0, with the log text on stdout (empty when nothing has run).
+    """
+    try:
+        lines = OS_UPDATE_LOG.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    print("\n".join(lines[-OS_UPDATE_LOG_TAIL:]))
+    return 0
+
+
 # ----------------------------------------------------------------- selftest
 
 
@@ -931,6 +1448,14 @@ def main(argv: list[str] | None = None) -> int:
             return _ntp_get()
         if args.verb == "ntp-set":
             return _ntp_set(args.argument)
+        if args.verb == "os-update-state":
+            return _os_update_state_verb()
+        if args.verb == "os-update-start":
+            return _os_update_start(args.argument)
+        if args.verb == "os-update-run":
+            return _os_update_run(args.argument)
+        if args.verb == "os-update-log":
+            return _os_update_log()
         raise Refused(f"unknown verb {args.verb!r}. Allowed: {', '.join(VERBS)}")
     except Refused as exc:
         _LOGGER.error("REFUSED: %s", exc)

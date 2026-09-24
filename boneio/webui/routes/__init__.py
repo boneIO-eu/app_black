@@ -10,6 +10,7 @@ from boneio.webui.routes.irrigation import router as irrigation_router
 from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.modbus import router as modbus_router
 from boneio.webui.routes.nodered import router as nodered_router
+from boneio.webui.routes.os_update import router as os_update_router
 from boneio.webui.routes.onboarding import router as onboarding_router
 from boneio.webui.routes.mqtt_reference import router as mqtt_reference_router
 from boneio.webui.routes.outputs import router as outputs_router
@@ -39,6 +40,7 @@ __all__ = [
     "modbus_router",
     "nodered_router",
     "onboarding_router",
+    "os_update_router",
     "mqtt_reference_router",
     "outputs_router",
     "remote_devices_router",

@@ -70,6 +70,7 @@ from boneio.webui.routes import (
     modbus_router,
     nodered_router,
     onboarding_router,
+    os_update_router,
     mqtt_reference_router,
     outputs_router,
     remote_devices_router,
@@ -190,6 +191,7 @@ app.include_router(security_router)
 app.include_router(diagnostics_router)
 app.include_router(nodered_router)
 app.include_router(onboarding_router)
+app.include_router(os_update_router)
 app.include_router(can_router)
 app.include_router(remote_devices_router)
 app.include_router(templates_router)

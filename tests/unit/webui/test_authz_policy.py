@@ -161,6 +161,8 @@ def test_viewer_may_operate_the_device(path):
         "/api/remote-devices/discover-wled",
         "/api/remote-devices/discover-esphome",
         "/api/nodered/update/perform",
+        "/api/os-update/check",
+        "/api/os-update/upgrade",
         "/api/caddy/config",
         "/api/can/send",
         "/api/migrations/apply",
