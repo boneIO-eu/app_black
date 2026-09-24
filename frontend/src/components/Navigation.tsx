@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece, FaEllipsisH, FaChevronRight } from 'react-icons/fa';
+import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece, FaEllipsisH, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect, useState } from 'react';
@@ -22,11 +22,8 @@ export default function Navigation() {
 
   // Derive from init data (single API call, no duplicates)
   const version = initData?.version || '';
-  const serialNo = initData?.serial_no || '';
   const serialOverride = initData?.serial_override || '';
   const pwaName = initData?.pwa_name || '';
-  const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
-    ? initData.cloud.domain : '';
 
   useEffect(() => {
     if (deviceName) {
@@ -36,7 +33,7 @@ export default function Navigation() {
 
   return (
     <>
-      <div className="top-0 z-30 sticky gap-3 bg-base-200 px-4 border-base-content/10 border-b navbar">
+      <div className="top-0 z-30 sticky gap-3 bg-base-200 px-4 border-base-content/10 border-b navbar xl:min-h-12 xl:py-0">
         <div className="flex flex-1 items-center gap-3 min-w-0">
           <a className="xl:mx-2 text-xl normal-case shrink-0">
             <Logo />
@@ -50,35 +47,27 @@ export default function Navigation() {
               {pwaName && <span className="opacity-60 truncate">{pwaName}</span>}
             </div>
           )}
-          <div className="hidden xl:flex flex-col xl:ml-4 text-xs">
-            {deviceName && (
-              <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
-            )}
-            {version && (
-              <span><span className="opacity-60">v</span>{version}</span>
-            )}
-            {serialNo && (
-              <span>
-                <span className="opacity-60">S/N:</span> {serialNo}
-                {serialOverride && (
-                  <span className="ml-1 font-semibold text-warning">
-                    (as: {serialOverride})
-                  </span>
-                )}
-              </span>
-            )}
-            {cloudDomain && (
-              <a
-                href={`https://${cloudDomain}:8443`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="max-w-48 hover:underline no-underline truncate link link-primary"
-                title={`https://${cloudDomain}:8443`}
+          {/* xl: the name stays in sight, the rest (version, serial, cloud
+              link) is one click away instead of three lines of small print. */}
+          {deviceName && (
+            <div className="hidden xl:block dropdown">
+              <div
+                tabIndex={0}
+                role="button"
+                className="flex items-center gap-2 h-9 px-3 rounded-lg border border-base-content/15 bg-base-100/60 hover:bg-base-100 text-sm cursor-pointer max-w-80"
+                title={t('navigation.device_details')}
+                aria-label={`${deviceName} — ${t('navigation.device_details')}`}
               >
-                {cloudDomain}
-              </a>
-            )}
-          </div>
+                <span className="font-medium truncate">{deviceName}</span>
+                {version && <span className="opacity-60 shrink-0">v{version}</span>}
+                {serialOverride && <span className="badge badge-warning badge-xs shrink-0">as</span>}
+                <FaChevronDown className="w-3 h-3 opacity-50 shrink-0" />
+              </div>
+              <div tabIndex={0} className="dropdown-content z-40 mt-2 w-80 p-4 rounded-box bg-base-100 shadow-xl border border-base-content/10">
+                <DeviceDetails className="flex flex-col gap-1.5 text-sm" />
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex xl:gap-2 shrink-0">
           <ThemeChanger />
@@ -121,7 +110,7 @@ export default function Navigation() {
       </div>
       {/* Desktop second row: navigation menu. Solid background: at /80 the
         page's own sub-navigation showed through it while scrolling. */}
-      <div className="hidden xl:block top-16 z-20 sticky bg-base-200 border-base-content/10 border-b">
+      <div className="hidden xl:block top-12 z-20 sticky bg-base-200 border-base-content/10 border-b">
         <Menu />
       </div>
     </>
@@ -308,7 +297,7 @@ export function BottomNav() {
 }
 
 /** Version, serial and cloud link: what the xl header shows, for the sheet. */
-function DeviceDetails() {
+function DeviceDetails({ className = 'flex flex-col gap-1 opacity-80 mt-1 px-4 pt-3 border-base-300 border-t text-sm' }: { className?: string }) {
   const { data: initData } = useAppInit();
   const deviceName = initData?.name || '';
   const version = initData?.version || '';
@@ -318,7 +307,7 @@ function DeviceDetails() {
     ? initData.cloud.domain : '';
 
   return (
-    <div className="flex flex-col gap-1 opacity-80 mt-1 px-4 pt-3 border-base-300 border-t text-sm">
+    <div className={className}>
       {deviceName && (
         <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
       )}
