@@ -156,6 +156,59 @@ def test_lox_send_message_dict_with_value_key(config_helper_mock):
     client._transport.sendto.assert_called_once_with(b"temp1=22.5", ("127.0.0.1", 4444))
 
 
+def test_lox_send_message_modbus_splits_register_group(config_helper_mock):
+    """A Modbus register group goes out as one datagram per entity."""
+    client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
+    client._transport = MagicMock()
+
+    client.send_message("boneio/blk123/modbus/sht20/1", {"temperature": 21.4, "humidity": 48.25})
+    assert [c.args[0] for c in client._transport.sendto.call_args_list] == [
+        b"sht20.temperature=21.4",
+        b"sht20.humidity=48.25",
+    ]
+
+
+def test_lox_send_message_modbus_value_formatting(config_helper_mock):
+    """Floats are rounded, ON/OFF become 1/0, empty readings are skipped."""
+    client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
+    client._transport = MagicMock()
+
+    client.send_message(
+        "boneio/blk123/modbus/meter/0",
+        {"power": 1200.0, "voltage": 230.123456, "relay": "ON", "alarm": "OFF",
+         "mode": "Auto", "missing": None, "derived": "", "bad": float("nan")},
+    )
+    assert [c.args[0] for c in client._transport.sendto.call_args_list] == [
+        b"meter.power=1200",
+        b"meter.voltage=230.1235",
+        b"meter.relay=1",
+        b"meter.alarm=0",
+        b"meter.mode=Auto",
+    ]
+
+
+def test_lox_send_message_modbus_availability(config_helper_mock):
+    """Modbus online/offline goes out as <device>.online=1|0."""
+    client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
+    client._transport = MagicMock()
+
+    client.send_message("boneio/blk123/modbus/sht20/state", "online")
+    client.send_message("boneio/blk123/modbus/sht20/state", "offline")
+    assert [c.args[0] for c in client._transport.sendto.call_args_list] == [
+        b"sht20.online=1",
+        b"sht20.online=0",
+    ]
+
+
+def test_lox_send_message_modbus_skips_polling_switch(config_helper_mock):
+    """The polling enable switch is a UI control, not a reading."""
+    client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
+    client._transport = MagicMock()
+
+    client.send_message("boneio/blk123/modbus/sht20/polling", {"state": "ON"})
+    client._transport.sendto.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_lox_handle_incoming(config_helper_mock, manager_mock):
     """Test incoming UDP payload is parsed and executed directly on output."""

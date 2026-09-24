@@ -5,18 +5,20 @@ between BoneIO and a Loxone Miniserver:
 
 - Receiving commands from Miniserver (e.g. "OUT_04=ON")
 - Sending state feedback to Miniserver (e.g. "OUT_04=ON", "cover1=50")
+- Sending Modbus device readings (e.g. "sht20.temperature=21.4")
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import socket
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import NONE as OUTPUT_NONE
-from boneio.const import cover_actions, output_actions
+from boneio.const import OFF, ON, ONLINE, cover_actions, output_actions
 from boneio.core.messaging.basic import MessageBus
 
 if TYPE_CHECKING:
@@ -28,6 +30,49 @@ _LOGGER = logging.getLogger(__name__)
 
 # Entity types whose state changes should be forwarded to Loxone
 _LOX_ENTITY_TYPES = frozenset(("output", "cover", "sensor", "event", "binary_sensor", "input"))
+
+# Modbus coordinators publish one dict per register group, so these topics
+# get their own translation (see LoxUDPClient._send_modbus).
+_LOX_MODBUS_TYPE = "modbus"
+
+
+def modbus_lox_key(device_id: str, entity_name: str) -> str:
+    """Key under which a Modbus entity reading is sent to the Miniserver.
+
+    Shared with the Lox Config template generator, so the Check pattern
+    in the template always matches what goes out on the wire.
+    """
+    return f"{device_id}.{entity_name}"
+
+
+def modbus_lox_availability_key(device_id: str) -> str:
+    """Key under which a Modbus device's availability (1/0) is sent."""
+    return f"{device_id}.online"
+
+
+def format_modbus_value(value: Any) -> str | None:
+    """Turn a Modbus entity state into something Loxone's \\v can parse.
+
+    Numbers go out as plain decimals, ON/OFF as 1/0. Text states (text
+    sensors, selects) are sent verbatim. Empty and missing readings
+    return None and are not sent at all.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        rounded = round(value, 4)
+        return str(int(rounded)) if rounded.is_integer() else str(rounded)
+    if isinstance(value, str):
+        upper = value.upper()
+        if upper == ON:
+            return "1"
+        if upper == OFF:
+            return "0"
+    return str(value)
 
 
 class LoxUDPProtocol(asyncio.DatagramProtocol):
@@ -100,6 +145,10 @@ class LoxUDPClient(MessageBus):
     Outgoing (BoneIO → Miniserver):
         topic "boneio/{serial}/output/relay1" + payload {"state": "ON"}
         → UDP datagram "relay1=ON" sent to Miniserver
+
+    Modbus (BoneIO → Miniserver):
+        topic "boneio/{serial}/modbus/sht20/1" + payload {"temperature": 21.4, "humidity": 48.2}
+        → UDP datagrams "sht20.temperature=21.4" and "sht20.humidity=48.2"
 
     Incoming (Miniserver → BoneIO):
         UDP datagram "relay1=ON"
@@ -177,6 +226,10 @@ class LoxUDPClient(MessageBus):
         entity_type = parts[2] if len(parts) >= 3 else ""
         suffix = parts[-1] if len(parts) >= 5 else ""
 
+        if entity_type == _LOX_MODBUS_TYPE:
+            self._send_modbus(parts, payload)
+            return
+
         # For topics with suffix (state/pos), device_id is parts[-2]
         if suffix in ("state", "pos", "set"):
             device_id = parts[-2]
@@ -197,6 +250,36 @@ class LoxUDPClient(MessageBus):
             return
 
         self._send_udp(device_id, state_value)
+
+    def _send_modbus(
+        self,
+        parts: list[str],
+        payload: str | int | bytes | dict[str, Any] | HomeAssistantDiscoveryMessage,
+    ) -> None:
+        """Forward a Modbus coordinator message, one datagram per entity.
+
+        Topics: boneio/{serial}/modbus/{device_id}/{register_base}  (readings)
+                boneio/{serial}/modbus/{device_id}/state            (online/offline)
+        The polling switch topic (.../polling) is a UI control, not a
+        reading, and is not forwarded.
+        """
+        if len(parts) != 5:
+            return
+        device_id, leaf = parts[3], parts[4]
+
+        if leaf == "state":
+            online = self._extract_state_value(payload) == ONLINE
+            self._send_udp(modbus_lox_availability_key(device_id), "1" if online else "0")
+            return
+
+        if not leaf.isdigit() or not isinstance(payload, dict):
+            return
+
+        for entity_name, value in payload.items():
+            formatted = format_modbus_value(value)
+            if formatted is None:
+                continue
+            self._send_udp(modbus_lox_key(device_id, entity_name), formatted)
 
     @staticmethod
     def _extract_state_value(
