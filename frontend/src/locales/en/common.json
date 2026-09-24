@@ -16,7 +16,6 @@
     "irrigation": "Irrigation",
     "diagnostics": "Diagnostics",
     "more": "More",
-    "device_details": "Device details",
     "version": "Version",
     "serial": "Serial number",
     "serial_override": "presents as {{serial}}",

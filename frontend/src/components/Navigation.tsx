@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece, FaEllipsisH, FaChevronRight, FaChevronDown } from 'react-icons/fa';
+import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece, FaEllipsisH, FaChevronRight } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect, useState } from 'react';
@@ -22,8 +22,11 @@ export default function Navigation() {
 
   // Derive from init data (single API call, no duplicates)
   const version = initData?.version || '';
+  const serialNo = initData?.serial_no || '';
   const serialOverride = initData?.serial_override || '';
   const pwaName = initData?.pwa_name || '';
+  const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
+    ? initData.cloud.domain : '';
 
   useEffect(() => {
     if (deviceName) {
@@ -47,25 +50,40 @@ export default function Navigation() {
               {pwaName && <span className="opacity-60 truncate">{pwaName}</span>}
             </div>
           )}
-          {/* xl: the name stays in sight, the rest (version, serial, cloud
-              link) is one click away instead of three lines of small print. */}
+          {/* xl: plain text, not a control — the name, and under it the
+              version, serial and cloud link in small print. Two lines fit
+              the 48px row, and nothing is hidden behind a click. */}
           {deviceName && (
-            <div className="hidden xl:block dropdown">
-              <div
-                tabIndex={0}
-                role="button"
-                className="flex items-center gap-2 h-9 px-3 rounded-lg border border-base-content/15 bg-base-100/60 hover:bg-base-100 text-sm cursor-pointer max-w-80"
-                title={t('navigation.device_details')}
-                aria-label={`${deviceName} — ${t('navigation.device_details')}`}
-              >
-                <span className="font-medium truncate">{deviceName}</span>
-                {version && <span className="opacity-60 shrink-0">v{version}</span>}
-                {serialOverride && <span className="badge badge-warning badge-xs shrink-0">as</span>}
-                <FaChevronDown className="w-3 h-3 opacity-50 shrink-0" />
-              </div>
-              <div tabIndex={0} className="dropdown-content z-40 mt-2 w-80 p-4 rounded-box bg-base-100 shadow-xl border border-base-content/10">
-                <DeviceDetails />
-              </div>
+            <div className="hidden xl:flex flex-col justify-center min-w-0 pl-4 border-l border-base-content/15 leading-tight">
+              <span className="text-sm font-semibold truncate">{deviceName}</span>
+              <span className="flex items-center gap-1.5 text-xs text-base-content/60 whitespace-nowrap">
+                {version && <span>{t('navigation.version')} <span className="font-mono">{version}</span></span>}
+                {serialNo && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>S/N <span className="font-mono">{serialNo}</span></span>
+                  </>
+                )}
+                {serialOverride && (
+                  <span className="font-semibold text-warning">
+                    ({t('navigation.serial_override', { serial: serialOverride })})
+                  </span>
+                )}
+                {cloudDomain && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <a
+                      href={`https://${cloudDomain}:8443`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link link-primary no-underline hover:underline truncate max-w-56"
+                      title={`https://${cloudDomain}:8443`}
+                    >
+                      {cloudDomain}
+                    </a>
+                  </>
+                )}
+              </span>
             </div>
           )}
         </div>
