@@ -939,6 +939,77 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
     return config_content
 
 
+
+
+_MQTT_PASSWORD_LINE = re.compile(r"^(?P<indent>\s*)password:\s*(?P<value>.*?)\s*$", re.MULTILINE)
+_SECRET_REF = re.compile(r"^!secret\s+(?P<name>\S+)$")
+
+
+def _current_mqtt_password(config_dir: str) -> str | None:
+    """The password boneIO signs in to its broker with, before a reset.
+
+    Read from mqtt.yaml, following ``!secret`` into secrets.yaml. None when
+    there is no mqtt.yaml, it has no password, or the secret cannot be found —
+    then the reset keeps the example's value, as it always did.
+    """
+    mqtt_path = os.path.join(config_dir, "mqtt.yaml")
+    try:
+        with open(mqtt_path, encoding="utf-8") as f:
+            match = _MQTT_PASSWORD_LINE.search(f.read())
+    except OSError:
+        return None
+    if not match:
+        return None
+    ref = _SECRET_REF.match(match.group("value"))
+    if ref is None:
+        import yaml
+
+        try:
+            value = yaml.safe_load(match.group("value"))
+        except yaml.YAMLError:
+            return None
+        return str(value) if value not in (None, "") else None
+    try:
+        secrets = load_yaml_file(os.path.join(config_dir, "secrets.yaml")) or {}
+    except Exception:  # noqa: BLE001 — an unreadable secrets.yaml is "unknown"
+        return None
+    found = secrets.get(ref.group("name")) if isinstance(secrets, dict) else None
+    return str(found) if found is not None else None
+
+
+def _keep_mqtt_password(config_dir: str, password: str) -> None:
+    """Point the reset mqtt.yaml at secrets.yaml, holding the device's password.
+
+    Images draw the broker's password per device at first boot. The example
+    configs say "boneio123", so a reset that copied them as they are left boneIO
+    unable to reach its own broker. The broker account is the device's, not
+    part of the board configuration a reset restores.
+    """
+    mqtt_path = os.path.join(config_dir, "mqtt.yaml")
+    with open(mqtt_path, encoding="utf-8") as f:
+        content = f.read()
+    new_content, count = _MQTT_PASSWORD_LINE.subn(
+        lambda m: f"{m.group('indent')}password: !secret mqtt_password", content, count=1
+    )
+    if not count:
+        return
+    secrets_path = os.path.join(config_dir, "secrets.yaml")
+    try:
+        with open(secrets_path, encoding="utf-8") as f:
+            secrets_text = f.read()
+    except FileNotFoundError:
+        secrets_text = ""
+    quoted = '"' + password.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    line = f"mqtt_password: {quoted}"
+    if re.search(r"^mqtt_password:.*$", secrets_text, re.MULTILINE):
+        secrets_text = re.sub(r"^mqtt_password:.*$", lambda _m: line, secrets_text, count=1, flags=re.MULTILINE)
+    else:
+        secrets_text = (secrets_text.rstrip("\n") + "\n" if secrets_text.strip() else "") + line + "\n"
+    write_atomically(secrets_path, secrets_text, mode=0o600)
+    write_atomically(mqtt_path, new_content)
+    _LOGGER.info("Factory reset kept this device's MQTT password (in secrets.yaml)")
+
+
 @router.post("/factory_reset")
 async def factory_reset(request: FactoryResetRequest):
     """
@@ -996,6 +1067,9 @@ async def factory_reset(request: FactoryResetRequest):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = os.path.join(backup_dir, f"config_backup_{timestamp}")
         
+        # The device's broker password, which the example configs do not have.
+        mqtt_password = _current_mqtt_password(config_dir)
+
         # Copy all yaml files from config_dir to backup
         yaml_files = glob.glob(os.path.join(config_dir, "*.yaml"))
         if yaml_files:
@@ -1004,8 +1078,12 @@ async def factory_reset(request: FactoryResetRequest):
                 shutil.copy2(yaml_file, backup_path)
             _LOGGER.info(f"Configuration backup created at {backup_path}")
         
-        # Step 2: Remove old configuration files and state
+        # Step 2: Remove old configuration files and state. Not secrets.yaml:
+        # it is where the owner keeps credentials, not board configuration,
+        # and it is in the backup either way.
         for yaml_file in yaml_files:
+            if os.path.basename(yaml_file) in ("secrets.yaml", "secrets.yml"):
+                continue
             os.remove(yaml_file)
             _LOGGER.info(f"Removed old config file: {os.path.basename(yaml_file)}")
         
@@ -1045,6 +1123,9 @@ async def factory_reset(request: FactoryResetRequest):
             copied_files.append(filename)
             _LOGGER.info(f"Copied {filename} to {config_dir}")
         
+        if mqtt_password and os.path.exists(os.path.join(config_dir, "mqtt.yaml")):
+            _keep_mqtt_password(config_dir, mqtt_password)
+
         _LOGGER.info(f"Factory reset completed for device type: {device_type}, version: {version}")
         
         return {
