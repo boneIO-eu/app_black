@@ -11,12 +11,14 @@ per-device MQTT password into secrets.yaml, which is only safe — and only fast
 from __future__ import annotations
 
 import pickle
+import re
 import shutil
 from pathlib import Path
 
 import pytest
 
 from boneio.core.config import yaml_util
+from boneio.core.config.migrations import CURRENT_SCHEMA_VERSION
 
 EXAMPLE = Path(yaml_util.__file__).resolve().parents[2] / "example_config" / "32x10"
 
@@ -39,6 +41,12 @@ def config_dir(tmp_path):
         mqtt.read_text().replace("password: boneio123", "password: !secret mqtt_password")
     )
     (target / "secrets.yaml").write_text("mqtt_password: first-password\n")
+    # Already migrated: a load that migrates writes no cache, and these tests
+    # are about the cache.
+    main = target / "config.yaml"
+    main.write_text(
+        re.sub(r"config_version: \d+", f"config_version: {CURRENT_SCHEMA_VERSION}", main.read_text())
+    )
     return target
 
 

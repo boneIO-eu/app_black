@@ -587,3 +587,75 @@ def set_secret(secrets_file: str | Path, name: str, value: str) -> None:
 
     write_atomically(file_path, "".join(lines))
     _LOGGER.info("Wrote the secret %s", name)
+
+
+@_locked
+def move_to_secret(config_file: str | Path, path: tuple[str, ...], name: str) -> str | None:
+    """Move a plain value into secrets.yaml and leave a ``!secret`` in its place.
+
+    The secrets file is the one beside the file holding the field — that is
+    where BoneIOLoader looks for it — and is created, 0600, when missing. A
+    name already taken by a different value is not overwritten; the value goes
+    under ``<name>_2``, ``<name>_3``… instead.
+
+    Args:
+        config_file: Path to config.yaml.
+        path: Field path, outermost first, e.g. ``("mqtt", "password")``.
+        name: The secret's preferred name.
+
+    Returns:
+        The name the value went under, or None when there was nothing to move:
+        the field is missing, empty, or already a reference.
+
+    Raises:
+        YamlPatchError: If secrets.yaml is there but is not a mapping — adding
+            a line to a file the loader cannot read would hide the value.
+    """
+    import os
+
+    import yaml
+
+    file_path, inner = resolve_field(config_file, path)
+    if not file_path.is_file():
+        return None
+    lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    index = _find_section_line(lines, inner)
+    if index is None:
+        return None
+    parsed = _line_key(lines[index])
+    if parsed is None or _SECRET_REFERENCE.match(_strip_comment(parsed[2])):
+        return None
+    try:
+        value = yaml.safe_load(parsed[2]) if parsed[2] else None
+    except yaml.YAMLError as err:
+        raise YamlPatchError(f"{file_path.name}: cannot read {'.'.join(inner)}") from err
+    if value is None or value == "" or isinstance(value, (dict, list)):
+        return None
+    value = str(value)
+
+    secrets_file = file_path.parent / "secrets.yaml"
+    existing: dict = {}
+    if secrets_file.is_file():
+        try:
+            loaded = yaml.safe_load(secrets_file.read_text(encoding="utf-8"))
+        except yaml.YAMLError as err:
+            raise YamlPatchError(f"{secrets_file} is not valid YAML") from err
+        if loaded is not None and not isinstance(loaded, dict):
+            raise YamlPatchError(f"{secrets_file} is not a mapping")
+        existing = loaded or {}
+    else:
+        write_atomically(secrets_file, "", mode=0o600)
+
+    chosen, suffix = name, 1
+    while chosen in existing and str(existing[chosen]) != value:
+        suffix += 1
+        chosen = f"{name}_{suffix}"
+    if chosen not in existing:
+        set_secret(secrets_file, chosen, value)
+    # It holds a password now, whatever it held before.
+    os.chmod(secrets_file, 0o600)
+
+    lines[index] = f"{' ' * parsed[1]}{inner[-1]}: !secret {chosen}\n"
+    write_atomically(file_path, "".join(lines))
+    _LOGGER.info("Moved %s in %s to secrets.yaml as %s", ".".join(inner), file_path.name, chosen)
+    return chosen

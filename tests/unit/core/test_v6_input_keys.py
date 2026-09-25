@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import yaml
 
-from boneio.core.config.migrations import _has_legacy_fields, run_migrations
+from boneio.core.config.migrations import (
+    CURRENT_SCHEMA_VERSION,
+    _has_legacy_fields,
+    run_migrations,
+)
 from boneio.core.config.migrations.v6_input_keys import (
     _persist_input_keys,
     migrate_v6_input_keys,
@@ -108,9 +112,9 @@ def test_run_migrations_from_v5_persists(tmp_path):
     )
     doc = yaml.safe_load(config_file.read_text())
     doc, version = run_migrations(doc, config_file=str(config_file))
-    assert version == 6
+    assert version == CURRENT_SCHEMA_VERSION
     assert doc["event"] == [{"name": "IN_01"}]
     content = config_file.read_text()
     assert "gpio_mode" not in content
     assert "clear_message" not in content
-    assert "config_version: 6" in content
+    assert f"config_version: {CURRENT_SCHEMA_VERSION}" in content

@@ -1917,9 +1917,16 @@ def _full_config_validation(
     if not _is_downgraded:
         _check_virtual_switch_references(merged_doc)
 
-    # Save to cache for next startup
-    _progress("Saving cache...")
-    _save_config_cache(config_file, merged_doc)
+    # Save to cache for next startup — unless a migration just rewrote the
+    # files. The document in hand was read before that, so it no longer says
+    # what they say (v7 moves a password behind !secret: cached from here, it
+    # would sit in .cache.pkl by value and a later change in secrets.yaml would
+    # not be seen). The next start reads the files as they are now.
+    if migrations_applied:
+        _LOGGER.info("Config migrated; the cache is written on the next start")
+    else:
+        _progress("Saving cache...")
+        _save_config_cache(config_file, merged_doc)
 
     return merged_doc
 
