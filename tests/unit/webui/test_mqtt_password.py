@@ -297,8 +297,11 @@ class TestAdoptingTheNewPassword:
             result = await change_mqtt_password(self._request(update_config=True), manager)
 
         assert result["status"] == "success"
-        assert result["config"] == {"status": "adopted", "written_to": "config"}
-        assert 'password: "nowe-haslo-123"' in config_file.read_text()
+        # Into secrets.yaml, not the config: a password in config.yaml goes
+        # with every backup (migration v7 moved the old ones out).
+        assert result["config"] == {"status": "adopted", "written_to": "secret"}
+        assert "password: !secret mqtt_password" in config_file.read_text()
+        assert 'mqtt_password: "nowe-haslo-123"' in (tmp_path / "secrets.yaml").read_text()
 
     @pytest.mark.asyncio
     async def test_the_device_reconnects_instead_of_waiting_for_a_restart(self, tmp_path):
@@ -438,8 +441,9 @@ class TestAdoptingTheNewPassword:
             ops.mqtt_reload.return_value = MagicMock(ok=True, stderr="")
             result = await change_mqtt_password(self._request(update_config=True), manager)
 
-        assert result["config"] == {"status": "adopted", "written_to": "config"}
-        assert 'password: "nowe-haslo-123"' in included.read_text()
+        assert result["config"] == {"status": "adopted", "written_to": "secret"}
+        assert "password: !secret mqtt_password" in included.read_text()
+        assert 'mqtt_password: "nowe-haslo-123"' in (tmp_path / "secrets.yaml").read_text()
         assert config_file.read_text() == "mqtt: !include mqtt.yaml\n"
 
     @pytest.mark.asyncio

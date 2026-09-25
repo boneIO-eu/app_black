@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import glob
+import ipaddress
 import logging
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 from datetime import datetime
@@ -1262,10 +1264,6 @@ async def get_mqtt_username():
         The configured username, the broker host, and whether that host is
         this device.
     """
-    #: Hosts that mean "the broker installed here". An empty host is the
-    #: client library's own default, which is loopback.
-    local_hosts = {"localhost", "127.0.0.1", "::1", ""}
-
     username = "boneio"
     host = ""
     known = False
@@ -1287,7 +1285,7 @@ async def get_mqtt_username():
         "status": "success",
         "username": username,
         "host": host,
-        "uses_local_broker": known and host.lower() in local_hosts,
+        "uses_local_broker": known and is_local_broker_host(host),
         # False means the fields above are a guess, and the panel should not
         # claim anything about which account belongs to the application.
         "known": known,
@@ -1310,6 +1308,45 @@ class MqttPasswordChangeRequest(BaseModel):
 LOCAL_BROKER_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", ""})
 
 
+def is_local_broker_host(host: str) -> bool:
+    """Whether ``mqtt.host`` names the broker installed on this controller.
+
+    Besides loopback, people often write the device's own address or name —
+    copied from the panel's address bar, or the same config.yaml used by Home
+    Assistant on another machine. Those reach the same broker, so the
+    password change has to reach the configuration as well.
+
+    No DNS lookup: a name counts only when it is this device's own hostname
+    (or that name with ``.local``). An address counts when it is loopback or
+    one this device can bind to, which is exactly "one of its own".
+
+    Args:
+        host: The configured broker host.
+
+    Returns:
+        True when the host is this device.
+    """
+    name = host.strip().lower().strip("[]")
+    if name in LOCAL_BROKER_HOSTS:
+        return True
+    own = socket.gethostname().lower()
+    if name in {own, f"{own}.local"}:
+        return True
+    try:
+        address = ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    if address.is_loopback:
+        return True
+    family = socket.AF_INET6 if address.version == 6 else socket.AF_INET
+    try:
+        with socket.socket(family, socket.SOCK_DGRAM) as probe:
+            probe.bind((name, 0))
+    except OSError:
+        return False
+    return True
+
+
 def _store_broker_password(config_file: str, password: str) -> str:
     """Write a new broker password where this device reads its own from.
 
@@ -1320,10 +1357,11 @@ def _store_broker_password(config_file: str, password: str) -> str:
         password: The password just set in the broker.
 
     Returns:
-        ``"config"``, or ``"secret"`` when the field defers to secrets.yaml and
-        the password was written there instead — which is the whole reason this
-        does not simply overwrite the line: ``password: !secret mqtt_pass``
-        usually means config.yaml is somewhere the password must not be.
+        ``"secret"`` when the password ended up in secrets.yaml — always
+        when the field already defers there (``password: !secret mqtt_pass``
+        usually means config.yaml is somewhere the password must not be), and
+        otherwise after moving a plain value there. ``"config"`` only when
+        that move failed.
 
     Raises:
         YamlPatchError: If the mqtt section cannot be edited, such as an
@@ -1331,6 +1369,8 @@ def _store_broker_password(config_file: str, password: str) -> str:
     """
     from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
     from boneio.core.config.yaml_patch import (
+        YamlPatchError,
+        move_to_secret,
         resolve_field,
         secret_reference,
         set_scalar,
@@ -1350,6 +1390,13 @@ def _store_broker_password(config_file: str, password: str) -> str:
             set_secret(target.parent / "secrets.yaml", reference, password)
             return "secret"
         set_scalar(config_file, field, password)
+        # And out of the config again: a password written there travels with
+        # every backup, which is what migration v7 moved it away from.
+        try:
+            if move_to_secret(config_file, field, "mqtt_password"):
+                return "secret"
+        except YamlPatchError as err:
+            _LOGGER.warning("New broker password left in the config: %s", err)
         return "config"
 
 
@@ -1381,8 +1428,8 @@ async def _adopt_broker_password(manager: Manager, username: str, password: str)
         if not isinstance(mqtt, dict):
             return {"status": "skipped", "reason": "no_mqtt_section"}
 
-        host = str(mqtt.get("host") or "").strip().lower()
-        if host not in LOCAL_BROKER_HOSTS:
+        host = str(mqtt.get("host") or "")
+        if not is_local_broker_host(host):
             return {"status": "skipped", "reason": "remote_broker"}
 
         configured = str(mqtt.get("username") or "boneio")
