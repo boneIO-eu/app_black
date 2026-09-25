@@ -10,11 +10,14 @@ import asyncio
 import contextlib
 import logging
 import os
+import shutil
+import tempfile
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from boneio.core.atomic_file import write_atomically
+from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 from boneio.hardware.can.client import CANOPEN_AVAILABLE, CANopenClient
 from boneio.hardware.can.node import (
     BoneIOCANNode,
@@ -32,6 +35,59 @@ HEARTBEAT_INTERVAL = 1.0
 
 # Node timeout in seconds (consider offline if no heartbeat)
 NODE_TIMEOUT = 5.0
+
+
+def _store_sdo_config(config_path: str, config_str: str) -> bool:
+    """Replace config.yaml with a payload pushed over CAN, if it would load.
+
+    Anything on the bus can write this object, and whatever lands in
+    config.yaml is what the controller boots from. So the payload goes
+    through the same validation as a startup first — as a file in the config
+    directory, so its ``!include`` and ``!secret`` resolve the way they will
+    for real — and the file it replaces is kept beside it.
+
+    Args:
+        config_path: The controller's config.yaml.
+        config_str: The pushed configuration.
+
+    Returns:
+        True if config.yaml now holds the payload, False if it was refused.
+    """
+    from boneio.core.config.yaml_util import load_config_from_file
+
+    config_dir = os.path.dirname(config_path)
+    fd, candidate = tempfile.mkstemp(dir=config_dir, prefix=".sdo-config.", suffix=".yaml")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(config_str)
+        # Outside the lock: validation takes seconds, and other saves would
+        # wait for all of it.
+        try:
+            loaded = load_config_from_file(candidate)
+        except Exception as err:
+            _LOGGER.error("Rejected configuration pushed over CAN: %s", err)
+            return False
+        if not loaded:
+            _LOGGER.error("Rejected configuration pushed over CAN: it is empty")
+            return False
+    finally:
+        # The validation also leaves a cache next to the file it read.
+        for leftover in (candidate, candidate + ".cache.pkl"):
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(leftover)
+
+    backup = config_path + ".sdo.bak"
+    with CONFIG_WRITE_LOCK:
+        if os.path.exists(config_path):
+            shutil.copy2(config_path, backup)
+        write_atomically(config_path, config_str)
+    _LOGGER.warning(
+        "Replaced %s with a configuration pushed over CAN. The previous one "
+        "is at %s.",
+        config_path,
+        backup,
+    )
+    return True
 
 
 class CANopenManager:
@@ -80,6 +136,7 @@ class CANopenManager:
 
         self._heartbeat_task: asyncio.Task | None = None
         self._monitor_task: asyncio.Task | None = None
+        self._background_tasks: set[asyncio.Task] = set()
         self._bridge = None  # CANMQTTBridge, initialized in start() for master mode
 
         # Callbacks for external handlers
@@ -493,7 +550,9 @@ class CANopenManager:
     def _on_sdo_config_write(self, config_str: str) -> None:
         """Handle SDO request to update configuration.
 
-        Saves the YAML payload to disk and triggers application reload.
+        Called on the event loop as the frame arrives. Checking the payload
+        takes a full validation — a couple of seconds on a BeagleBone — so
+        the work runs in the background.
         """
         if self._mode == "master":
             _LOGGER.warning("Master received SDO Config Update request, ignoring.")
@@ -501,19 +560,32 @@ class CANopenManager:
 
         _LOGGER.info("Received SDO command to update configuration.")
 
-        if self._manager is not None:
-            config_dir = os.path.dirname(self._manager._config_file_path)
-            # The SDO payload should be the full config to overwrite
-            config_path = self._manager._config_file_path
-            try:
-                # Optionally backup old config?
-                write_atomically(config_path, config_str)
-                _LOGGER.info("Successfully overwrote config at %s", config_path)
+        if self._manager is None:
+            return
+        task = asyncio.create_task(self._apply_sdo_config(config_str))
+        # The loop holds tasks weakly; without this one could be collected
+        # halfway through replacing the configuration.
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
-                # Signal manager to reload config
-                asyncio.create_task(self._manager.reload_config())
-            except Exception as e:
-                _LOGGER.error("Failed to write new config: %s", e)
+    async def _apply_sdo_config(self, config_str: str) -> None:
+        """Validate, store and load a configuration pushed over CAN."""
+        if self._manager is None:
+            return
+        config_path = self._manager._config_file_path
+        try:
+            stored = await asyncio.to_thread(
+                _store_sdo_config, config_path, config_str
+            )
+        except Exception as err:
+            _LOGGER.error("Failed to write new config: %s", err, exc_info=True)
+            return
+        if not stored:
+            return
+        try:
+            await self._manager.reload_config()
+        except Exception as err:
+            _LOGGER.error("Reload after SDO config update failed: %s", err, exc_info=True)
 
     async def _restart_canopen_manager(self) -> None:
         """Restart the CANopen manager with the newly persisted Node ID."""
