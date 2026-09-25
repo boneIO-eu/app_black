@@ -6,6 +6,61 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev16 (2026-09-25) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🔑 The MQTT password an image sets per device, kept out of the cache
+
+Part of the 1.6.x work adapting boneIO Black to the CRA: boneIO is now ready
+for images that set the broker password per device at first boot, and the
+paths around that password stop working against it.
+
+- **The config cache no longer holds secrets by value.** `.cache.pkl` used
+  to pickle every `!secret` already substituted, with `secrets.yaml` outside
+  the cache key — a password changed there did nothing until some unrelated
+  edit invalidated the cache. `!secret` now caches as a reference and is
+  resolved against the current `secrets.yaml` on every read; changing a
+  secret takes effect on the next start, without the cold 20-30 s start a full
+  revalidation costs.
+- **Config migration v7 (`config_version: 7`) moves the broker password to
+  `secrets.yaml`** (0600) for controllers installed before per-device
+  passwords, leaving `password: !secret mqtt_password` in `mqtt.yaml`. A
+  password already given as `!secret` is left alone; an existing different
+  `mqtt_password` in `secrets.yaml` is kept and the new value goes under
+  `mqtt_password_2`. Verified on the dev controller (192.168.50.220): the
+  password is only in `secrets.yaml`, zero occurrences in `.cache.pkl`, MQTT
+  connected.
+- **Fixed: saving the MQTT page used to drop `!secret`.** Saving the MQTT
+  page wrote the broker password into `mqtt.yaml` in plain text instead of
+  keeping `!secret mqtt_password` — on every image since per-device
+  passwords shipped. A saved section now keeps its `!secret` references, and
+  a plain password entered on the MQTT page goes to `secrets.yaml`. Verified
+  on .220.
+- **A panel password change now reaches boneIO on its own address too.**
+  Reconnecting after the `boneio` account's password changes only recognised
+  the broker as "installed here" for `localhost`, `127.0.0.1` or `::1` — a
+  config pointing `mqtt.host` at the controller's own IP or hostname
+  (`.local`), copied from the address bar or shared with Home Assistant, was
+  treated as remote and left with the stale password. The device's own
+  hostname, loopback and any address the device can bind to now count as
+  local (no DNS lookup); the new password goes to `secrets.yaml`.
+- **A full factory reset keeps the device's MQTT password** instead of
+  overwriting it with the example config's `boneio123` and deleting every
+  `*.yaml` — `secrets.yaml` included, which holds the owner's credentials,
+  not board configuration.
+
+### ⏱ Longer panel timeouts
+
+- **The first-run wizard allows 60 s.** Creating the first administrator is
+  a scrypt hash plus two sudo calls, and a busy BeagleBone's first boot
+  could take exactly the old global 5 s limit — the panel reported "could
+  not create the account" while the server went on and created it anyway.
+  Login now allows 30 s; operating-system and Caddy updates allow 30 s.
+
+Only the manifest is re-signed for this release: no plan or system migration
+changed since dev15.
+
 ## v1.6.0.dev15 (2026-09-25) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
