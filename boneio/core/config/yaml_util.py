@@ -16,6 +16,7 @@ from yaml import MarkedYAMLError, YAMLError, dump, load
 
 from boneio.const import OUTPUT, VIRTUAL_SWITCH
 from boneio.core.atomic_file import write_atomically
+from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
 from boneio.core.utils.naming import resolve_id
@@ -115,7 +116,8 @@ _CACHE_FOREIGN_BUILD_ERRORS = (
 )
 
 # ── YAML write serialization & background save tracking ──────────────────
-_yaml_write_lock = threading.Lock()
+# Shared with yaml_patch: both rewrite the same files.
+_yaml_write_lock = CONFIG_WRITE_LOCK
 _yaml_pending_saves = 0
 _yaml_pending_lock = threading.Lock()
 

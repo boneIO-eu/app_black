@@ -1248,6 +1248,7 @@ def _store_broker_password(config_file: str, password: str) -> str:
         YamlPatchError: If the mqtt section cannot be edited, such as an
             include naming a file that is not there.
     """
+    from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
     from boneio.core.config.yaml_patch import (
         resolve_field,
         secret_reference,
@@ -1256,16 +1257,19 @@ def _store_broker_password(config_file: str, password: str) -> str:
     )
 
     field = ("mqtt", "password")
-    # Every shipped controller has `mqtt: !include mqtt.yaml`, and that file is
-    # the per-device one the broker password exists in. A secrets.yaml beside
-    # it is the one BoneIOLoader would read from there.
-    target, _ = resolve_field(config_file, field)
-    reference = secret_reference(config_file, field)
-    if reference is not None:
-        set_secret(target.parent / "secrets.yaml", reference, password)
-        return "secret"
-    set_scalar(config_file, field, password)
-    return "config"
+    # Held across the lookup too: where the password goes is decided from the
+    # file as it is now, and a save in between could change that.
+    with CONFIG_WRITE_LOCK:
+        # Every shipped controller has `mqtt: !include mqtt.yaml`, and that
+        # file is the per-device one the broker password exists in. A
+        # secrets.yaml beside it is the one BoneIOLoader would read from there.
+        target, _ = resolve_field(config_file, field)
+        reference = secret_reference(config_file, field)
+        if reference is not None:
+            set_secret(target.parent / "secrets.yaml", reference, password)
+            return "secret"
+        set_scalar(config_file, field, password)
+        return "config"
 
 
 async def _adopt_broker_password(manager: Manager, username: str, password: str) -> dict:

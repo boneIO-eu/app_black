@@ -19,6 +19,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
+from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 from boneio.core.config.yaml_patch import (
     YamlPatchError,
     has_section,
@@ -395,7 +396,10 @@ async def set_frame_ancestors(payload: FrameAncestorsRequest):
         raise HTTPException(status_code=503, detail="No configuration file is loaded.")
 
     try:
-        set_block_list(config_file, ("web", "security"), "frame_ancestors", tokens)
+        # A thread: this waits for any other config save to finish first.
+        await asyncio.to_thread(
+            set_block_list, config_file, ("web", "security"), "frame_ancestors", tokens
+        )
     except YamlPatchError as err:
         raise HTTPException(status_code=409, detail=str(err)) from err
     except OSError as err:
@@ -418,6 +422,52 @@ async def set_frame_ancestors(payload: FrameAncestorsRequest):
 
 
 # ------------------------------------------------- the pre-1.6 login block
+
+
+def _remove_legacy_auth_block(path: Path) -> Path | None:
+    """Check, copy and edit config.yaml as one step, under the config lock.
+
+    A save landing between the copy and the edit would be missing from the
+    copy, and one landing between the check and the edit could be undone.
+
+    Returns:
+        Where the copy went, or None if there was no block to remove.
+
+    Raises:
+        HTTPException: If the file cannot be read, copied or edited.
+    """
+    with CONFIG_WRITE_LOCK:
+        # Asked before anything is written. A second call used to copy the
+        # already-cleaned file over the backup made by the first — destroying the
+        # only remaining copy of the block — and then delete it as unneeded.
+        try:
+            if not has_section(path, ("web", "auth")):
+                return None
+        except OSError as err:
+            raise HTTPException(
+                status_code=500, detail=f"Could not read the configuration: {err}"
+            ) from err
+
+        backup = path.with_name(f"{path.name}.pre-1.6-auth.bak")
+        try:
+            shutil.copy2(path, backup)
+        except OSError as err:
+            # Without the copy this is an irreversible edit to a file we do not
+            # own, so the edit does not happen.
+            raise HTTPException(
+                status_code=500, detail=f"Could not write a copy first: {err}"
+            ) from err
+
+        try:
+            removed = remove_section(path, ("web", "auth"))
+        except YamlPatchError as err:
+            raise HTTPException(status_code=409, detail=str(err)) from err
+        except OSError as err:
+            raise HTTPException(status_code=500, detail=str(err)) from err
+
+        if not removed:  # pragma: no cover - has_section already answered this
+            return None
+        return backup
 
 
 @router.delete("/legacy-auth")
@@ -447,36 +497,9 @@ async def remove_legacy_auth():
         raise HTTPException(status_code=503, detail="No configuration file is loaded.")
 
     path = Path(config_file)
-
-    # Asked before anything is written. A second call used to copy the
-    # already-cleaned file over the backup made by the first — destroying the
-    # only remaining copy of the block — and then delete it as unneeded.
-    try:
-        if not has_section(path, ("web", "auth")):
-            return {"removed": False, "backup": None}
-    except OSError as err:
-        raise HTTPException(
-            status_code=500, detail=f"Could not read the configuration: {err}"
-        ) from err
-
-    backup = path.with_name(f"{path.name}.pre-1.6-auth.bak")
-    try:
-        shutil.copy2(path, backup)
-    except OSError as err:
-        # Without the copy this is an irreversible edit to a file we do not
-        # own, so the edit does not happen.
-        raise HTTPException(
-            status_code=500, detail=f"Could not write a copy first: {err}"
-        ) from err
-
-    try:
-        removed = remove_section(path, ("web", "auth"))
-    except YamlPatchError as err:
-        raise HTTPException(status_code=409, detail=str(err)) from err
-    except OSError as err:
-        raise HTTPException(status_code=500, detail=str(err)) from err
-
-    if not removed:  # pragma: no cover - has_section already answered this
+    # A thread: this waits for any other config save to finish first.
+    backup = await asyncio.to_thread(_remove_legacy_auth_block, path)
+    if backup is None:
         return {"removed": False, "backup": None}
 
     _invalidate_config_cache()

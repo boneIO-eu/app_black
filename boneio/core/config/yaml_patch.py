@@ -12,11 +12,15 @@ survives the trip back through the parser.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
 from boneio.core.atomic_file import write_atomically
+from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,6 +30,21 @@ INDENT = "  "
 
 class YamlPatchError(Exception):
     """Raised when the file cannot be edited safely."""
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _locked(func: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Run a read-modify-write under the lock every config save takes."""
+
+    @functools.wraps(func)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        with CONFIG_WRITE_LOCK:
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 def quote_scalar(value: str) -> str:
@@ -96,6 +115,7 @@ def _line_key(line: str) -> tuple[str, int, str] | None:
     return key.strip(), len(line) - len(line.lstrip()), rest.strip()
 
 
+@_locked
 def set_block_list(
     config_file: str | Path, path: tuple[str, ...], field: str, items: list[str]
 ) -> None:
@@ -201,6 +221,7 @@ def _section_body_start(lines: list[str], path: tuple[str, ...]) -> int:
     return len(lines)
 
 
+@_locked
 def ensure_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
     """Make sure a nested mapping exists, creating the missing levels.
 
@@ -312,6 +333,7 @@ def has_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
     return _find_section_line(lines, path) is not None
 
 
+@_locked
 def remove_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
     """Delete a nested mapping key and everything under it.
 
@@ -481,6 +503,7 @@ def secret_reference(config_file: str | Path, path: tuple[str, ...]) -> str | No
     return match.group(1) if match else None
 
 
+@_locked
 def set_scalar(config_file: str | Path, path: tuple[str, ...], value: str) -> None:
     """Write a single value, creating the field if it is not there.
 
@@ -532,6 +555,7 @@ def set_scalar(config_file: str | Path, path: tuple[str, ...], value: str) -> No
     _LOGGER.info("Wrote %s in %s", ".".join(path), file_path.name)
 
 
+@_locked
 def set_secret(secrets_file: str | Path, name: str, value: str) -> None:
     """Store a value in secrets.yaml, leaving every other secret alone.
 
