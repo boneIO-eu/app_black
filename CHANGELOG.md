@@ -6,6 +6,136 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev15 (2026-09-25) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🛟 Updating the operating system, from the panel
+
+Part of the 1.6.x work adapting boneIO Black to the CRA requirement for a
+secure update channel: a controller shipped a year ago still booted the
+kernel and the OpenSSL it left the factory with. Fixes now arrive without
+anyone logging in, and every controller runs a Caddy that a release names.
+
+- **A new "Operating system" card** checks for Debian updates, shows what a
+  check found and a time estimate, runs the upgrade with a live log, and
+  offers a restart with its reason — or refuses to offer one when the kernel
+  the next boot would load is not ready.
+- **A backup notice on every update screen** (boneIO, Node-RED, the operating
+  system): download the configuration and the Node-RED flows first, and a
+  link to the system images and recovery instructions in case the controller
+  does not come back.
+- **Automatic security updates, on by default.** Only Debian-Security lands
+  this way, once a day, never a restart, never a removal; the BeagleBoard
+  kernel stays manual, tied to the panel's own update check. A switch on the
+  card turns it off and shows when it last ran; the security section says
+  when it is off.
+- **`dpkg` recovers after a power loss.** A boot that finds an interrupted
+  `apt`/`dpkg` run now runs `dpkg --configure -a` at boot, instead of
+  leaving the package database half-configured and every later `apt`
+  refusing to run until someone fixes it by hand.
+- **Caddy is pinned to a version boneIO names** (2.11.4), instead of
+  `caddy:2-alpine` — whatever tag that happened to be the day an image was
+  built. A "Caddy (HTTPS panel)" card shows the version running and moves
+  the controller to the pinned one on request; the HTTPS panel drops for
+  about 15 seconds while it does.
+- **PackageKit and AppStream are removed** from the controller — a
+  BeagleBone-unfriendly Cockpit dependency nothing boneIO uses, and the
+  cause of `apt` runs ending in a D-Bus timeout instead of a clean log.
+  Migrations can now remove packages as well as install them (`apt_purge`),
+  simulated first and refused if apt would take anything off the device
+  beyond the plan's own list.
+- **New security check, `os_updates`**: critical when the next boot's kernel
+  is not ready, a warning when a restart is due (with the reasons),
+  informational when automatic updates are switched off.
+- Fixed: the packaged `docker-compose.yaml` had lost `WEB_PORT`, so every
+  image built since 1.6.15 proxied to 8090 whatever
+  `web.port` said.
+- Migrations 1.6.18–1.6.22 install the update helper, add `apt_purge` to the
+  migration action set, purge PackageKit/AppStream, pin the Caddy image and
+  turn on automatic security updates.
+
+Verified on the dev controller: 161 packages upgraded in 1770 s, kernel
+6.18.2-bone12 → 6.18.53-bone55, the overlay loaded after restart;
+unattended-upgrades allowed only the Debian-Security origins; PackageKit,
+AppStream and their four dependants purged, a system update check down to
+36 s from 50; Caddy moved 2-alpine → 2.11.4 in 69 s with the HTTPS panel
+down for about 15 s.
+
+### 🔐 Alarm PIN codes, throttled and lockable
+
+- **Wrong codes are throttled.** After five wrong codes in a row the alarm
+  refuses every code, right one included, for 30 s, doubling with each
+  further run of failures up to 15 min. One counter per panel, whatever path
+  the code comes by; a command with no code is not counted, and PIN hashes
+  are compared in constant time. The alarm command route now answers 403 for
+  a wrong or missing code and 429 with `Retry-After` while locked, where it
+  used to say "ok" to everything.
+- **A "code lockout" binary_sensor in Home Assistant** goes on while codes
+  are locked, with failed attempts and seconds left as attributes, so an
+  automation can warn the owner or sound the siren while armed.
+- **A PIN pad, not a text field.** Disarming, or arming when a code is
+  needed, opens a window with an on-screen keypad — digits shown as dots,
+  a physical keyboard still works — instead of a text box a phone's own
+  keyboard would learn from. A wrong code clears the pad and shows the
+  countdown; while locked the keys are disabled.
+- **PIN codes are digits only** in the schema, or the SHA-256 the settings
+  form stores in their place — Home Assistant is told `REMOTE_CODE`, a
+  numeric keypad, so letters could never be typed there anyway.
+- Fixed: the arming countdown now ticks every second between polls instead
+  of jumping in three-second steps.
+
+### 🗄️ Configuration integrity
+
+- **Config writes are atomic.** Every save of `config.yaml`, an `!include`
+  file, `secrets.yaml` or a migration used to truncate the file and write it
+  again; a power loss mid-write left a file the controller could not boot
+  from. Saves now write next to the target, fsync, rename over it and fsync
+  the directory, keeping permissions and following symlinks.
+- **One lock for every config save.** Section saves from the panel and the
+  `yaml_patch` edits (broker password, `frame-ancestors`, removing the
+  pre-1.6 login block) used to take no lock between them: each reads the
+  whole file and writes it back, so two running at once left only the later
+  one's change on disk and the other's silently lost. They now share one
+  reentrant lock, and the routes that used to run from the event loop now
+  run in a thread.
+- **A configuration pushed over CAN is checked before it replaces
+  `config.yaml`.** Anything on the bus could write the SDO that triggers a
+  reload; the payload now goes through the same validation as a normal
+  start before it replaces the file, and the previous file is kept as
+  `config.yaml.sdo.bak`.
+- Fixed: quick actions and Teach Mode now store what the input editor
+  offers — actions were written to a key the config loader discarded, an
+  edit in the flat format dropped fields it did not name, and
+  `virtual_switch` was refused as unknown. Teach Mode and both action
+  editors, which change the configuration, are now offered to
+  administrators only.
+
+### 🧭 Panel
+
+- **A live card for every entity**, on long press or right click: state,
+  controls and recent events in one place, in the manner of Home Assistant's
+  more-info dialog, available to a viewer as well as an administrator.
+- **Templates takes the phone's bottom bar** when the configuration has a
+  thermostat, alarm, gate or irrigation controller.
+- **The binding matrix rows are coloured by input kind**, and remote and
+  local covers gain a "Set position" action.
+- **The header and device details name who is signed in and as what.**
+- **Lox UDP now forwards Modbus readings** (temperature, humidity, etc.) to
+  the Miniserver, one datagram per entity.
+- Fixed: the settings section list no longer flashes shut on a phone, and
+  the bottom bar's drag handle only shows where it actually opens a sheet.
+
+### 🐛 Fixes
+
+- **MQTT stays connected through a bad payload or a handler error**, instead
+  of ending the session loop until the service is restarted.
+- The Lox Config template pointed at the Miniserver's own address instead of
+  the address boneIO reaches it from, so `VirtualOut` commands and input
+  filters targeted the wrong end of the link.
+- A Modbus sensor JSON definition (`qdw90a`) had its pressure unit
+  capitalised (`Bar` instead of `bar`).
+
 ## v1.6.0.dev14 (2026-09-24) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev14` exists so that we can test the new system-migration chain on a
+`1.6.0.dev15` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,64 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev15 — internal test build
+
+## Since dev14
+
+Part of the 1.6.x work adapting boneIO Black to the CRA requirement for a
+secure update channel: a controller shipped a year ago still booted the
+kernel and the OpenSSL it left the factory with. The panel gains an
+"Operating system" card that checks for Debian updates, upgrades with a live
+log, and refuses to offer a restart when the next boot's kernel is not
+ready. Automatic security updates are on by default — Debian-Security only,
+once a day, never a restart, never a removal — with a switch to turn them
+off. A power loss mid-upgrade no longer leaves `dpkg` half-configured
+refusing every later `apt` run: a recovery service runs
+`dpkg --configure -a` at boot when needed. Caddy is now pinned to a version
+this release names (2.11.4) instead of whatever `caddy:2-alpine` happened to
+resolve to; a card shows the version running and moves the controller to the
+pinned one on request, with the HTTPS panel down for about 15 seconds while
+it does. PackageKit and AppStream, unused by boneIO and a source of `apt`
+timeouts on a BeagleBone, are purged — migrations can now remove packages as
+well as install them. Every update screen now tells the operator to back up
+their configuration and Node-RED flows first, with a link to the system
+images and recovery instructions.
+
+Tested on the dev controller: 161 packages upgraded in 1770 s, kernel
+6.18.2-bone12 → 6.18.53-bone55, overlay loaded after restart;
+unattended-upgrades allowed only the Debian-Security origins; PackageKit,
+AppStream and their four dependants purged, a system update check down to
+36 s from 50; Caddy moved 2-alpine → 2.11.4 in 69 s with the HTTPS panel
+down for about 15 s. The `docker-compose.yaml` that image builds copy onto a
+fresh controller had lacked `WEB_PORT` since 1.6.15, so Caddy proxied to 8090
+whatever `web.port` said; it is the trusted template again.
+
+The alarm's PIN codes are now throttled: five wrong codes in a row are
+refused for 30 s, doubling up to 15 min, with a "code lockout" binary_sensor
+in Home Assistant and a PIN pad in the panel instead of a text field a
+phone's keyboard would learn from. Config saves are atomic, so a power loss
+mid-write no longer leaves a file the controller cannot boot from, and share
+one lock, so two saves running at once no longer silently lose one of them;
+a configuration pushed over CAN is now validated the same way a normal start
+is before it replaces `config.yaml`. The panel gains a live card for every
+entity on long press or right click, Templates on the phone's bottom bar,
+coloured binding-matrix rows, a "Set position" cover action, and a header
+that names who is signed in. MQTT stays connected through a bad payload or a
+handler error, and Lox UDP can now forward Modbus readings to the
+Miniserver.
+
+Only the operating-system update chain above was run on the dev controller
+for this build; the alarm, configuration-locking and panel changes have the
+automated test suite behind them but not a hardware run.
+
+Migrations 1.6.18–1.6.22 are new since dev14 (the update helper, `apt_purge`,
+the PackageKit/AppStream purge, the Caddy pin, automatic security updates).
+The plans they and eight earlier releases (1.3.0, 1.4.4, 1.6.5, 1.6.8, 1.6.9,
+1.6.15, 1.6.16, 1.6.17) install were re-signed along with the manifest, which
+names every release.
 
 ---
 
