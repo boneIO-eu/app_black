@@ -1,4 +1,5 @@
 import React, { useRef, ReactNode, useEffect, useState } from 'react';
+import { ChevronsUpDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,10 @@ function useIsDesktop() {
  * - Swipe down on the sheet header to collapse
  *
  * Only renders on mobile (hidden on lg+).
+ *
+ * From `sm` up the Dialog opens as a centred modal, not a sheet, so the bar
+ * drops its drag handle there and shows a picker chevron instead — a handle
+ * promises something that slides up out of the bar, and nothing does.
  *
  * @example
  * ```tsx
@@ -135,17 +140,18 @@ export function BottomPeekBar({
           onClick={() => onOpenChange(true)}
           className="w-full bg-base-200/95 backdrop-blur-sm border-t border-base-content/10 active:bg-base-300 transition-colors"
         >
-          {/* Drag handle */}
-          <div className="flex justify-center pt-2">
+          {/* Drag handle — phones only, where the sheet really slides up */}
+          <div className="flex justify-center pt-2 sm:hidden">
             <div className="w-8 h-1 rounded-full bg-base-content/20" />
           </div>
           {/* Content */}
-          <div className={`flex items-center justify-center gap-2.5 px-4 py-2 ${actions ? 'pb-1' : 'pb-3'}`}>
+          <div className={`flex items-center justify-center gap-2.5 px-4 py-2 sm:pt-3 ${actions ? 'pb-1' : 'pb-3'}`}>
             {icon && <span className="text-lg">{icon}</span>}
             <span className="font-semibold text-sm text-base-content truncate">
               {label}
             </span>
             {indicator}
+            <ChevronsUpDown aria-hidden className="hidden sm:block w-4 h-4 shrink-0 text-base-content/40" />
           </div>
         </button>
         {/* Action buttons (e.g. Save/Restore) */}
