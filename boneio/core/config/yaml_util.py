@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import fnmatch
 import logging
 import os
@@ -12,6 +13,7 @@ from typing import Any
 
 from cerberus import TypeDefinition, Validator
 from cerberus.schema import DefinitionSchema
+import yaml
 from yaml import MarkedYAMLError, YAMLError, dump, load
 
 from boneio.const import OUTPUT, VIRTUAL_SWITCH
@@ -28,6 +30,44 @@ _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
 _SECRET_VALUES = {}
+#: Names of every secret a YAML load resolved, whatever its type — so the cache
+#: can tell a secret it kept as a reference from one validation turned into a
+#: number and it had to keep by value.
+_SECRET_NAMES_LOADED: set[str] = set()
+
+
+class SecretStr(str):
+    """A string that came from ``!secret``, and knows which secret it was.
+
+    The config cache holds the validated config. It used to hold it with every
+    secret already substituted — the passwords sat in ``.cache.pkl``, and
+    secrets.yaml was not part of the cache key, so changing a password there did
+    nothing until some other edit invalidated the cache. The cache now stores a
+    :class:`_SecretRef` in place of each ``SecretStr`` and resolves it against
+    secrets.yaml as it is read back. Validation keeps the subclass (it checks
+    type, it does not copy), which is what lets the cache find them.
+    """
+
+    secret_name: str
+
+    def __new__(cls, value: str, name: str) -> "SecretStr":
+        obj = super().__new__(cls, value)
+        obj.secret_name = name
+        return obj
+
+    def __reduce__(self):
+        # Anything else that pickles a config gets the plain value, never a
+        # boneIO type that another build may not define.
+        return (str, (str(self),))
+
+
+class _SecretRef:
+    """What the config cache stores instead of a secret's value."""
+
+    __slots__ = ("name",)
+
+    def __init__(self, name: str) -> None:
+        self.name = name
 
 #: Cerberus checks that the schema is itself a legal cerberus schema every time
 #: a Validator is built, and that - not validating anybody's config - is where a
@@ -342,6 +382,17 @@ def represent_time_period(dumper, data):
 TimePeriodDumper.add_representer(TimePeriod, represent_time_period)
 
 
+def _represent_secret_str(dumper, data):
+    # Written as the plain string it always was: a SecretStr only exists so the
+    # config cache can keep secrets out of .cache.pkl, and must not change what
+    # a save puts in a YAML file.
+    return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
+
+
+for _dumper in {TimePeriodDumper, FastSafeDumper, yaml.SafeDumper, yaml.Dumper}:
+    _dumper.add_representer(SecretStr, _represent_secret_str)
+
+
 class BoneIOLoader(FastSafeLoader):
     """Loader which support for include in yaml files."""
 
@@ -365,7 +416,8 @@ class BoneIOLoader(FastSafeLoader):
             raise MarkedYAMLError(f"Secret '{node.value}' not defined", node.start_mark)
         val = secrets[node.value]
         _SECRET_VALUES[str(val)] = node.value
-        return val
+        _SECRET_NAMES_LOADED.add(node.value)
+        return SecretStr(val, node.value) if isinstance(val, str) else val
 
     def represent_stringify(self, value):
         # Type: ignore[attr-defined] - represent_scalar is inherited from the loader base
@@ -1432,6 +1484,60 @@ def _compute_config_dir_hash(config_file: str) -> str:
     return h.hexdigest()
 
 
+def _secret_digest(value: Any) -> str:
+    import hashlib
+
+    return hashlib.sha256(repr(value).encode("utf-8")).hexdigest()
+
+
+def _secrets_to_refs(node: Any, found: set[str]) -> Any:
+    """A copy of *node* with every :class:`SecretStr` replaced by a reference."""
+    if isinstance(node, SecretStr):
+        found.add(node.secret_name)
+        return _SecretRef(node.secret_name)
+    if isinstance(node, dict):
+        out = copy.copy(node)
+        for key, value in node.items():
+            out[key] = _secrets_to_refs(value, found)
+        return out
+    if isinstance(node, list):
+        return [_secrets_to_refs(item, found) for item in node]
+    if isinstance(node, tuple):
+        return tuple(_secrets_to_refs(item, found) for item in node)
+    return node
+
+
+def _refs_to_secrets(node: Any, secrets: dict) -> Any:
+    """Resolve the cache's secret references against secrets.yaml, in place.
+
+    Raises:
+        KeyError: A reference names a secret secrets.yaml no longer defines.
+    """
+    if isinstance(node, _SecretRef):
+        value = secrets[node.name]
+        _SECRET_VALUES[str(value)] = node.name
+        return SecretStr(value, node.name) if isinstance(value, str) else value
+    if isinstance(node, dict):
+        for key in list(node):
+            node[key] = _refs_to_secrets(node[key], secrets)
+        return node
+    if isinstance(node, list):
+        for index, item in enumerate(node):
+            node[index] = _refs_to_secrets(item, secrets)
+        return node
+    if isinstance(node, tuple):
+        return tuple(_refs_to_secrets(item, secrets) for item in node)
+    return node
+
+
+def _load_secrets_for(config_file: str) -> dict:
+    path = os.path.join(os.path.dirname(config_file), SECRET_YAML)
+    if not os.path.isfile(path):
+        return {}
+    secrets = load_yaml_file(path)
+    return secrets if isinstance(secrets, dict) else {}
+
+
 def _try_load_cached_config(config_file: str) -> dict | None:
     """Try to load validated config from cache.
 
@@ -1499,10 +1605,29 @@ def _try_load_cached_config(config_file: str) -> dict | None:
                 _LOGGER.debug("Schema file changed, cache invalidated")
                 return None
 
+            # A secret validation turned into something other than a string is
+            # in the payload by value, so its current value has to match.
+            baked = header.get("baked_secrets", {})
+            secrets = _load_secrets_for(config_file) if baked or header.get("secret_refs") else {}
+            for name, digest in baked.items():
+                # A name the loader saw but secrets.yaml lacks was recorded as
+                # the digest of None; lacking it still is not a change.
+                if _secret_digest(secrets.get(name)) != digest:
+                    _LOGGER.debug("Secret %r changed, cache invalidated", name)
+                    return None
+
             data = pickle.load(f)
 
         if not isinstance(data, dict):
             _LOGGER.warning("Config cache %s holds no config, revalidating", cache_path)
+            return None
+
+        try:
+            data = _refs_to_secrets(data, secrets)
+        except KeyError as missing:
+            _LOGGER.info(
+                "secrets.yaml no longer defines %s, revalidating config", missing
+            )
             return None
 
         _LOGGER.debug("Loading validated config from cache (skipping Cerberus validation)")
@@ -1536,16 +1661,30 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
 
     cache_path = _get_config_cache_path(config_file)
     try:
+        # No secret's value goes into the payload when it can be avoided:
+        # strings from !secret become references, resolved from secrets.yaml
+        # when the cache is read. A secret validation coerced (a port given as
+        # !secret, say) stays by value, and its digest in the header makes a
+        # change to it invalidate the cache instead of going unnoticed.
+        as_refs: set[str] = set()
+        payload = _secrets_to_refs(validated_config, as_refs)
+        baked: dict[str, str] = {}
+        leftover = _SECRET_NAMES_LOADED - as_refs
+        if leftover:
+            secrets = _load_secrets_for(config_file)
+            baked = {name: _secret_digest(secrets.get(name)) for name in sorted(leftover)}
         header = {
             "version": __version__,
             "config_hash": _compute_config_dir_hash(config_file),
             "schema_hash": _compute_file_hash(schema_file),
+            "secret_refs": sorted(as_refs),
+            "baked_secrets": baked,
         }
         with open(cache_path, "wb") as f:
             # Header first, payload second, so the reader can reject a cache
             # from another build without unpickling boneIO objects at all.
             pickle.dump(header, f, protocol=pickle.HIGHEST_PROTOCOL)
-            pickle.dump(validated_config, f, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
         _LOGGER.debug("Saved validated config cache to %s", cache_path)
     except (OSError, pickle.PicklingError) as e:
         _LOGGER.debug("Could not save config cache: %s", e)
@@ -1812,6 +1951,7 @@ def load_config_from_file(
 
     # Cache miss — full validation (slow path)
     _LOGGER.info("Config cache miss, running full validation...")
+    _SECRET_NAMES_LOADED.clear()
     if progress_callback:
         progress_callback("Parsing YAML...")
     try:

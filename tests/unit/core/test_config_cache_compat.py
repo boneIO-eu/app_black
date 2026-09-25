@@ -179,7 +179,7 @@ def test_the_saved_cache_carries_the_boneio_version(config_file):
     with open(yaml_util._get_config_cache_path(config_file), "rb") as f:
         header = pickle.load(f)
     assert header["version"] == __version__
-    assert {"version", "config_hash", "schema_hash"} == set(header)
+    assert {"version", "config_hash", "schema_hash", "secret_refs", "baked_secrets"} == set(header)
 
 
 def test_an_edited_config_still_invalidates_the_cache(config_file):
