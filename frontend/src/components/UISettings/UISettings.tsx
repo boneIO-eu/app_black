@@ -1158,6 +1158,12 @@ export default function UISettings() {
   }, []);
 
   // Put a section in the URL once the list is known.
+  //
+  // This fills in the address rather than navigating, so it goes through
+  // `navigate(..., { replace: true })` and not navigateToSection: that one
+  // closes the mobile section sheet, which the phone opens on a bare /settings
+  // for the user to pick from — it flashed for a second and vanished. Replace
+  // also keeps Back from landing on /settings and being bounced forward again.
   useEffect(() => {
     if (sections.length === 0) return;
     const exists = (name: string) => sections.some(s => s.name === name);
@@ -1166,16 +1172,16 @@ export default function UISettings() {
     // browser last was. Falling straight to sections[0] is what made every
     // visit start at Areas regardless of where the last one ended.
     if (!section) {
-      navigateToSection(exists(activeSection) ? activeSection : sections[0].name);
+      navigate(`/settings/${exists(activeSection) ? activeSection : sections[0].name}`, { replace: true });
       return;
     }
 
     // A section that is not in the list — renamed, removed, or hidden because
     // the hardware does not have it. The first one is a safe landing.
     if (!exists(section)) {
-      navigateToSection(sections[0].name);
+      navigate(`/settings/${sections[0].name}`, { replace: true });
     }
-  }, [section, sections, activeSection, navigateToSection]);
+  }, [section, sections, activeSection, navigate]);
 
   // Debug console.log for active section
   useEffect(() => {
