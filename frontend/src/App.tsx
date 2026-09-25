@@ -69,6 +69,7 @@ import { ConfigProvider } from './contexts/ConfigContext';
 import { WebSocketContext } from './contexts/WebSocketContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 import { appendModbusHistoryPointToStorage, clearModbusHistoryStorage } from './hooks/useModbusHistory';
+import { recordFromStateUpdate } from './utils/entityHistory';
 import { readProvisioningHint } from '@/utils/provisioning';
 
 /**
@@ -294,6 +295,8 @@ function AppContent() {
 
     // Set the handler that the stable listener will delegate to
     messageHandlerRef.current = (message: StateUpdate) => {
+      // The long-press card's event list: the same stream, filtered by entity.
+      recordFromStateUpdate(message);
       if (isOutputEvent(message)) {
         setOutputs(prev => {
           const index = prev.findIndex(o => o.entity_id === message.entity_id);

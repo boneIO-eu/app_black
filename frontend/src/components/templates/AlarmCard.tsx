@@ -22,9 +22,12 @@ const TONE: Record<string, Tone> = {
 export default function AlarmCard({
   data,
   onCommand,
+  embedded = false,
 }: {
   data: AlarmState;
   onCommand: (id: string, command: string, code?: string) => void;
+  /** Inside the long-press card, which shows the name itself. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const armingLeft = useTickingRemaining(data.state === 'arming' ? data.arming_remaining_s : null);
@@ -163,6 +166,7 @@ export default function AlarmCard({
 
   return (
     <TemplateTile
+      embedded={embedded}
       icon={FaShieldAlt}
       tone={TONE[data.state] ?? 'neutral'}
       name={data.name || data.id}

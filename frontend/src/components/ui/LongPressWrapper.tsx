@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { suppressNextPointerRelease } from '@/utils/longPress';
+import { openOnContextMenu, suppressNextPointerRelease } from '@/utils/longPress';
 
 interface LongPressWrapperProps {
     children: React.ReactNode;
@@ -95,9 +95,11 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
             onTouchMove={handleTouchMove}
             onTouchEnd={handlePressEnd}
             onContextMenu={(e) => {
-                if (!(e.target as Element).closest(INTERACTIVE_SELECTOR)) {
-                    e.preventDefault();
-                }
+                // A button or a select inside keeps its own behaviour, as it
+                // does for the long press; anywhere else a right click opens
+                // what the long press opens.
+                if ((e.target as Element).closest(INTERACTIVE_SELECTOR)) return;
+                openOnContextMenu(() => { handlePressEnd(); onLongPress(); })(e);
             }}
             className={className ? `cursor-pointer select-none ${className}` : "cursor-pointer select-none"}
             style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', ...style }}

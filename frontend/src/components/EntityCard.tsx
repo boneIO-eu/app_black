@@ -8,7 +8,7 @@ import { formatTimestamp } from '../utils/formatters';
 
 import { ImSwitch } from "react-icons/im";
 import { useTranslation } from '@/hooks/useTranslation';
-import { suppressNextPointerRelease } from '@/utils/longPress';
+import { openOnContextMenu, suppressNextPointerRelease } from '@/utils/longPress';
 import RangeSlider from './RangeSlider';
 
 // Color palette for interlock groups - each group gets a consistent color
@@ -37,7 +37,7 @@ function getInterlockColor(groupName: string): string {
 /**
  * Format duration in seconds for display.
  */
-function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number): string {
   if (seconds >= 3600) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -92,7 +92,7 @@ interface OutputItemProps {
 }
 
 // Returns icon component and ON color for given type
-function getIconAndOnColor(type: string, isGroup: boolean = false): { Icon: React.ElementType, onColor: string } {
+export function getIconAndOnColor(type: string, isGroup: boolean = false): { Icon: React.ElementType, onColor: string } {
   // For groups with light type, use group light icon
   if (isGroup && type === 'light') {
     return { Icon: HiLightBulb, onColor: 'text-yellow-400' };
@@ -177,6 +177,8 @@ const EntityCard: React.FC<OutputItemProps> = ({
       onTouchStart={handlePressStart}
       onTouchMove={handlePressEnd}
       onTouchEnd={handlePressEnd}
+      onContextMenu={onLongPress ? openOnContextMenu(() => { handlePressEnd(); onLongPress(output); }) : undefined}
+      style={onLongPress ? { WebkitTouchCallout: 'none' } : undefined}
       title={onLongPress ? (longPressTitle || t('outputs.long_press_to_edit')) : undefined}
     >
       <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>

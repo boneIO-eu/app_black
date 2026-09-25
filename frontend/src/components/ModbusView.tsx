@@ -12,13 +12,7 @@ import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import { EntityGrid, EntityPanel, SENSOR_GRID_CLASS } from './EntityGrid';
 import { FaCog, FaSyncAlt } from 'react-icons/fa';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import EntityInfoCard from './entityCard/EntityInfoCard';
 
 type ApiError = AxiosError<{ detail?: string }>;
 
@@ -185,30 +179,25 @@ export default function ModbusView() {
     }
   };
 
-  // Long press dialog state
-  const [longPressDialog, setLongPressDialog] = useState<{
-    open: boolean;
-    device: ModbusDeviceState | null;
-  }>({
-    open: false,
-    device: null,
-  });
+  // Long-press card. It shows the entity live, so it opens for a viewer too;
+  // only the settings entry behind ⋮ is for administrators. Only the id is
+  // kept, so the card follows the value as it is polled.
+  const [card, setCard] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
+  const cardDevice = card.id ? validModbusDevices.find(d => d.id === card.id) : undefined;
+  const cardGroup = cardDevice ? sortedGroupedEntries.find(g => g.groupKey === (cardDevice.coordinator_id || t('modbus_view.other_group'))) : undefined;
+  const closeCard = useCallback(() => setCard(prev => ({ ...prev, open: false })), []);
 
   const handleLongPress = useCallback((device: ModbusDeviceState) => {
-    // The dialog exists only to offer "edit in settings", and that route
-    // refuses a read-only account — so for a viewer the long press does
-    // nothing rather than opening a dialog that leads to a wall.
-    if (!isAdmin) return;
-    setLongPressDialog({ open: true, device });
-  }, [isAdmin]);
+    setCard({ open: true, id: device.id });
+  }, []);
 
   const handleGoToSettings = useCallback(() => {
-    if (!longPressDialog.device) return;
+    if (!cardDevice) return;
     // Use device name for matching config entries (coordinator_id is a runtime group id, not a config field)
-    const editKey = longPressDialog.device.coordinator_id;
+    const editKey = cardDevice.coordinator_id;
     navigate(`/settings/modbus_devices?edit=${encodeURIComponent(editKey)}`);
-    setLongPressDialog({ open: false, device: null });
-  }, [longPressDialog.device, navigate]);
+    closeCard();
+  }, [cardDevice, navigate, closeCard]);
 
   return (
     <div className="container mx-auto p-4">
@@ -315,38 +304,28 @@ export default function ModbusView() {
         </div>
       </div>
 
-      {/* Long press dialog - go to settings */}
-      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, device: open ? longPressDialog.device : null })}>
-        <DialogContent className="sm:max-w-md bg-base-200">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FaCog className="w-5 h-5" />
-              {t('modbus_view.go_to_settings')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>{t('modbus_view.go_to_settings_confirm')}</p>
-            <p className="font-semibold mt-2">{longPressDialog.device?.custom_label || longPressDialog.device?.name}</p>
-            {longPressDialog.device?.coordinator_id && (
-              <p className="text-sm text-base-content/60">{longPressDialog.device.coordinator_id}</p>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <button
-              className="btn btn-ghost"
-              onClick={() => setLongPressDialog({ open: false, device: null })}
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleGoToSettings}
-            >
-              {t('modbus_view.go_to_settings')}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Long-press card: the entity with room for its graph and controls */}
+      {cardDevice && (
+        <EntityInfoCard
+          open={card.open}
+          onOpenChange={(open) => !open && closeCard()}
+          icon={<FaCog className="text-base-content/50" />}
+          title={cardDevice.custom_label || cardDevice.name}
+          subtitle={[cardGroup?.groupName, cardDevice.id].filter(Boolean).join(' · ')}
+          menu={isAdmin ? [{ key: 'settings', label: t('modbus_view.go_to_settings'), icon: <FaCog />, onSelect: handleGoToSettings }] : []}
+          maxWidthClass="sm:max-w-xl"
+        >
+          <ModbusDeviceItem
+            device={cardDevice}
+            isGrid
+            historyPoints={shouldRenderHistory(cardDevice) ? (historyByDeviceId.get(cardDevice.id) || []) : undefined}
+            onValueChange={handleValueChange}
+            accentColor={cardGroup?.accentColor}
+            strokeColor={cardGroup?.strokeColor}
+            fillColor={cardGroup?.fillColor}
+          />
+        </EntityInfoCard>
+      )}
     </div>
   );
 }

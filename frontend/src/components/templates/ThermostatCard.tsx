@@ -9,10 +9,13 @@ export default function ThermostatCard({
   data,
   onSetMode,
   onSetTemp,
+  embedded = false,
 }: {
   data: ThermostatState;
   onSetMode: (id: string, mode: string) => void;
   onSetTemp: (id: string, temp: number) => void;
+  /** Inside the long-press card, which shows the name itself. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const isOff = data.mode === 'off';
@@ -23,6 +26,7 @@ export default function ThermostatCard({
 
   return (
     <TemplateTile
+      embedded={embedded}
       icon={FaThermometerHalf}
       tone={tone}
       name={data.name || data.id}

@@ -8,7 +8,7 @@ import { CoverState } from "@/hooks/useWebSocket";
 import { useTranslation } from '@/hooks/useTranslation';
 import { cn } from "@/lib/utils";
 import RangeSlider from './RangeSlider';
-import { suppressNextPointerRelease } from '@/utils/longPress';
+import { openOnContextMenu, suppressNextPointerRelease } from '@/utils/longPress';
 
 
 interface CoverItemProps {
@@ -17,9 +17,11 @@ interface CoverItemProps {
   isGrid: boolean;
   error: string | null;
   onLongPress?: (cover: CoverState) => void;
+  /** Inside the long-press card, which already shows the name. */
+  embedded?: boolean;
 }
 
-const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error, onLongPress }) => {
+const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error, onLongPress, embedded = false }) => {
   const { t } = useTranslation();
 
   // Long press handling
@@ -69,22 +71,26 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
 
   return (
     <div
-      className={`stg-inset ${onLongPress ? 'stg-inset-interactive cursor-pointer' : ''} p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}
+      className={`stg-inset ${onLongPress ? 'stg-inset-interactive cursor-pointer select-none' : ''} p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}
       onMouseDown={handlePressStart}
       onMouseUp={handlePressEnd}
       onMouseLeave={handlePressEnd}
       onTouchStart={handlePressStart}
       onTouchMove={handlePressEnd}
       onTouchEnd={handlePressEnd}
+      onContextMenu={onLongPress ? openOnContextMenu(() => { handlePressEnd(); onLongPress(cover); }) : undefined}
+      style={onLongPress ? { WebkitTouchCallout: 'none' } : undefined}
       title={onLongPress ? t('outputs.long_press_to_edit') : undefined}
     >
-      <div className={`flex items-center justify-between gap-2 min-w-0 ${isGrid ? 'mb-3' : ''}`}>
-        <div className="flex items-center gap-2 min-w-0">
-          <Icon className={`text-xl shrink-0 ${cover.state === 'open' ? 'text-yellow-400' : 'text-gray-400'}`} />
-          <span className="text-lg truncate" title={cover.name}>{cover.name}</span>
+      {!embedded && (
+        <div className={`flex items-center justify-between gap-2 min-w-0 ${isGrid ? 'mb-3' : ''}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <Icon className={`text-xl shrink-0 ${cover.state === 'open' ? 'text-yellow-400' : 'text-gray-400'}`} />
+            <span className="text-lg truncate" title={cover.name}>{cover.name}</span>
+          </div>
         </div>
-      </div>
-      <div className={`${isGrid ? 'mt-3' : 'flex flex-col items-end gap-2 min-w-64'}`}>
+      )}
+      <div className={`${isGrid ? (embedded ? '' : 'mt-3') : 'flex flex-col items-end gap-2 min-w-64'}`}>
         <div className="flex gap-2">
           <button
             className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"

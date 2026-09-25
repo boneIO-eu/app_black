@@ -90,6 +90,16 @@ body {
   animation: subtle-glow 2.5s ease-in-out infinite;
 }
 
+/* Animation: the long-press card's state block when an input fires — a
+   ring that fades, so a repeat of the same click still visibly lands. */
+@keyframes entity-card-flash {
+  0% { box-shadow: 0 0 0 3px var(--color-primary); border-radius: var(--radius-box); }
+  100% { box-shadow: 0 0 0 3px transparent; border-radius: var(--radius-box); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[entity-card-flash_1\.2s_ease-out\] { animation: none; }
+}
+
 /* Animation: the first-run wizard's closing checkmark, drawn rather than
    popped in. Circumference of r=24 is ~151; the tick path is ~34 long, and 36
    gives it room to sit fully hidden before it starts. */

@@ -20,6 +20,7 @@ export function TemplateTile({
   action,
   children,
   footer,
+  embedded = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   tone: Tone;
@@ -30,15 +31,19 @@ export function TemplateTile({
   children?: React.ReactNode;
   /** The tile's controls; pinned to the bottom so a row of tiles lines up. */
   footer?: React.ReactNode;
+  /** Inside the long-press card, whose header already has the icon and name. */
+  embedded?: boolean;
 }) {
   return (
     <div className="stg-inset p-4 h-full flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className={clsx('flex items-center justify-center w-10 h-10 rounded-full shrink-0', TONE_ICON[tone])}>
-          <Icon className="w-5 h-5" />
-        </span>
+        {!embedded && (
+          <span className={clsx('flex items-center justify-center w-10 h-10 rounded-full shrink-0', TONE_ICON[tone])}>
+            <Icon className="w-5 h-5" />
+          </span>
+        )}
         <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-base font-medium truncate">{name}</span>
+          {!embedded && <span className="text-base font-medium truncate">{name}</span>}
           <span className="flex items-center gap-1.5 text-sm text-base-content/70">
             <span className={clsx('w-2 h-2 rounded-full shrink-0', DOT_TONE[tone])} aria-hidden="true" />
             <span className="truncate">{state}</span>

@@ -3191,5 +3191,22 @@
     "done": "Caddy działa w wersji z tego wydania boneIO.",
     "current": "Używana wersja",
     "release": "Wersja z wydania boneIO"
+  },
+  "entity_card": {
+    "more": "Więcej opcji",
+    "history": "Ostatnie zdarzenia",
+    "history_scope": "od otwarcia panelu",
+    "history_empty": "Nic się nie wydarzyło od otwarcia panelu.",
+    "since": "od {{time}}",
+    "just_now": "przed chwilą",
+    "ago_s": "{{n}} s temu",
+    "ago_min": "{{n}} min temu",
+    "ago_h": "{{n}} godz. temu",
+    "state_on": "Włączone",
+    "state_off": "Wyłączone",
+    "cover_open": "Otwarta",
+    "cover_closed": "Zamknięta",
+    "no_event_yet": "Brak zdarzeń",
+    "current_value": "Aktualna wartość"
   }
 }

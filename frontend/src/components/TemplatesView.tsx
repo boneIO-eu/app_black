@@ -4,20 +4,18 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/hooks/useAuth';
 import axios from '@/api/axios';
 import { FaThermometerHalf, FaShieldAlt, FaDoorOpen, FaCog, FaTint } from 'react-icons/fa';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
-import type { TemplatesData } from './templates/types';
+import EntityInfoCard from './entityCard/EntityInfoCard';
+import { historyFormatters } from './entityCard/format';
+import { historyKey, recordTemplates } from '@/utils/entityHistory';
+import type { AlarmState, GateState, TemplatesData, ThermostatState } from './templates/types';
 import ThermostatCard from './templates/ThermostatCard';
 import AlarmCard from './templates/AlarmCard';
 import GateCard from './templates/GateCard';
 import IrrigationView from './IrrigationView';
 import { EntityPanel } from './EntityGrid';
+
+type TemplateKind = 'thermostat' | 'alarm' | 'gate';
 
 /**
  * Template tiles carry a row of three buttons, which an output tile does not,
@@ -52,31 +50,30 @@ export default function TemplatesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Long press dialog state
-  const [longPressDialog, setLongPressDialog] = useState<{ open: boolean; templateId: string | null; name: string | null }>({
+  // Long-press card. It shows the template live, so it opens for a viewer
+  // too; only the settings entry behind ⋮ is for administrators.
+  const [card, setCard] = useState<{ open: boolean; kind: TemplateKind; id: string | null }>({
     open: false,
-    templateId: null,
-    name: null
+    kind: 'thermostat',
+    id: null,
   });
+  const closeCard = useCallback(() => setCard(prev => ({ ...prev, open: false })), []);
 
-  const handleLongPress = useCallback((templateId: string, name: string) => {
-    // The dialog exists only to offer "edit in settings", and that route
-    // refuses a read-only account — so for a viewer the long press does
-    // nothing rather than opening a dialog that leads to a wall.
-    if (!isAdmin) return;
-    setLongPressDialog({ open: true, templateId, name });
-  }, [isAdmin]);
+  const handleLongPress = useCallback((kind: TemplateKind, templateId: string) => {
+    setCard({ open: true, kind, id: templateId });
+  }, []);
 
   const handleGoToSettings = useCallback(() => {
-    if (!longPressDialog.templateId) return;
-    navigate(`/settings/template?edit=${encodeURIComponent(longPressDialog.templateId)}`);
-    setLongPressDialog({ open: false, templateId: null, name: null });
-  }, [longPressDialog.templateId, navigate]);
+    if (!card.id) return;
+    navigate(`/settings/template?edit=${encodeURIComponent(card.id)}`);
+    closeCard();
+  }, [card.id, navigate, closeCard]);
 
   const fetchData = useCallback(async () => {
     try {
       const response = await axios.get('/api/templates');
       setData(response.data);
+      recordTemplates(response.data);
       setError(null);
     } catch (err) {
       console.error('Error fetching templates:', err);
@@ -161,6 +158,37 @@ export default function TemplatesView() {
   const gates = data?.gates ?? [];
   const isEmpty = thermostats.length === 0 && alarms.length === 0 && gates.length === 0;
 
+  /** The card for `card`, drawn from the latest poll like the tile is. */
+  const renderCard = () => {
+    if (!card.id) return null;
+    const entity = card.kind === 'thermostat'
+      ? thermostats.find(x => x.id === card.id)
+      : card.kind === 'alarm'
+        ? alarms.find(x => x.id === card.id)
+        : gates.find(x => x.id === card.id);
+    if (!entity) return null;
+    const Icon = card.kind === 'thermostat' ? FaThermometerHalf : card.kind === 'alarm' ? FaShieldAlt : FaDoorOpen;
+    const iconClass = card.kind === 'thermostat' ? 'text-orange-500' : card.kind === 'alarm' ? 'text-red-500' : 'text-blue-500';
+    return (
+      <EntityInfoCard
+        open={card.open}
+        onOpenChange={(open) => !open && closeCard()}
+        icon={<Icon className={iconClass} />}
+        title={entity.name || entity.id}
+        subtitle={entity.id}
+        menu={isAdmin ? [{ key: 'settings', label: t('inputs.go_to_settings'), icon: <FaCog />, onSelect: handleGoToSettings }] : []}
+        historyKey={historyKey(card.kind, entity.id)}
+        formatValue={historyFormatters[card.kind](t)}
+      >
+        {card.kind === 'thermostat' && (
+          <ThermostatCard data={entity as ThermostatState} onSetMode={setThermostatMode} onSetTemp={setThermostatTemp} embedded />
+        )}
+        {card.kind === 'alarm' && <AlarmCard data={entity as AlarmState} onCommand={sendAlarmCommand} embedded />}
+        {card.kind === 'gate' && <GateCard data={entity as GateState} onCommand={sendGateCommand} embedded />}
+      </EntityInfoCard>
+    );
+  };
+
   return (
     <div className="container mx-auto p-4">
       {/* No panel around the list: the page is a tinted field and the
@@ -190,7 +218,7 @@ export default function TemplatesView() {
               >
                 <div className={TEMPLATE_GRID_CLASS}>
                 {thermostats.map((th) => (
-                  <LongPressWrapper key={th.id} className="h-full" onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
+                  <LongPressWrapper key={th.id} className="h-full" onLongPress={() => handleLongPress('thermostat', th.id)}>
                     <ThermostatCard
                       data={th}
                       onSetMode={setThermostatMode}
@@ -217,7 +245,7 @@ export default function TemplatesView() {
               >
                 <div className={TEMPLATE_GRID_CLASS}>
                 {alarms.map((al) => (
-                  <LongPressWrapper key={al.id} className="h-full" onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
+                  <LongPressWrapper key={al.id} className="h-full" onLongPress={() => handleLongPress('alarm', al.id)}>
                     <AlarmCard
                       data={al}
                       onCommand={sendAlarmCommand}
@@ -243,7 +271,7 @@ export default function TemplatesView() {
               >
                 <div className={TEMPLATE_GRID_CLASS}>
                 {gates.map((g) => (
-                  <LongPressWrapper key={g.id} className="h-full" onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
+                  <LongPressWrapper key={g.id} className="h-full" onLongPress={() => handleLongPress('gate', g.id)}>
                     <GateCard
                       data={g}
                       onCommand={sendGateCommand}
@@ -281,35 +309,8 @@ export default function TemplatesView() {
         </div>
       )}
 
-      {/* Long press dialog - go to settings */}
-      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, templateId: open ? longPressDialog.templateId : null, name: open ? longPressDialog.name : null })}>
-        <DialogContent className="sm:max-w-md bg-base-200">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FaCog className="w-5 h-5" />
-              {t('inputs.go_to_settings')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>{t('inputs.go_to_settings_confirm')}</p>
-            <p className="font-semibold mt-2">{longPressDialog.name}</p>
-          </div>
-          <DialogFooter className="gap-2">
-            <button
-              className="btn btn-ghost"
-              onClick={() => setLongPressDialog({ open: false, templateId: null, name: null })}
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleGoToSettings}
-            >
-              {t('inputs.go_to_settings')}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Long-press card: the template live, its recent changes; settings behind ⋮ */}
+      {renderCard()}
     </div>
   );
 }

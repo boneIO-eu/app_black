@@ -3192,5 +3192,22 @@
     "done": "Caddy runs the version from this boneIO release.",
     "current": "Version in use",
     "release": "Version in this boneIO release"
+  },
+  "entity_card": {
+    "more": "More options",
+    "history": "Recent events",
+    "history_scope": "since the panel was opened",
+    "history_empty": "Nothing has happened since the panel was opened.",
+    "since": "since {{time}}",
+    "just_now": "just now",
+    "ago_s": "{{n}} s ago",
+    "ago_min": "{{n}} min ago",
+    "ago_h": "{{n}} h ago",
+    "state_on": "On",
+    "state_off": "Off",
+    "cover_open": "Open",
+    "cover_closed": "Closed",
+    "no_event_yet": "No events",
+    "current_value": "Current value"
   }
 }

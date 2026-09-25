@@ -6,6 +6,8 @@ import GraphCard from './GraphCard';
 import { EntityGrid, SENSOR_GRID_CLASS } from './EntityGrid';
 import { isSensorEvent, SensorState } from '../hooks/useWebSocket';
 import { useSensorHistory } from '../hooks/useSensorHistory';
+import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
+import EntityInfoCard from './entityCard/EntityInfoCard';
 
 /** Sensor group definition with display metadata */
 interface SensorGroup {
@@ -104,6 +106,14 @@ export default function SensorView() {
       });
   }, [validSensors, t]);
 
+  // Long-press card: the sensor with room for its graph. No event list — a
+  // value that changes every few seconds says more as a line than as rows —
+  // and no menu, because a sensor has neither MQTT commands nor one settings
+  // section to send it to.
+  const [card, setCard] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
+  const cardSensor = card.id ? validSensors.find(s => s.id === card.id) : undefined;
+  const cardGroup = cardSensor ? sensorGroups.find(g => g.sensors.some(s => s.id === cardSensor.id)) : undefined;
+
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
     localStorage.setItem('sensorViewMode', gridView ? 'grid' : 'list');
@@ -142,8 +152,12 @@ export default function SensorView() {
                     }
                   >
                     {group.sensors.map(sensor => (
-                      <GraphCard
+                      <LongPressWrapper
                         key={sensor.id}
+                        className={isGrid ? 'h-full' : undefined}
+                        onLongPress={() => setCard({ open: true, id: sensor.id })}
+                      >
+                      <GraphCard
                         id={sensor.id}
                         name={sensor.name}
                         value={sensor.state}
@@ -156,6 +170,7 @@ export default function SensorView() {
                         fillColor={group.fillColor}
                         attributes={sensor.attributes}
                       />
+                      </LongPressWrapper>
                     ))}
                   </EntityGrid>
                 </section>
@@ -164,6 +179,31 @@ export default function SensorView() {
           )}
         </div>
       </div>
+
+      {cardSensor && (
+        <EntityInfoCard
+          open={card.open}
+          onOpenChange={(open) => !open && setCard(prev => ({ ...prev, open: false }))}
+          icon={<span>{cardGroup?.icon ?? '📊'}</span>}
+          title={cardSensor.name}
+          subtitle={cardSensor.id}
+          maxWidthClass="sm:max-w-xl"
+        >
+          <GraphCard
+            id={cardSensor.id}
+            name={t('entity_card.current_value')}
+            value={cardSensor.state}
+            unit={cardSensor.unit}
+            timestamp={cardSensor.timestamp}
+            historyPoints={historyMap.get(cardSensor.id) || []}
+            isGrid
+            accentColor={cardGroup?.accentColor}
+            strokeColor={cardGroup?.strokeColor}
+            fillColor={cardGroup?.fillColor}
+            attributes={cardSensor.attributes}
+          />
+        </EntityInfoCard>
+      )}
     </div>
   );
 }

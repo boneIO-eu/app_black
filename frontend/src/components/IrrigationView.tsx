@@ -23,10 +23,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 
 import type { ZoneState, IrrigationController } from '@/types/irrigation';
+import EntityInfoCard from './entityCard/EntityInfoCard';
+import { historyFormatters } from './entityCard/format';
+import { historyKey, recordIrrigation } from '@/utils/entityHistory';
 import { TILE_BUTTON, TILE_BUTTON_STACKED, TONE_ICON, type Tone } from './templates/tileStyles';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -208,6 +210,7 @@ function ControllerCard({
   onZoneUpdate,
   onSettingUpdate,
   onScheduleSkip,
+  embedded = false,
 }: {
   ctrl: IrrigationController;
   onCommand: (ctrlId: string, cmd: string) => void;
@@ -215,6 +218,8 @@ function ControllerCard({
   onZoneUpdate: (ctrlId: string, zoneId: string, field: string, value: number | boolean) => void;
   onSettingUpdate: (ctrlId: string, field: string, value: number | boolean | string) => void;
   onScheduleSkip: (ctrlId: string, idx: number, skip: boolean) => void;
+  /** Inside the long-press card, whose header already has the icon and name. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const isRunning = ctrl.state === 'RUNNING';
@@ -515,11 +520,13 @@ function ControllerCard({
   return (
     <div className="stg-inset p-4 flex flex-col gap-4 h-full">
       <div className="flex items-center gap-3">
-        <span className={clsx('flex items-center justify-center w-10 h-10 rounded-full shrink-0', TONE_ICON[tone])}>
-          <FaTint className="w-5 h-5" />
-        </span>
+        {!embedded && (
+          <span className={clsx('flex items-center justify-center w-10 h-10 rounded-full shrink-0', TONE_ICON[tone])}>
+            <FaTint className="w-5 h-5" />
+          </span>
+        )}
         <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-base font-medium truncate">{ctrl.name}</span>
+          {!embedded && <span className="text-base font-medium truncate">{ctrl.name}</span>}
           <span className="text-sm text-base-content/70 truncate">{state}</span>
         </div>
       </div>
@@ -619,6 +626,7 @@ export default function IrrigationView() {
     try {
       const resp = await axios.get('/api/irrigation');
       setData(resp.data);
+      recordIrrigation(resp.data);
       setError(null);
     } catch (err) {
       console.error('Error fetching irrigation data:', err);
@@ -682,29 +690,22 @@ export default function IrrigationView() {
     }
   }, []);
 
-  // Long press dialog state
-  const [longPressDialog, setLongPressDialog] = useState<{
-    open: boolean;
-    ctrl: IrrigationController | null;
-  }>({
-    open: false,
-    ctrl: null,
-  });
+  // Long-press card. It shows the controller live, so it opens for a viewer
+  // too; only the settings entry behind ⋮ is for administrators. Only the id
+  // is kept, so the card follows each poll like the tile does.
+  const [card, setCard] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
+  const cardCtrl = card.id ? data.find(c => c.id === card.id) : undefined;
+  const closeCard = useCallback(() => setCard(prev => ({ ...prev, open: false })), []);
 
   const handleLongPress = useCallback((ctrl: IrrigationController) => {
-    // The dialog exists only to offer "edit in settings", and that route
-    // refuses a read-only account — so for a viewer the long press does
-    // nothing rather than opening a dialog that leads to a wall.
-    if (!isAdmin) return;
-    setLongPressDialog({ open: true, ctrl });
-  }, [isAdmin]);
+    setCard({ open: true, id: ctrl.id });
+  }, []);
 
   const handleGoToSettings = useCallback(() => {
-    if (!longPressDialog.ctrl) return;
-    const ctrlId = longPressDialog.ctrl.id;
-    navigate(`/settings/template?edit=${encodeURIComponent(ctrlId)}`);
-    setLongPressDialog({ open: false, ctrl: null });
-  }, [longPressDialog.ctrl, navigate]);
+    if (!card.id) return;
+    navigate(`/settings/template?edit=${encodeURIComponent(card.id)}`);
+    closeCard();
+  }, [card.id, navigate, closeCard]);
 
   if (loading) {
     return (
@@ -763,40 +764,30 @@ export default function IrrigationView() {
         ))}
       </div>
 
-      {/* Long press dialog - go to settings */}
-      <Dialog
-        open={longPressDialog.open}
-        onOpenChange={(open) =>
-          setLongPressDialog({ open, ctrl: open ? longPressDialog.ctrl : null })
-        }
-      >
-        <DialogContent className="sm:max-w-md bg-base-200">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FaCog className="w-5 h-5" />
-              {t('irrigation.go_to_settings')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>{t('irrigation.go_to_settings_confirm')}</p>
-            <p className="font-semibold mt-2">{longPressDialog.ctrl?.name}</p>
-          </div>
-          <DialogFooter className="gap-2">
-            <button
-              className="btn btn-ghost"
-              onClick={() => setLongPressDialog({ open: false, ctrl: null })}
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleGoToSettings}
-            >
-              {t('irrigation.go_to_settings')}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Long-press card: the controller live, its recent runs; settings behind ⋮ */}
+      {cardCtrl && (
+        <EntityInfoCard
+          open={card.open}
+          onOpenChange={(open) => !open && closeCard()}
+          icon={<FaTint className="text-blue-400" />}
+          title={cardCtrl.name}
+          subtitle={cardCtrl.id}
+          menu={isAdmin ? [{ key: 'settings', label: t('irrigation.go_to_settings'), icon: <FaCog />, onSelect: handleGoToSettings }] : []}
+          historyKey={historyKey('irrigation', cardCtrl.id)}
+          formatValue={historyFormatters.irrigation(t)}
+          maxWidthClass="sm:max-w-xl"
+        >
+          <ControllerCard
+            ctrl={cardCtrl}
+            onCommand={sendCommand}
+            onZoneCommand={sendZoneCommand}
+            onZoneUpdate={updateZone}
+            onSettingUpdate={updateSetting}
+            onScheduleSkip={toggleScheduleSkip}
+            embedded
+          />
+        </EntityInfoCard>
+      )}
     </div>
   );
 }

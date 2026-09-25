@@ -15,9 +15,12 @@ const TONE: Record<string, Tone> = {
 export default function GateCard({
   data,
   onCommand,
+  embedded = false,
 }: {
   data: GateState;
   onCommand: (id: string, command: string) => void;
+  /** Inside the long-press card, which shows the name itself. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const isOpen = data.state === 'open';
@@ -39,6 +42,7 @@ export default function GateCard({
 
   return (
     <TemplateTile
+      embedded={embedded}
       icon={isClosed ? FaDoorClosed : FaDoorOpen}
       tone={TONE[data.state] ?? 'neutral'}
       name={data.name || data.id}

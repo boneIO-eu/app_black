@@ -14,12 +14,12 @@ import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCo
 import { HiSignal } from 'react-icons/hi2';
 import MqttReferenceSheet from '@/components/MqttReferenceSheet';
 import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { MdBlinds, MdBlindsClosed } from 'react-icons/md';
+import EntityInfoCard, { type EntityCardMenuItem } from './entityCard/EntityInfoCard';
+import { OutputCardBody } from './entityCard/bodies';
+import { historyFormatters } from './entityCard/format';
+import { getIconAndOnColor } from './EntityCard';
+import { historyKey } from '@/utils/entityHistory';
 
 import type { OutputCategory, SortMode } from '@/types/outputs';
 
@@ -228,40 +228,41 @@ export default function OutputsView({error}: {error: string | null}) {
     localStorage.setItem('outputSortMode', mode);
   };
 
-  // Long press dialog state
-  const [longPressDialog, setLongPressDialog] = useState<{ 
-    open: boolean; 
-    output: OutputState | CoverState | null;
+  // Long-press card. Only which entity it is about: the entity itself is
+  // looked up on every render, so the card follows it live.
+  const [card, setCard] = useState<{
+    open: boolean;
+    id: string | null;
     type: 'output' | 'output_group' | 'cover' | 'remote_outputs';
   }>({
     open: false,
-    output: null,
+    id: null,
     type: 'output'
   });
 
   const handleLongPress = useCallback((output: EntityData) => {
-    setLongPressDialog({ open: true, output: output as OutputState, type: 'output' });
+    setCard({ open: true, id: output.id, type: 'output' });
   }, []);
 
   const handleGroupLongPress = useCallback((output: EntityData) => {
-    setLongPressDialog({ open: true, output: output as OutputState, type: 'output_group' });
+    setCard({ open: true, id: output.id, type: 'output_group' });
   }, []);
 
   const handleCoverLongPress = useCallback((cover: CoverState) => {
-    setLongPressDialog({ open: true, output: cover, type: 'cover' });
+    setCard({ open: true, id: cover.id, type: 'cover' });
   }, []);
 
   const handleRemoteOutputLongPress = useCallback((output: EntityData) => {
-    setLongPressDialog({ open: true, output: output as OutputState, type: 'remote_outputs' });
+    setCard({ open: true, id: output.id, type: 'remote_outputs' });
   }, []);
 
+  const closeCard = useCallback(() => setCard(prev => ({ ...prev, open: false })), []);
+
   const handleGoToSettings = useCallback(() => {
-    if (!longPressDialog.output) return;
-    const outputId = longPressDialog.output.id;
-    const section = longPressDialog.type;
-    navigate(`/settings/${section}?edit=${encodeURIComponent(outputId)}`);
-    setLongPressDialog({ open: false, output: null, type: 'output' });
-  }, [longPressDialog.output, longPressDialog.type, navigate]);
+    if (!card.id) return;
+    navigate(`/settings/${card.type}?edit=${encodeURIComponent(card.id)}`);
+    closeCard();
+  }, [card.id, card.type, navigate, closeCard]);
 
   // MQTT Reference dialog state
   const [mqttRef, setMqttRef] = useState<{
@@ -271,16 +272,16 @@ export default function OutputsView({error}: {error: string | null}) {
     entityName: string;
   }>({ open: false, entityType: '', entityId: '', entityName: '' });
 
-  const handleOpenMqttRef = useCallback(() => {
-    if (!longPressDialog.output) return;
+  const handleOpenMqttRef = useCallback((name: string) => {
+    if (!card.id) return;
     setMqttRef({
       open: true,
-      entityType: longPressDialog.type,
-      entityId: longPressDialog.output.id,
-      entityName: longPressDialog.output.name,
+      entityType: card.type,
+      entityId: card.id,
+      entityName: name,
     });
-    setLongPressDialog({ open: false, output: null, type: 'output' });
-  }, [longPressDialog.output, longPressDialog.type]);
+    closeCard();
+  }, [card.id, card.type, closeCard]);
 
   // Track recently changed outputs for highlight effect
   useEffect(() => {
@@ -445,6 +446,84 @@ export default function OutputsView({error}: {error: string | null}) {
     );
   };
 
+  /**
+   * The long-press card for whatever `card` points at, drawn from the same
+   * lists the tiles are, so it moves when the tile does.
+   */
+  const renderCard = () => {
+    if (!card.id) return null;
+    const allOutputs = [...Object.values(categorizedOutputs).flat(), ...remoteOutputs];
+
+    const menu: EntityCardMenuItem[] = [];
+    const addMenu = (name: string) => {
+      menu.push({
+        key: 'mqtt',
+        label: t('mqtt_reference.button'),
+        icon: <HiSignal />,
+        onSelect: () => handleOpenMqttRef(name),
+      });
+      // Hidden for a read-only account: the route refuses it, and a
+      // button that leads to "administrators only" is a button that
+      // should not have been offered.
+      if (isAdmin) {
+        menu.push({ key: 'settings', label: t('outputs.go_to_settings'), icon: <FaCog />, onSelect: handleGoToSettings });
+      }
+    };
+
+    if (card.type === 'cover') {
+      const cover = validCovers.find(c => c.id === card.id);
+      if (!cover) return null;
+      addMenu(cover.name);
+      const CoverIcon = cover.state === 'open' ? MdBlinds : MdBlindsClosed;
+      return (
+        <EntityInfoCard
+          open={card.open}
+          onOpenChange={(open) => !open && closeCard()}
+          icon={<CoverIcon className={cover.state === 'open' ? 'text-yellow-400' : 'text-base-content/40'} />}
+          title={cover.name}
+          subtitle={[cover.id, cover.area].filter(Boolean).join(' · ')}
+          menu={menu}
+          historyKey={historyKey('cover', cover.id)}
+          formatValue={historyFormatters.cover(t)}
+        >
+          <CoverItem cover={cover} action={actionCover} isGrid error={error} embedded />
+        </EntityInfoCard>
+      );
+    }
+
+    const isGroup = card.type === 'output_group';
+    const output: EntityData | undefined = isGroup
+      ? validGroups
+        .filter(g => g.id === card.id)
+        .map(g => ({ id: g.id, name: g.name, state: g.state, type: g.type, timestamp: g.timestamp, area: null, interlock_groups: [] }))[0]
+      : allOutputs.find(o => o.id === card.id);
+    if (!output) return null;
+    addMenu(output.name);
+    const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
+    const stateOnly = !isGroup && categorizeOutput(output.type) === 'state_only';
+    return (
+      <EntityInfoCard
+        open={card.open}
+        onOpenChange={(open) => !open && closeCard()}
+        icon={<Icon className={output.state === 'ON' ? onColor : 'text-base-content/40'} />}
+        title={output.name}
+        subtitle={[output.id, output.area].filter(Boolean).join(' · ')}
+        menu={menu}
+        historyKey={historyKey(isGroup ? 'group' : 'output', output.id)}
+        formatValue={historyFormatters.output(t)}
+      >
+        <OutputCardBody
+          output={output}
+          onToggle={isGroup ? toggleGroup : toggleOutput}
+          onDurationChange={handleDurationChange}
+          onBrightnessChange={handleBrightnessChange}
+          error={error}
+          stateOnly={stateOnly}
+        />
+      </EntityInfoCard>
+    );
+  };
+
   return (
     <div className="container mx-auto p-4">
       {/* No panel around the list any more. The page is a tinted field and
@@ -601,43 +680,8 @@ export default function OutputsView({error}: {error: string | null}) {
         </div>
       )}
 
-      {/* Long press dialog - choose action */}
-      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, output: open ? longPressDialog.output : null, type: longPressDialog.type })}>
-        <DialogContent
-          className="bg-base-100 p-0 gap-0 sm:max-w-sm"
-        >
-          <DialogHeader className="px-5 pt-4 pb-0 sm:pt-5">
-            <DialogTitle className="text-center">
-              {longPressDialog.output?.name}
-            </DialogTitle>
-            <p className="text-xs text-base-content/50 text-center">
-              {longPressDialog.output?.id}
-            </p>
-          </DialogHeader>
-          <div className="px-5 py-4 space-y-2">
-            {/* MQTT Reference button */}
-            <button
-              className="btn btn-primary btn-block gap-2 h-14 text-base"
-              onClick={handleOpenMqttRef}
-            >
-              <HiSignal className="w-5 h-5" />
-              {t('mqtt_reference.button')}
-            </button>
-            {/* Hidden for a read-only account: the route refuses it, and a
-                button that leads to "administrators only" is a button that
-                should not have been offered. */}
-            {isAdmin && (
-              <button
-                className="btn btn-ghost btn-block gap-2 h-12"
-                onClick={handleGoToSettings}
-              >
-                <FaCog className="w-4 h-4" />
-                {t('outputs.go_to_settings')}
-              </button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Long-press card: live state, controls, recent events; the rest behind ⋮ */}
+      {renderCard()}
 
       {/* MQTT Reference Sheet */}
       <MqttReferenceSheet
