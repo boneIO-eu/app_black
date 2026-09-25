@@ -77,7 +77,7 @@ PIVOT_VERSIONS = frozenset({"1.6.5"})
 #: the whole queue — so a device whose pivot failed would never apply anything
 #: again. These are deferred instead: skipped, left pending, retried on the
 #: next start. Nothing ordered after one of these may depend on it.
-V2_ONLY_VERSIONS = frozenset({"1.6.11"})
+V2_ONLY_VERSIONS = frozenset({"1.6.11", "1.6.24"})
 APPLIED_DIR = Path("/var/lib/boneio/migrations.d")
 ASSETS_DIR = Path(__file__).parent / "assets"
 MANIFEST_PATH = ASSETS_DIR / "MANIFEST.sha256"

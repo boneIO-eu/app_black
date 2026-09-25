@@ -1,0 +1,1 @@
+[{"action":"fstab_add_options","mountpoint":"/boot/firmware","options":["nofail"]},{"action":"systemctl_daemon_reload"}]

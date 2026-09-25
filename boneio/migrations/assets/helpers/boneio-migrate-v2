@@ -133,6 +133,7 @@ ALLOWED_ACTIONS = {
     "prune_orphaned_journal_dirs",
     "set_file_permissions",
     "remove_from_group",
+    "fstab_add_options",
 }
 
 #: The closed set of validators. v1 took a command string and ran it, so the
@@ -160,6 +161,23 @@ REMOVABLE_MEMBERSHIPS = {("boneio", "docker")}
 #: somewhere else to go, so the helper checks that the somewhere else is
 #: actually installed and root-owned rather than trusting the plan's ordering.
 CONTAINERS_HELPER = Path("/usr/sbin/boneio-containers")
+
+FSTAB = Path("/etc/fstab")
+
+#: Mount options a plan may add, per mount point. Not a general fstab editor:
+#: mount options decide whether a filesystem allows setuid binaries and
+#: device nodes, and whether the root filesystem is writable at all, so
+#: "set these options on that mount" is too wide a verb for a plan that can
+#: see neither the device's fstab nor what else is mounted there. ``nofail``
+#: can only ever make a mount less able to stop the boot.
+FSTAB_ADDABLE_OPTIONS = {"/boot/firmware": frozenset({"nofail"})}
+
+#: One fstab entry: source, mount point, type, options, and whatever follows
+#: (dump and pass), with the whitespace between them kept as it was.
+_FSTAB_ENTRY_RE = re.compile(
+    r"^(?P<head>\s*\S+\s+)(?P<target>\S+)(?P<mid>\s+\S+)"
+    r"(?:(?P<sep>\s+)(?P<options>\S+))?(?P<tail>.*)$"
+)
 
 RECOVERY_ALLOWED_ACTIONS = {"install_file", "remove_file"}
 RECOVERY_ALLOWED_PATHS = {str(RELEASE_ANCHOR), str(RECOVERY_ANCHOR)}
@@ -1358,6 +1376,94 @@ def handle_remove_from_group(action: dict[str, Any], assets_base: str) -> None:
     _LOGGER.info("GROUP: removed %s from %s", account, group)
 
 
+def handle_fstab_add_options(action: dict[str, Any], assets_base: str) -> None:
+    """Add mount options to the fstab entries of one mount point.
+
+    Only the options field of the matching lines changes; comments, spacing
+    and every other entry are written back byte for byte. fstab differs per
+    device — which MMC it boots from, whether it has a swap line — so the file
+    cannot be shipped whole the way ``install_file`` would. A device without
+    the entry, or with the options already there, is reported and skipped.
+
+    The file is replaced atomically and flushed before and after the rename:
+    this edits the one file that decides whether the next boot finds its
+    filesystems, and the reason for editing it is power loss.
+
+    Args:
+        action: Action dict with mountpoint and options.
+        assets_base: Unused.
+
+    Raises:
+        Refused: If the mount point or an option is not in
+            :data:`FSTAB_ADDABLE_OPTIONS`.
+    """
+    mountpoint = str(action.get("mountpoint", ""))
+    options = [str(option) for option in action.get("options", [])]
+    allowed = FSTAB_ADDABLE_OPTIONS.get(mountpoint)
+    if allowed is None or not options or not set(options) <= allowed:
+        raise Refused(
+            f"refusing to add {options!r} to the fstab entry for {mountpoint!r}: "
+            "not an option this helper may add there"
+        )
+
+    if not FSTAB.is_file():
+        _LOGGER.info("SKIP (no fstab): %s", FSTAB)
+        return
+
+    original = FSTAB.read_text(encoding="utf-8")
+    lines = original.splitlines(keepends=True)
+    found = False
+    for index, line in enumerate(lines):
+        body = line.rstrip("\r\n")
+        if not body.strip() or body.lstrip().startswith("#"):
+            continue
+        match = _FSTAB_ENTRY_RE.match(body)
+        if match is None or match["target"] != mountpoint:
+            continue
+        found = True
+        current = match["options"].split(",") if match["options"] else ["defaults"]
+        missing = [option for option in options if option not in current]
+        if not missing:
+            continue
+        merged = ",".join(current + missing)
+        sep = match["sep"] or "\t"
+        lines[index] = (
+            f"{match['head']}{match['target']}{match['mid']}"
+            f"{sep}{merged}{match['tail']}{line[len(body):]}"
+        )
+
+    if not found:
+        _LOGGER.info("SKIP (no fstab entry): %s", mountpoint)
+        return
+    updated = "".join(lines)
+    if updated == original:
+        _LOGGER.info("SKIP (options present): %s on %s", ",".join(options), mountpoint)
+        return
+
+    st = FSTAB.stat()
+    fd, tmp_path = tempfile.mkstemp(dir=FSTAB.parent, prefix=".fstab.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(updated)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp_path, st.st_mode & 0o7777)
+        os.chown(tmp_path, st.st_uid, st.st_gid)
+        os.replace(tmp_path, FSTAB)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    dir_fd = os.open(FSTAB.parent, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+    _LOGGER.info("FSTAB: %s gets %s", mountpoint, ",".join(options))
+
+
 ACTION_HANDLERS = {
     "install_file": handle_install_file,
     "remove_file": handle_remove_file,
@@ -1375,6 +1481,7 @@ ACTION_HANDLERS = {
     "prune_orphaned_journal_dirs": handle_prune_orphaned_journal_dirs,
     "set_file_permissions": handle_set_file_permissions,
     "remove_from_group": handle_remove_from_group,
+    "fstab_add_options": handle_fstab_add_options,
 }
 
 

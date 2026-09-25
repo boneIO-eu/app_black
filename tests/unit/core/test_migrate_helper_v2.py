@@ -961,3 +961,114 @@ def test_a_suspicious_package_name_is_refused(helper, apt, name):
     with pytest.raises(helper.Refused):
         helper.dispatch_action({"action": "apt_purge", "packages": [name]}, "")
     assert apt["ran"] == []
+
+
+# ---------------------------------------------------------------------------
+# fstab_add_options
+# ---------------------------------------------------------------------------
+# fstab decides whether the next boot finds its filesystems, and it differs per
+# device. These pin that only the options field of the named mount point moves.
+
+FSTAB_SD = """\
+# /etc/fstab: static file system information.
+#
+# The root file system has fs_passno=1 as per fstab(5) for automatic fsck.
+/dev/mmcblk0p3  /  ext4  noatime,errors=remount-ro  0  1
+# All other file systems have fs_passno=2 as per fstab(5) for automatic fsck.
+/dev/mmcblk0p1  /boot/firmware vfat user,uid=1000,gid=1000,defaults 0 2
+/dev/mmcblk0p2       none    swap    sw      0       0
+debugfs  /sys/kernel/debug  debugfs  mode=755,uid=root,gid=gpio,defaults  0  0
+"""
+
+
+@pytest.fixture
+def fstab(helper, monkeypatch, tmp_path):
+    path = tmp_path / "fstab"
+    path.write_text(FSTAB_SD)
+    monkeypatch.setattr(helper, "FSTAB", path)
+    return path
+
+
+def _add(helper, mountpoint="/boot/firmware", options=("nofail",)):
+    helper.dispatch_action(
+        {"action": "fstab_add_options", "mountpoint": mountpoint, "options": list(options)},
+        "",
+    )
+
+
+def test_nofail_is_added_to_the_boot_partition_only(helper, fstab):
+    _add(helper)
+    assert fstab.read_text() == FSTAB_SD.replace(
+        "user,uid=1000,gid=1000,defaults 0 2",
+        "user,uid=1000,gid=1000,defaults,nofail 0 2",
+    )
+
+
+def test_running_it_twice_changes_nothing_the_second_time(helper, fstab):
+    _add(helper)
+    first = fstab.read_text()
+    mtime = fstab.stat().st_mtime_ns
+    _add(helper)
+    assert fstab.read_text() == first
+    assert fstab.stat().st_mtime_ns == mtime
+
+
+def test_an_option_already_there_is_not_repeated(helper, fstab):
+    fstab.write_text("/dev/mmcblk1p1  /boot/firmware  vfat  nofail,user  0  2\n")
+    _add(helper)
+    assert fstab.read_text() == "/dev/mmcblk1p1  /boot/firmware  vfat  nofail,user  0  2\n"
+
+
+def test_an_entry_without_options_gets_defaults_kept(helper, fstab):
+    fstab.write_text("/dev/mmcblk1p1 /boot/firmware vfat\n")
+    _add(helper)
+    assert fstab.read_text() == "/dev/mmcblk1p1 /boot/firmware vfat\tdefaults,nofail\n"
+
+
+def test_a_commented_out_entry_is_left_alone(helper, fstab):
+    text = "#/dev/mmcblk1p1  /boot/firmware  vfat  defaults  0  2\n/dev/x / ext4 defaults 0 1\n"
+    fstab.write_text(text)
+    _add(helper)
+    assert fstab.read_text() == text
+
+
+def test_a_device_without_the_entry_is_skipped(helper, fstab):
+    text = "/dev/mmcblk1p3  /  ext4  noatime  0  1\n"
+    fstab.write_text(text)
+    _add(helper)
+    assert fstab.read_text() == text
+
+
+def test_a_missing_fstab_is_skipped(helper, fstab):
+    fstab.unlink()
+    _add(helper)
+    assert not fstab.exists()
+
+
+def test_the_file_keeps_its_mode(helper, fstab):
+    os.chmod(fstab, 0o644)
+    _add(helper)
+    assert fstab.stat().st_mode & 0o7777 == 0o644
+    assert [p.name for p in fstab.parent.iterdir()] == ["fstab"]
+
+
+@pytest.mark.parametrize(
+    "mountpoint,options",
+    [
+        ("/", ["nofail"]),                  # root must stop the boot when missing
+        ("/boot/firmware", ["exec"]),
+        ("/boot/firmware", ["nofail", "suid"]),
+        ("/boot/firmware", ["rw"]),
+        ("/boot/firmware", []),
+        ("/boot/firmware/", ["nofail"]),
+        ("", ["nofail"]),
+    ],
+)
+def test_only_the_listed_options_may_be_added(helper, fstab, mountpoint, options):
+    with pytest.raises(helper.Refused):
+        _add(helper, mountpoint, options)
+    assert fstab.read_text() == FSTAB_SD
+
+
+def test_the_fstab_vocabulary_is_closed(helper):
+    assert helper.FSTAB_ADDABLE_OPTIONS == {"/boot/firmware": frozenset({"nofail"})}

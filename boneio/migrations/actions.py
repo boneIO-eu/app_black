@@ -529,3 +529,28 @@ class RemoveFromGroup(MigrationAction):
             "account": self.account,
             "group": self.group,
         }
+
+
+@dataclass
+class FstabAddOptions(MigrationAction):
+    """Add mount options to the ``/etc/fstab`` entries of one mount point.
+
+    fstab is per device — the MMC it boots from, whether it has swap — so it
+    cannot be installed whole. The helper edits only the options field of the
+    matching lines, and only with options it lists for that mount point.
+
+    Args:
+        mountpoint: The mount point whose entries to change.
+        options: Options to add where they are missing.
+    """
+
+    mountpoint: str
+    options: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "action": "fstab_add_options",
+            "mountpoint": self.mountpoint,
+            "options": list(self.options),
+        }
