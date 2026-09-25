@@ -20,18 +20,28 @@ import RemoteOutputTable from '../tables/RemoteOutputTable';
 import VirtualSwitchTable from '../tables/VirtualSwitchTable';
 import ScheduleTable from '../tables/ScheduleTable';
 import GenericTable from '../tables/GenericTable';
+import type { AutodiscoveredDevice, RemoteDeviceRow } from '../tables/RemoteDeviceTable';
+import type { AreaEntity, CoverEntity, OutputEntity, RemoteDeviceEntity } from '@/types/config';
+import type { ConfigRecord } from '@/types/jsonSchema';
+import type { SwitchEntry } from '../helpers/virtualSwitchEdges';
+import type { ScheduleEntry } from '../helpers/scheduleTrigger';
+
+/** Rows arrive as ConfigRecord. The template (`platform`), virtual switch,
+ *  schedule and remote device (`id`) row types have required fields, so those
+ *  rows are cast. TemplateTable does not export its row type. */
+type TemplateRow = React.ComponentProps<typeof TemplateTable>['items'][number];
 
 interface TableRendererProps {
   sectionType: string;
-  items: any[];
-  allAreas: any[];
-  allOutputs: any[];
-  allCovers: any[];
-  allRemoteDevices: any[];
+  items: ConfigRecord[];
+  allAreas: AreaEntity[];
+  allOutputs: OutputEntity[];
+  allCovers: CoverEntity[];
+  allRemoteDevices: RemoteDeviceEntity[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
   onDuplicate?: (index: number) => void;
-  onAddFromDiscovery: (device: any) => void;
+  onAddFromDiscovery: (device: AutodiscoveredDevice) => void;
   /** True while the section has edits that have not been saved.
    *  Only the schedules table reads it, to keep "run now" off a draft. */
   isDirty?: boolean;
@@ -76,9 +86,9 @@ const TableRenderer: React.FC<TableRendererProps> = ({
     case 'virtual_energy_sensor':
       return <VirtualEnergySensorTable {...commonProps} allAreas={allAreas} />;
     case 'remote_devices':
-      return <RemoteDeviceTable {...commonProps} onAddFromDiscovery={onAddFromDiscovery} />;
+      return <RemoteDeviceTable {...commonProps} items={items as RemoteDeviceRow[]} onAddFromDiscovery={onAddFromDiscovery} />;
     case 'template':
-      return <TemplateTable {...commonProps} allAreas={allAreas} onDuplicate={onDuplicate} />;
+      return <TemplateTable {...commonProps} items={items as (ConfigRecord & TemplateRow)[]} allAreas={allAreas} onDuplicate={onDuplicate} />;
     case 'adc':
       return <ADCTable {...commonProps} allAreas={allAreas} />;
     case 'board_sensors':
@@ -86,9 +96,9 @@ const TableRenderer: React.FC<TableRendererProps> = ({
     case 'remote_outputs':
       return <RemoteOutputTable {...commonProps} allAreas={allAreas} allRemoteDevices={allRemoteDevices} />;
     case 'virtual_switch':
-      return <VirtualSwitchTable {...commonProps} allAreas={allAreas} />;
+      return <VirtualSwitchTable {...commonProps} items={items as SwitchEntry[]} allAreas={allAreas} />;
     case 'schedule':
-      return <ScheduleTable {...commonProps} isDirty={isDirty} />;
+      return <ScheduleTable {...commonProps} items={items as ScheduleEntry[]} isDirty={isDirty} />;
     default:
       return <GenericTable {...commonProps} />;
   }

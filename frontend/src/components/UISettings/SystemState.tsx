@@ -123,7 +123,7 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
   const [isRestarting, setIsRestarting] = useState(false);
 
   // Hardware errors state
-  const [hardwareErrors, setHardwareErrors] = useState<any[]>([]);
+  const [hardwareErrors, setHardwareErrors] = useState<React.ComponentProps<typeof HardwareErrors>['errors']>([]);
 
   // Fetch hardware errors
   const fetchHardwareErrors = useCallback(async () => {

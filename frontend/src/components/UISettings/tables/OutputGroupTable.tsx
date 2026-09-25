@@ -6,16 +6,28 @@ import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import type { CoverEntity } from '@/types/config';
 
 interface Area {
   id: string;
   name: string;
 }
 
+/** An `output_group` entry, as far as this table reads it. */
+export interface OutputGroupRow {
+  id?: string;
+  name?: string;
+  area?: string;
+  /** Output IDs in the group. */
+  outputs?: string[];
+  output_type?: string;
+  all_on_behaviour?: boolean;
+}
+
 interface OutputGroupTableProps {
-  items: any[];
+  items: OutputGroupRow[];
   allAreas: Area[];
-  allCovers?: any[];
+  allCovers?: CoverEntity[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
 }
@@ -27,7 +39,7 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, al
   // Build set of output IDs used as cover relays
   const coverRelayIds = useMemo(() => {
     const ids = new Set<string>();
-    allCovers.forEach((cover: any) => {
+    allCovers.forEach((cover) => {
       if (cover.open_relay) ids.add(cover.open_relay.toUpperCase());
       if (cover.close_relay) ids.add(cover.close_relay.toUpperCase());
     });
@@ -53,14 +65,14 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, al
   // Sort filtered items
   const sortedItems = useMemo(() => {
     return sortItems(filteredItems, {
-      name: (item: any) => (item.name || item.id || '').toLowerCase(),
-      outputs: (item: any) => (Array.isArray(item.outputs) ? item.outputs.length : 0),
-      output_type: (item: any) => (item.output_type || 'switch').toLowerCase(),
-      area: (item: any) => {
+      name: (item) => (item.name || item.id || '').toLowerCase(),
+      outputs: (item) => (Array.isArray(item.outputs) ? item.outputs.length : 0),
+      output_type: (item) => (item.output_type || 'switch').toLowerCase(),
+      area: (item) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
       },
-      all_on_behaviour: (item: any) => !!item.all_on_behaviour,
+      all_on_behaviour: (item) => !!item.all_on_behaviour,
     });
   }, [filteredItems, sortItems, allAreas]);
 

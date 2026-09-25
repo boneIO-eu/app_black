@@ -9,6 +9,7 @@ import {
   FaExternalLinkAlt,
 } from 'react-icons/fa';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useMigrations, type AppliedMigration } from '@/hooks/useMigrations';
 import {
@@ -20,6 +21,8 @@ import {
   NoticeCallout,
   EmptyState,
 } from './ui';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 const GITHUB_BASE = 'https://github.com/boneIO-eu/app_black/blob/dev-debian13';
 
@@ -68,8 +71,9 @@ const MigrationsSection: React.FC = () => {
       );
       setPassword('');
       await refresh();
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Unknown error';
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      const detail = apiErr?.response?.data?.detail || apiErr?.message || 'Unknown error';
       setFeedback(t('migrations.bootstrap_failed', { error: detail }), true);
     } finally {
       setBusy(false);
@@ -83,8 +87,9 @@ const MigrationsSection: React.FC = () => {
       const { data } = await axios.post('/api/migrations/apply');
       setFeedback(data.message || t('migrations.apply_started'), false);
       setTimeout(refresh, 2000);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Unknown error';
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      const detail = apiErr?.response?.data?.detail || apiErr?.message || 'Unknown error';
       setFeedback(t('migrations.apply_failed', { error: detail }), true);
     } finally {
       setBusy(false);

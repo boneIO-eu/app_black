@@ -12,8 +12,18 @@ interface Area {
   name: string;
 }
 
+/** A `sensor` entry (Dallas 1-Wire), as far as this table reads it. */
+export interface SensorRow {
+  id?: string;
+  name?: string;
+  area?: string;
+  address?: string;
+  platform?: string;
+  update_interval?: number | string;
+}
+
 interface SensorTableProps {
-  items: any[];
+  items: SensorRow[];
   allAreas: Area[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
@@ -30,13 +40,13 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      name: (item: any) => (item.name || item.id || item.address || '').toLowerCase(),
-      address: (item: any) => (item.address || '').toLowerCase(),
-      area: (item: any) => {
+      name: (item) => (item.name || item.id || item.address || '').toLowerCase(),
+      address: (item) => (item.address || '').toLowerCase(),
+      area: (item) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
       },
-      platform: (item: any) => (item.platform || 'gpio_onewire').toLowerCase(),
+      platform: (item) => (item.platform || 'gpio_onewire').toLowerCase(),
     });
   }, [indexedItems, sortItems, allAreas]);
 

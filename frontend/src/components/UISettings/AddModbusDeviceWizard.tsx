@@ -40,12 +40,32 @@ interface UsedAddress {
   name: string;
 }
 
+/** An existing `modbus_devices` item; only the fields read for conflict detection. */
+interface ExistingModbusDevice {
+  [key: string]: unknown;
+  address?: number | string;
+  model?: string;
+  id?: string;
+  name?: string;
+}
+
+/** The new `modbus_devices` item the wizard hands to `onAdd`. */
+interface NewModbusDeviceConfig {
+  [key: string]: unknown;
+  model: string;
+  address: number;
+  name: string;
+  update_interval: string;
+  area?: string;
+  id?: string;
+}
+
 interface AddModbusDeviceWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   allAreas: Area[];
-  allModbusDevices: any[];
-  onAdd: (deviceConfig: any) => void;
+  allModbusDevices: ExistingModbusDevice[];
+  onAdd: (deviceConfig: NewModbusDeviceConfig) => void;
 }
 
 export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
@@ -262,7 +282,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
       return;
     }
 
-    const deviceConfig: any = {
+    const deviceConfig: NewModbusDeviceConfig = {
       model: selectedModel.modelKey,
       address: Number(address),
       name: name.trim(),

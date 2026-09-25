@@ -1,6 +1,9 @@
 import { useState, useCallback } from 'react';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { useTranslation } from '@/hooks/useTranslation';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface HostnameResult {
   status: string;
@@ -43,8 +46,9 @@ export const useHostname = () => {
       setHostnameResult({ status: 'success', message: data.message || t('settings.hostname_changed') });
       setCurrentHostname(newHostname);
       setNewHostname('');
-    } catch (err: any) {
-      setHostnameResult({ status: 'error', message: err.message || t('settings.hostname_change_failed') });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setHostnameResult({ status: 'error', message: apiErr.message || t('settings.hostname_change_failed') });
     } finally {
       setIsChangingHostname(false);
     }

@@ -10,31 +10,35 @@ import {
 import { rgbToHex, hexToRgb, formatActionLabel } from './helpers';
 import SimpleTimePeriodInput from '../widgets/SimpleTimePeriodInput';
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
-import type { RemoteOutputActionProps, RemoteDevice } from './types';
+import type { ESPHomeLightEntity } from '@/types/config';
+import type { ActionDef, ActionUpdate, RemoteDevice, RemoteOutputActionProps, RemoteOutputEntity } from './types';
 
 const STEP_BRIGHTNESS_ACTIONS = ['BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE'];
+
+/** Entity kinds that take more than ON/OFF. Plain MQTT outputs have no `_type`. */
+const FULL_CONTROL_TYPES: ReadonlyArray<RemoteOutputEntity['_type']> = ['light', 'wled_main', 'wled_segment'];
 
 /**
  * Gets all entities (switches, lights, segments) from a remote device.
  */
-const getDeviceEntities = (device: RemoteDevice | undefined): any[] => {
+const getDeviceEntities = (device: RemoteDevice | undefined): RemoteOutputEntity[] => {
   if (!device) return [];
   
   const isEspHome = device.protocol === 'esphome_api';
   const isWled = device.protocol === 'wled';
   
   if (isEspHome) {
-    const switches = (device.esphome_api?.switches || []).map((s: any) => ({ ...s, _type: 'switch' }));
-    const lights = (device.esphome_api?.lights || []).map((l: any) => ({ ...l, _type: 'light' }));
+    const switches = (device.esphome_api?.switches || []).map((s) => ({ ...s, _type: 'switch' as const }));
+    const lights = (device.esphome_api?.lights || []).map((l) => ({ ...l, _type: 'light' as const }));
     return [...switches, ...lights];
   } else if (isWled) {
     return [
-      { id: 'main', name: 'All LEDs', _type: 'wled_main' },
-      ...(device.wled?.segments || []).map((s: any) => ({ 
+      { id: 'main', name: 'All LEDs', _type: 'wled_main' as const },
+      ...(device.wled?.segments || []).map((s) => ({ 
         ...s, 
         id: String(s.id),
         name: s.name || `Segment ${s.id}`,
-        _type: 'wled_segment' 
+        _type: 'wled_segment' as const,
       }))
     ];
   } else {
@@ -54,14 +58,14 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
 }) => {
   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
   const allEntities = getDeviceEntities(selectedDevice);
-  const selectedEntity = allEntities.find((o: any) => o.id === action.output_id);
+  const selectedEntity = allEntities.find((o) => o.id === action.output_id);
   
   const isEspHome = selectedDevice?.protocol === 'esphome_api';
   const isWled = selectedDevice?.protocol === 'wled';
   
   // ESPHome light detection
-  const lights = selectedDevice?.esphome_api?.lights || [];
-  const selectedLight = lights.find((l: any) => l.id === action.output_id);
+  const lights: ESPHomeLightEntity[] = selectedDevice?.esphome_api?.lights || [];
+  const selectedLight = lights.find((l) => l.id === action.output_id);
   const isLight = isEspHome && selectedLight;
   
   // ON/OFF-only actions (no brightness/color/cycle support)
@@ -119,10 +123,10 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           onValueChange={(value) => {
             onUpdate('output_id', value);
             // Reset action_output if current action is not valid for new entity
-            const newEntity = allEntities.find((o: any) => o.id === value);
+            const newEntity = allEntities.find((o) => o.id === value);
             const isOnOffOnly = !newEntity || newEntity._type === 'switch' 
-              || (newEntity._type === 'light' && !lights.find((l: any) => l.id === value)?.supports_brightness)
-              || !['light', 'wled_main', 'wled_segment'].includes(newEntity._type);
+              || (newEntity._type === 'light' && !lights.find((l) => l.id === value)?.supports_brightness)
+              || !FULL_CONTROL_TYPES.includes(newEntity._type);
             if (isOnOffOnly && action.action_output && !ON_OFF_ACTIONS.includes(action.action_output)) {
               onUpdate('action_output', 'TOGGLE');
             }
@@ -148,7 +152,7 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {allEntities.map((entity: any) => (
+            {allEntities.map((entity) => (
               <SelectItem key={entity.id} value={entity.id}>
                 <div className="flex flex-col">
                   <span className="font-medium">{entity.name || entity.id}</span>
@@ -251,10 +255,10 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
  * ESPHome Light Controls - brightness, color temp, RGB, transition.
  */
 interface EspHomeLightControlsProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
-  selectedLight: any;
+  selectedLight: ESPHomeLightEntity | undefined;
   effectiveAction: string;
 }
 
@@ -307,8 +311,8 @@ const EspHomeLightControls: React.FC<EspHomeLightControlsProps> = ({
  * WLED Controls - brightness, RGB, effects, palettes, speed, intensity, transition.
  */
 interface WledControlsProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
   selectedDevice: RemoteDevice | undefined;
   effectiveAction: string;
@@ -464,8 +468,8 @@ const WledControls: React.FC<WledControlsProps> = ({
  * Reusable Brightness Control component.
  */
 interface BrightnessControlProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
 }
 
@@ -537,8 +541,8 @@ const BrightnessStepControl: React.FC<BrightnessControlProps> = ({ action, onUpd
  * Reusable Color Temperature Control component.
  */
 interface ColorTempControlProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
   minMireds: number;
   maxMireds: number;
@@ -581,8 +585,8 @@ const ColorTempControl: React.FC<ColorTempControlProps> = ({ action, onUpdate, t
  * Reusable RGB Color Control component.
  */
 interface RgbControlProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
 }
 
@@ -623,8 +627,8 @@ const RgbControl: React.FC<RgbControlProps> = ({ action, onUpdate, t }) => (
  * Reusable Transition Control component using SimpleTimePeriodInput.
  */
 interface TransitionControlProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
 }
 
@@ -654,8 +658,8 @@ const TransitionControl: React.FC<TransitionControlProps> = ({ action, onUpdate,
  * Cycle Color Control - manage a list of RGB colors to cycle through.
  */
 interface CycleColorControlProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
 }
 
@@ -732,10 +736,10 @@ const CycleColorControl: React.FC<CycleColorControlProps> = ({ action, onUpdate,
  * For WLED: effect IDs (numbers) from discovered WLED effects.
  */
 interface CyclePresetControlProps {
-  action: any;
-  onUpdate: (field: string, value: any) => void;
+  action: ActionDef;
+  onUpdate: ActionUpdate;
   t: (key: string) => string;
-  selectedLight: any;
+  selectedLight: ESPHomeLightEntity | undefined;
   selectedDevice: RemoteDevice | undefined;
   isEspHome: boolean;
   isWled: boolean;

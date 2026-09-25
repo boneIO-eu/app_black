@@ -15,6 +15,9 @@ import { FaFaucetDrip } from 'react-icons/fa6';
 import clsx from 'clsx';
 import EditItemDialog from './components/EditItemDialog';
 import { SettingsPage, SettingsCard } from './ui';
+import type { Action, AreaEntity, RemoteDeviceEntity } from '@/types/config';
+import type { ConfigRecord, JsonSchema } from '@/types/jsonSchema';
+import type { OutputGroupRecord } from './ActionFields/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,19 +68,64 @@ function OutputTypeIcon({ outputType, className }: { outputType?: string; classN
   }
 }
 
+/** The parts of a settings section the matrix reads. */
 interface ConfigSection {
   name: string;
-  schema: any;
-  normalizedSchema: any;
-  uiSchema: any;
-  data: Record<string, any>;
+  schema?: JsonSchema;
+  normalizedSchema?: JsonSchema;
+  uiSchema?: ConfigRecord;
 }
 
+/** A local_inputs / remote_inputs entry — only the fields the matrix reads. */
+interface RawInput {
+  id?: string;
+  boneio_input?: string;
+  pin?: string;
+  name?: string;
+  area?: string;
+  /** Remote inputs: owning device. */
+  boneio_id?: string;
+  remote_device?: string;
+  entity_id?: string;
+  _type?: string;
+  _inputType?: string;
+  /** Keyed by click type (single, pressed, double_then_long, ...). */
+  actions?: Record<string, Action[] | undefined>;
+}
+
+/** An output / cover / remote_outputs entry — only the fields the matrix reads. */
+interface RawOutput {
+  id?: string;
+  name?: string;
+  area?: string;
+  output_type?: string;
+  device_class?: string;
+  boneio_id?: string;
+  remote_device?: string;
+  output_id?: string;
+}
+
+/** Settings form data, keyed by section name. */
+interface BindingFormData {
+  local_inputs?: RawInput[];
+  remote_inputs?: RawInput[];
+  output?: RawOutput[];
+  cover?: RawOutput[];
+  remote_outputs?: RawOutput[];
+  output_group?: OutputGroupRecord[];
+  remote_devices?: RemoteDeviceEntity[];
+  areas?: AreaEntity[];
+  [section: string]: unknown;
+}
+
+/** i18n lookup, as returned by useTranslation(). */
+type TFn = (key: string, opts?: Record<string, string | number>) => string;
+
 interface BindingMatrixProps {
-  formData: Record<string, any>;
+  formData: BindingFormData;
   sections: ConfigSection[];
-  onSaveSection: (sectionName: string, dataOverride?: any) => Promise<void>;
-  onUpdateFormData: (section: string, data: any) => void;
+  onSaveSection: (sectionName: string, dataOverride?: ConfigRecord[]) => Promise<void>;
+  onUpdateFormData: (section: string, data: ConfigRecord[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +210,7 @@ function bindingTooltip(b: Binding, t: (key: string) => string): string {
 /**
  * Extract target ID from an action definition.
  */
-function extractTargetId(action: any): { targetId: string; actionType: string; actionValue: string; remoteDevice?: string } {
+function extractTargetId(action: Action): { targetId: string; actionType: string; actionValue: string; remoteDevice?: string } {
   const actionType = action.action || 'output';
   let targetId = '';
   let actionValue = '';
@@ -204,7 +252,7 @@ function extractTargetId(action: any): { targetId: string; actionType: string; a
 /**
  * Parse all inputs (local + remote) into InputRow[].
  */
-function extractInputs(formData: Record<string, any>): InputRow[] {
+function extractInputs(formData: BindingFormData): InputRow[] {
   const rows: InputRow[] = [];
   const clickTypes = ['single', 'double', 'triple', 'long', 'pressed', 'released',
     'double_then_long', 'single_then_long', 'double_then_single'];
@@ -268,7 +316,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
 /**
  * Extract all outputs and covers into OutputColumn[].
  */
-function extractOutputs(formData: Record<string, any>): OutputColumn[] {
+function extractOutputs(formData: BindingFormData): OutputColumn[] {
   const cols: OutputColumn[] = [];
 
   // Local outputs (skip output_type: cover/none — cover relays and disabled outputs)
@@ -330,7 +378,7 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
 function StatsBanner({ inputs, outputs, t }: {
   inputs: InputRow[];
   outputs: OutputColumn[];
-  t: (key: string, opts?: any) => string;
+  t: TFn;
 }) {
   const localInputs = inputs.filter(i => i.type === 'local');
   const remoteInputs = inputs.filter(i => i.type === 'remote');
@@ -444,7 +492,7 @@ function findVerticalScroller(from: HTMLElement | null): HTMLElement | null {
 function UnconfiguredSection({ inputs, outputs, t }: {
   inputs: InputRow[];
   outputs: OutputColumn[];
-  t: (key: string, opts?: any) => string;
+  t: TFn;
 }) {
   const [showLocal, setShowLocal] = useState(true);
   const [showRemote, setShowRemote] = useState(true);
@@ -572,7 +620,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
   outputs: OutputColumn[];
   areaFilter: Set<string>;
   hideEmpty: boolean;
-  t: (key: string, opts?: any) => string;
+  t: TFn;
   onEditInput: (input: InputRow, clickType?: string) => void;
   onEditOutput: (output: OutputColumn) => void;
 }) {
@@ -946,7 +994,7 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
   inputs: InputRow[];
   areaFilter: Set<string>;
   hideEmpty: boolean;
-  t: (key: string, opts?: any) => string;
+  t: TFn;
   onEditInput: (input: InputRow, clickType?: string) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1081,7 +1129,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
 
   // Inline edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<ConfigRecord | null>(null);
   const [editingSection, setEditingSection] = useState<string>('');
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [editingInitialTab, setEditingInitialTab] = useState<string>('basic');
@@ -1091,7 +1139,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
 
   // Output edit dialog state
   const [outputDialogOpen, setOutputDialogOpen] = useState(false);
-  const [editingOutput, setEditingOutput] = useState<any>(null);
+  const [editingOutput, setEditingOutput] = useState<ConfigRecord | null>(null);
   const [editingOutputSection, setEditingOutputSection] = useState<string>('');
   const [editingOutputIndex, setEditingOutputIndex] = useState<number>(-1);
   const [isSavingOutput, setIsSavingOutput] = useState(false);
@@ -1101,8 +1149,8 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const handleEditInput = useCallback((input: InputRow, clickType?: string) => {
     // Find the raw item in formData
     const section = input.type === 'remote' ? 'remote_inputs' : 'local_inputs';
-    const items: any[] = formData[section] || [];
-    const idx = items.findIndex((item: any, i: number) => {
+    const items: RawInput[] = formData[section] || [];
+    const idx = items.findIndex((item, i) => {
       if (input.type === 'remote') {
         // Remote inputs: reconstruct composite id (device/inputId)
         const device = item.boneio_id || item.remote_device || '';
@@ -1129,7 +1177,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const handleSaveEdit = useCallback(async () => {
     if (hasValidationErrors || editingIndex < 0 || !editingItem) return;
 
-    const items = [...(formData[editingSection] || [])];
+    const items = [...((formData[editingSection] || []) as ConfigRecord[])];
     items[editingIndex] = editingItem;
 
     setIsSaving(true);
@@ -1173,10 +1221,10 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const allRemoteDevices = useMemo(() => formData.remote_devices || [], [formData.remote_devices]);
   const allRemoteInputs = useMemo(() => formData.remote_inputs || [], [formData.remote_inputs]);
   const allBinarySensors = useMemo(() => {
-    return (formData.local_inputs || []).filter((i: any) => i._inputType === 'binary_sensor');
+    return (formData.local_inputs || []).filter((i) => i._inputType === 'binary_sensor');
   }, [formData.local_inputs]);
   const allEvents = useMemo(() => {
-    return (formData.local_inputs || []).filter((i: any) => i._inputType !== 'binary_sensor');
+    return (formData.local_inputs || []).filter((i) => i._inputType !== 'binary_sensor');
   }, [formData.local_inputs]);
   const allAreasData = useMemo(() => formData.areas || [], [formData.areas]);
 
@@ -1212,8 +1260,8 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
       remote_cover: 'remote_covers',
     };
     const section = sectionMap[output.type] || 'output';
-    const items: any[] = formData[section] || [];
-    const idx = items.findIndex((item: any, i: number) => {
+    const items = (formData[section] || []) as RawOutput[];
+    const idx = items.findIndex((item, i) => {
       if (output.type === 'remote_output' || output.type === 'remote_cover') {
         // Remote: reconstruct composite id
         const device = item.boneio_id || item.remote_device || '';
@@ -1236,7 +1284,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const handleSaveOutput = useCallback(async () => {
     if (editingOutputIndex < 0 || !editingOutput) return;
 
-    const items = [...(formData[editingOutputSection] || [])];
+    const items = [...((formData[editingOutputSection] || []) as ConfigRecord[])];
     items[editingOutputIndex] = editingOutput;
 
     setIsSavingOutput(true);
@@ -1388,7 +1436,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
         onOpenChange={setEditDialogOpen}
         editingItem={editingItem}
         editingIndex={editingIndex}
-        sectionType={editingSection as any}
+        sectionType={editingSection}
         schema={editingSection === 'remote_inputs'
           ? (sections.find(s => s.name === 'remote_inputs')?.schema || sections.find(s => s.name === 'remote_inputs')?.normalizedSchema || {})
           : eventSchema
@@ -1419,7 +1467,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
         onOpenChange={setOutputDialogOpen}
         editingItem={editingOutput}
         editingIndex={editingOutputIndex}
-        sectionType={editingOutputSection as any}
+        sectionType={editingOutputSection}
         schema={editingOutputSection === 'cover' ? coverSchema : outputSchema}
         uiSchema={editingOutputSection === 'cover' ? undefined : outputUiSchema}
         allOutputs={allOutputs}

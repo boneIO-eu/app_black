@@ -1,14 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
-import MqttForm from './MqttForm';
-import LoxForm from './LoxForm';
+import MqttForm, { type MqttFormData } from './MqttForm';
+import LoxForm, { type LoxFormData } from './LoxForm';
 
 interface MessagingProtocolsFormProps {
-  mqttData: any;
-  loxData: any;
-  onMqttChange: (data: any) => void;
-  onLoxChange: (data: any) => void;
+  mqttData: MqttFormData;
+  loxData: LoxFormData;
+  onMqttChange: (data: MqttFormData) => void;
+  onLoxChange: (data: LoxFormData) => void;
   onLoxValidationChange?: (isValid: boolean) => void;
 }
 

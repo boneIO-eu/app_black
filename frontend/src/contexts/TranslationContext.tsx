@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { pickLanguage } from '@/utils/language';
+import { isRecord } from '@/types/jsonSchema';
 
 // Import translations
 import enTranslations from '../locales/en/common.json';
@@ -7,15 +8,19 @@ import plTranslations from '../locales/pl/common.json';
 import enModbusDevices from '../locales/en/modbus_devices.json';
 import plModbusDevices from '../locales/pl/modbus_devices.json';
 
+/** A (nested) translation catalogue: leaves are strings, branches are objects. */
+export type TranslationTree = Record<string, unknown>;
+
 /**
  * Deep merge two translation objects. Source values override target values.
  * Nested objects are merged recursively; arrays and primitives are replaced.
  */
-function deepMerge(target: any, source: any): any {
-  const result = { ...target };
+function deepMerge(target: TranslationTree, source: TranslationTree): TranslationTree {
+  const result: TranslationTree = { ...target };
   for (const key of Object.keys(source)) {
-    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-      result[key] = deepMerge(result[key] || {}, source[key]);
+    const sourceValue = source[key];
+    if (isRecord(sourceValue)) {
+      result[key] = deepMerge((result[key] || {}) as TranslationTree, sourceValue);
     } else {
       result[key] = source[key];
     }
@@ -156,7 +161,7 @@ export const PlFlag = ({ className }: { className?: string }) => (<svg
 
 export interface TranslationContextType {
   language: string;
-  translations: any;
+  translations: TranslationTree;
   changeLanguage: (lang: string) => void;
   availableLanguages: { code: string; name: string; flag: React.ComponentType<{ className?: string }> }[];
 }
@@ -170,7 +175,7 @@ const availableLanguages = [
 ];
 
 // Translation mappings
-const translationsMap: Record<string, any> = {
+const translationsMap: Record<string, TranslationTree> = {
   en: deepMerge(enTranslations, enModbusDevices),
   pl: deepMerge(plTranslations, plModbusDevices),
 };

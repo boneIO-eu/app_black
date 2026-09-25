@@ -60,7 +60,7 @@ describe('fetchSchema', () => {
     // The old call passed Cache-Control: no-store, which is what turned a
     // cheap 304 into a full 434 KB body on every visit.
     await fetchSchema();
-    const [, options] = get.mock.calls[0] as [string, Record<string, any>?];
+    const [, options] = get.mock.calls[0] as [string, { headers?: unknown }?];
     const headers = options?.headers ?? {};
     expect(JSON.stringify(headers)).not.toContain('no-store');
   });

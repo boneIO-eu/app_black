@@ -11,7 +11,6 @@ interface RemoteDevice {
   id: string;
   name?: string;
   protocol?: string;
-  [key: string]: any;
 }
 
 interface RemoteDeviceSelectProps {

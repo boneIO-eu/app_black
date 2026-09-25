@@ -23,7 +23,10 @@ import type {
   CoverEntity,
   BinarySensorEntity,
   RemoteDeviceEntity,
+  Action,
 } from '@/types/config';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { ActionInput, OutputGroupRecord } from './ActionFields/types';
 
 interface EventFormProps {
   /** Current event entity data being edited */
@@ -37,7 +40,7 @@ interface EventFormProps {
   /** Whether this is a new entity */
   isNew: boolean;
   /** JSON Schema for validation */
-  schema?: any;
+  schema?: JsonSchema;
   /** All binary sensors for input filtering */
   allBinarySensors?: BinarySensorEntity[];
   /** All events for input filtering */
@@ -47,7 +50,7 @@ interface EventFormProps {
   /** All outputs for action dropdowns */
   allOutputs?: OutputEntity[];
   /** All output groups for action dropdowns */
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   /** All covers for action dropdowns */
   allCovers?: CoverEntity[];
   /** All areas for area dropdown */
@@ -65,7 +68,7 @@ interface EventFormProps {
   /** Saved (committed) outputs for comparison */
   savedOutputs?: OutputEntity[];
   /** Saved (committed) output groups for comparison */
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
   /** Saved (committed) covers for comparison */
   savedCovers?: CoverEntity[];
   /** Initial tab to open (e.g. 'single' when clicking from binding matrix cell) */
@@ -100,7 +103,7 @@ const EventForm: React.FC<EventFormProps> = ({
   );
 
   // Extract enums from schema for dropdowns
-  const allBoneioInputs = schema?.items?.properties?.boneio_input?.enum || [];
+  const allBoneioInputs = (schema?.items?.properties?.boneio_input?.enum as string[] | undefined) || [];
   
   // Filter out already used inputs from both binary_sensor and event (except current one)
   // Case-insensitive comparison — see inputFilterUtils.ts for details
@@ -108,19 +111,19 @@ const EventForm: React.FC<EventFormProps> = ({
     allBoneioInputs, allBinarySensors, allEvents, editingIndex, 'event',
   );
   const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
-  const rawActionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum || [
+  const rawActionTypeOptions = (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum as string[] | undefined) || [
     'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
   ];
   // Deduplicate: schema may provide both uppercase and lowercase variants
   const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
-  const actionCoverOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum || [
+  const actionCoverOptions = (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum as string[] | undefined) || [
     'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
   ];
-  const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum || [
+  const actionOutputOptions = (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum as string[] | undefined) || [
     'TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'
   ];
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: unknown) => {
     console.log('updateField', field, value, data);
     onChange({ ...data, [field]: value });
   };
@@ -133,7 +136,7 @@ const EventForm: React.FC<EventFormProps> = ({
     
     ['single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'].forEach((type) => {
       const actions = data.actions?.[type] || [];
-      actions.forEach((action: any, index: number) => {
+      actions.forEach((action: Action, index: number) => {
         const error = validateAction(action, t);
         if (error) {
           errors.push(`${type.charAt(0).toUpperCase() + type.slice(1)} action ${index + 1}: ${error}`);
@@ -151,35 +154,38 @@ const EventForm: React.FC<EventFormProps> = ({
     onValidationChange?.(validationErrors.length > 0);
   }, [validationErrors.length, onValidationChange]);
 
-  const updateAction = (actionType: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', index: number, field: string, value: any) => {
+  const updateAction = (actionType: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', index: number, field: string, value: unknown) => {
     const newActions = { ...data.actions };
     if (!newActions[actionType]) {
       newActions[actionType] = [];
     }
     
+    // The editor writes raw records into the list (the same array, edited in place).
+    const list: ActionInput[] = newActions[actionType];
+
     // When changing action type, clean fields to only keep valid ones for new type
     if (field === 'action') {
-      const currentAction = newActions[actionType][index];
-      newActions[actionType][index] = cleanActionFields(value, currentAction) as any;
+      const currentAction = list[index];
+      list[index] = cleanActionFields(value as string, currentAction);
     } else if (field === '__batch') {
       // Batch update: value is an object with multiple fields to set at once
-      const current = { ...newActions[actionType][index] };
-      for (const [k, v] of Object.entries(value)) {
+      const current: Record<string, unknown> = { ...list[index] };
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         if (v === undefined) {
-          delete (current as any)[k];
+          delete current[k];
         } else {
-          (current as any)[k] = v;
+          current[k] = v;
         }
       }
-      newActions[actionType][index] = current;
+      list[index] = current;
     } else if (field === 'remote_device') {
       // Clear dependent fields when changing remote device
-      newActions[actionType][index] = { ...newActions[actionType][index], [field]: value, output_id: undefined, cover_id: undefined, presets: undefined, colors: undefined };
+      list[index] = { ...list[index], [field]: value, output_id: undefined, cover_id: undefined, presets: undefined, colors: undefined };
     } else if (field === 'output_id') {
       // Clear presets/colors when changing output
-      newActions[actionType][index] = { ...newActions[actionType][index], [field]: value, presets: undefined, colors: undefined };
+      list[index] = { ...list[index], [field]: value, presets: undefined, colors: undefined };
     } else {
-      newActions[actionType][index] = { ...newActions[actionType][index], [field]: value };
+      list[index] = { ...list[index], [field]: value };
     }
     
     console.log('newActions', newActions, data);
@@ -198,7 +204,7 @@ const EventForm: React.FC<EventFormProps> = ({
   const removeAction = (actionType: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', index: number) => {
     const newActions = { ...data.actions };
     if (newActions[actionType]) {
-      newActions[actionType] = newActions[actionType].filter((_: any, i: number) => i !== index);
+      newActions[actionType] = newActions[actionType].filter((_: Action, i: number) => i !== index);
     }
     onChange({ ...data, actions: newActions });
   };
@@ -209,7 +215,7 @@ const EventForm: React.FC<EventFormProps> = ({
     onChange({ ...data, mqtt_sequences: newMqttSequences });
   };
 
-  const renderActionFields = (type: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', action: any, index: number) => {
+  const renderActionFields = (type: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', action: Action, index: number) => {
     return (
       <ActionFields
         key={index}
@@ -366,7 +372,7 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
           
           {data.actions?.single && data.actions.single.length > 0 ? (
-            data.actions.single.map((action: any, index: number) => 
+            data.actions.single.map((action: Action, index: number) => 
               renderActionFields('single', action, index)
             )
           ) : (
@@ -396,7 +402,7 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
           
           {data.actions?.double && data.actions.double.length > 0 ? (
-            data.actions.double.map((action: any, index: number) => 
+            data.actions.double.map((action: Action, index: number) => 
               renderActionFields('double', action, index)
             )
           ) : (
@@ -434,7 +440,7 @@ const EventForm: React.FC<EventFormProps> = ({
           )}
           
           {data.actions?.triple && data.actions.triple.length > 0 ? (
-            data.actions.triple.map((action: any, index: number) => 
+            data.actions.triple.map((action: Action, index: number) => 
               renderActionFields('triple', action, index)
             )
           ) : (
@@ -464,7 +470,7 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
           
           {data.actions?.long && data.actions.long.length > 0 ? (
-            data.actions.long.map((action: any, index: number) => 
+            data.actions.long.map((action: Action, index: number) => 
               renderActionFields('long', action, index)
             )
           ) : (
@@ -511,7 +517,7 @@ const EventForm: React.FC<EventFormProps> = ({
               <p className="text-sm text-base-content/60">{t('event_form.double_then_long_hint')}</p>
               
               {data.actions?.double_then_long && data.actions.double_then_long.length > 0 ? (
-                data.actions.double_then_long.map((action: any, index: number) => 
+                data.actions.double_then_long.map((action: Action, index: number) => 
                   renderActionFields('double_then_long', action, index)
                 )
               ) : (
@@ -549,7 +555,7 @@ const EventForm: React.FC<EventFormProps> = ({
               <p className="text-sm text-base-content/60">{t('event_form.single_then_long_hint')}</p>
               
               {data.actions?.single_then_long && data.actions.single_then_long.length > 0 ? (
-                data.actions.single_then_long.map((action: any, index: number) => 
+                data.actions.single_then_long.map((action: Action, index: number) => 
                   renderActionFields('single_then_long', action, index)
                 )
               ) : (
@@ -587,7 +593,7 @@ const EventForm: React.FC<EventFormProps> = ({
               <p className="text-sm text-base-content/60">{t('event_form.double_then_single_hint')}</p>
               
               {data.actions?.double_then_single && data.actions.double_then_single.length > 0 ? (
-                data.actions.double_then_single.map((action: any, index: number) => 
+                data.actions.double_then_single.map((action: Action, index: number) => 
                   renderActionFields('double_then_single', action, index)
                 )
               ) : (

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { useTranslation } from '@/hooks/useTranslation';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface PowerResult {
   status: string;
@@ -25,8 +28,9 @@ export const useDevicePower = () => {
     try {
       const { data } = await axios.post('/api/reboot');
       setRebootResult({ status: 'success', message: data.message || t('settings.device_rebooting') });
-    } catch (err: any) {
-      setRebootResult({ status: 'error', message: err.message || t('settings.reboot_failed') });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setRebootResult({ status: 'error', message: apiErr.message || t('settings.reboot_failed') });
       setIsRebooting(false);
     }
   };
@@ -42,8 +46,9 @@ export const useDevicePower = () => {
     try {
       const { data } = await axios.post('/api/shutdown');
       setShutdownResult({ status: 'success', message: data.message || t('settings.device_shutting_down') });
-    } catch (err: any) {
-      setShutdownResult({ status: 'error', message: err.message || t('settings.shutdown_failed') });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setShutdownResult({ status: 'error', message: apiErr.message || t('settings.shutdown_failed') });
       setIsShuttingDown(false);
     }
   };

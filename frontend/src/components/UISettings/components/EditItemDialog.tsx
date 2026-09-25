@@ -9,6 +9,24 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import FormRenderer from './FormRenderer';
+import type {
+  AreaEntity,
+  BinarySensorEntity,
+  CoverEntity,
+  EventEntity,
+  OutputEntity,
+  RemoteDeviceEntity,
+} from '@/types/config';
+import type { ConfigRecord, JsonSchema } from '@/types/jsonSchema';
+import type { OutputGroupRecord } from '../ActionFields/types';
+
+/** The fields of the edited item the dialog title shows. */
+interface ItemTitleFields {
+  id?: string;
+  name?: string;
+  boneio_output?: string;
+  boneio_input?: string;
+}
 
 /**
  * Props for the reusable edit-item dialog.
@@ -23,52 +41,53 @@ export interface EditItemDialogProps {
   /** Called when the dialog should close. */
   onOpenChange: (open: boolean) => void;
   /** The item being edited (deep-cloned snapshot). */
-  editingItem: any;
+  editingItem: ConfigRecord | null;
   /** Index of the item in the section array (null = new item). */
   editingIndex: number | null;
   /** Section type key for FormRenderer routing. */
   sectionType: string;
   /** JSON schema for the section. */
-  schema: any;
+  schema: JsonSchema;
   /** Optional UI schema overrides. */
-  uiSchema?: any;
+  uiSchema?: ConfigRecord;
   /** Device type (for output forms). */
   deviceType?: string;
   /** All binary sensors for EventForm cross-references. */
-  allBinarySensors?: any[];
+  allBinarySensors?: BinarySensorEntity[];
   /** All events for EventForm cross-references. */
-  allEvents?: any[];
+  allEvents?: EventEntity[];
   /** All outputs for form dropdowns. */
-  allOutputs?: any[];
+  allOutputs?: OutputEntity[];
   /** All output groups for form dropdowns. */
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   /** All covers for form dropdowns. */
-  allCovers?: any[];
+  allCovers?: CoverEntity[];
   /** All areas for area select. */
-  allAreas?: any[];
+  allAreas?: AreaEntity[];
   /** All sensors. */
-  allSensors?: any[];
+  allSensors?: ConfigRecord[];
   /** All modbus devices. */
-  allModbusDevices?: any[];
+  allModbusDevices?: ConfigRecord[];
   /** All remote devices. */
-  allRemoteDevices?: any[];
-  /** All remote inputs. */
-  allRemoteInputs?: any[];
-  allVirtualSwitches?: any[];
+  allRemoteDevices?: RemoteDeviceEntity[];
+  /** All remote inputs. `object` so BindingMatrix's typed rows (no index
+   *  signature) pass; they are config items and reach the forms as records. */
+  allRemoteInputs?: object[];
+  allVirtualSwitches?: ConfigRecord[];
   /** Saved (committed) outputs for comparison. */
-  savedOutputs?: any[];
+  savedOutputs?: OutputEntity[];
   /** Saved (committed) output groups. */
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
   /** Saved (committed) covers. */
-  savedCovers?: any[];
+  savedCovers?: CoverEntity[];
   /** Full section value array. */
-  value?: any[];
+  value?: ConfigRecord[];
   /** Interlock groups list. */
   interlockGroups?: string[];
   /** Available Dallas sensors. */
   availableDallasSensors?: { address: string; type: string }[];
   /** Called when editingItem changes. */
-  onChange: (item: any) => void;
+  onChange: (item: ConfigRecord) => void;
   /** Called when user clicks Save. */
   onSave: () => void;
   /** Called when user clicks Cancel. */
@@ -130,6 +149,7 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
   initialTab,
 }) => {
   const { t } = useTranslation();
+  const titleItem = editingItem as ItemTitleFields | null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,13 +159,13 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
             {editingIndex !== null ? (
               <>
                 {t('settings.edit_item')}
-                {editingItem && (editingItem.id || editingItem.name || editingItem.boneio_output || editingItem.boneio_input) && (
+                {titleItem && (titleItem.id || titleItem.name || titleItem.boneio_output || titleItem.boneio_input) && (
                   <span className="font-normal text-base-content/70">
                     {' - '}
-                    {editingItem.id || editingItem.name || ''}
-                    {(editingItem.id || editingItem.name) && (editingItem.boneio_output || editingItem.boneio_input) && ' '}
-                    {editingItem.boneio_output && <span className="text-sm">({editingItem.boneio_output})</span>}
-                    {editingItem.boneio_input && <span className="text-sm">({editingItem.boneio_input})</span>}
+                    {titleItem.id || titleItem.name || ''}
+                    {(titleItem.id || titleItem.name) && (titleItem.boneio_output || titleItem.boneio_input) && ' '}
+                    {titleItem.boneio_output && <span className="text-sm">({titleItem.boneio_output})</span>}
+                    {titleItem.boneio_input && <span className="text-sm">({titleItem.boneio_input})</span>}
                   </span>
                 )}
               </>
@@ -183,7 +203,7 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
                 allSensors={allSensors}
                 allModbusDevices={allModbusDevices}
                 allRemoteDevices={allRemoteDevices}
-                allRemoteInputs={allRemoteInputs}
+                allRemoteInputs={allRemoteInputs as ConfigRecord[]}
                 allVirtualSwitches={allVirtualSwitches}
                 savedOutputs={savedOutputs}
                 savedOutputGroups={savedOutputGroups}

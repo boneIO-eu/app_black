@@ -7,20 +7,18 @@ import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';
 import { isInputEvent } from '@/hooks/useWebSocket';
 import type { EntityItem } from '@/components/UISettings/EntitySelectDropdown';
 import SearchableEntityPicker from '@/components/UISettings/SearchableEntityPicker';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import InputActionEditor from '@/components/InputActionEditor';
+import { useActionEditorData } from '@/hooks/useActionEditorData';
+import { validateAction } from '@/components/UISettings/ActionFields';
+import { actionIsIncomplete, actionSummary, type ActionEntry } from '@/components/UISettings/helpers/actionSummary';
+import { invalidateConfigCache } from '@/api/configCache';
 import axios from '@/api/axios';
 import clsx from 'clsx';
 import {
   FaGraduationCap, FaTimes, FaCheck, FaExclamationTriangle,
   FaHandPointer, FaBolt, FaUndo, FaChevronDown, FaChevronUp,
   FaLink, FaList, FaHistory, FaMousePointer, FaBan, FaFilter,
-  FaNetworkWired, FaPlay, FaPencilAlt, FaTrash, FaSave, FaClock, FaExternalLinkAlt,
+  FaNetworkWired, FaPencilAlt, FaTrash, FaSave, FaClock, FaExternalLinkAlt,
 } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormInputToggle } from '@/components/UISettings/widgets/FormInputToggle';
@@ -31,28 +29,14 @@ const EVENT_CLICK_TYPES = ['single', 'double', 'triple', 'long'] as const;
 const SEQUENCE_CLICK_TYPES = ['double_then_long', 'single_then_long', 'double_then_single'] as const;
 /** Click types for binary_sensor inputs. */
 const BINARY_SENSOR_CLICK_TYPES = ['pressed', 'released'] as const;
-/** Output action options. */
-const OUTPUT_ACTIONS = ['TOGGLE', 'ON', 'OFF'] as const;
-/** Cover action options. */
-const COVER_ACTIONS = ['TOGGLE', 'OPEN', 'CLOSE', 'STOP'] as const;
+/** What a new action starts as: the commonest thing a button does. */
+const newAction = (): ActionEntry => ({ action: 'output', action_output: 'TOGGLE' });
 
 const IGNORED_STORAGE_KEY = 'boneio-teach-ignored';
 const MAX_RECENT_EVENTS = 15;
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
-type TargetCategory = 'output' | 'remote_output' | 'cover' | 'remote_cover';
 type RightTab = 'link' | 'bindings';
-
-/** Lightweight shape of a remote device returned by /api/remote-devices. */
-interface RemoteDeviceData {
-  id: string;
-  name: string;
-  protocol: string;
-  esphome_covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
-  covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
-  switches?: { id: string; name?: string }[];
-  lights?: { id: string; name?: string }[];
-}
 
 /** Extract a human-readable detail string from an axios-like error. */
 function extractErrorDetail(err: unknown, fallback: string): string {
@@ -64,20 +48,14 @@ function extractErrorDetail(err: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Extended EntityItem tracking action type and remote device. */
-interface TeachEntityItem extends EntityItem {
-  actionType: TargetCategory;
-  remoteDevice?: string;
-}
-
 /** Log entry for teach mode history. */
 interface TeachLogEntry {
   id: string;
   inputName: string;
   inputEntityId: string;
-  targetName: string;
+  /** One line saying what the action does, e.g. "Toggle: Kitchen". */
+  summary: string;
   clickType: string;
-  action: string;
   status: 'success' | 'error';
   message?: string;
   timestamp: number;
@@ -139,12 +117,13 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
 
   // Detected input from physical button press
   const [detectedInput, setDetectedInput] = useState<InputEvent | null>(null);
-  // Selected output/cover target
-  const [targetId, setTargetId] = useState('');
-  const [targetCategory, setTargetCategory] = useState<TargetCategory>('output');
-  // Click type and action
+  // Click type and the action being built — edited with the same fields as
+  // Settings → Inputs
   const [clickType, setClickType] = useState('single');
-  const [actionValue, setActionValue] = useState('TOGGLE');
+  const [draft, setDraft] = useState<ActionEntry>(newAction);
+  // Validation messages show only once a save has been attempted
+  const [attempted, setAttempted] = useState(false);
+  const { data: editorData, loading: editorLoading } = useActionEditorData(open);
   // Save state
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -164,9 +143,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   // Bumped whenever bindings must be re-fetched
   const [bindingsVersion, setBindingsVersion] = useState(0);
-
-  // Remote devices fetched from API (for ESPHome covers / additional outputs)
-  const [remoteDevices, setRemoteDevices] = useState<RemoteDeviceData[]>([]);
 
   // --- NEW: Area filter ---
   const [areaFilter, setAreaFilter] = useState<string>('');
@@ -355,21 +331,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
     setLeftCollapsed(true);
   }, [validInputs]);
 
-  // Fetch remote devices on open (once) for ESPHome covers and additional outputs
-  useEffect(() => {
-    if (!open) return;
-    const fetchRemoteDevices = async () => {
-      try {
-        const resp = await axios.get('/api/remote-devices');
-        const devices = Array.isArray(resp.data?.devices) ? resp.data.devices : [];
-        setRemoteDevices(devices as RemoteDeviceData[]);
-      } catch {
-        setRemoteDevices([]);
-      }
-    };
-    fetchRemoteDevices();
-  }, [open]);
-
   // Fetch existing bindings when input is detected
   useEffect(() => {
     if (!detectedInput) {
@@ -403,166 +364,41 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
     fetchBindings();
   }, [detectedInput, linkCount, bindingsVersion]);
 
-  // Build categorized entity items (exclude 'none' and 'cover' outputs —
-  // none has no HA entity, cover must be controlled via cover entities only)
-  const localOutputItems: TeachEntityItem[] = useMemo(() => {
-    return outputs
-      .filter((o: OutputEvent) => {
-        if (o.state.remote) return false;
-        const ot = o.state.type?.toLowerCase();
-        return ot !== 'none' && ot !== 'cover';
-      })
-      .map((o: OutputEvent): TeachEntityItem => ({
-        id: o.state.id || o.entity_id,
-        name: o.state.name || o.state.id || o.entity_id,
-        area: o.state.area || undefined,
-        badge: o.state.type || undefined,
-        badgeClass: o.state.type === 'light' ? 'badge-warning text-warning-content'
-          : o.state.type === 'switch' ? 'badge-info text-info-content'
-            : o.state.type === 'valve' ? 'badge-accent text-accent-content'
-              : 'badge-ghost',
-        actionType: 'output',
-      }));
-  }, [outputs]);
-
-  const remoteOutputItems: TeachEntityItem[] = useMemo(() => {
-    return outputs
-      .filter((o: OutputEvent) => o.state.remote)
-      .map((o: OutputEvent): TeachEntityItem => {
-        const entityId = o.entity_id;
-        const parts = entityId.split('/');
-        const remoteDevice = parts.length > 1 ? parts[0] : '';
-        return {
-          id: entityId,
-          name: o.state.name || entityId,
-          area: o.state.area || undefined,
-          badge: `🌐 ${o.state.type || 'remote'}`,
-          badgeClass: 'badge-secondary text-secondary-content',
-          actionType: 'remote_output',
-          remoteDevice,
-        };
-      });
-  }, [outputs]);
-
-  const localCoverItems: TeachEntityItem[] = useMemo(() => {
-    return covers
-      .filter((c: CoverEvent) => !c.state.remote)
-      .map((c: CoverEvent): TeachEntityItem => ({
-        id: c.state.id || c.entity_id,
-        name: c.state.name || c.state.id || c.entity_id,
-        badge: c.state.kind || 'cover',
-        badgeClass: 'badge-accent text-accent-content',
-        actionType: 'cover',
-      }));
-  }, [covers]);
-
-  const remoteCoverItems: TeachEntityItem[] = useMemo(() => {
-    // Start with covers from WebSocket that are flagged as remote
-    const wsItems = covers
-      .filter((c: CoverEvent) => c.state.remote)
-      .map((c: CoverEvent): TeachEntityItem => {
-        const entityId = c.entity_id;
-        const parts = entityId.split('/');
-        const remoteDevice = parts.length > 1 ? parts[0] : '';
-        return {
-          id: entityId,
-          name: c.state.name || entityId,
-          badge: `🌐 ${c.state.kind || 'cover'}`,
-          badgeClass: 'badge-secondary text-secondary-content',
-          actionType: 'remote_cover',
-          remoteDevice,
-        };
-      });
-
-    // Merge ESPHome covers from API (they don't appear in WebSocket covers)
-    const wsIds = new Set(wsItems.map(i => i.id));
-    const apiItems: TeachEntityItem[] = [];
-    for (const device of remoteDevices) {
-      const deviceCovers = device.esphome_covers || device.covers || [];
-      for (const cover of deviceCovers) {
-        const compositeId = `${device.id}/${cover.id}`;
-        if (wsIds.has(compositeId)) continue; // already from WebSocket
-        apiItems.push({
-          id: compositeId,
-          name: cover.name || cover.id,
-          badge: `🌐 ${cover.kind || 'cover'}`,
-          badgeClass: 'badge-secondary text-secondary-content',
-          actionType: 'remote_cover',
-          remoteDevice: device.id,
-        });
-      }
-    }
-
-    return [...wsItems, ...apiItems];
-  }, [covers, remoteDevices]);
-
-  const availableCategories = useMemo(() => {
-    const cats: { key: TargetCategory; label: string; count: number }[] = [];
-    if (localOutputItems.length > 0) cats.push({ key: 'output', label: t('teach_mode.cat_output'), count: localOutputItems.length });
-    if (remoteOutputItems.length > 0) cats.push({ key: 'remote_output', label: t('teach_mode.cat_remote_output'), count: remoteOutputItems.length });
-    if (localCoverItems.length > 0) cats.push({ key: 'cover', label: t('teach_mode.cat_cover'), count: localCoverItems.length });
-    if (remoteCoverItems.length > 0) cats.push({ key: 'remote_cover', label: t('teach_mode.cat_remote_cover'), count: remoteCoverItems.length });
-    return cats;
-  }, [localOutputItems, remoteOutputItems, localCoverItems, remoteCoverItems, t]);
-
-  const currentItems = useMemo(() => {
-    switch (targetCategory) {
-      case 'output': return localOutputItems;
-      case 'remote_output': return remoteOutputItems;
-      case 'cover': return localCoverItems;
-      case 'remote_cover': return remoteCoverItems;
-    }
-  }, [targetCategory, localOutputItems, remoteOutputItems, localCoverItems, remoteCoverItems]);
-
-  const isCoverCategory = targetCategory === 'cover' || targetCategory === 'remote_cover';
-  const actionOptions = isCoverCategory ? COVER_ACTIONS : OUTPUT_ACTIONS;
   const clickTypes = detectedInput?.state.type === 'input'
     ? (captureSequences ? [...EVENT_CLICK_TYPES, ...SEQUENCE_CLICK_TYPES] : EVENT_CLICK_TYPES)
     : BINARY_SENSOR_CLICK_TYPES;
 
-  const selectedItem = useMemo(
-    () => currentItems.find((item) => item.id === targetId),
-    [currentItems, targetId]
+  /** One line describing an action, with the names people gave its targets. */
+  // Output groups are targets of an output action too; without them the
+  // summary names a group by its id.
+  const summaryEntities = useMemo(() => ({
+    ...editorData,
+    allOutputs: [
+      ...editorData.allOutputs,
+      ...editorData.allOutputGroups.map((group) => ({
+        id: typeof group.id === 'string' ? group.id : undefined,
+        name: typeof group.name === 'string' ? group.name : undefined,
+      })),
+    ],
+  }), [editorData]);
+  const describe = useCallback(
+    (action: ActionEntry) => actionSummary(action, t, summaryEntities),
+    [t, summaryEntities],
   );
 
-  /** Build the target-specific part of a quick-action payload. */
-  const buildTargetPayload = useCallback((): Record<string, string> | null => {
-    if (!selectedItem || !targetId) return null;
-    const payload: Record<string, string> = {
-      action_type: selectedItem.actionType,
-      action: actionValue,
-    };
-
-    switch (selectedItem.actionType) {
-      case 'output':
-        payload.output_id = targetId;
-        break;
-      case 'cover':
-        payload.cover_id = targetId;
-        break;
-      case 'remote_output': {
-        payload.remote_device = selectedItem.remoteDevice || '';
-        const parts = targetId.split('/');
-        payload.output_id = parts.length > 1 ? parts.slice(1).join('/') : targetId;
-        break;
-      }
-      case 'remote_cover': {
-        payload.remote_device = selectedItem.remoteDevice || '';
-        const coverParts = targetId.split('/');
-        payload.cover_id = coverParts.length > 1 ? coverParts.slice(1).join('/') : targetId;
-        break;
-      }
-    }
-    return payload;
-  }, [selectedItem, targetId, actionValue]);
+  /** Start the next action from scratch. */
+  const resetDraft = useCallback(() => {
+    setDraft(newAction());
+    setAttempted(false);
+  }, []);
 
   /** Leave edit mode and clear the target selection. */
   const handleCancelEdit = useCallback(() => {
     setEditing(null);
-    setTargetId('');
+    resetDraft();
     setSaveStatus('idle');
     setErrorMessage('');
-  }, []);
+  }, [resetDraft]);
 
   /** Navigate to the full config editor for the current input. */
   const handleGoToSettings = useCallback(() => {
@@ -574,45 +410,16 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
 
   /** Load an existing binding into the link form for editing. */
   const handleStartEdit = useCallback((b: ActionBinding) => {
-    const raw = b.raw as Record<string, string | undefined>;
-    let category: TargetCategory | null = null;
-    let nextTargetId = '';
-
-    switch (b.actionType) {
-      case 'output':
-        category = 'output';
-        nextTargetId = raw.boneio_output || '';
-        break;
-      case 'cover':
-        category = 'cover';
-        nextTargetId = raw.boneio_cover || '';
-        break;
-      case 'remote_output':
-        category = 'remote_output';
-        nextTargetId = `${raw.remote_device || raw.boneio_id || ''}/${raw.output_id || ''}`;
-        break;
-      case 'remote_cover':
-        category = 'remote_cover';
-        nextTargetId = `${raw.remote_device || raw.boneio_id || ''}/${raw.cover_id || ''}`;
-        break;
-    }
-
-    if (!category) {
-      setErrorMessage(t('teach_mode.edit_unsupported'));
-      setRightTab('link');
-      setSaveStatus('error');
-      return;
-    }
-
+    // The stored action as it is: every field the editor knows is editable
+    // here, so nothing is refused and nothing is lost on save.
     setEditing({ clickType: b.clickType, index: b.index });
-    setTargetCategory(category);
-    setTargetId(nextTargetId);
-    setActionValue(b.action && b.action !== '?' ? b.action : 'TOGGLE');
+    setDraft(JSON.parse(JSON.stringify(b.raw)) as ActionEntry);
+    setAttempted(false);
     setClickType(b.clickType);
     setRightTab('link');
     setSaveStatus('idle');
     setErrorMessage('');
-  }, [t]);
+  }, []);
 
   /** Delete a binding after the inline confirmation. */
   const handleDeleteBinding = useCallback(async (b: ActionBinding) => {
@@ -630,8 +437,10 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
       setDeleteCandidate(null);
       if (editing && editing.clickType === b.clickType && editing.index === b.index) {
         setEditing(null);
-        setTargetId('');
+        resetDraft();
       }
+      // Settings reads the cached config and would still show it.
+      invalidateConfigCache();
       setBindingsVersion((v) => v + 1);
     } catch (err: unknown) {
       setErrorMessage(extractErrorDetail(err, t('quick_action.save_error')));
@@ -640,16 +449,28 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
       return;
     }
     setBindingsLoading(false);
-  }, [detectedInput, editing, t]);
+  }, [detectedInput, editing, resetDraft, t]);
+
+  const validationError = validateAction(draft, t);
 
   const handleLink = useCallback(async () => {
-    if (!detectedInput || !targetId || !selectedItem) return;
-
-    const targetPayload = buildTargetPayload();
-    if (!targetPayload) return;
+    if (!detectedInput) return;
+    setAttempted(true);
+    if (validationError) return;
 
     setSaveStatus('saving');
     setErrorMessage('');
+
+    const logEntry = (status: 'success' | 'error', message?: string): TeachLogEntry => ({
+      id: `${Date.now()}-${Math.random()}`,
+      inputName: detectedInput.state.name,
+      inputEntityId: detectedInput.entity_id,
+      summary: describe(draft),
+      clickType,
+      status,
+      message,
+      timestamp: Date.now(),
+    });
 
     try {
       if (editing) {
@@ -658,133 +479,53 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
           click_type: editing.clickType,
           index: editing.index,
           new_click_type: clickType,
-          ...targetPayload,
+          action_def: draft,
         }, { timeout: 15_000 });
+      } else {
+        await axios.post('/api/config/quick-action', {
+          entity_id: detectedInput.entity_id,
+          click_type: clickType,
+          action_def: draft,
+        }, { timeout: 15_000 });
+      }
+      // Settings reads the cached config; without this it would show the
+      // input as it was before.
+      invalidateConfigCache();
+      setSaveStatus('success');
+      setLog((prev) => [logEntry('success'), ...prev]);
 
-        setSaveStatus('success');
+      if (editing) {
         setEditing(null);
         setBindingsVersion((v) => v + 1);
-
-        setLog((prev) => [{
-          id: `${Date.now()}-${Math.random()}`,
-          inputName: detectedInput.state.name,
-          inputEntityId: detectedInput.entity_id,
-          targetName: selectedItem.name,
-          clickType,
-          action: actionValue,
-          status: 'success',
-          timestamp: Date.now(),
-        }, ...prev]);
-
         setTimeout(() => {
           setSaveStatus('idle');
-          setTargetId('');
+          resetDraft();
           setRightTab('bindings');
         }, 1000);
         return;
       }
 
-      const payload: Record<string, string> = {
-        entity_id: detectedInput.entity_id,
-        click_type: clickType,
-        ...targetPayload,
-      };
-
-      await axios.post('/api/config/quick-action', payload, { timeout: 15_000 });
-      setSaveStatus('success');
       setLinkCount((c) => c + 1);
-
-      setLog((prev) => [{
-        id: `${Date.now()}-${Math.random()}`,
-        inputName: detectedInput.state.name,
-        inputEntityId: detectedInput.entity_id,
-        targetName: selectedItem.name,
-        clickType,
-        action: actionValue,
-        status: 'success',
-        timestamp: Date.now(),
-      }, ...prev]);
-
       setTimeout(() => {
         setDetectedInput(null);
-        setTargetId('');
+        resetDraft();
         setSaveStatus('idle');
         setLeftCollapsed(false);
       }, 1000);
 
     } catch (err: unknown) {
       setSaveStatus('error');
-      const msg = extractErrorDetail(err, t('quick_action.save_error'));
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const detail = (err as { response?: { data?: { detail?: { errors?: string[] } } } })?.response?.data?.detail;
+      const msg = status === 409
+        ? t('quick_action.duplicate_action')
+        : (typeof detail === 'object' && detail?.errors?.join(' ')) || extractErrorDetail(err, t('quick_action.save_error'));
       setErrorMessage(msg);
-
-      setLog((prev) => [{
-        id: `${Date.now()}-${Math.random()}`,
-        inputName: detectedInput.state.name,
-        inputEntityId: detectedInput.entity_id,
-        targetName: selectedItem.name,
-        clickType,
-        action: actionValue,
-        status: 'error',
-        message: msg,
-        timestamp: Date.now(),
-      }, ...prev]);
+      setLog((prev) => [logEntry('error', msg), ...prev]);
     }
-  }, [detectedInput, targetId, selectedItem, clickType, actionValue, editing, buildTargetPayload, t]);
+  }, [detectedInput, clickType, draft, editing, validationError, describe, resetDraft, t]);
 
-  // --- Test action ---
-  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [testError, setTestError] = useState<string | null>(null);
-
-  /**
-   * Build the action definition in the same format as YAML config,
-   * and execute it via POST /api/test-action.
-   */
-  const handleTestAction = useCallback(async () => {
-    if (!targetId || !selectedItem) return;
-    setTestStatus('loading');
-    setTestError(null);
-
-    try {
-      const actionDef: Record<string, string> = {};
-
-      switch (selectedItem.actionType) {
-        case 'output':
-          actionDef.action = 'output';
-          actionDef.boneio_output = targetId;
-          actionDef.action_output = actionValue;
-          break;
-        case 'cover':
-          actionDef.action = 'cover';
-          actionDef.boneio_cover = targetId;
-          actionDef.action_cover = actionValue;
-          break;
-        case 'remote_output':
-          actionDef.action = 'remote_output';
-          actionDef.boneio_id = selectedItem.remoteDevice || '';
-          actionDef.output_id = targetId.includes('/') ? targetId.split('/').slice(1).join('/') : targetId;
-          actionDef.action_output = actionValue;
-          break;
-        case 'remote_cover':
-          actionDef.action = 'remote_cover';
-          actionDef.boneio_id = selectedItem.remoteDevice || '';
-          actionDef.cover_id = targetId.includes('/') ? targetId.split('/').slice(1).join('/') : targetId;
-          actionDef.action_cover = actionValue;
-          break;
-      }
-
-      await axios.post('/api/test-action', { action: actionDef });
-      setTestStatus('success');
-      setTimeout(() => setTestStatus('idle'), 2000);
-    } catch (err: unknown) {
-      setTestError(extractErrorDetail(err, 'Test failed'));
-      setTestStatus('error');
-      setTimeout(() => { setTestStatus('idle'); setTestError(null); }, 4000);
-    }
-  }, [targetId, selectedItem, actionValue]);
-
-  const canTest = targetId && selectedItem && testStatus !== 'loading';
-
-  const canLink = detectedInput && targetId && selectedItem && saveStatus !== 'saving' && saveStatus !== 'success';
+  const canLink = detectedInput && !actionIsIncomplete(draft) && saveStatus !== 'saving' && saveStatus !== 'success';
 
   // Ignored items resolved to names
   const ignoredItems = useMemo(() => {
@@ -1174,116 +915,50 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                   </div>
                 )}
 
-                {/* Category tabs */}
+                {/* The action — same editor as Settings → Inputs. It carries
+                    its own test button, which runs the action as configured. */}
                 <div className="space-y-2">
                   <label className="label-text font-semibold text-xs text-base-content/50 uppercase tracking-wider block">
                     {t('teach_mode.step_2')}
                   </label>
-                  <div className="flex flex-wrap gap-1.5 bg-base-100 p-1.5 rounded-xl border border-base-200 shadow-sm">
-                    {availableCategories.map(({ key, label, count }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => { setTargetCategory(key); setTargetId(''); setActionValue('TOGGLE'); }}
-                        className={clsx(
-                          'btn btn-sm flex-1 gap-1.5 font-medium transition-all duration-200',
-                          targetCategory === key
-                            ? 'btn-primary shadow-sm shadow-primary/10'
-                            : 'btn-ghost text-base-content/60 hover:bg-base-200/50',
-                        )}
-                      >
-                        {label}
-                        <span className={clsx(
-                          'badge badge-xs font-semibold',
-                          targetCategory === key ? 'bg-primary-content text-primary border-0' : 'badge-ghost',
-                        )}>{count}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {editorLoading ? (
+                    <div className="flex justify-center py-8">
+                      <span className="loading loading-spinner loading-md text-primary" />
+                    </div>
+                  ) : (
+                    <InputActionEditor
+                      action={draft}
+                      onChange={setDraft}
+                      clickType={clickType}
+                      data={editorData}
+                      title={t('quick_action.action')}
+                      showValidation={attempted}
+                      excludeEntityId={detectedInput?.entity_id}
+                      preferredArea={detectedInput?.state.area || undefined}
+                    />
+                  )}
                 </div>
 
-                {/* Entity picker */}
-                <div className="space-y-2">
-                  <SearchableEntityPicker
-                    value={targetId}
-                    onChange={setTargetId}
-                    items={currentItems}
-                    placeholder={t('teach_mode.select_target')}
-                    recentKey={targetCategory}
-                    preferredArea={detectedInput?.state.area || undefined}
-                    nested
-                  />
-                </div>
-
-                {/* Action selector */}
-                <div className="form-control space-y-2">
-                  <label className="label-text font-semibold text-xs text-base-content/50 uppercase tracking-wider">
-                    {t('quick_action.action')}
-                  </label>
-                  <Select value={actionValue} onValueChange={setActionValue}>
-                    <SelectTrigger className="w-full bg-base-100 border-base-200 shadow-sm rounded-xl h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-base-100 border-base-200">
-                      {actionOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {t(`quick_action.actions.${opt}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Test + Link buttons */}
-                <div className="flex gap-2">
-                  <button
-                    className={clsx(
-                      'btn gap-2 h-11 font-semibold transition-all duration-200 active:scale-[0.98] shrink-0',
-                      testStatus === 'success' ? 'btn-success' :
-                        testStatus === 'error' ? 'btn-error' :
-                          'btn-info btn-outline',
-                    )}
-                    disabled={!canTest}
-                    onClick={handleTestAction}
-                    title={t('teach_mode.test_action')}
-                  >
-                    {testStatus === 'loading' ? (
-                      <span className="loading loading-spinner loading-sm" />
-                    ) : testStatus === 'success' ? (
-                      <FaCheck className="w-4 h-4" />
-                    ) : (
-                      <FaPlay className="w-4 h-4" />
-                    )}
-                    {t('teach_mode.test_action')}
-                  </button>
-                  <button
-                    className="btn btn-primary flex-1 gap-2 h-11 text-base font-semibold shadow-lg shadow-primary/20 transition-all duration-200 active:scale-[0.98]"
-                    disabled={!canLink}
-                    onClick={handleLink}
-                  >
-                    {saveStatus === 'saving' ? (
-                      <span className="loading loading-spinner loading-sm" />
-                    ) : editing ? (
-                      <>
-                        <FaSave className="w-4 h-4" />
-                        {t('teach_mode.save_binding')}
-                      </>
-                    ) : (
-                      <>
-                        <FaLink className="w-4 h-4" />
-                        {t('teach_mode.link')}
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Test error */}
-                {testStatus === 'error' && testError && (
-                  <div className="alert alert-error text-sm py-2 rounded-xl border border-error/10 shadow-sm">
-                    <FaExclamationTriangle className="w-3.5 h-3.5" />
-                    <span className="text-xs">{testError}</span>
-                  </div>
-                )}
+                {/* Link button */}
+                <button
+                  className="btn btn-primary btn-block gap-2 h-11 text-base font-semibold shadow-lg shadow-primary/20 transition-all duration-200 active:scale-[0.98]"
+                  disabled={!canLink}
+                  onClick={handleLink}
+                >
+                  {saveStatus === 'saving' ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : editing ? (
+                    <>
+                      <FaSave className="w-4 h-4" />
+                      {t('teach_mode.save_binding')}
+                    </>
+                  ) : (
+                    <>
+                      <FaLink className="w-4 h-4" />
+                      {t('teach_mode.link')}
+                    </>
+                  )}
+                </button>
 
                 {/* Status messages */}
                 {saveStatus === 'error' && errorMessage && (
@@ -1347,9 +1022,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                           >
                             <span className="badge badge-sm font-bold text-xxs bg-primary/10 text-primary border-0 px-2 py-1 uppercase">{t(`quick_action.click_types.${b.clickType}`, { defaultValue: b.clickType })}</span>
                             <span className="text-base-content/30 font-medium">→</span>
-                            <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{t(`quick_action.${b.actionType}`, { defaultValue: b.actionType })}</span>
-                            <span className="font-bold text-base-content/80 truncate flex-1 font-mono text-xs">{b.target}</span>
-                            <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{t(`quick_action.actions.${b.action}`, { defaultValue: b.action })}</span>
+                            <span className="font-semibold text-base-content/80 truncate flex-1 text-xs" title={b.target}>{describe(b.raw)}</span>
                             {Boolean(b.raw.condition || b.raw.conditions) && (
                               <span
                                 className="badge badge-sm font-semibold text-xxs bg-warning/10 text-warning border-0 px-2 py-1 gap-1"
@@ -1426,10 +1099,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                     {entry.status === 'success' ? <FaCheck className="w-3.5 h-3.5 shrink-0" /> : <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0" />}
                     <span className="font-bold text-base-content/85">{entry.inputName}</span>
                     <span className="opacity-50 font-medium">→</span>
-                    <span className="font-semibold text-base-content/85">{entry.targetName}</span>
+                    <span className="font-semibold text-base-content/85 truncate">{entry.summary}</span>
                     <div className="flex items-center gap-1 ml-auto shrink-0 font-bold text-xxs uppercase">
                       <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{t(`quick_action.click_types.${entry.clickType}`)}</span>
-                      <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{t(`quick_action.actions.${entry.action}`)}</span>
                     </div>
                   </div>
                 ))}

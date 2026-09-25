@@ -15,7 +15,7 @@ import {
 interface ImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  importData: any[] | null;
+  importData: readonly unknown[] | null;
   importError: string | null;
   importMode: 'replace' | 'merge';
   onModeChange: (mode: 'replace' | 'merge') => void;

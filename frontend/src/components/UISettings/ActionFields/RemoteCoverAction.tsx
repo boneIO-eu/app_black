@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
-import type { RemoteCoverActionProps } from './types';
+import type { RemoteCoverActionProps, RemoteCoverEntity } from './types';
 import { TILT_ACTIONS, coverSupportsTilt, filterCoverActionsByTilt, formatActionLabel } from './helpers';
 
 /**
@@ -24,10 +24,10 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
 }) => {
   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
   const isEspHome = selectedDevice?.protocol === 'esphome_api';
-  const covers = isEspHome
+  const covers: RemoteCoverEntity[] = isEspHome
     ? (selectedDevice?.esphome_api?.covers || [])
     : (selectedDevice?.mqtt?.covers || []);
-  const selectedCover = covers.find((c: any) => c.id === action.cover_id);
+  const selectedCover = covers.find((c) => c.id === action.cover_id);
 
 
   /** Filter action options: show tilt actions only when cover supports tilt. */
@@ -57,8 +57,8 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           onValueChange={(value) => {
             onUpdate('cover_id', value);
             // When changing cover, reset tilt action if new cover doesn't support it
-            const newCover = covers.find((c: any) => c.id === value);
-            if (!coverSupportsTilt(newCover) && TILT_ACTIONS.includes(action.action_cover)) {
+            const newCover = covers.find((c) => c.id === value);
+            if (!coverSupportsTilt(newCover) && !!action.action_cover && TILT_ACTIONS.includes(action.action_cover)) {
               onUpdate('action_cover', 'TOGGLE');
               onUpdate('data', undefined);
             }
@@ -71,8 +71,8 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
                 <div className="flex flex-col items-start">
                   <span className="font-medium">
                     {'supports_tilt' in selectedCover && (
-                      <span className={`badge badge-xs ${(selectedCover as any).supports_tilt ? 'badge-accent' : 'badge-info'} mr-1`}>
-                        {(selectedCover as any).supports_tilt ? t('covers.type_venetian') : t('covers.type_time_based')}
+                      <span className={`badge badge-xs ${selectedCover.supports_tilt ? 'badge-accent' : 'badge-info'} mr-1`}>
+                        {selectedCover.supports_tilt ? t('covers.type_venetian') : t('covers.type_time_based')}
                       </span>
                     )}
                     {selectedCover.name || selectedCover.id}
@@ -85,7 +85,7 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {covers.map((cover: any) => (
+            {covers.map((cover) => (
               <SelectItem key={cover.id} value={cover.id}>
                 <div className="flex flex-col">
                   <span className="font-medium">

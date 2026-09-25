@@ -23,13 +23,13 @@ export const useTranslation = () => {
    */
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
-    let value: any = context.translations;
+    let value: unknown = context.translations;
     
     for (const k of keys) {
-      value = value?.[k];
+      value = (value as Record<string, unknown> | null | undefined)?.[k];
     }
     
-    let result: string = value || key;
+    let result: string = (value as string) || key;
 
     if (params) {
       for (const [param, val] of Object.entries(params)) {

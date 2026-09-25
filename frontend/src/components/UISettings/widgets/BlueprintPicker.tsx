@@ -4,6 +4,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import SimpleTimePeriodInput from './SimpleTimePeriodInput';
 import type { OutputEntity, AreaEntity, BinarySensorEntity } from '@/types/config';
+import type { OutputGroupRecord } from '../ActionFields/types';
 
 /**
  * Blueprint definition — a pre-configured action template for common use cases.
@@ -31,7 +32,7 @@ interface BlueprintPickerProps {
   allOutputs: OutputEntity[];
   allAreas: AreaEntity[];
   savedOutputs?: OutputEntity[];
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
 }
 
 /**

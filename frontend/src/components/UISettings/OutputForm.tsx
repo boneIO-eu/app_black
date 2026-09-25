@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/select';
 
 import type { AreaOption } from './widgets/AreaSelect';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { OutputEntity } from '@/types/config';
 
 interface CoverEntity {
   id?: string;
@@ -24,16 +26,30 @@ interface CoverEntity {
   close_relay?: string;
 }
 
+/** One `output` list item as edited here (other keys pass through untouched). */
+interface OutputFormData extends OutputEntity {
+  [key: string]: unknown;
+  interlock_group?: string;
+  adjustable_duration?: boolean;
+  duration_default?: string;
+  duration_min?: string;
+  duration_max?: string;
+  duration_unit?: string;
+}
+
+/** Per-field UI hints; only `ui:description` is read here. */
+type OutputUiSchema = Record<string, { 'ui:description'?: string } | undefined>;
+
 interface OutputFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: OutputFormData;
+  onChange: (data: OutputFormData) => void;
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
-  schema?: any;
-  uiSchema?: any;
+  schema?: JsonSchema;
+  uiSchema?: OutputUiSchema;
   deviceType?: string;
-  allOutputs?: any[];
+  allOutputs?: OutputEntity[];
   editingIndex?: number | null;
   allAreas?: AreaOption[];
   interlockGroups?: string[];
@@ -143,9 +159,9 @@ const OutputForm: React.FC<OutputFormProps> = ({
 
   console.log("boneio output options", boneioOutputOptions);
   
-  const outputTypeOptions = schema?.items?.properties?.output_type?.enum || [];
+  const outputTypeOptions = (schema?.items?.properties?.output_type?.enum as string[] | undefined) || [];
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: unknown) => {
     const newData = { ...data, [field]: value };
     
     // When changing to cover type, clear incompatible fields

@@ -7,8 +7,21 @@ import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import type { AreaEntity } from '@/types/config';
 
+/** One ADC filter: a single `{ name: value }` pair. */
+export type ADCFilter = Record<string, unknown>;
+
+/** An `adc` entry, as far as this table reads it. */
+export interface ADCRow {
+  id?: string;
+  name?: string;
+  pin?: string;
+  area?: string;
+  show_in_ha?: boolean;
+  filters?: ADCFilter[];
+}
+
 interface ADCTableProps {
-  items: any[];
+  items: ADCRow[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
   allAreas?: AreaEntity[];
@@ -25,15 +38,15 @@ const ADCTable: React.FC<ADCTableProps> = ({ items, onEdit, onDelete, allAreas =
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      name: (item: any) => (item.name || item.id || item.pin || '').toLowerCase(),
-      pin: (item: any) => (item.pin || '').toLowerCase(),
-      filters: (item: any) => (item.filters || []).length,
+      name: (item) => (item.name || item.id || item.pin || '').toLowerCase(),
+      pin: (item) => (item.pin || '').toLowerCase(),
+      filters: (item) => (item.filters || []).length,
     });
   }, [indexedItems, sortItems]);
 
-  const formatFilters = (filters: any[]) => {
+  const formatFilters = (filters?: ADCFilter[]) => {
     if (!filters || filters.length === 0) return '-';
-    return filters.map((f: any) => {
+    return filters.map((f) => {
       const key = Object.keys(f)[0];
       return `${key}: ${f[key]}`;
     }).join(', ');

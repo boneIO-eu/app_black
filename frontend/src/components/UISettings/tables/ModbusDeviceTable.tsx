@@ -11,12 +11,22 @@ interface Area {
   name: string;
 }
 
+/** A `modbus_devices` entry, as far as this table reads it. */
+export interface ModbusDeviceRow {
+  id?: string;
+  name?: string;
+  area?: string;
+  address?: string | number;
+  model?: string;
+  update_interval?: string | number;
+}
+
 interface ModbusDeviceTableProps {
-  items: any[];
+  items: ModbusDeviceRow[];
   allAreas: Area[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
-  formatTimeperiod: (ms: number) => string;
+  formatTimeperiod: (value: string | number) => string;
 }
 
 const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({ 
@@ -38,11 +48,11 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
   // Sort items
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      name: (item: any) => (item.name || item.id || '').toLowerCase(),
-      model: (item: any) => (item.model || '').toLowerCase(),
-      address: (item: any) => Number(item.address) || 0,
-      update_interval: (item: any) => Number(item.update_interval) || 0,
-      area: (item: any) => {
+      name: (item) => (item.name || item.id || '').toLowerCase(),
+      model: (item) => (item.model || '').toLowerCase(),
+      address: (item) => Number(item.address) || 0,
+      update_interval: (item) => Number(item.update_interval) || 0,
+      area: (item) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
       },

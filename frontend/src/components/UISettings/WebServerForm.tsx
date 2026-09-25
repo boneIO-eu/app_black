@@ -7,9 +7,21 @@ import { FormInputNumber, FormInputText } from './widgets';
 import HelpLabel from './components/HelpLabel';
 import { NoticeCallout } from './ui';
 
+/** The `web` section as edited here (other keys pass through untouched). */
+interface WebServerFormData {
+  [key: string]: unknown;
+  port?: number;
+  expose?: string;
+  cloud?: {
+    [key: string]: unknown;
+    enabled?: boolean;
+    declined?: boolean;
+  };
+}
+
 interface WebServerFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: WebServerFormData;
+  onChange: (data: WebServerFormData) => void;
 }
 
 /**
@@ -48,11 +60,11 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   const [cloudActive, setCloudActive] = useState(false);
   const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
-  const handleCloudChange = (field: string, value: any) => {
+  const handleCloudChange = (field: string, value: unknown) => {
     const cloud = data?.cloud || {};
     onChange({ ...data, cloud: { ...cloud, [field]: value } });
   };
@@ -89,8 +101,8 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       const { data: res } = await axios.post('/api/pwa_name', { pwa_name: newPwaName });
       setCurrentPwaName(res.pwa_name);
       setPwaNameResult({ status: 'success', message: t('settings.pwa_name_changed') });
-    } catch (err: any) {
-      setPwaNameResult({ status: 'error', message: err.message || t('settings.pwa_name_change_failed') });
+    } catch (err) {
+      setPwaNameResult({ status: 'error', message: (err as Error).message || t('settings.pwa_name_change_failed') });
     } finally {
       setIsChangingPwaName(false);
     }

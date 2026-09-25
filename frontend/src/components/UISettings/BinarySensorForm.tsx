@@ -13,12 +13,15 @@ import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
   BinarySensorEntity, 
+  EventEntity,
   CoverEntity, 
   OutputEntity, 
   AreaEntity,
   RemoteDeviceEntity,
   Action,
 } from '@/types/config';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { ActionInput, OutputGroupRecord } from './ActionFields/types';
 import {
   Select,
   SelectContent,
@@ -33,12 +36,12 @@ interface BinarySensorFormProps {
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
-  schema?: any;
+  schema?: JsonSchema;
   allBinarySensors?: BinarySensorEntity[];
-  allEvents?: any[];
+  allEvents?: EventEntity[];
   editingIndex?: number | null;
   allOutputs?: OutputEntity[];
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
@@ -52,7 +55,7 @@ interface BinarySensorFormProps {
   /** Saved (committed) outputs for comparison */
   savedOutputs?: OutputEntity[];
   /** Saved (committed) output groups for comparison */
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
   /** Saved (committed) covers for comparison */
   savedCovers?: CoverEntity[];
   /** Optional initial tab — when opened from binding matrix with a specific click type. */
@@ -119,14 +122,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   }, [validationErrors.length, onValidationChange]);
 
   // Extract enum values from schema
-  const deviceClassOptions = schema?.items?.properties?.device_class?.enum || [
+  const deviceClassOptions = (schema?.items?.properties?.device_class?.enum as string[] | undefined) || [
     'battery', 'battery_charging', 'carbon_monoxide', 'cold', 'connectivity',
     'door', 'garage_door', 'gas', 'heat', 'light', 'lock', 'moisture',
     'motion', 'moving', 'occupancy', 'opening', 'plug', 'power', 'presence',
     'problem', 'running', 'safety', 'smoke', 'sound', 'tamper', 'vibration', 'window'
   ];
 
-  const allBoneioInputs = schema?.items?.properties?.boneio_input?.enum || [];
+  const allBoneioInputs = (schema?.items?.properties?.boneio_input?.enum as string[] | undefined) || [];
   
   // Filter out already used inputs from both binary_sensor and event (except current one)
   // Case-insensitive comparison — see inputFilterUtils.ts for details
@@ -135,41 +138,41 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   );
   const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
 
-  const rawActionTypeOptions = schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum || [
+  const rawActionTypeOptions = (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum as string[] | undefined) || [
     'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
   ];
   // Deduplicate: schema may provide both uppercase and lowercase variants
   const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
 
-  const actionOutputOptions = schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum || [
+  const actionOutputOptions = (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum as string[] | undefined) || [
     'TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'
   ];
 
-  const actionCoverOptions = schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum || [
+  const actionCoverOptions = (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum as string[] | undefined) || [
     'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
   ];
 
-  const updateField = (field: keyof BinarySensorEntity, value: any) => {
+  const updateField = (field: keyof BinarySensorEntity, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
-  const updateAction = (type: 'pressed' | 'released', index: number, field: string, value: any) => {
+  const updateAction = (type: 'pressed' | 'released', index: number, field: string, value: unknown) => {
     const actions = { ...data.actions };
     if (!actions[type]) actions[type] = [];
-    const updatedActions = [...actions[type]!];
+    const updatedActions: ActionInput[] = [...actions[type]!];
     
     // When changing action type, clean fields to only keep valid ones for new type
     if (field === 'action') {
       const currentAction = updatedActions[index];
-      updatedActions[index] = cleanActionFields(value, currentAction) as any;
+      updatedActions[index] = cleanActionFields(value as string, currentAction);
     } else if (field === '__batch') {
       // Batch update: value is an object with multiple fields to set at once
-      const current = { ...updatedActions[index] };
-      for (const [k, v] of Object.entries(value)) {
+      const current: Record<string, unknown> = { ...updatedActions[index] };
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         if (v === undefined) {
-          delete (current as any)[k];
+          delete current[k];
         } else {
-          (current as any)[k] = v;
+          current[k] = v;
         }
       }
       updatedActions[index] = current;
@@ -194,7 +197,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       }
     }
     
-    actions[type] = updatedActions;
+    // The edited entries are raw records; they carry the Action fields the editor writes.
+    actions[type] = updatedActions as Action[];
     onChange({ ...data, actions });
   };
 

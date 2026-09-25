@@ -1,4 +1,5 @@
 import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
+import type { ActionCondition, ActionDef, ActionInput } from './types';
 
 /**
  * Fields allowed per action type. When switching action type,
@@ -30,14 +31,16 @@ const SHARED_FIELDS = ['action', 'min_duration', 'max_duration', 'repeat', 'repe
  * @param currentAction - The current action object (may contain fields from old type)
  * @returns New action object with only valid fields
  */
-export const cleanActionFields = (newActionType: string, currentAction: Record<string, any> = {}): Record<string, any> => {
+export const cleanActionFields = (newActionType: string, currentAction: ActionInput = {}): Record<string, unknown> => {
   const allowed = ALLOWED_FIELDS_BY_ACTION[newActionType.toLowerCase()] || [];
   const keepSet = new Set([...SHARED_FIELDS, ...allowed]);
 
-  const cleaned: Record<string, any> = { action: newActionType };
-  for (const key of Object.keys(currentAction)) {
-    if (key !== 'action' && keepSet.has(key) && currentAction[key] !== undefined) {
-      cleaned[key] = currentAction[key];
+  // Copied key by key, whatever the fields hold, so read as a plain record.
+  const source = currentAction as Record<string, unknown>;
+  const cleaned: Record<string, unknown> = { action: newActionType };
+  for (const key of Object.keys(source)) {
+    if (key !== 'action' && keepSet.has(key) && source[key] !== undefined) {
+      cleaned[key] = source[key];
     }
   }
   return cleaned;
@@ -66,7 +69,10 @@ export const formatActionLabel = (option: string, t?: (key: string) => string): 
  * @param t - Translation function
  * @returns Error message string or null if valid
  */
-export const validateCondition = (condition: any, t: (key: string) => string): string | null => {
+export const validateCondition = (
+  condition: Partial<ActionCondition> | null | undefined,
+  t: (key: string) => string,
+): string | null => {
   if (!condition || !condition.type) {
     return t('event_form.validation_condition_type_required');
   }
@@ -146,7 +152,8 @@ export const validateCondition = (condition: any, t: (key: string) => string): s
  * @param t - Translation function
  * @returns Error message string or null if valid
  */
-export const validateAction = (action: any, t: (key: string) => string): string | null => {
+export const validateAction = (input: ActionInput, t: (key: string) => string): string | null => {
+  const action = input as ActionDef;
   if (!action.action) return t('event_form.validation_action_type_required');
   
   const actionType = action.action.toLowerCase();
@@ -253,7 +260,7 @@ export const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
  * @param cover - Cover object from remote device (ESPHome or MQTT)
  * @returns true if the cover supports tilt control
  */
-export const coverSupportsTilt = (cover: any): boolean => {
+export const coverSupportsTilt = (cover: object | null | undefined): boolean => {
   if (!cover) return false;
   // Both ESPHome and MQTT covers may provide supports_tilt from discovery
   if ('supports_tilt' in cover) return !!cover.supports_tilt;
@@ -272,7 +279,7 @@ export const coverSupportsTilt = (cover: any): boolean => {
  */
 export const filterCoverActionsByTilt = (
   actionOptions: string[],
-  selectedCover: any,
+  selectedCover: object | null | undefined,
 ): string[] => {
   // If no cover selected yet, show all options
   if (!selectedCover) return actionOptions;

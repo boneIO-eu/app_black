@@ -15,7 +15,10 @@ import {
   FaBroadcastTower,
 } from 'react-icons/fa';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { copyToClipboard } from '@/utils/clipboard';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface CANStatus {
   interface: string;
@@ -87,8 +90,9 @@ export default function CANHelper() {
       if (data.status === 'success') {
         checkStatus();
       }
-    } catch (err: any) {
-      setIfUpResult({ status: 'error', message: err.message || 'Request failed' });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setIfUpResult({ status: 'error', message: apiErr.message || 'Request failed' });
     } finally {
       setIfUpLoading(false);
     }
@@ -174,8 +178,9 @@ export default function CANHelper() {
         frame: sendFrame,
       });
       setSendResult(data);
-    } catch (err: any) {
-      setSendResult({ status: 'error', message: err.response?.data?.detail || err.message });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setSendResult({ status: 'error', message: apiErr.response?.data?.detail || apiErr.message });
     } finally {
       setSendLoading(false);
     }

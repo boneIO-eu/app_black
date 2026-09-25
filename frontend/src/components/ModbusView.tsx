@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { WebSocketContext } from '@/contexts/WebSocketContext';
 import ViewToggle from './ViewToggle';
 import { isModbusDeviceEvent, ModbusDeviceState } from '../hooks/useWebSocket';
@@ -18,6 +19,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface GroupedModbusDevices {
   groupKey: string;
@@ -81,7 +84,7 @@ export default function ModbusView() {
         if (data.coordinators) {
           const state: Record<string, boolean> = {};
           for (const [id, info] of Object.entries(data.coordinators)) {
-            state[id] = (info as any).polling_enabled;
+            state[id] = (info as { polling_enabled: boolean }).polling_enabled;
           }
           setPollingState(state);
         }
@@ -97,9 +100,10 @@ export default function ModbusView() {
       const { data } = await axios.post(`/api/modbus/${coordinatorId}/polling`, { enabled });
       setPollingState(prev => ({ ...prev, [coordinatorId]: data.polling_enabled }));
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
       console.error('Error toggling polling:', err);
-      setError(err.response?.data?.detail || t('modbus_view.error_setting_value'));
+      setError(apiErr.response?.data?.detail || t('modbus_view.error_setting_value'));
     }
   }, [t]);
 
@@ -174,9 +178,10 @@ export default function ModbusView() {
     try {
       await axios.post(`/api/modbus/${coordinatorId}/${entityId}/set_value`, { value });
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
       console.error('Error setting modbus value:', err);
-      setError(err.response?.data?.detail || t('modbus_view.error_setting_value'));
+      setError(apiErr.response?.data?.detail || t('modbus_view.error_setting_value'));
     }
   };
 

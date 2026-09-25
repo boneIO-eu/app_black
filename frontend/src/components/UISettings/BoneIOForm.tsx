@@ -20,9 +20,27 @@ interface ValidationResult {
   normalized_type: string;
 }
 
+/** Response of `/api/factory_reset/partial` (or the local error stand-in). */
+interface PartialResetResult {
+  status: string;
+  message?: string;
+  copied_files?: string[];
+}
+
+/** The `boneio` section as edited here (other keys pass through untouched). */
+interface BoneIOFormData {
+  [key: string]: unknown;
+  name?: string;
+  version?: string | number;
+  device_type?: string;
+  serial_override?: string;
+  ha_child_devices?: boolean;
+  ha_child_devices_naming?: string;
+}
+
 interface BoneIOFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: BoneIOFormData;
+  onChange: (data: BoneIOFormData) => void;
 }
 
 /**
@@ -36,9 +54,9 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
   const [pendingDeviceType, setPendingDeviceType] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [resetResult, setResetResult] = useState<any>(null);
+  const [resetResult, setResetResult] = useState<PartialResetResult | null>(null);
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -92,7 +110,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
 
     setIsLoading(true);
     try {
-      const { data: result } = await axios.post('/api/factory_reset/partial', {
+      const { data: result } = await axios.post<PartialResetResult>('/api/factory_reset/partial', {
         device_type: pendingDeviceType,
         files_to_replace: selectedCategories,
       });

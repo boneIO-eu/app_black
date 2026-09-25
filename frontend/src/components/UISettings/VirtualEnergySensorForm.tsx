@@ -11,6 +11,8 @@ import {
 import SearchableEntityPicker from './SearchableEntityPicker';
 import type { EntityItem } from './EntitySelectDropdown';
 import AreaSelect from './widgets/AreaSelect';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { OutputEntity } from '@/types/config';
 
 interface VirtualEnergySensorData {
   id?: string;
@@ -33,9 +35,9 @@ interface VirtualEnergySensorFormProps {
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
-  schema?: any;
+  schema?: JsonSchema;
   allAreas?: Area[];
-  allOutputs?: any[];
+  allOutputs?: OutputEntity[];
   existingSensors?: VirtualEnergySensorData[];
   editingIndex?: number | null;
   onValidationChange?: (hasErrors: boolean) => void;
@@ -110,7 +112,7 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
     onValidationChangeRef.current?.(Object.keys(errors).length > 0);
   }, [errors]);
 
-  const handleChange = (field: keyof VirtualEnergySensorData, value: any) => {
+  const handleChange = <K extends keyof VirtualEnergySensorData>(field: K, value: VirtualEnergySensorData[K]) => {
     const newData = { ...data, [field]: value };
     
     // Clear power_usage when switching to water, and vice versa
@@ -133,9 +135,10 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
   const outputItems: EntityItem[] = useMemo(
     () =>
       allOutputs
-        .filter((o: any) => o && (o.id || o.boneio_output))
-        .map((output: any) => {
-          const effectiveId = output.id || output.boneio_output;
+        .filter((o) => o && (o.id || o.boneio_output))
+        .map((output) => {
+          // The filter above guarantees one of the two is set.
+          const effectiveId = (output.id || output.boneio_output) as string;
           return {
             id: effectiveId,
             name: output.name || effectiveId,

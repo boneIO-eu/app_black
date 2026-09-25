@@ -8,12 +8,16 @@ import {
 } from '@/components/ui/select';
 import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
-import type { OutputActionProps } from './types';
+import type { OutputActionProps, OutputGroupEntity, OutputGroupRecord } from './types';
 import type { OutputEntity } from '@/types/config';
 import { formatActionLabel } from './helpers';
 
 /** Output actions supported by local light/switch outputs. */
 const OUTPUT_ONLY_ACTIONS = ['TOGGLE', 'ON', 'OFF'];
+
+/** An output group the picker can list: an object with an id. */
+const isOutputGroup = (group: OutputGroupRecord): group is OutputGroupRecord & OutputGroupEntity =>
+  !!group && typeof group === 'object' && !!group.id;
 
 /**
  * Output Action component - handles local boneIO outputs.
@@ -32,7 +36,7 @@ const OutputAction: React.FC<OutputActionProps> = ({
   preferredArea,
 }) => {
   // Wrapper for onUpdate that removes deprecated 'pin' field
-  const handleUpdate = (field: string, value: any) => {
+  const handleUpdate = (field: string, value: unknown) => {
     if (action.pin) {
       onUpdate('pin', undefined);
     }
@@ -45,10 +49,10 @@ const OutputAction: React.FC<OutputActionProps> = ({
   const isOutputSaved = (outputId: string, isGroup: boolean): boolean => {
     if (isGroup) {
       if (!savedOutputGroups) return true;
-      return savedOutputGroups.some((g: any) => g.id === outputId);
+      return savedOutputGroups.some((g) => g.id === outputId);
     }
     if (!savedOutputs) return true;
-    return savedOutputs.some((o: any) => {
+    return savedOutputs.some((o) => {
       const id = o.id || o.boneio_output;
       return id === outputId;
     });
@@ -84,8 +88,9 @@ const OutputAction: React.FC<OutputActionProps> = ({
           (output.id || output.boneio_output)
         );
       })
-      .map((output: any): EntityItem => {
-        const id = output.id || output.boneio_output;
+      .map((output: OutputEntity): EntityItem => {
+        // The filter above keeps only outputs with one of the two ids.
+        const id = output.id || output.boneio_output || '';
         const saved = isOutputSaved(id, false);
         const outputType = output.output_type;
         return {
@@ -100,8 +105,8 @@ const OutputAction: React.FC<OutputActionProps> = ({
       });
 
     const groups = allOutputGroups
-      .filter((group: any) => group && typeof group === 'object' && group.id)
-      .map((group: any): EntityItem => {
+      .filter(isOutputGroup)
+      .map((group): EntityItem => {
         const saved = isOutputSaved(group.id, true);
         return {
           id: group.id,

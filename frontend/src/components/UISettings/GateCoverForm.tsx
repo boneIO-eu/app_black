@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { TemplateSubFormProps } from './types/template';
+import type { TemplateSubFormProps, GateCoverData } from './types/template';
 import { GATE_CONTROL_MODES, GATE_DEVICE_CLASSES } from './types/template';
 
 /**
@@ -21,7 +21,7 @@ import { GATE_CONTROL_MODES, GATE_DEVICE_CLASSES } from './types/template';
  * Impulse-based gate/garage/barrier/wicket control with contact sensors
  * and optional position estimation.
  */
-const GateCoverForm: React.FC<TemplateSubFormProps> = ({
+const GateCoverForm: React.FC<TemplateSubFormProps<GateCoverData>> = ({
   data,
   onChange,
   allOutputs,
@@ -30,7 +30,7 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: keyof GateCoverData, value: GateCoverData[keyof GateCoverData]) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -39,15 +39,15 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
 
   /** Build enriched input list from binary sensors only. */
   const allBinarySensors = (allInputs || []).filter(
-    (inp: any) => inp.kind === 'binary_sensor' || !inp.kind
+    (inp) => inp.kind === 'binary_sensor' || !inp.kind
   );
 
   const enrichedInputs = allBinarySensors
-    .filter((inp: any) => {
+    .filter((inp) => {
       const id = inp.id || inp.boneio_input || '';
       return Boolean(id);
     })
-    .map((inp: any) => {
+    .map((inp) => {
       const id = inp.id || inp.boneio_input || '';
       const name = inp.name || '';
       const areaObj = allAreas.find((a) => a.id === inp.area);
@@ -59,9 +59,9 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
   const outputItems: EntityItem[] = useMemo(
     () =>
       (allOutputs || [])
-        .filter((o: any) => o && (o.id || o.boneio_output))
-        .map((output: any) => {
-          const effectiveId = output.id || output.boneio_output;
+        .filter((o) => o && (o.id || o.boneio_output))
+        .map((output) => {
+          const effectiveId = output.id || output.boneio_output || '';
           const outputType = output.output_type;
           return {
             id: effectiveId,
@@ -91,7 +91,7 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
           value={data.name || ''}
           onChange={(e) => {
             const name = e.target.value;
-            const updates: any = { ...data, name };
+            const updates: GateCoverData = { ...data, name };
             if (!data.id || data.id === sanitizeId(data.name || '')) {
               updates.id = sanitizeId(name);
             }

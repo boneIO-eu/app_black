@@ -13,7 +13,7 @@ import yamlWorker from '../yaml.worker.ts?worker';
 import { installMonacoWorkerCompat } from '../monaco-worker-compat';
 
 // Configure Monaco workers and loader (lazy-loaded with this component)
-(self as any).MonacoEnvironment = {
+self.MonacoEnvironment = {
   getWorker(_: string, label: string) {
     if (label === 'yaml') {
       return new yamlWorker();
@@ -89,7 +89,7 @@ export default function ConfigEditor() {
     }
   };
 
-  const handleBeforeMount: BeforeMount = async (monaco: any) => {
+  const handleBeforeMount: BeforeMount = async (monaco) => {
     if (!monacoYaml) {
       // Load all schemas
       const mainSchema = await fetchSchema();
@@ -104,10 +104,10 @@ export default function ConfigEditor() {
             schema: mainSchema
           },
           // Section schemas for included files
-          ...Object.keys(mainSchema.properties).map(section => ({
+          ...Object.entries(mainSchema.properties ?? {}).map(([section, sectionSchema]) => ({
             uri: window.location.origin + `/schema/${section}.schema.json`,
             fileMatch: [`${section}.yaml`, `${section}.yml`],
-            schema: mainSchema.properties[section]
+            schema: sectionSchema
           }))
         ],
         validate: true,
@@ -115,7 +115,7 @@ export default function ConfigEditor() {
     }
   };
 
-  const handleEditorMount: OnMount = async (editor: any, monaco: any) => {
+  const handleEditorMount: OnMount = async (editor, monaco) => {
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       handleSave();

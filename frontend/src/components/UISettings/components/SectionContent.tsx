@@ -3,7 +3,7 @@
  * Handles both array sections (ArrayTableWidget) and custom form sections.
  */
 import { useTranslation } from '@/hooks/useTranslation';
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import ArrayTableWidget from '../ArrayTableWidget';
 import PresenceSimulationWizard from '../PresenceSimulationWizard';
@@ -18,25 +18,19 @@ import OledForm from '../OledForm';
 import { ARRAY_SECTIONS, type ArraySectionType } from '../constants/sectionDefinitions';
 import { SettingsPage, SettingsCard, NoticeCallout } from '../ui';
 import { normalizeCovers } from '../helpers/coverUtils';
-
-interface ConfigSection {
-  name: string;
-  schema: any;
-  normalizedSchema: any;
-  uiSchema: any;
-  data: Record<string, any>;
-}
+import type { ConfigSection, SettingsFormData } from '../types/section';
+import type { ConfigRecord } from '@/types/jsonSchema';
 
 interface SectionContentProps {
   activeSection: string;
   activeSectionData: ConfigSection;
-  formData: Record<string, any>;
-  originalData: Record<string, any>;
+  formData: SettingsFormData;
+  originalData: SettingsFormData;
   schemaLoaded: boolean;
   editItemName?: string;
   onEditItemOpened?: () => void;
-  onSectionChange: (sectionName: string, data: any) => void;
-  onSaveSection: (sectionName: string, data?: any) => Promise<void>;
+  onSectionChange: (sectionName: string, data: unknown) => void;
+  onSaveSection: (sectionName: string, data?: unknown) => Promise<void>;
   onLoxValidationChange?: (isValid: boolean) => void;
 }
 
@@ -114,22 +108,22 @@ function ArraySectionContent({
 
   return (
     <ArrayTableWidget
-      value={formData[activeSection] || []}
-      uiSchema={activeSectionData.uiSchema.items}
+      value={(formData[activeSection] || []) as ConfigRecord[]}
+      uiSchema={activeSectionData.uiSchema.items as ConfigRecord | undefined}
       onChange={(newData) => onSectionChange(activeSection, newData)}
       schema={activeSectionData.normalizedSchema}
       sectionType={activeSection as 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'schedule' | 'other'}
       deviceType={formData.boneio?.device_type}
-      allBinarySensors={formData.binary_sensor || (formData.local_inputs || []).filter((i: any) => i._type === 'binary_sensor')}
-      allEvents={formData.event || (formData.local_inputs || []).filter((i: any) => i._type === 'event')}
+      allBinarySensors={formData.binary_sensor || (formData.local_inputs || []).filter((i) => i._type === 'binary_sensor')}
+      allEvents={formData.event || (formData.local_inputs || []).filter((i) => i._type === 'event')}
       allOutputs={[...(formData.output || []), ...(formData.remote_outputs || [])]}
       allOutputGroups={formData.output_group || []}
       allCovers={formData.cover || []}
       allAreas={formData.areas || []}
       allSensors={[
         ...(formData.sensor || []),
-        ...(formData.lm75 || []).map((s: any) => ({ ...s, _source: 'lm75' })),
-        ...(formData.mcp9808 || []).map((s: any) => ({ ...s, _source: 'mcp9808' })),
+        ...(formData.lm75 || []).map((s) => ({ ...s, _source: 'lm75' })),
+        ...(formData.mcp9808 || []).map((s) => ({ ...s, _source: 'mcp9808' })),
       ]}
       allModbusDevices={formData.modbus_devices || []}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
@@ -162,21 +156,21 @@ function CustomFormContent({
   onSectionChange,
   onLoxValidationChange,
 }: Pick<SectionContentProps, 'activeSection' | 'formData' | 'onSectionChange' | 'onLoxValidationChange'>) {
-  const handleChange = (data: any) => onSectionChange(activeSection, data);
+  const handleChange = (data: unknown) => onSectionChange(activeSection, data);
 
   switch (activeSection) {
     case 'boneio':
       return (
         <BoneIOForm
-          data={formData[activeSection]}
+          data={formData[activeSection] as ConfigRecord}
           onChange={handleChange}
         />
       );
     case 'mqtt':
       return (
         <MessagingProtocolsForm
-          mqttData={formData['mqtt']}
-          loxData={formData['lox_udp']}
+          mqttData={formData['mqtt'] as ConfigRecord}
+          loxData={formData['lox_udp'] as ConfigRecord}
           onMqttChange={(data) => onSectionChange('mqtt', data)}
           onLoxChange={(data) => onSectionChange('lox_udp', data)}
           onLoxValidationChange={onLoxValidationChange}
@@ -185,42 +179,42 @@ function CustomFormContent({
     case 'web':
       return (
         <WebServerForm
-          data={formData[activeSection]}
+          data={formData[activeSection] as ConfigRecord}
           onChange={handleChange}
         />
       );
     case 'modbus':
       return (
         <ModbusForm
-          data={formData[activeSection]}
+          data={formData[activeSection] as ConfigRecord}
           onChange={handleChange}
         />
       );
     case 'can':
       return (
         <CANForm
-          data={formData[activeSection]}
+          data={formData[activeSection] as ConfigRecord}
           onChange={handleChange}
         />
       );
     case 'logger':
       return (
         <LoggerForm
-          data={formData[activeSection]}
+          data={formData[activeSection] as ConfigRecord}
           onChange={handleChange}
         />
       );
     case 'mcp23017':
       return (
         <Mcp23017Form
-          data={formData[activeSection] || []}
+          data={(formData[activeSection] || []) as ComponentProps<typeof Mcp23017Form>['data']}
           onChange={handleChange}
         />
       );
     case 'oled':
       return (
         <OledForm
-          data={formData[activeSection] || {}}
+          data={(formData[activeSection] || {}) as ConfigRecord}
           onChange={handleChange}
         />
       );

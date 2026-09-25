@@ -27,6 +27,17 @@ const TYPE_BADGES: Record<string, string> = {
   mcp9808: 'badge-success',
 };
 
+/** One board sensor entry (lm75 / ina219 / ina226 / mcp9808 merged into one list). */
+export interface BoardSensorRow {
+  id?: string;
+  /** Which section the entry came from (`lm75`, `ina219`, ...). */
+  _type?: string;
+  address?: number | string;
+  update_interval?: number | string;
+  /** INA219/INA226 only: the sub-sensors it exposes. */
+  sensors?: { id?: string }[];
+}
+
 function formatAddress(address: number | string | undefined): string {
   if (address === undefined || address === null) return '-';
   if (typeof address === 'number') return `0x${address.toString(16).toUpperCase().padStart(2, '0')}`;
@@ -37,15 +48,15 @@ function formatAddress(address: number | string | undefined): string {
  * Build a display name for a board sensor entry.
  * Falls back to type label + address when id is not set (common for INA219).
  */
-function getDisplayName(item: any): string {
+function getDisplayName(item: BoardSensorRow): string {
   if (item.id) return item.id;
-  const typeLabel = TYPE_LABELS[item._type] || item._type || 'Sensor';
+  const typeLabel = TYPE_LABELS[item._type ?? ''] || item._type || 'Sensor';
   const addr = formatAddress(item.address);
   return addr !== '-' ? `${typeLabel} (${addr})` : typeLabel;
 }
 
 interface BoardSensorsTableProps {
-  items: any[];
+  items: BoardSensorRow[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
 }
@@ -61,9 +72,9 @@ const BoardSensorsTable: React.FC<BoardSensorsTableProps> = ({ items, onEdit, on
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      name: (item: any) => getDisplayName(item).toLowerCase(),
-      type: (item: any) => (item._type || '').toLowerCase(),
-      address: (item: any) => {
+      name: (item) => getDisplayName(item).toLowerCase(),
+      type: (item) => (item._type || '').toLowerCase(),
+      address: (item) => {
         const addr = item.address;
         return typeof addr === 'number' ? addr : parseInt(String(addr), 16) || 0;
       },
@@ -84,7 +95,7 @@ const BoardSensorsTable: React.FC<BoardSensorsTableProps> = ({ items, onEdit, on
           const displayName = getDisplayName(item);
           const interval = formatTimeperiod(item.update_interval);
           const subSensors = Array.isArray(item.sensors)
-            ? item.sensors.map((s: any) => s.id).join(', ')
+            ? item.sensors.map((s) => s.id).join(', ')
             : '';
 
           return (
@@ -134,7 +145,7 @@ const BoardSensorsTable: React.FC<BoardSensorsTableProps> = ({ items, onEdit, on
                       <span className="font-medium">{getDisplayName(item)}</span>
                       {Array.isArray(item.sensors) && item.sensors.length > 0 && (
                         <div className="text-xs text-base-content/60 mt-0.5">
-                          {item.sensors.map((s: any) => s.id).join(', ')}
+                          {item.sensors.map((s) => s.id).join(', ')}
                         </div>
                       )}
                     </div>

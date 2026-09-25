@@ -3,9 +3,32 @@ import { Plus, Trash2, GripVertical, Monitor, Moon, Thermometer } from 'lucide-r
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 
+/** One `extra_screen_sensors` entry. */
+interface ExtraScreenSensor {
+  [key: string]: unknown;
+  sensor_type?: string;
+  sensor_id?: string;
+  modbus_id?: string;
+}
+
+/** A TimePeriod as the backend may serialise it. */
+interface TimePeriodObject {
+  _total_in_seconds?: number;
+  seconds?: number;
+}
+
+/** The `oled` section as edited here (other keys pass through untouched). */
+interface OledFormData {
+  [key: string]: unknown;
+  enabled?: boolean;
+  screens?: string[];
+  extra_screen_sensors?: ExtraScreenSensor[];
+  screensaver_timeout?: string | number | TimePeriodObject;
+}
+
 interface OledFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: OledFormData;
+  onChange: (data: OledFormData) => void;
 }
 
 /**
@@ -29,13 +52,13 @@ interface ModbusCoordinator {
   id: string;
   name: string;
   model: string;
-  entities: { decoded_name: string; name: string; unit: string; state: any }[];
+  entities: { decoded_name: string; name: string; unit: string; state: number | string | null }[];
 }
 
 interface DallasSensor {
   id: string;
   name: string;
-  state: any;
+  state: number | string | null;
 }
 
 interface ScreenAvailableSensors {
@@ -58,7 +81,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   const [availableSensors, setAvailableSensors] = useState<ScreenAvailableSensors | null>(null);
   const [loadingSensors, setLoadingSensors] = useState(false);
 
-  const handleChange = useCallback((field: string, value: any) => {
+  const handleChange = useCallback((field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   }, [data, onChange]);
 
@@ -69,7 +92,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   const unusedScreens = AVAILABLE_SCREENS.filter(s => !screens.includes(s.id));
 
   // Extra screen sensors
-  const extraSensors: any[] = data?.extra_screen_sensors || [];
+  const extraSensors: ExtraScreenSensor[] = data?.extra_screen_sensors || [];
 
   // Screensaver timeout
   const screensaverTimeout = data?.screensaver_timeout || '60s';
@@ -129,7 +152,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
     // Default to first available modbus coordinator if available
     const defaultType = availableSensors?.modbus?.length ? 'modbus' :
       availableSensors?.dallas?.length ? 'dallas' : 'modbus';
-    const newSensor: any = { sensor_type: defaultType, sensor_id: '' };
+    const newSensor: ExtraScreenSensor = { sensor_type: defaultType, sensor_id: '' };
     if (defaultType === 'modbus' && availableSensors?.modbus?.length) {
       newSensor.modbus_id = availableSensors.modbus[0].id;
     }
@@ -170,12 +193,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
 
   // --- Screensaver timeout parsing ---
 
-  const parseTimeoutValue = (timeout: string | number | any): number => {
+  const parseTimeoutValue = (timeout: unknown): number => {
     if (typeof timeout === 'number') return timeout;
     if (typeof timeout === 'object' && timeout !== null) {
       // TimePeriod object from backend
-      if (timeout._total_in_seconds !== undefined) return timeout._total_in_seconds;
-      if (timeout.seconds !== undefined) return timeout.seconds;
+      const period = timeout as TimePeriodObject;
+      if (period._total_in_seconds !== undefined) return period._total_in_seconds;
+      if (period.seconds !== undefined) return period.seconds;
       return 60;
     }
     if (typeof timeout !== 'string') return 60;

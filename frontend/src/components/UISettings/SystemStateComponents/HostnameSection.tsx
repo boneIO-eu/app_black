@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { FaGlobe } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import {
   SettingsPage,
   SettingsCard,
@@ -10,6 +11,8 @@ import {
   NoticeCallout,
   useSectionSave,
 } from '../ui';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 /**
  * A DNS label, the rule boneio-system applies before it runs hostnamectl.
@@ -68,8 +71,9 @@ export default function HostnameSection() {
       setCurrentHostname(data.hostname);
       setNewHostname(data.hostname);
       setHostnameResult({ status: 'success', message: t('settings.hostname_changed') });
-    } catch (err: any) {
-      const message = err?.response?.data?.detail || t('settings.hostname_change_failed');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      const message = apiErr?.response?.data?.detail || t('settings.hostname_change_failed');
       setHostnameResult({ status: 'error', message });
     } finally {
       setIsChangingHostname(false);

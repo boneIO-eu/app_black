@@ -3,9 +3,17 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { NoticeCallout } from './ui';
 
+/** The `logger` section as edited here (other keys pass through untouched). */
+interface LoggerFormData {
+  [key: string]: unknown;
+  default?: string;
+  /** Module name -> log level. */
+  logs?: Record<string, string>;
+}
+
 interface LoggerFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: LoggerFormData;
+  onChange: (data: LoggerFormData) => void;
 }
 
 const LOG_LEVELS = ['debug', 'info', 'warning', 'error', 'critical'];
@@ -31,7 +39,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
   const [newModule, setNewModule] = useState('');
   const [showExamples, setShowExamples] = useState(false);
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 

@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import FixTimezoneSudoers from '../FixTimezoneSudoers';
 import NtpServersField from './NtpServersField';
 import {
@@ -17,6 +18,8 @@ import {
   NoticeCallout,
   useSectionSave,
 } from '../ui';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface TimezoneInfo {
   timezone: string;
@@ -147,8 +150,9 @@ export default function TimezoneSection() {
       await axios.post('/api/timezone', { timezone: selectedTimezone });
       setResult({ status: 'success', message: t('timezone.changed_success') });
       fetchTimezoneInfo();
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || err.message;
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      const detail = apiErr?.response?.data?.detail || apiErr.message;
       setResult({ status: 'error', message: detail || t('timezone.change_failed') });
     } finally {
       setIsSaving(false);
@@ -169,8 +173,9 @@ export default function TimezoneSection() {
       });
       // Refresh to see NTP sync status change
       setTimeout(fetchTimezoneInfo, 2000);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || err.message;
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      const detail = apiErr?.response?.data?.detail || apiErr.message;
       setResult({ status: 'error', message: detail || t('timezone.ntp_toggle_failed') });
     } finally {
       setIsTogglingNtp(false);

@@ -3,9 +3,21 @@ import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FormInputSelect, FormInputText, FormInputToggle } from './widgets';
 
+/** The `can` section as edited here (other keys pass through untouched). */
+interface CANFormData {
+  [key: string]: unknown;
+  enabled?: boolean;
+  channel?: string;
+  bitrate?: number;
+  node_id?: number | string;
+  mode?: string;
+  auto_setup?: boolean;
+  restart_on_error?: boolean;
+}
+
 interface CANFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: CANFormData;
+  onChange: (data: CANFormData) => void;
 }
 
 /**
@@ -22,7 +34,7 @@ const CANForm: React.FC<CANFormProps> = ({ data, onChange }) => {
       .catch(() => setCanInterfaces([]));
   }, []);
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 

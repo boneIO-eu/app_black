@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { fetchConfig, invalidateConfigCache } from '@/api/configCache';
 import { useTranslation } from '../hooks/useTranslation';
 import LoggerForm from './UISettings/LoggerForm';
@@ -12,6 +13,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { NoticeCallout } from './UISettings/ui';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface LoggerSettingsDialogProps {
   open: boolean;
@@ -48,7 +51,7 @@ export default function LoggerSettingsDialog({ open, onOpenChange }: LoggerSetti
     // only stale for as long as the read takes.
     (async () => {
       try {
-        const payload = (await fetchConfig()) as Record<string, any>;
+        const payload = (await fetchConfig()) as { config?: { logger?: Record<string, unknown> } };
         if (cancelled) return;
         setError(null);
         setDirty(false);
@@ -78,8 +81,9 @@ export default function LoggerSettingsDialog({ open, onOpenChange }: LoggerSetti
       invalidateConfigCache();
       setDirty(false);
       onOpenChange(false);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || String(err));
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr?.response?.data?.detail || apiErr?.message || String(err));
     } finally {
       setSaving(false);
     }

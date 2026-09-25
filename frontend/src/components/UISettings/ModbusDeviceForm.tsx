@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { JsonSchema } from '@/types/jsonSchema';
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -118,10 +119,24 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange,
   );
 };
 
+/** One `modbus_devices` list item as edited here (other keys pass through untouched). */
+interface ModbusDeviceFormData {
+  [key: string]: unknown;
+  id?: string;
+  name?: string;
+  area?: string;
+  address?: number;
+  model?: string;
+  update_interval?: string | number;
+  sensors_filters?: { temperature?: Filter[]; humidity?: Filter[] };
+  data?: { width?: string; length?: string };
+  entity_labels?: Record<string, string>;
+}
+
 interface ModbusDeviceFormProps {
-  data: any;
-  onChange: (data: any) => void;
-  schema?: any;
+  data: ModbusDeviceFormData;
+  onChange: (data: ModbusDeviceFormData) => void;
+  schema?: JsonSchema;
   areas?: Array<{ id: string; name: string }>;
 }
 
@@ -146,17 +161,17 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   const modelOptions = useMemo(() => {
     const modelSchema = schema?.items?.properties?.model;
     if (modelSchema?.enum) {
-      return modelSchema.enum;
+      return modelSchema.enum as string[];
     }
     // Default models if not in schema
     return ['sdm120', 'sdm630', 'cwt', 'liquid-sensor'];
   }, [schema]);
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
-  const updateNestedField = (parent: string, field: string, value: any) => {
+  const updateNestedField = (parent: 'sensors_filters' | 'data', field: string, value: unknown) => {
     onChange({
       ...data,
       [parent]: {

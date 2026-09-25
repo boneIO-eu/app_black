@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import ModbusDeviceCreator from './ModbusDeviceCreator';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { MODBUS_DEVICE_CATALOG } from '../generated/modbusDeviceCatalog';
 import {
   Select,
@@ -25,6 +26,8 @@ import {
   NoticeCallout,
   ToggleRow,
 } from './UISettings/ui';
+
+type ApiError = AxiosError<{ error?: string }>;
 
 interface ModbusConfig {
   configured: boolean;
@@ -53,6 +56,15 @@ interface ModbusResult {
 
 /** Write mode: FC06 = single register, FC16 = multiple registers */
 type WriteMode = 'fc06' | 'fc16';
+
+/** One simulated device from `/api/dev/fake-devices`. */
+interface FakeDevice {
+  device_id: string;
+  model: string;
+  manufacturer: string;
+  category: string;
+  entity_count: number;
+}
 
 /**
  * ModbusHelper - UI component for Modbus operations (GET, SET, SEARCH)
@@ -103,7 +115,7 @@ export default function ModbusHelper() {
 
   // SIMULATOR parameters
   const [showSimulator, setShowSimulator] = useState(false);
-  const [fakeDevices, setFakeDevices] = useState<any[]>([]);
+  const [fakeDevices, setFakeDevices] = useState<FakeDevice[]>([]);
   const [selectedSimModel, setSelectedSimModel] = useState('wanas415');
   const [simAddress, setSimAddress] = useState(1);
   const [dashboardYaml, setDashboardYaml] = useState<string | null>(null);
@@ -358,8 +370,9 @@ export default function ModbusHelper() {
       await axios.post(`/api/dev/fake-device/${selectedSimModel}?address=${simAddress}`);
       await loadFakeDevices();
       setResult({ success: true, message: `Created simulated device ${simAddress}_${selectedSimModel} in HA` });
-    } catch (err: any) {
-      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setResult({ success: false, error: apiErr.response?.data?.error || String(err) });
     } finally {
       setLoading(false);
     }
@@ -376,8 +389,9 @@ export default function ModbusHelper() {
       await axios.post(`/api/dev/fake-device/${model}/update?address=${address}`);
       await loadFakeDevices();
       setResult({ success: true, message: `Sent updated simulated data for ${deviceId}` });
-    } catch (err: any) {
-      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setResult({ success: false, error: apiErr.response?.data?.error || String(err) });
     } finally {
       setLoading(false);
     }
@@ -394,8 +408,9 @@ export default function ModbusHelper() {
       await axios.delete(`/api/dev/fake-device/${model}?address=${address}`);
       await loadFakeDevices();
       setResult({ success: true, message: `Removed simulated device ${deviceId} from HA` });
-    } catch (err: any) {
-      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setResult({ success: false, error: apiErr.response?.data?.error || String(err) });
     } finally {
       setLoading(false);
     }
@@ -417,8 +432,9 @@ export default function ModbusHelper() {
         setDashboardModel(data.model || model);
         setYamlCopied(false);
       }
-    } catch (err: any) {
-      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setResult({ success: false, error: apiErr.response?.data?.error || String(err) });
     } finally {
       setLoading(false);
     }

@@ -11,8 +11,17 @@ interface Area {
   name: string;
 }
 
+/** A `virtual_energy_sensor` entry, as far as this table reads it. */
+export interface VirtualEnergySensorRow {
+  name?: string;
+  output_id?: string;
+  sensor_type?: string;
+  /** An area ID, or `_same_as_output_`. */
+  area?: string;
+}
+
 interface VirtualEnergySensorTableProps {
-  items: any[];
+  items: VirtualEnergySensorRow[];
   allAreas: Area[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
@@ -34,10 +43,10 @@ const VirtualEnergySensorTable: React.FC<VirtualEnergySensorTableProps> = ({
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      name: (item: any) => (item.name || '').toLowerCase(),
-      output_id: (item: any) => (item.output_id || '').toLowerCase(),
-      sensor_type: (item: any) => (item.sensor_type || '').toLowerCase(),
-      area: (item: any) => {
+      name: (item) => (item.name || '').toLowerCase(),
+      output_id: (item) => (item.output_id || '').toLowerCase(),
+      sensor_type: (item) => (item.sensor_type || '').toLowerCase(),
+      area: (item) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
       },

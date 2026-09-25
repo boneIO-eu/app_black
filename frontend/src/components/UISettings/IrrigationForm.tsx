@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { OutputEntity } from '@/types/config';
 import type { TemplateSubFormProps, Area } from './types/template';
 import { SCHEDULE_DAY_OPTIONS } from './types/template';
 
@@ -44,15 +45,19 @@ const WS_TIME_FIELDS = [
   'pump_stop_pump_delay', 'pump_stop_valve_delay',
 ] as const;
 
+/** A water source as stored in config: time fields may still be raw ms integers. */
+type RawWaterSourceData = Omit<WaterSourceData, typeof WS_TIME_FIELDS[number]> &
+  Partial<Record<typeof WS_TIME_FIELDS[number], string | number>>;
+
 /** Normalize numeric ms values in a water source to time strings. */
-function normalizeWaterSource(ws: any): any {
+function normalizeWaterSource(ws: RawWaterSourceData): WaterSourceData {
   const out = { ...ws };
   for (const field of WS_TIME_FIELDS) {
     if (typeof out[field] === 'number') {
       out[field] = msToTimeString(out[field]);
     }
   }
-  return out;
+  return out as WaterSourceData;
 }
 
 // ─── Zone sub-form ────────────────────────────────────────────────────────────
@@ -76,7 +81,7 @@ interface ZoneRowProps {
   onRemove: (index: number) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
-  allOutputs: any[];
+  allOutputs: OutputEntity[];
   allAreas: Area[];
   usedValveIds: string[];
 }
@@ -85,11 +90,11 @@ function IrrigationZoneRow({ zone, index, totalZones, onChange, onRemove, onMove
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(!zone.name && !zone.valve_id);
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: keyof ZoneData, value: ZoneData[keyof ZoneData]) => {
     const updated = { ...zone, [field]: value };
     // Auto-generate id from name
     if (field === 'name' && (!zone.id || zone.id === sanitizeId(zone.name || ''))) {
-      updated.id = sanitizeId(value);
+      updated.id = sanitizeId(value as string);
     }
     onChange(index, updated);
   };
@@ -98,7 +103,7 @@ function IrrigationZoneRow({ zone, index, totalZones, onChange, onRemove, onMove
   const excludeIds = usedValveIds.filter((id) => id !== zone.valve_id);
 
   // Find valve output name for summary
-  const valveOutput = allOutputs.find((o: any) => (o.id || o.boneio_output) === zone.valve_id);
+  const valveOutput = allOutputs.find((o) => (o.id || o.boneio_output) === zone.valve_id);
   const valveName = valveOutput?.name || zone.valve_id || '';
 
   // Summary line
@@ -340,7 +345,7 @@ interface WaterSourceRowProps {
   index: number;
   onChange: (index: number, source: WaterSourceData) => void;
   onRemove: (index: number) => void;
-  allOutputs: any[];
+  allOutputs: OutputEntity[];
   allAreas: Area[];
   usedOutputIds: string[];
   hasValveOpenDelay: boolean;
@@ -356,10 +361,10 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
              source.pump_stop_pump_delay || source.pump_stop_valve_delay)
   );
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: keyof WaterSourceData, value: WaterSourceData[keyof WaterSourceData]) => {
     const updated = { ...source, [field]: value };
     if (field === 'name' && (!source.id || source.id === sanitizeId(source.name || ''))) {
-      updated.id = sanitizeId(value);
+      updated.id = sanitizeId(value as string);
     }
     onChange(index, updated);
   };
@@ -569,9 +574,60 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
   );
 }
 
+// ─── Controller data ──────────────────────────────────────────────────────────
+
+/** A zone as stored in config: run_duration may still be a raw ms integer. */
+type RawZoneData = Omit<ZoneData, 'run_duration'> & { run_duration?: string | number };
+
+interface IrrigationData {
+  platform?: string;
+  id?: string;
+  name?: string;
+  area?: string;
+  zones?: RawZoneData[];
+  schedule?: ScheduleData[];
+  water_sources?: RawWaterSourceData[];
+  valve_open_delay?: string | number;
+  valve_overlap?: string | number;
+  pause_timeout?: string | number;
+}
+
+/** Response of GET /api/irrigation/ai-context. */
+interface IrrigationAiContext {
+  device_name?: string;
+  available_outputs: { id: string; name: string; type: string; in_use?: boolean; used_by?: string }[];
+  /** Declared required to match the reader; it still guards with `?.`. */
+  existing_controllers: {
+    id: string;
+    name: string;
+    zones: { id: string; valve: string }[];
+    water_sources: { id: string; outputs: string[] }[];
+  }[];
+}
+
+/** Controller JSON pasted back from the AI assistant (unvalidated). */
+interface AiIrrigationResponse {
+  id?: string;
+  name?: string;
+  zones?: {
+    id?: string;
+    name?: string;
+    valve_id?: string;
+    valve?: string;
+    run_duration?: string;
+    run_every_n?: number;
+    enabled?: boolean;
+  }[];
+  schedule?: ScheduleData[];
+  water_sources?: { id?: string; name?: string; outputs?: string[] }[];
+  valve_open_delay?: string | number;
+  valve_overlap?: string | number;
+  pause_timeout?: string | number;
+}
+
 // ─── Advanced Valve Timing ────────────────────────────────────────────────────
 
-function AdvancedTimingSection({ data, updateField }: { data: any; updateField: (field: string, value: any) => void }) {
+function AdvancedTimingSection({ data, updateField }: { data: IrrigationData; updateField: (field: string, value: unknown) => void }) {
   const { t } = useTranslation();
   // Normalize numeric ms values (backend Cerberus coercion may produce raw ints)
   const voDelay = msToTimeString(data.valve_open_delay) ?? data.valve_open_delay;
@@ -600,7 +656,7 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
               <SimpleTimePeriodInput
                 value={voDelay || '0s'}
                 onChange={(v) => {
-                  const updates: Record<string, any> = { valve_open_delay: v };
+                  const updates: IrrigationData = { valve_open_delay: v };
                   if (v && v !== '0s' && v !== '0ms') updates.valve_overlap = undefined;
                   updateField('__batch', updates);
                 }}
@@ -614,7 +670,7 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
               <SimpleTimePeriodInput
                 value={voOverlap || '0s'}
                 onChange={(v) => {
-                  const updates: Record<string, any> = { valve_overlap: v };
+                  const updates: IrrigationData = { valve_overlap: v };
                   if (v && v !== '0s' && v !== '0ms') updates.valve_open_delay = undefined;
                   updateField('__batch', updates);
                 }}
@@ -645,7 +701,7 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 
-const IrrigationForm: React.FC<TemplateSubFormProps> = ({
+const IrrigationForm: React.FC<TemplateSubFormProps<IrrigationData>> = ({
   data,
   onChange,
   allOutputs,
@@ -656,20 +712,20 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
 
   // Only show valve-type outputs in irrigation zone dropdowns
   const valveOutputs = useMemo(
-    () => allOutputs.filter((o: any) => o.output_type === 'valve'),
+    () => allOutputs.filter((o) => o.output_type === 'valve'),
     [allOutputs]
   );
 
   // For water sources: show switches and valves (exclude lights and covers)
   const switchableOutputs = useMemo(
-    () => allOutputs.filter((o: any) => {
+    () => allOutputs.filter((o) => {
       const t = (o.output_type || '').toLowerCase();
       return t !== 'light' && t !== 'cover';
     }),
     [allOutputs]
   );
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: unknown) => {
     if (field === '__batch' && typeof value === 'object') {
       onChange({ ...data, ...value });
     } else {
@@ -679,7 +735,7 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
 
   // Normalize zone run_duration (backend may send raw ms integers)
   const zones: ZoneData[] = useMemo(
-    () => (data.zones || []).map((z: any) => ({
+    () => (data.zones || []).map((z) => ({
       ...z,
       run_duration: typeof z.run_duration === 'number' ? msToTimeString(z.run_duration) : z.run_duration,
     })),
@@ -789,7 +845,7 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
 
   /** Build an output list from the outputs we know about. */
   const buildOutputList = useCallback(() => {
-    return allOutputs.map((o: any) => {
+    return allOutputs.map((o) => {
       const id = o.id || o.boneio_output || '';
       const name = o.name || o.id || '';
       const type = o.output_type || 'switch';
@@ -808,12 +864,12 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
       let deviceName = 'boneIO Black';
 
       try {
-        const resp = await axios.get('/api/irrigation/ai-context');
+        const resp = await axios.get<IrrigationAiContext>('/api/irrigation/ai-context');
         const ctx = resp.data;
         deviceName = ctx.device_name || deviceName;
 
         outputLines = ctx.available_outputs
-          .map((o: any) => {
+          .map((o) => {
             const status = o.in_use ? `IN USE by ${o.used_by}` : 'available';
             return `- ${o.id} ("${o.name}", type: ${o.type}) \u2014 ${status}`;
           })
@@ -821,9 +877,9 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
 
         if (ctx.existing_controllers?.length > 0) {
           existingLines = ctx.existing_controllers
-            .map((c: any) => {
-              const zones = c.zones.map((z: any) => `${z.id}(valve:${z.valve})`).join(', ');
-              const sources = c.water_sources.map((ws: any) => `${ws.id}(outputs:${ws.outputs.join(',')})`).join(', ');
+            .map((c) => {
+              const zones = c.zones.map((z) => `${z.id}(valve:${z.valve})`).join(', ');
+              const sources = c.water_sources.map((ws) => `${ws.id}(outputs:${ws.outputs.join(',')})`).join(', ');
               return `- "${c.id}" (${c.name}): zones=[${zones}], water_sources=[${sources}]`;
             })
             .join('\n');
@@ -908,7 +964,7 @@ Rules:
         jsonStr = jsonMatch[1].trim();
       }
 
-      const parsed = JSON.parse(jsonStr);
+      const parsed = JSON.parse(jsonStr) as AiIrrigationResponse;
 
       // Validate required fields
       if (!parsed.zones || !Array.isArray(parsed.zones) || parsed.zones.length === 0) {
@@ -916,7 +972,7 @@ Rules:
       }
 
       // Validate output IDs
-      const outputIds = new Set(allOutputs.map((o: any) => o.id || o.boneio_output || ''));
+      const outputIds = new Set(allOutputs.map((o) => o.id || o.boneio_output || ''));
       const errors: string[] = [];
 
       for (const zone of parsed.zones) {
@@ -939,11 +995,11 @@ Rules:
       }
 
       // Build form data
-      const newData: any = { ...data };
+      const newData: IrrigationData = { ...data };
       if (parsed.id) newData.id = parsed.id;
       if (parsed.name) newData.name = parsed.name;
 
-      newData.zones = parsed.zones.map((z: any) => ({
+      newData.zones = parsed.zones.map((z) => ({
         id: z.id || sanitizeId(z.name || ''),
         name: z.name || z.id || '',
         valve_id: z.valve_id || z.valve || '',
@@ -953,14 +1009,14 @@ Rules:
       }));
 
       if (parsed.schedule && Array.isArray(parsed.schedule)) {
-        newData.schedule = parsed.schedule.map((s: any) => ({
+        newData.schedule = parsed.schedule.map((s) => ({
           time: s.time || '06:00',
           days: s.days || 'daily',
         }));
       }
 
       if (parsed.water_sources && Array.isArray(parsed.water_sources)) {
-        newData.water_sources = parsed.water_sources.map((ws: any) => ({
+        newData.water_sources = parsed.water_sources.map((ws) => ({
           id: ws.id || sanitizeId(ws.name || ''),
           name: ws.name || ws.id || '',
           outputs: ws.outputs || [],
@@ -1010,7 +1066,7 @@ Rules:
           value={data.name || ''}
           onChange={(e) => {
             const name = e.target.value;
-            const updates: any = { ...data, name };
+            const updates: IrrigationData = { ...data, name };
             if (!data.id || data.id === sanitizeId(data.name || '')) {
               updates.id = sanitizeId(name);
             }

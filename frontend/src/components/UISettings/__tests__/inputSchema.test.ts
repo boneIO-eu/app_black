@@ -3,7 +3,13 @@ import {
   buildLocalInputsSchema,
   pickInputVariantSchema,
   withFilteredInputs,
+  type LocalInputType,
 } from '../helpers/inputSchema';
+import type { JsonSchema } from '@/types/jsonSchema';
+
+/** The per-type item schemas buildLocalInputsSchema stores under 'x-variants'. */
+const variantsOf = (schema: JsonSchema | undefined) =>
+  schema?.items?.['x-variants'] as Record<LocalInputType, JsonSchema> | undefined;
 
 /** Minimal stand-in for config.schema.json — only what these helpers read. */
 const mainSchema = {
@@ -43,7 +49,7 @@ const allowed = ['in_01'];
 describe('withFilteredInputs', () => {
   it('drops inputs the board version does not have', () => {
     const filtered = withFilteredInputs(mainSchema.properties.event, allowed);
-    expect(filtered.items.properties.boneio_input.enum).toEqual(['in_01']);
+    expect(filtered.items?.properties?.boneio_input?.enum).toEqual(['in_01']);
   });
 
   it('leaves a schema without boneio_input untouched', () => {
@@ -56,20 +62,20 @@ describe('buildLocalInputsSchema', () => {
   const merged = buildLocalInputsSchema(mainSchema, allowed);
 
   it('keeps properties that only binary_sensor has', () => {
-    expect(merged.items.properties.initial_send).toBeDefined();
+    expect(merged?.items?.properties?.initial_send).toBeDefined();
   });
 
   it('filters boneio_input in the merged schema and in both variants', () => {
-    expect(merged.items.properties.boneio_input.enum).toEqual(['in_01']);
-    expect(merged.items['x-variants'].event.properties.boneio_input.enum).toEqual(['in_01']);
-    expect(merged.items['x-variants'].binary_sensor.properties.boneio_input.enum).toEqual(['in_01']);
+    expect(merged?.items?.properties?.boneio_input?.enum).toEqual(['in_01']);
+    expect(variantsOf(merged)?.event.properties?.boneio_input?.enum).toEqual(['in_01']);
+    expect(variantsOf(merged)?.binary_sensor.properties?.boneio_input?.enum).toEqual(['in_01']);
   });
 
   it('carries both device_class lists, unmixed', () => {
-    const variants = merged.items['x-variants'];
-    expect(variants.event.properties.device_class.enum).toEqual(['button', 'doorbell', 'motion']);
-    expect(variants.binary_sensor.properties.device_class.enum).toContain('window');
-    expect(variants.binary_sensor.properties.device_class.enum).not.toContain('doorbell');
+    const variants = variantsOf(merged);
+    expect(variants?.event.properties?.device_class?.enum).toEqual(['button', 'doorbell', 'motion']);
+    expect(variants?.binary_sensor.properties?.device_class?.enum).toContain('window');
+    expect(variants?.binary_sensor.properties?.device_class?.enum).not.toContain('doorbell');
   });
 
   it('falls back to whichever schema exists when the other is missing', () => {
@@ -84,24 +90,24 @@ describe('pickInputVariantSchema', () => {
 
   it('gives a binary sensor its own device classes, not the event ones', () => {
     const schema = pickInputVariantSchema(merged, 'binary_sensor');
-    expect(schema.items.properties.device_class.enum).not.toContain('doorbell');
-    expect(schema.items.properties.device_class.enum).toContain('smoke');
+    expect(schema?.items?.properties?.device_class?.enum).not.toContain('doorbell');
+    expect(schema?.items?.properties?.device_class?.enum).toContain('smoke');
   });
 
   it('gives an event its own device classes and action types', () => {
     const schema = pickInputVariantSchema(merged, 'event');
-    expect(schema.items.properties.device_class.enum).toEqual(['button', 'doorbell', 'motion']);
-    expect(Object.keys(schema.items.properties.actions.properties)).toContain('single');
+    expect(schema?.items?.properties?.device_class?.enum).toEqual(['button', 'doorbell', 'motion']);
+    expect(Object.keys(schema?.items?.properties?.actions?.properties ?? {})).toContain('single');
   });
 
   it('gives each form the action types it edits', () => {
     const bs = pickInputVariantSchema(merged, 'binary_sensor');
-    expect(Object.keys(bs.items.properties.actions.properties)).toEqual(['pressed', 'released']);
+    expect(Object.keys(bs?.items?.properties?.actions?.properties ?? {})).toEqual(['pressed', 'released']);
   });
 
   it('keeps per-type bounce_time defaults apart', () => {
-    expect(pickInputVariantSchema(merged, 'event').items.properties.bounce_time.default).toBe('30ms');
-    expect(pickInputVariantSchema(merged, 'binary_sensor').items.properties.bounce_time.default).toBe('120ms');
+    expect(pickInputVariantSchema(merged, 'event')?.items?.properties?.bounce_time?.default).toBe('30ms');
+    expect(pickInputVariantSchema(merged, 'binary_sensor')?.items?.properties?.bounce_time?.default).toBe('120ms');
   });
 
   it('passes a plain section schema through unchanged', () => {

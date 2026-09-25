@@ -76,7 +76,7 @@ describe('getInputAvailability', () => {
 
   it('filters BS pins when editing event (cross-section blocking)', () => {
     const binarySensors = [{ boneio_input: 'IN_01' }];
-    const events: any[] = [];
+    const events: { boneio_input?: string }[] = [];
 
     const { usedInputs, availableInputs } = getInputAvailability(
       ALL_PINS, binarySensors, events, null, 'event',
@@ -88,7 +88,7 @@ describe('getInputAvailability', () => {
   });
 
   it('filters event pins when editing BS (cross-section blocking)', () => {
-    const binarySensors: any[] = [];
+    const binarySensors: { boneio_input?: string }[] = [];
     const events = [{ boneio_input: 'IN_03' }];
 
     const { usedInputs, availableInputs } = getInputAvailability(
@@ -103,7 +103,7 @@ describe('getInputAvailability', () => {
   it('blocks lowercase BS pin when editing event (case-insensitive)', () => {
     // Binary sensor stores pin as lowercase (from YAML)
     const binarySensors = [{ boneio_input: 'in_04' }];
-    const events: any[] = [];
+    const events: { boneio_input?: string }[] = [];
 
     const { usedInputs, availableInputs } = getInputAvailability(
       ALL_PINS, binarySensors, events, null, 'event',

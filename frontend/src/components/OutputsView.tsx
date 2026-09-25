@@ -23,6 +23,23 @@ import {
 
 import type { OutputCategory, SortMode } from '@/types/outputs';
 
+/** One entry of `/api/remote-devices/all`, as far as this view reads it. */
+interface RemoteDeviceStatus {
+  id: string;
+  name: string;
+  protocol?: string;
+  outputs?: Array<{ id: string; name: string; state: string; type?: string }>;
+  covers?: Array<{
+    id: string;
+    name: string;
+    state: string;
+    position?: number;
+    kind?: string;
+    tilt?: number;
+    current_operation?: string;
+  }>;
+}
+
 /**
  * Categorize output by its type
  */
@@ -100,7 +117,7 @@ export default function OutputsView({error}: {error: string | null}) {
   };
 
   // Fetch remote devices
-  const [remoteDevices, setRemoteDevices] = useState<any[]>([]);
+  const [remoteDevices, setRemoteDevices] = useState<RemoteDeviceStatus[]>([]);
 
   useEffect(() => {
     const fetchRemoteDevices = async () => {
@@ -125,7 +142,7 @@ export default function OutputsView({error}: {error: string | null}) {
     // Add remote device outputs (only CAN devices — legacy approach)
     remoteDevices.forEach(device => {
       if (device.protocol === 'can' && device.outputs) {
-        device.outputs.forEach((out: any) => {
+        device.outputs.forEach((out) => {
           allOutputs.push({
             id: `remote_${device.id}_${out.id}`,
             name: `${device.name} - ${out.name}`,
@@ -184,7 +201,7 @@ export default function OutputsView({error}: {error: string | null}) {
     const allCovers = covers.filter(isCoverEvent).map(c => c.state as CoverState);
     remoteDevices.forEach(device => {
       if (device.protocol === 'can' && device.covers) {
-        device.covers.forEach((cov: any) => {
+        device.covers.forEach((cov) => {
           allCovers.push({
             id: `remote_${device.id}_${cov.id}`,
             name: `${device.name} - ${cov.name}`,

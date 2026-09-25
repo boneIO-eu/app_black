@@ -12,14 +12,25 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import type { ConfigRecord } from '@/types/jsonSchema';
+
+/** The item being edited. Only `_type` and `actions` are read; every other
+ *  field is carried over as is. */
+interface InputItem {
+  _type?: string;
+  actions?: unknown;
+}
+
+/** Action lists keyed by trigger type (single, pressed, ...). */
+type ActionLists = Record<string, unknown[] | undefined>;
 
 interface InputTypeSwitcherProps {
   /** Current _type value: 'binary_sensor' or 'event' */
   currentType: 'binary_sensor' | 'event';
   /** Current form data */
-  data: any;
+  data: InputItem;
   /** Callback when type is switched — receives transformed data */
-  onSwitch: (newData: any) => void;
+  onSwitch: (newData: ConfigRecord) => void;
 }
 
 /** Fields that are specific to binary_sensor and should be removed when switching to event. */
@@ -41,10 +52,10 @@ const BS_ACTION_TYPES = ['pressed', 'released'];
 /**
  * Count total actions across given action types.
  */
-function countActions(actions: any, types: string[]): number {
+function countActions(actions: unknown, types: string[]): number {
   if (!actions || typeof actions !== 'object') return 0;
   return types.reduce((sum, type) => {
-    const arr = actions[type];
+    const arr = (actions as Record<string, unknown>)[type];
     return sum + (Array.isArray(arr) ? arr.length : 0);
   }, 0);
 }
@@ -53,16 +64,17 @@ function countActions(actions: any, types: string[]): number {
  * Transform data when switching from event → binary_sensor.
  * Maps single → pressed actions as a best-effort migration.
  */
-function eventToBinarySensor(data: any): any {
+function eventToBinarySensor(data: InputItem): ConfigRecord {
   const { _type, ...rest } = data;
-  const newData: any = { ...rest, _type: 'binary_sensor' };
+  const newData: ConfigRecord = { ...rest, _type: 'binary_sensor' };
 
   // Best-effort action migration: single → pressed
-  const oldActions = data.actions || {};
-  const newActions: any = {};
+  const oldActions = (data.actions || {}) as ActionLists;
+  const newActions: ActionLists = {};
 
-  if (oldActions.single?.length > 0) {
-    newActions.pressed = [...oldActions.single];
+  const single = oldActions.single;
+  if (single && single.length > 0) {
+    newActions.pressed = [...single];
   }
   // No good mapping for double/triple/long/sequences → released, so we skip them
 
@@ -78,16 +90,17 @@ function eventToBinarySensor(data: any): any {
  * Transform data when switching from binary_sensor → event.
  * Maps pressed → single actions as a best-effort migration.
  */
-function binarySensorToEvent(data: any): any {
+function binarySensorToEvent(data: InputItem): ConfigRecord {
   const { _type, ...rest } = data;
-  const newData: any = { ...rest, _type: 'event' };
+  const newData: ConfigRecord = { ...rest, _type: 'event' };
 
   // Best-effort action migration: pressed → single
-  const oldActions = data.actions || {};
-  const newActions: any = {};
+  const oldActions = (data.actions || {}) as ActionLists;
+  const newActions: ActionLists = {};
 
-  if (oldActions.pressed?.length > 0) {
-    newActions.single = [...oldActions.pressed];
+  const pressed = oldActions.pressed;
+  if (pressed && pressed.length > 0) {
+    newActions.single = [...pressed];
   }
   // released has no equivalent in event, so we drop it
 

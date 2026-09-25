@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
@@ -6,8 +6,14 @@ import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
-interface GenericTableProps {
-  items: any[];
+/** The only fields the generic table reads by name; everything else is shown as-is. */
+export interface GenericTableRow {
+  id?: string;
+  name?: string;
+}
+
+interface GenericTableProps<T extends GenericTableRow> {
+  items: T[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
 }
@@ -15,7 +21,7 @@ interface GenericTableProps {
 /**
  * Generic fallback table for unknown section types.
  */
-const GenericTable: React.FC<GenericTableProps> = ({ items, onEdit, onDelete }) => {
+const GenericTable = <T extends GenericTableRow>({ items, onEdit, onDelete }: GenericTableProps<T>) => {
   const { t } = useTranslation();
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('generic');
 
@@ -26,7 +32,7 @@ const GenericTable: React.FC<GenericTableProps> = ({ items, onEdit, onDelete }) 
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      name: (item: any) => (item.id || item.name || '').toLowerCase(),
+      name: (item: T) => (item.id || item.name || '').toLowerCase(),
     });
   }, [indexedItems, sortItems]);
 

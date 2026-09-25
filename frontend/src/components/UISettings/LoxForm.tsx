@@ -3,9 +3,18 @@ import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
 import { NumericInput } from '@/components/ui/NumericInput';
 
+/** The `lox` section as edited here (other keys pass through untouched). */
+export interface LoxFormData {
+  [key: string]: unknown;
+  enabled?: boolean;
+  host?: string;
+  send_port?: number;
+  listen_port?: number;
+}
+
 interface LoxFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: LoxFormData;
+  onChange: (data: LoxFormData) => void;
   onValidationChange?: (isValid: boolean) => void;
 }
 
@@ -57,7 +66,7 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange, onValidationChange })
     onValidationChange?.(isValid);
   }, [isValid, onValidationChange]);
 
-  const handleChange = useCallback((field: string, value: any) => {
+  const handleChange = useCallback((field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   }, [data, onChange]);
 

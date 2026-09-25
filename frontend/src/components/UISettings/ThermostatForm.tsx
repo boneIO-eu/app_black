@@ -33,7 +33,7 @@ import axios from '@/api/axios';
  * Bang-bang climate controller: reads a temperature sensor, controls a relay
  * output with configurable hysteresis, target temperature, and min/max range.
  */
-const ThermostatForm: React.FC<TemplateSubFormProps> = ({
+const ThermostatForm: React.FC<TemplateSubFormProps<ThermostatData>> = ({
   data,
   onChange,
   allOutputs,
@@ -202,7 +202,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                       }
                     }}
                     onBlur={() => {
-                      const num = parseFloat(data.target_temperature);
+                      const num = parseFloat(String(data.target_temperature));
                       if (!isNaN(num)) updateField('target_temperature', num);
                       else updateField('target_temperature', 21);
                     }}
@@ -255,7 +255,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                       }
                     }}
                     onBlur={() => {
-                      const num = parseFloat(data.hysteresis);
+                      const num = parseFloat(String(data.hysteresis));
                       if (!isNaN(num) && num > 0) updateField('hysteresis', num);
                       else updateField('hysteresis', 0.5);
                     }}
@@ -285,7 +285,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                       }
                     }}
                     onBlur={() => {
-                      const num = parseFloat(data.min_temperature);
+                      const num = parseFloat(String(data.min_temperature));
                       if (!isNaN(num)) updateField('min_temperature', num);
                       else updateField('min_temperature', 5);
                     }}
@@ -312,7 +312,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                       }
                     }}
                     onBlur={() => {
-                      const num = parseFloat(data.max_temperature);
+                      const num = parseFloat(String(data.max_temperature));
                       if (!isNaN(num)) updateField('max_temperature', num);
                       else updateField('max_temperature', 35);
                     }}

@@ -15,48 +15,64 @@ import ImportDialog from './components/ImportDialog';
 import TemplatePicker from './components/TemplatePicker';
 import { AddModbusDeviceWizard } from './AddModbusDeviceWizard';
 import type { AffectedAction } from './hooks/useItemActions';
+import type { AutodiscoveredDevice } from './tables/RemoteDeviceTable';
+import type { OutputGroupRecord } from './ActionFields/types';
+import type { BinarySensorEntity, CoverEntity, EventEntity, OutputEntity, RemoteDeviceEntity } from '@/types/config';
+import { isRecord, type ConfigRecord, type JsonSchema } from '@/types/jsonSchema';
 
 interface Area {
   id: string;
   name: string;
 }
 
+/** The keys this widget reads by name on an item of any section. */
+interface ItemKeys {
+  id?: string;
+  name?: string;
+  boneio_input?: string;
+  boneio_output?: string;
+  open_relay?: string;
+  close_relay?: string;
+  address?: string | number;
+  model?: string;
+}
+
 export interface ArrayTableWidgetProps {
-  value: any[];
-  onChange: (value: any[]) => void;
-  schema: any;
+  value: ConfigRecord[];
+  onChange: (value: ConfigRecord[]) => void;
+  schema: JsonSchema;
   title?: string;
-  uiSchema?: any;
+  uiSchema?: ConfigRecord;
   /** True while the section has unsaved edits; forwarded to the table. */
   isDirty?: boolean;
   /** Section-specific controls rendered next to "Add new", e.g. a wizard. */
   extraActions?: React.ReactNode;
   sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'schedule' | 'other';
   deviceType?: string;
-  allBinarySensors?: any[];
-  allEvents?: any[];
-  allOutputs?: any[];
-  allOutputGroups?: any[];
-  allCovers?: any[];
+  allBinarySensors?: BinarySensorEntity[];
+  allEvents?: EventEntity[];
+  allOutputs?: OutputEntity[];
+  allOutputGroups?: OutputGroupRecord[];
+  allCovers?: CoverEntity[];
   allAreas?: Area[];
-  allSensors?: any[];
-  allModbusDevices?: any[];
-  allVirtualEnergySensors?: any[];
-  allRemoteDevices?: any[];
-  allRemoteInputs?: any[];
-  allVirtualSwitches?: any[];
+  allSensors?: ConfigRecord[];
+  allModbusDevices?: ConfigRecord[];
+  allVirtualEnergySensors?: ConfigRecord[];
+  allRemoteDevices?: RemoteDeviceEntity[];
+  allRemoteInputs?: ConfigRecord[];
+  allVirtualSwitches?: ConfigRecord[];
   /** Saved (committed) data for comparison - items not in saved are shown as disabled */
-  savedOutputs?: any[];
-  savedOutputGroups?: any[];
-  savedCovers?: any[];
+  savedOutputs?: OutputEntity[];
+  savedOutputGroups?: OutputGroupRecord[];
+  savedCovers?: CoverEntity[];
   /** Callback to update events when orphaned actions need to be removed */
-  onUpdateEvents?: (newEvents: any[]) => void;
+  onUpdateEvents?: (newEvents: EventEntity[]) => void;
   /** Callback to update binary_sensors when orphaned actions need to be removed */
-  onUpdateBinarySensors?: (newBinarySensors: any[]) => void;
+  onUpdateBinarySensors?: (newBinarySensors: BinarySensorEntity[]) => void;
   /** Callback to save a section after orphaned actions are removed.
    * If data is provided, it will be saved directly instead of using formData.
    */
-  onSaveSection?: (sectionName: string, data?: any) => Promise<void>;
+  onSaveSection?: (sectionName: string, data?: unknown[]) => Promise<void>;
   /** Name of item to auto-open for editing (from URL query param) */
   editItemName?: string;
   /** Callback when edit item has been opened (to clear URL query param) */
@@ -75,7 +91,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const { t } = useTranslation();
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<ConfigRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
@@ -116,7 +132,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
     // 1. Extract groups from all config items (local + remote outputs)
     const configGroups = new Set<string>();
-    const scanItem = (item: any) => {
+    const scanItem = (item: { interlock_group?: unknown }) => {
       const g = item?.interlock_group;
       if (Array.isArray(g)) {
         g.forEach((name: string) => { if (name) configGroups.add(name); });
@@ -164,7 +180,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   useEffect(() => {
     if (!editItemName || value.length === 0 || editItemProcessedRef.current === editItemName) return;
 
-    const index = value.findIndex((item: any) => {
+    const index = value.findIndex((item: ItemKeys) => {
       if (item.name === editItemName || item.id === editItemName) return true;
       if (item.boneio_input === editItemName || item.boneio_output === editItemName) return true;
       if (sectionType === 'cover' && item.open_relay && item.close_relay) {
@@ -196,7 +212,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   // ─── CRUD Handlers ──────────────────────────────────────────────
 
   const handleEdit = (index: number) => {
-    const item = JSON.parse(JSON.stringify(value[index]));
+    const item: ConfigRecord = JSON.parse(JSON.stringify(value[index]));
     if (isInputSection(sectionType) && item.id && !item.name) {
       item.name = item.id;
       delete item.id;
@@ -214,13 +230,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
    * then open it as a new item for editing.
    */
   const handleDuplicate = (index: number) => {
-    const item = JSON.parse(JSON.stringify(value[index]));
+    const item: ConfigRecord = JSON.parse(JSON.stringify(value[index]));
     // Append suffix to avoid id/name collision
     if (item.id) item.id = `${item.id}_copy`;
     if (item.name) item.name = `${item.name} (copy)`;
     // For irrigation zones, also reset zone IDs to avoid conflicts
     if (item.zones && Array.isArray(item.zones)) {
-      item.zones = item.zones.map((z: any) => ({
+      item.zones = item.zones.map((z: ConfigRecord) => ({
         ...z,
         id: z.id ? `${z.id}_copy` : undefined,
       }));
@@ -269,7 +285,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setIsModalOpen(true);
   };
 
-  const handleAddFromDiscovery = (device: any) => {
+  const handleAddFromDiscovery = (device: AutodiscoveredDevice) => {
     setEditingIndex(null);
     if (device.protocol === 'esphome_api' || device.esphome_api) {
       setEditingItem({
@@ -311,14 +327,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setEditingIndex(null);
   };
 
-  const handleSave = (e?: any) => {
+  const handleSave = (e?: { formData?: ConfigRecord }) => {
     setAttemptedSubmit(true);
     if (hasValidationErrors) {
       alert(t('array_table_widget.fix_validation_errors_before_saving'));
       return;
     }
 
-    const dataToSave = e?.formData || editingItem;
+    // Save is only offered while an item is open, so this is never null.
+    const dataToSave = (e?.formData || editingItem) as ConfigRecord;
     const { isValid, errorMessage } = validateItem(sectionType, dataToSave, t);
     if (!isValid) {
       alert(errorMessage);
@@ -335,8 +352,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     if (sectionType === 'template') {
       delete cleanedData._autoId;
       if (!cleanedData.id) {
-        const baseName = (cleanedData.name || cleanedData.platform || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-        const existingIds = new Set(value.filter((_: any, i: number) => i !== editingIndex).map((item: any) => item.id));
+        const baseName = ((cleanedData.name || cleanedData.platform || 'template') as string).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        const existingIds = new Set(value.filter((_, i) => i !== editingIndex).map((item) => item.id));
         let candidateId = baseName;
         let suffix = 2;
         while (existingIds.has(candidateId)) { candidateId = `${baseName}_${suffix}`; suffix++; }
@@ -358,7 +375,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   // ─── Delete Logic ───────────────────────────────────────────────
 
-  const getItemId = (item: any): string => {
+  const getItemId = (item: ItemKeys): string => {
     if (sectionType === 'output') return item.id || item.boneio_output || '';
     if (sectionType === 'output_group') return item.id || '';
     if (sectionType === 'cover') return item.id || (item.open_relay && item.close_relay ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() : '');
@@ -371,7 +388,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
 
     if (sectionType === 'areas') {
-      const affected = findItemsUsingArea(item.id);
+      // An area entry always carries its id; nothing else is keyed by it.
+      const affected = findItemsUsingArea(item.id as string);
       if (affected.length > 0) {
         setDeleteIndex(index);
         setAffectedActions(affected);
@@ -439,7 +457,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     try {
       const { buildAiWizardPrompt } = await import('./helpers/aiWizardPrompt');
       const entityType = sectionType === 'event' ? 'event' : 'binary_sensor';
-      const getEnum = (path: string) => path.split('.').reduce((o: any, k: string) => o?.[k], schema) || [];
+      const getEnum = (path: string) => (path.split('.').reduce<unknown>((o, k) => (isRecord(o) ? o[k] : undefined), schema) || []) as string[];
       const actionTypeOptions = getEnum('items.properties.actions.properties.single.items.properties.action.enum') ||
         getEnum('items.properties.actions.properties.pressed.items.properties.action.enum') ||
         ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'];
@@ -451,7 +469,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
 
       const prompt = buildAiWizardPrompt({
-        entityType: entityType as any, data: {} as any, schema,
+        entityType, data: {}, schema,
         allOutputs, allOutputGroups, allCovers, allAreas, allRemoteDevices,
         allConfiguredInputs: value,
         actionTypeOptions, actionOutputOptions, actionCoverOptions,

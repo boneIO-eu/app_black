@@ -18,6 +18,10 @@ import type {
   ESPHomeLightEntity, 
   ESPHomeCoverEntity,
   ESPHomeBinarySensorEntity,
+  ESPHomeApiConfig,
+  RemoteDeviceEntity,
+  WLEDConfig,
+  WLEDSegmentEntity,
 } from '@/types/config';
 
 // Supported protocols
@@ -35,9 +39,22 @@ interface CoverItem {
   name?: string;
 }
 
+/** One `remote_devices` list item as edited here: nothing is required while
+ *  the user is still filling it in (other keys pass through untouched). */
+interface RemoteDeviceFormData {
+  [key: string]: unknown;
+  id?: string;
+  name?: string;
+  protocol?: string;
+  device_type?: string;
+  mqtt?: RemoteDeviceEntity['mqtt'];
+  esphome_api?: Partial<ESPHomeApiConfig>;
+  wled?: Partial<WLEDConfig>;
+}
+
 interface RemoteDeviceFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: RemoteDeviceFormData;
+  onChange: (data: RemoteDeviceFormData) => void;
 }
 
 /**
@@ -68,12 +85,12 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
     onChange(newData);
   };
 
-  const handleMqttChange = (field: string, value: any) => {
+  const handleMqttChange = (field: string, value: unknown) => {
     const mqtt = data?.mqtt || {};
     onChange({ ...data, mqtt: { ...mqtt, [field]: value } });
   };
 
-  const handleEsphomeApiChange = (field: string, value: any) => {
+  const handleEsphomeApiChange = (field: string, value: unknown) => {
     const esphome_api = data?.esphome_api || {};
     onChange({ ...data, esphome_api: { ...esphome_api, [field]: value } });
   };
@@ -328,7 +345,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           )}
 
           {/* Discovered Switches */}
-          {(data?.esphome_api?.switches?.length > 0) && (
+          {!!data?.esphome_api?.switches?.length && (
             <div className="collapse collapse-arrow stg-inset-strong stg-inset">
               <input type="checkbox" defaultChecked />
               <div className="collapse-title font-medium">
@@ -359,7 +376,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           )}
 
           {/* Discovered Lights */}
-          {(data?.esphome_api?.lights?.length > 0) && (
+          {!!data?.esphome_api?.lights?.length && (
             <div className="collapse collapse-arrow stg-inset-strong stg-inset">
               <input type="checkbox" defaultChecked />
               <div className="collapse-title font-medium">
@@ -398,7 +415,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           )}
 
           {/* Discovered Covers */}
-          {(data?.esphome_api?.covers?.length > 0) && (
+          {!!data?.esphome_api?.covers?.length && (
             <div className="collapse collapse-arrow stg-inset-strong stg-inset">
               <input type="checkbox" defaultChecked />
               <div className="collapse-title font-medium">
@@ -580,8 +597,9 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
                     effects: result.effects || [],
                     palettes: result.palettes || [],
                   });
-                } catch (error: any) {
-                  setDiscoveryError(error.response?.data?.detail || error.message || 'Discovery failed');
+                } catch (error) {
+                  const err = error as { response?: { data?: { detail?: string } }; message?: string };
+                  setDiscoveryError(err.response?.data?.detail || err.message || 'Discovery failed');
                 } finally {
                   setIsDiscovering(false);
                 }
@@ -601,7 +619,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           )}
 
           {/* Discovered Segments */}
-          {(data?.wled?.segments?.length > 0) && (
+          {!!data?.wled?.segments?.length && (
             <div className="collapse collapse-arrow stg-inset-strong stg-inset">
               <input type="checkbox" defaultChecked />
               <div className="collapse-title font-medium">
@@ -619,7 +637,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
                       </tr>
                     </thead>
                     <tbody>
-                      {data.wled.segments.map((seg: any, idx: number) => (
+                      {data.wled.segments.map((seg: WLEDSegmentEntity, idx: number) => (
                         <tr key={idx}>
                           <td className="font-mono text-xs">{seg.id}</td>
                           <td>{seg.name || `Segment ${seg.id}`}</td>

@@ -7,6 +7,8 @@ import type {
   OutputEntity,
   RemoteDeviceEntity,
 } from '@/types/config';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { OutputGroupRecord } from '../ActionFields/types';
 import { normalizeOutputs } from './outputUtils';
 import { normalizeCovers } from './coverUtils';
 import { validateAction } from '../ActionFields/helpers';
@@ -16,6 +18,9 @@ export type AiEntityType = 'event' | 'binary_sensor';
 type TranslationFn = (key: string) => string;
 
 type SupportedEntity = EventEntity | BinarySensorEntity;
+
+/** A configured input as the table holds it: remote inputs carry `input_id`, merged lists a `_type`. */
+type ConfiguredInput = SupportedEntity & { input_id?: string; _type?: string };
 
 type SupportedActionSlot =
   | 'single'
@@ -31,14 +36,14 @@ type SupportedActionSlot =
 interface BuildAiConfigPromptParams<T extends SupportedEntity> {
   entityType: AiEntityType;
   data: T;
-  schema?: any;
+  schema?: JsonSchema;
   allOutputs?: OutputEntity[];
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
   /** All currently configured inputs (events + binary sensors) so AI knows what's already in use. */
-  allConfiguredInputs?: SupportedEntity[];
+  allConfiguredInputs?: ConfiguredInput[];
   actionTypeOptions: string[];
   actionOutputOptions: string[];
   actionCoverOptions: string[];
@@ -70,7 +75,7 @@ interface ParsedAiResponse {
   version?: number;
   entity_type?: string;
   apply_to?: string;
-  changes?: Record<string, any>;
+  changes?: Record<string, unknown>;
 }
 
 const BONEIO_BLACK_DOCS_URL = 'https://boneio.eu/docs/black';
@@ -170,7 +175,7 @@ function getWebUiHelpUrl(): string {
 /**
  * Returns local outputs and output groups in a normalized shape for AI context.
  */
-function getLocalOutputOptions(allOutputs: OutputEntity[] = [], allOutputGroups: any[] = [], allAreas: AreaEntity[] = []) {
+function getLocalOutputOptions(allOutputs: OutputEntity[] = [], allOutputGroups: OutputGroupRecord[] = [], allAreas: AreaEntity[] = []) {
   const areaMap = new Map(allAreas.map((area) => [area.id, area.name]));
   const outputs = normalizeOutputs(allOutputs as Array<OutputEntity & { boneio_output?: string }>).map((output) => ({
     id: output.id,
@@ -181,7 +186,8 @@ function getLocalOutputOptions(allOutputs: OutputEntity[] = [], allOutputGroups:
     kind: 'output',
   }));
   const groups = (allOutputGroups || [])
-    .filter((group) => group && typeof group === 'object' && group.id)
+    .filter((group): group is OutputGroupRecord & { id: string; name?: string; area?: string } =>
+      Boolean(group && typeof group === 'object' && group.id))
     .map((group) => ({
       id: group.id,
       name: group.name || group.id,
@@ -301,13 +307,13 @@ export function buildAiConfigContext<T extends SupportedEntity>({
   // Build a compact summary of already-configured inputs so AI knows
   // which pins are in use and what they do (prevents overwriting).
   const configuredInputsSummary = allConfiguredInputs
-    .filter((input) => input.boneio_input || (input as any).input_id)
+    .filter((input) => input.boneio_input || input.input_id)
     .map((input) => {
       const actions = input.actions || {};
       const actionSummary: Record<string, string[]> = {};
       for (const [slot, slotActions] of Object.entries(actions)) {
         if (Array.isArray(slotActions) && slotActions.length > 0) {
-          actionSummary[slot] = slotActions.map((a: any) => {
+          actionSummary[slot] = slotActions.map((a) => {
             if (a.action === 'output') return `output:${a.boneio_output || '?'} ${a.action_output || 'TOGGLE'}`;
             if (a.action === 'cover') return `cover:${a.boneio_cover || '?'} ${a.action_cover || 'TOGGLE'}`;
             if (a.action === 'remote_output') return `remote:${a.remote_device || '?'}/${a.output_id || '?'}`;
@@ -318,9 +324,9 @@ export function buildAiConfigContext<T extends SupportedEntity>({
         }
       }
       return {
-        input: input.boneio_input || (input as any).input_id,
+        input: input.boneio_input || input.input_id,
         name: input.name,
-        mode: (input as any)._type || entityType,
+        mode: input._type || entityType,
         area: input.area,
         actions: Object.keys(actionSummary).length > 0 ? actionSummary : undefined,
       };
@@ -402,7 +408,7 @@ function parseAiResponse(responseText: string): ParsedAiResponse {
 /**
  * Returns a copy of an action with unknown keys removed.
  */
-function sanitizeActionObject(action: Record<string, any>): Action {
+function sanitizeActionObject(action: object): Action {
   const sanitizedEntries = Object.entries(action).filter(([key]) => ACTION_ALLOWED_FIELDS.has(key));
 
   return Object.fromEntries(sanitizedEntries) as Action;
@@ -412,7 +418,7 @@ function sanitizeActionObject(action: Record<string, any>): Action {
  * Validates and normalizes a single AI-generated action.
  */
 function validateAndNormalizeAction(
-  action: Record<string, any>,
+  action: Record<string, unknown>,
   actionIndex: number,
   slot: string,
   localOutputIds: Set<string>,
@@ -539,7 +545,7 @@ export function applyAiConfigResponse<T extends SupportedEntity>({
   }
 
   const allowedFields = getAllowedFields(entityType);
-  const allowedInputs = new Set<string>(schema?.items?.properties?.boneio_input?.enum || []);
+  const allowedInputs = new Set<string>((schema?.items?.properties?.boneio_input?.enum as string[] | undefined) || []);
   const localOutputIds = new Set(getLocalOutputOptions(allOutputs, allOutputGroups, allAreas).map((output) => output.id));
   const localCoverIds = new Set(getLocalCoverOptions(allCovers, allAreas).map((cover) => cover.id));
   const remoteOutputs = new Map<string, Set<string>>(
@@ -548,7 +554,7 @@ export function applyAiConfigResponse<T extends SupportedEntity>({
   const remoteCovers = new Map<string, Set<string>>(
     allRemoteDevices.map((device) => [device.id, new Set(getRemoteCoverOptions(device).map((cover) => String(cover.id)))]),
   );
-  const nextData: Record<string, any> = { ...data };
+  const nextData: Record<string, unknown> = { ...data };
   const errors: string[] = [];
 
   for (const key of Object.keys(parsed.changes)) {

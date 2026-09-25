@@ -24,8 +24,33 @@ import {
   NoticeCallout,
 } from '../ui';
 
+/** `backup_meta` of an inspected backup, as far as the mismatch dialog reads it. */
+interface BackupMeta {
+  effective_serial?: string;
+  hostname?: string;
+  created_at?: string;
+}
+
+/** Answer of the restore endpoints. */
+interface RestoreResponse {
+  status: string;
+  message?: string;
+  backup_path?: string;
+  validation_status?: string;
+  validation_message?: string;
+}
+
+/** One entry of `/api/config/backups`. */
+interface AvailableBackup {
+  path: string;
+  filename: string;
+  version: string;
+  timestamp: string;
+  file_count: number;
+}
+
 interface MismatchData {
-  backupMeta: any;
+  backupMeta: BackupMeta | null | undefined;
   currentSerial: string;
   onConfirm: (keepOld: boolean) => void;
   onCancel: () => void;
@@ -39,9 +64,9 @@ export default function BackupSection() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
-  const [restoreResult, setRestoreResult] = useState<any>(null);
+  const [restoreResult, setRestoreResult] = useState<RestoreResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [availableBackups, setAvailableBackups] = useState<any[]>([]);
+  const [availableBackups, setAvailableBackups] = useState<AvailableBackup[]>([]);
   const [showAvailableBackups, setShowAvailableBackups] = useState(false);
   const [mismatchData, setMismatchData] = useState<MismatchData | null>(null);
 
@@ -111,7 +136,7 @@ export default function BackupSection() {
     }
   };
 
-  const handleRestoreResponse = async (data: any) => {
+  const handleRestoreResponse = async (data: RestoreResponse) => {
     if (data.status === 'success') {
       setRestoreResult(data);
       if (confirm(t('device_management.restore_success_restart'))) {
@@ -420,7 +445,7 @@ export default function BackupSection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {availableBackups.map((backup: any) => (
+                  {availableBackups.map((backup) => (
                     <tr key={backup.path}>
                       <td className="font-mono">{backup.version}</td>
                       <td className="text-xs font-mono">{backup.timestamp}</td>

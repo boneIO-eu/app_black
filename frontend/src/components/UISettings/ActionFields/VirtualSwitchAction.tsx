@@ -7,12 +7,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatActionLabel } from './helpers';
+import type { ActionDef, ActionUpdate } from './types';
 
 interface VirtualSwitchActionProps {
   /** The action being edited. */
-  action: Record<string, unknown>;
+  action: ActionDef;
   /** Update one field on it. */
-  onUpdate: (field: string, value: unknown) => void;
+  onUpdate: ActionUpdate;
   /** Translation function. */
   t: (key: string) => string;
   /** Configured virtual switches. */
@@ -50,7 +51,7 @@ const VirtualSwitchAction: React.FC<VirtualSwitchActionProps> = ({
         </label>
         {allVirtualSwitches.length > 0 ? (
           <Select
-            value={(action.boneio_virtual_switch as string) || ''}
+            value={action.boneio_virtual_switch || ''}
             onValueChange={(value) => onUpdate('boneio_virtual_switch', value)}
           >
             <SelectTrigger className="w-full">
@@ -78,7 +79,7 @@ const VirtualSwitchAction: React.FC<VirtualSwitchActionProps> = ({
           <span className="label-text font-medium">{t('event_form.action_output')}</span>
         </label>
         <Select
-          value={(action.action_output as string) || 'TOGGLE'}
+          value={action.action_output || 'TOGGLE'}
           onValueChange={(value) => onUpdate('action_output', value)}
         >
           <SelectTrigger className="w-full">

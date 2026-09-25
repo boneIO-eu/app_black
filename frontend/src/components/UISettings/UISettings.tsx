@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import axios from '@/api/axios';
 import { fetchConfig } from '@/api/configCache';
+import { enrichRemoteDevicesWithWled } from '@/hooks/useActionEditorData';
 import { fetchSchema } from '@/api/schemaCache';
 import { buildLocalInputsSchema, withFilteredInputs } from './helpers/inputSchema';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -28,6 +29,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useOverlayCheck } from './hooks/useOverlayCheck';
 import OverlayChangeDialog from './components/OverlayChangeDialog';
+import type { ConfigSection, SettingsFormData } from './types/section';
+import { isRecord, type ConfigRecord, type JsonSchema } from '@/types/jsonSchema';
 
 /** Lazy-loaded binding matrix component (tool section, not schema-driven). */
 const BindingMatrix = lazy(() => import('./BindingMatrix'));
@@ -79,8 +82,8 @@ const filterEnumOptions = (enumValues: string[]): string[] => {
  * whole subtree allocating a new object per node, which for forty sections of
  * a 434 KB schema is most of the second that entering Settings used to cost.
  */
-const normalizeSchema = (schema: any): any => {
-  const normalizeProperty = (prop: any): any => {
+const normalizeSchema = (schema: JsonSchema): JsonSchema => {
+  const normalizeProperty = (prop: JsonSchema): JsonSchema => {
     if (!prop || typeof prop !== 'object') return prop;
 
     const normalized = { ...prop };
@@ -88,14 +91,15 @@ const normalizeSchema = (schema: any): any => {
     // Handle oneOf with x-yaml-boolean - normalize to simple boolean
     if (normalized.oneOf && Array.isArray(normalized.oneOf)) {
       // Check if this is a boolean field with string alternatives
-      const hasBooleanType = normalized.oneOf.some((option: any) => option.type === 'boolean');
+      const hasBooleanType = normalized.oneOf.some(option => option.type === 'boolean');
       const hasYamlBooleanString = normalized.oneOf.some(
-        (option: any) => option.type === 'string' && option['x-yaml-boolean'] === true
+        option => option.type === 'string' && option['x-yaml-boolean'] === true
       );
 
       if (hasBooleanType && hasYamlBooleanString) {
         // Convert to simple boolean type
-        const booleanOption = normalized.oneOf.find((option: any) => option.type === 'boolean');
+        // Found: hasBooleanType says one is there.
+        const booleanOption = normalized.oneOf.find(option => option.type === 'boolean')!;
         normalized.type = 'boolean';
         if (booleanOption.default !== undefined) {
           normalized.default = booleanOption.default;
@@ -108,15 +112,15 @@ const normalizeSchema = (schema: any): any => {
     // Handle enum with mixed string/number types - normalize to consistent type
     if (normalized.enum && Array.isArray(normalized.enum) && normalized.type === 'string') {
       // Check if enum contains numbers that should be strings
-      const hasNumbers = normalized.enum.some((val: any) => typeof val === 'number');
-      const hasStrings = normalized.enum.some((val: any) => typeof val === 'string');
+      const hasNumbers = normalized.enum.some(val => typeof val === 'number');
+      const hasStrings = normalized.enum.some(val => typeof val === 'string');
 
       if (hasNumbers && hasStrings) {
         // Convert all enum values to strings to match the string type
-        normalized.enum = normalized.enum.map((val: any) => String(val));
+        normalized.enum = normalized.enum.map(val => String(val));
       } else if (hasNumbers && !hasStrings) {
         // If all enum values are numbers but type is string, convert to strings
-        normalized.enum = normalized.enum.map((val: any) => String(val));
+        normalized.enum = normalized.enum.map(val => String(val));
       }
     }
 
@@ -126,7 +130,7 @@ const normalizeSchema = (schema: any): any => {
         normalized.type = normalized.type[0];
       } else {
         // Take the first non-null type, but prefer structural types
-        const validTypes = normalized.type.filter((t: any) => t && t !== 'null');
+        const validTypes = normalized.type.filter(t => t && t !== 'null');
         if (validTypes.length > 0) {
           // Prefer object types for complex structures
           if (validTypes.includes('object')) {
@@ -159,17 +163,17 @@ const normalizeSchema = (schema: any): any => {
     // Filter enum options to show only user-friendly variants
     if (normalized.enum && Array.isArray(normalized.enum) && normalized.enum.length > 5) {
       // Only filter if there are many options (likely case variants)
-      const allStrings = normalized.enum.every((v: string) => typeof v === 'string');
+      const allStrings = normalized.enum.every(v => typeof v === 'string');
       if (allStrings) {
-        normalized.enum = filterEnumOptions(normalized.enum);
+        normalized.enum = filterEnumOptions(normalized.enum as string[]);
       }
     }
 
     // Handle nested properties
     if (normalized.properties) {
-      const newProperties: any = {};
+      const newProperties: Record<string, JsonSchema> = {};
       Object.keys(normalized.properties).forEach(key => {
-        newProperties[key] = normalizeProperty(normalized.properties[key]);
+        newProperties[key] = normalizeProperty(normalized.properties![key]);
       });
       normalized.properties = newProperties;
     }
@@ -201,8 +205,7 @@ const normalizeSchema = (schema: any): any => {
  * Section *data* is deliberately not cached — that does change, and the caller
  * merges it in fresh.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const sectionSchemaCache = new Map<number, Map<string, { schema: any; normalizedSchema: any }>>();
+const sectionSchemaCache = new Map<number, Map<string, { schema: JsonSchema; normalizedSchema: JsonSchema }>>();
 
 
 /**
@@ -216,14 +219,6 @@ const sectionSchemaCache = new Map<number, Map<string, { schema: any; normalized
  * issues and RJSFSchema compatibility problems. The routes still exist but the navigation
  * menu item is commented out. Can be re-enabled when schema issues are resolved.
  */
-
-interface ConfigSection {
-  name: string;
-  schema: any;
-  normalizedSchema: any;
-  uiSchema: any;
-  data: Record<string, any>;
-}
 
 /** Where this browser last was in settings. Per-browser, like a scroll position. */
 const LAST_SECTION_KEY = 'boneio.settings.lastSection';
@@ -245,8 +240,8 @@ export default function UISettings() {
     }
   }, [editItemName, setSearchParams]);
   const [sections, setSections] = useState<ConfigSection[]>([]);
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [originalData, setOriginalData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<SettingsFormData>({});
+  const [originalData, setOriginalData] = useState<SettingsFormData>({});
   const [saveStatus, setSaveStatus] = useState<{
     [key: string]: 'idle' | 'saving' | 'success' | 'error';
   }>({});
@@ -352,7 +347,7 @@ export default function UISettings() {
 
   // Hardware version determines which sections are available
   // CAN bus support was added in hardware version 0.5
-  const hwVersion = parseFloat(formData.boneio?.version || '0');
+  const hwVersion = parseFloat(String(formData.boneio?.version || '0'));
   const canSupported = hwVersion >= 0.5;
 
   if (!canSupported && hwVersion > 0) {
@@ -380,9 +375,9 @@ export default function UISettings() {
    * Convert data to match schema types (for form display)
    */
   const convertDataToSchemaTypes = (
-    data: Record<string, any>,
-    schema: any
-  ): Record<string, any> => {
+    data: ConfigRecord,
+    schema: JsonSchema
+  ): ConfigRecord => {
     if (!data || !schema || typeof data !== 'object' || typeof schema !== 'object') {
       return data;
     }
@@ -393,14 +388,14 @@ export default function UISettings() {
     if (schema.properties) {
       Object.keys(schema.properties).forEach(key => {
         if (key in converted && converted[key] !== null && converted[key] !== undefined) {
-          const propSchema = schema.properties[key] as any;
+          const propSchema = schema.properties![key];
           const currentValue = converted[key];
 
           // Handle array with items schema
           if (propSchema?.items && Array.isArray(currentValue)) {
-            converted[key] = currentValue.map((item: any) => {
+            converted[key] = currentValue.map((item: unknown) => {
               if (typeof item === 'object' && propSchema.items?.properties) {
-                return convertDataToSchemaTypes(item, propSchema.items);
+                return convertDataToSchemaTypes(item as ConfigRecord, propSchema.items);
               }
               return item;
             });
@@ -427,7 +422,7 @@ export default function UISettings() {
           }
           // Handle nested objects recursively
           else if (propSchema?.type === 'object' && typeof currentValue === 'object') {
-            converted[key] = convertDataToSchemaTypes(currentValue, propSchema);
+            converted[key] = convertDataToSchemaTypes(currentValue as ConfigRecord, propSchema);
           }
         }
       });
@@ -439,7 +434,7 @@ export default function UISettings() {
       // Re-injecting defaults here keeps the UI consistent.
       Object.keys(schema.properties).forEach(key => {
         if (!(key in converted) || converted[key] === null || converted[key] === undefined) {
-          const propSchema = schema.properties[key] as any;
+          const propSchema = schema.properties![key];
           if (propSchema?.default !== undefined) {
             if (propSchema?.['x-timeperiod'] === true) {
               converted[key] = convertTimeperiodToMilliseconds(propSchema.default);
@@ -467,13 +462,13 @@ export default function UISettings() {
         .catch(() => { });
 
       // Load parsed config from backend — uses prefetched cache if available
-      const configContent = await fetchConfig() as Record<string, any>;
-      const configData: Record<string, any> = configContent?.config || {};
+      const configContent = await fetchConfig();
+      const configData = (configContent?.config || {}) as SettingsFormData;
 
       // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors,
       // binary_sensor + event → local_inputs)
       for (const [virtualName, yamlKeys] of Object.entries(COMPOSITE_SECTIONS)) {
-        const merged: any[] = [];
+        const merged: ConfigRecord[] = [];
         for (const key of yamlKeys) {
           const items = configData[key];
           if (Array.isArray(items)) {
@@ -487,25 +482,7 @@ export default function UISettings() {
 
       // Enrich remote_devices with WLED discovery cache (effects, palettes, segments)
       // This data lives in .wled_cache.json, not in config.yaml
-      if (Array.isArray(configData.remote_devices)) {
-        try {
-          const { data: wledCache } = await axios.get<Record<string, Record<string, unknown[]>>>('/api/remote-devices/wled_info');
-          if (wledCache && typeof wledCache === 'object') {
-            for (const device of configData.remote_devices) {
-              if ((device?.protocol === 'wled' || device?.wled) && device?.id && wledCache[device.id]) {
-                const cached = wledCache[device.id];
-                if (!device.wled) device.wled = {};
-                if (cached.effects) device.wled.effects = cached.effects;
-                if (cached.palettes) device.wled.palettes = cached.palettes;
-                if (cached.segments) device.wled.segments = cached.segments;
-              }
-            }
-          }
-        } catch {
-          // WLED cache not available — non-critical, effects just won't show
-          console.debug('WLED cache not available, effect selectors will be hidden');
-        }
-      }
+      await enrichRemoteDevicesWithWled(configData.remote_devices);
 
       // remote_inputs is now a top-level config section (no aggregation needed)
 
@@ -519,7 +496,7 @@ export default function UISettings() {
         schema: { type: 'object' },
         normalizedSchema: { type: 'object', properties: {} },
         uiSchema: {},
-        data: configData[sectionConfig.name] || {},
+        data: (configData[sectionConfig.name] || {}) as ConfigRecord | ConfigRecord[],
       }));
       setSections(initialSections);
 
@@ -558,11 +535,11 @@ export default function UISettings() {
                 schema: hit.schema,
                 normalizedSchema: hit.normalizedSchema,
                 uiSchema: {},
-                data: configData[sectionConfig.name] || {},
+                data: (configData[sectionConfig.name] || {}) as ConfigRecord | ConfigRecord[],
               };
             }
 
-            let sectionSchema = sectionConfig.name === 'local_inputs'
+            let sectionSchema: JsonSchema | undefined = sectionConfig.name === 'local_inputs'
               ? buildLocalInputsSchema(mainSchema, allowedInputs)
               : mainSchema.properties?.[sectionConfig.name];
 
@@ -614,7 +591,7 @@ export default function UISettings() {
               schema: sectionSchema,
               normalizedSchema,
               uiSchema: {},
-              data: configData[sectionConfig.name] || {},
+              data: (configData[sectionConfig.name] || {}) as ConfigRecord | ConfigRecord[],
             };
           });
           setSections(loadedSections);
@@ -639,16 +616,16 @@ export default function UISettings() {
   /**
    * Filter out auto-generated fields from configuration
    */
-  const filterAutoGeneratedFields = useCallback((data: any): any => {
+  const filterAutoGeneratedFields = useCallback((data: unknown): unknown => {
     if (!data || typeof data !== 'object') return data;
 
     // Create a deep copy to avoid mutating original
-    const filtered = JSON.parse(JSON.stringify(data));
+    const filtered: ConfigRecord | unknown[] = JSON.parse(JSON.stringify(data));
 
     // Filter outputs - remove auto-generated fields if boneio_output exists
     if (Array.isArray(filtered)) {
-      return filtered.map((item: any) => {
-        if (item && typeof item === 'object') {
+      return filtered.map((item: unknown) => {
+        if (isRecord(item)) {
           // If boneio_output exists, remove auto-generated fields
           if (item.boneio_output) {
             const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = item;
@@ -666,7 +643,7 @@ export default function UISettings() {
 
     // Handle object with output/input arrays
     if (filtered.output && Array.isArray(filtered.output)) {
-      filtered.output = filtered.output.map((output: any) => {
+      filtered.output = filtered.output.map((output: ConfigRecord) => {
         if (output.boneio_output) {
           const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = output;
           return rest;
@@ -676,7 +653,7 @@ export default function UISettings() {
     }
 
     if (filtered.input && Array.isArray(filtered.input)) {
-      filtered.input = filtered.input.map((input: any) => {
+      filtered.input = filtered.input.map((input: ConfigRecord) => {
         if (input.boneio_input) {
           const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = input;
           return rest;
@@ -686,11 +663,11 @@ export default function UISettings() {
     }
 
     // Remove empty/null values to clean up the YAML
-    const removeEmptyValues = (obj: any): any => {
+    const removeEmptyValues = (obj: unknown): unknown => {
       if (Array.isArray(obj)) {
         return obj.map(removeEmptyValues).filter(item => item !== null && item !== undefined);
       } else if (obj !== null && typeof obj === 'object') {
-        const cleaned: any = {};
+        const cleaned: ConfigRecord = {};
         for (const [key, value] of Object.entries(obj)) {
           const cleanedValue = removeEmptyValues(value);
           // Keep the key if value is not null/undefined/empty string/empty array/empty object
@@ -718,23 +695,23 @@ export default function UISettings() {
   /**
    * Handle form data change for a section
    */
-  const handleSectionChange = (sectionName: string, newFormData: any) => {
+  const handleSectionChange = (sectionName: string, newFormData: unknown) => {
     console.log('📝 handleSectionChange called for:', sectionName);
 
-    setFormData((prevFormData: Record<string, any>) => ({
+    setFormData((prevFormData: SettingsFormData) => ({
       ...prevFormData,
       [sectionName]: newFormData,
     }));
 
     // Normalize data before comparison - remove empty objects/arrays/nulls
-    const normalizeForComparison = (obj: any): any => {
+    const normalizeForComparison = (obj: unknown): unknown => {
       if (obj === null || obj === undefined) return undefined;
       if (Array.isArray(obj)) {
         const filtered = obj.map(normalizeForComparison).filter(v => v !== undefined);
         return filtered.length > 0 ? filtered : undefined;
       }
-      if (typeof obj === 'object') {
-        const result: any = {};
+      if (isRecord(obj)) {
+        const result: ConfigRecord = {};
         for (const [key, value] of Object.entries(obj)) {
           const normalized = normalizeForComparison(value);
           if (normalized !== undefined) {
@@ -748,12 +725,12 @@ export default function UISettings() {
     };
 
     // Deep comparison using sorted JSON stringify
-    const sortedStringify = (obj: any): string => {
+    const sortedStringify = (obj: unknown): string => {
       if (obj === null || obj === undefined) return 'null';
       if (Array.isArray(obj)) {
         return '[' + obj.map(sortedStringify).join(',') + ']';
       }
-      if (typeof obj === 'object') {
+      if (isRecord(obj)) {
         const keys = Object.keys(obj).sort();
         return (
           '{' + keys.map(k => JSON.stringify(k) + ':' + sortedStringify(obj[k])).join(',') + '}'
@@ -764,7 +741,7 @@ export default function UISettings() {
 
     // Check if a value is "effectively empty" (only false/null/undefined/empty values)
     // e.g. { enabled: false } is semantically the same as no section at all
-    const isEffectivelyEmpty = (obj: any): boolean => {
+    const isEffectivelyEmpty = (obj: unknown): boolean => {
       if (obj === null || obj === undefined || obj === '') return true;
       if (Array.isArray(obj)) return obj.length === 0;
       if (typeof obj === 'object') {
@@ -834,7 +811,7 @@ export default function UISettings() {
     const originalValue =
       originalData[sectionName] !== undefined ? originalData[sectionName] : defaultValue;
 
-    setFormData((prevFormData: Record<string, any>) => ({
+    setFormData((prevFormData: SettingsFormData) => ({
       ...prevFormData,
       [sectionName]: JSON.parse(JSON.stringify(originalValue)), // Deep copy
     }));
@@ -847,7 +824,7 @@ export default function UISettings() {
   /**
    * Save a specific section
    */
-  const saveSection = async (sectionName: string, dataOverride?: any) => {
+  const saveSection = async (sectionName: string, dataOverride?: unknown) => {
     console.log('🔄 saveSection called for:', sectionName);
     console.log('📦 formData[sectionName]:', formData[sectionName]);
     console.log('📦 dataOverride:', dataOverride);
@@ -864,7 +841,7 @@ export default function UISettings() {
 
     // Validate boneio section - name is required if any other field is set
     if (sectionName === 'boneio') {
-      const boneioData = formData[sectionName];
+      const boneioData = formData.boneio;
       const hasOtherFields = boneioData?.version || boneioData?.device_type;
       const hasName = boneioData?.name && boneioData.name.trim() !== '';
 
@@ -887,7 +864,7 @@ export default function UISettings() {
       const ids = new Set<string>();
       const duplicates: string[] = [];
 
-      for (const sensor of dataToUse) {
+      for (const sensor of dataToUse as { id?: string; name?: string }[]) {
         // Generate ID from name if not provided (same logic as backend)
         const sensorId =
           sensor.id ||
@@ -927,12 +904,12 @@ export default function UISettings() {
       const sectionSchema = sectionInfo?.schema;
 
       // Special handling for mcp23017 - use data directly from form without transformations
-      let minimalConfig;
+      let minimalConfig: unknown;
       if (sectionName === 'mcp23017') {
         // For mcp23017, use data directly - form already provides clean data
         // Convert addresses to integers for backend
         minimalConfig = Array.isArray(dataToUse)
-          ? dataToUse.map((entry: any) => {
+          ? dataToUse.map((entry: { id?: string; address?: string | number; inverted?: boolean } | null) => {
             if (entry && entry.address !== undefined) {
               let addr = entry.address;
               // Convert to integer
@@ -980,15 +957,15 @@ export default function UISettings() {
       // Handle composite sections — split and save each YAML key separately
       if (COMPOSITE_SECTIONS[sectionName]) {
         const yamlKeys = COMPOSITE_SECTIONS[sectionName];
-        const allItems = Array.isArray(minimalConfig) ? minimalConfig : [];
+        const allItems: ConfigRecord[] = Array.isArray(minimalConfig) ? minimalConfig : [];
 
         // Split items by _type back into separate arrays
-        const buckets: Record<string, any[]> = {};
+        const buckets: Record<string, ConfigRecord[]> = {};
         for (const key of yamlKeys) {
           buckets[key] = [];
         }
         for (const item of allItems) {
-          const type = item._type;
+          const type = item._type as string | undefined;
           if (type && buckets[type]) {
             const { _type, ...rest } = item;
             buckets[type].push(rest);
@@ -1055,7 +1032,7 @@ export default function UISettings() {
       const bodyData = JSON.stringify(minimalConfig);
       console.log('📤 Sending to backend:', bodyData);
 
-      const response = await axios.put(`/api/config/${sectionName}`, minimalConfig, {
+      const response = await axios.put<{ restart_required?: boolean }>(`/api/config/${sectionName}`, minimalConfig, {
         timeout: 15000, // Large configs (e.g. WLED effects/palettes) can take seconds on ARM
       });
       const result = response.data;
@@ -1081,7 +1058,7 @@ export default function UISettings() {
 
         // Check overlay mismatch after saving boneio section with version change
         if (sectionName === 'boneio') {
-          const newVersion = String(dataToUse?.version || '');
+          const newVersion = String((dataToUse as ConfigRecord)?.version || '');
           const oldVersion = String(originalData.boneio?.version || '');
           if (newVersion && newVersion !== oldVersion) {
             checkOverlayAfterVersionChange(newVersion);
@@ -1458,7 +1435,7 @@ export default function UISettings() {
                 formData={formData}
                 sections={sections}
                 onSaveSection={saveSection}
-                onUpdateFormData={(section: string, data: any) => {
+                onUpdateFormData={(section: string, data: ConfigRecord[]) => {
                   setFormData(prev => ({ ...prev, [section]: data }));
                   setUnsavedChanges(prev => ({ ...prev, [section]: true }));
                 }}

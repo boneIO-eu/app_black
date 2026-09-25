@@ -6,7 +6,10 @@ import {
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import type { AxiosError } from 'axios';
 import { SettingsPage, SettingsCard, FormActions, NoticeCallout } from '../ui';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 /**
  * Section for rebooting and shutting down the device.
@@ -25,8 +28,9 @@ export default function DeviceControlSection() {
     try {
       const { data } = await axios.post('/api/reboot');
       setRebootResult({ status: 'success', message: data.message || t('settings.device_rebooting') });
-    } catch (err: any) {
-      setRebootResult({ status: 'error', message: err.message || t('settings.reboot_failed') });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setRebootResult({ status: 'error', message: apiErr.message || t('settings.reboot_failed') });
       setIsRebooting(false);
     }
   };
@@ -38,8 +42,9 @@ export default function DeviceControlSection() {
     try {
       const { data } = await axios.post('/api/shutdown');
       setShutdownResult({ status: 'success', message: data.message || t('settings.device_shutting_down') });
-    } catch (err: any) {
-      setShutdownResult({ status: 'error', message: err.message || t('settings.shutdown_failed') });
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setShutdownResult({ status: 'error', message: apiErr.message || t('settings.shutdown_failed') });
       setIsShuttingDown(false);
     }
   };

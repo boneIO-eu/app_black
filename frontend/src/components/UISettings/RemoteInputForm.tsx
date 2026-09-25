@@ -31,8 +31,11 @@ import type {
   CoverEntity,
   BinarySensorEntity,
   RemoteDeviceEntity,
+  EventEntity,
   Action,
 } from '@/types/config';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { ActionInput, OutputGroupRecord } from './ActionFields/types';
 
 /* ------------------------------------------------------------------ */
 /*  Device class options — same as BinarySensorForm                    */
@@ -47,15 +50,30 @@ const DEFAULT_DEVICE_CLASSES = [
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
 /* ------------------------------------------------------------------ */
+/** A remote input entry: the binary_sensor / event fields plus where its state comes from. */
+export type RemoteInputData = BinarySensorEntity & Omit<EventEntity, keyof BinarySensorEntity> & {
+  /** Remote device (from remote_devices) the input lives on. */
+  device_id?: string;
+  /** Protocol of that device (mqtt, esphome_api, ...). */
+  remote_source?: string;
+  /** Input ID on the remote device. */
+  input_id?: string;
+  /** MQTT state topic override (mqtt devices only). */
+  topic?: string;
+  /** 'event' for event mode; absent means binary_sensor. */
+  mode?: string;
+  _type?: 'binary_sensor' | 'event';
+};
+
 interface RemoteInputFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: RemoteInputData;
+  onChange: (data: RemoteInputData) => void;
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
-  schema?: any;
+  schema?: JsonSchema;
   allOutputs?: OutputEntity[];
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
@@ -67,7 +85,7 @@ interface RemoteInputFormProps {
   onValidationChange?: (hasErrors: boolean) => void;
   attemptedSubmit?: boolean;
   savedOutputs?: OutputEntity[];
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
   savedCovers?: CoverEntity[];
   /** Optional initial tab (e.g., 'single', 'double', 'long', 'pressed'). */
   initialTab?: 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced' | 'pressed' | 'released';
@@ -109,47 +127,47 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
     'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'
   >(
     initialTab && ['single', 'double', 'triple', 'long', 'sequences', 'advanced'].includes(initialTab)
-      ? initialTab as any
+      ? initialTab as 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'
       : 'basic'
   );
 
   /* ---------- schema-derived enums ---------- */
   const deviceClassOptions =
-    schema?.items?.properties?.device_class?.enum || DEFAULT_DEVICE_CLASSES;
+    (schema?.items?.properties?.device_class?.enum as string[] | undefined) || DEFAULT_DEVICE_CLASSES;
   const rawActionTypeOptions =
-    schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum ||
-    schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum || [
+    (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum as string[] | undefined) ||
+    (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum as string[] | undefined) || [
       'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover',
     ];
   // Deduplicate: schema may provide both uppercase and lowercase variants
   const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
   const actionOutputOptions =
-    schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum ||
-    schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum || [
+    (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum as string[] | undefined) ||
+    (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum as string[] | undefined) || [
       'TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET',
     ];
   const actionCoverOptions =
-    schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum ||
-    schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum || [
+    (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum as string[] | undefined) ||
+    (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum as string[] | undefined) || [
       'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE',
     ];
 
   /* ---------- field helpers ---------- */
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
   /* ---------- action CRUD (shared for both modes) ---------- */
-  const updateAction = (type: string, index: number, field: string, value: any) => {
+  const updateAction = (type: string, index: number, field: string, value: unknown) => {
     const actions = { ...data.actions };
     if (!actions[type]) actions[type] = [];
-    const updated = [...actions[type]];
+    const updated: ActionInput[] = [...actions[type]];
 
     if (field === 'action') {
-      updated[index] = cleanActionFields(value, updated[index]) as any;
+      updated[index] = cleanActionFields(value as string, updated[index]);
     } else if (field === '__batch') {
-      const cur = { ...updated[index] };
-      for (const [k, v] of Object.entries(value as Record<string, any>)) {
+      const cur: Record<string, unknown> = { ...updated[index] };
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         if (v === undefined) delete cur[k];
         else cur[k] = v;
       }
@@ -165,7 +183,8 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
       updated[index] = { ...updated[index], [field]: value };
     }
 
-    actions[type] = updated;
+    // The edited entries are raw records; they carry the Action fields the editor writes.
+    actions[type] = updated as Action[];
     onChange({ ...data, actions });
   };
 
@@ -179,7 +198,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
   const removeAction = (type: string, index: number) => {
     const actions = { ...data.actions };
     if (!actions[type]) return;
-    actions[type] = actions[type].filter((_: any, i: number) => i !== index);
+    actions[type] = actions[type].filter((_: Action, i: number) => i !== index);
     onChange({ ...data, actions });
   };
 
@@ -197,7 +216,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
 
     actionTypes.forEach((type) => {
       const acts = data.actions?.[type] || [];
-      acts.forEach((action: any, idx: number) => {
+      acts.forEach((action: Action, idx: number) => {
         const err = validateAction(action, t);
         if (err) errors.push(`${type} action ${idx + 1}: ${err}`);
       });
@@ -249,7 +268,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
           {t('inputs.add_action')}
         </button>
       </div>
-      {data.actions?.[type]?.length > 0
+      {data.actions?.[type]?.length
         ? data.actions[type].map((a: Action, i: number) => renderActionRow(a, type, i))
         : (
           <div className="text-center py-8 text-base-content/60">
@@ -635,7 +654,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
                       onChange={(e) => updateMqttSequence(seqType, e.target.checked)}
                     />
                     <h4 className="text-base font-semibold">{t(labelKey)}</h4>
-                    {data.actions?.[seqType]?.length > 0 && (
+                    {!!data.actions?.[seqType]?.length && (
                       <span className="badge badge-sm">{data.actions[seqType].length}</span>
                     )}
                   </div>

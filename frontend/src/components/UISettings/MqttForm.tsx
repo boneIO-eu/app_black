@@ -4,9 +4,30 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { NumericInput } from '@/components/ui/NumericInput';
 import HelpLabel from './components/HelpLabel';
 
+/** The `mqtt` section as edited here (other keys pass through untouched). */
+export interface MqttFormData {
+  [key: string]: unknown;
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  ha_discovery?: {
+    [key: string]: unknown;
+    enabled?: boolean;
+    topic_prefix?: string;
+  };
+  send_boneio_autodiscovery?: boolean;
+  receive_boneio_autodiscovery?: boolean;
+  update_channel?: string;
+}
+
+/** The part of an axios error these handlers read. */
+type ApiError = { response?: { data?: { detail?: string } } } | null | undefined;
+
 interface MqttFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: MqttFormData;
+  onChange: (data: MqttFormData) => void;
 }
 
 /**
@@ -18,11 +39,11 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
   const [isRemoving, setIsRemoving] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [removeResult, setRemoveResult] = useState<{ status: string; message: string } | null>(null);
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
-  const handleHaDiscoveryChange = (field: string, value: any) => {
+  const handleHaDiscoveryChange = (field: string, value: unknown) => {
     const haDiscovery = data?.ha_discovery || {};
     onChange({
       ...data,
@@ -39,8 +60,8 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
     try {
       const { data: result } = await axiosInstance.post('/api/config/remove_ha_discovery');
       setRemoveResult({ status: 'success', message: result.message });
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail || t('mqtt_config.remove_ha_discovery_failed') || 'Failed to remove HA discovery entries.';
+    } catch (err) {
+      const msg = (err as ApiError)?.response?.data?.detail || t('mqtt_config.remove_ha_discovery_failed') || 'Failed to remove HA discovery entries.';
       setRemoveResult({ status: 'error', message: msg });
     } finally {
       setIsRemoving(false);
@@ -56,8 +77,8 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
     try {
       const { data: result } = await axiosInstance.post('/api/config/resend_ha_discovery');
       setRemoveResult({ status: 'success', message: result.message });
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail || t('mqtt_config.resend_ha_discovery_failed') || 'Failed to resend HA discovery entries.';
+    } catch (err) {
+      const msg = (err as ApiError)?.response?.data?.detail || t('mqtt_config.resend_ha_discovery_failed') || 'Failed to resend HA discovery entries.';
       setRemoveResult({ status: 'error', message: msg });
     } finally {
       setIsResending(false);

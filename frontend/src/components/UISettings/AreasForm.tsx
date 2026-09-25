@@ -3,9 +3,16 @@ import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
 
+/** One `areas` list item as edited here (other keys pass through untouched). */
+interface AreaFormData {
+  [key: string]: unknown;
+  id?: string;
+  name?: string;
+}
+
 interface AreasFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: AreaFormData;
+  onChange: (data: AreaFormData) => void;
 }
 
 /**
@@ -15,7 +22,7 @@ interface AreasFormProps {
 const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
   
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 

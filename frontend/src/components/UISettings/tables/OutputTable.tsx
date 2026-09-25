@@ -6,13 +6,14 @@ import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import type { OutputEntity } from '@/types/config';
 interface Area {
   id: string;
   name: string;
 }
 
 interface OutputTableProps {
-  items: any[];
+  items: OutputEntity[];
   allAreas: Area[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
@@ -40,16 +41,17 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
   // Sort filtered items
   const sortedItems = useMemo(() => {
     return sortItems(filteredItems, {
-      name: (item: any) => (item.name || item.id || item.boneio_output || '').toLowerCase(),
-      boneio_output: (item: any) => (item.boneio_output || '').toLowerCase(),
-      output_type: (item: any) => (item.output_type || '').toLowerCase(),
-      area: (item: any) => {
+      name: (item) => (item.name || item.id || item.boneio_output || '').toLowerCase(),
+      boneio_output: (item) => (item.boneio_output || '').toLowerCase(),
+      output_type: (item) => (item.output_type || '').toLowerCase(),
+      area: (item) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
       },
-      interlock_group: (item: any) => (item.interlock_group || '').toLowerCase(),
-      restore_state: (item: any) => !!item.restore_state,
-      momentary: (item: any) => !!(item.momentary_turn_on || item.momentary_turn_off),
+      // Assumes a single group name; a list (also valid config) would throw here.
+      interlock_group: (item) => ((item.interlock_group as string | undefined) || '').toLowerCase(),
+      restore_state: (item) => !!item.restore_state,
+      momentary: (item) => !!(item.momentary_turn_on || item.momentary_turn_off),
     });
   }, [filteredItems, sortItems, allAreas]);
 

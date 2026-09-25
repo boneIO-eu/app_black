@@ -70,19 +70,27 @@ import {
   RemoteOutputAction,
   RemoteCoverAction,
 } from './ActionFields/index';
-import type { Area, RemoteDevice } from './ActionFields/types';
+import type { ActionDef, ActionInput, ActionUpdate, Area, OutputGroupRecord, RemoteDevice } from './ActionFields/types';
 
 // Re-export helper functions for use in parent components
 export const validateAction = validate;
 export const cleanActionFields = cleanFields;
 
-interface ActionFieldsProps {
-  action: any;
+/** Read `obj[key]` if `obj` is an object; `undefined` otherwise. */
+const fieldOf = (obj: unknown, key: string): unknown =>
+  typeof obj === 'object' && obj !== null ? (obj as Record<string, unknown>)[key] : undefined;
+
+export interface ActionFieldsProps {
+  action: ActionInput;
   index: number;
-  onUpdate: (field: string, value: any) => void;
-  onRemove: () => void;
+  onUpdate: ActionUpdate;
+  /** Omitted where the action is the whole form (Teach Mode, the quick
+   *  action): there is no list to remove it from, so no trash button. */
+  onRemove?: () => void;
+  /** Header text. Defaults to "Action N". */
+  title?: string;
   allOutputs: OutputEntity[];
-  allOutputGroups: any[];
+  allOutputGroups: OutputGroupRecord[];
   allCovers: CoverEntity[];
   allAreas: Area[];
   allRemoteDevices?: RemoteDevice[];
@@ -91,7 +99,7 @@ interface ActionFieldsProps {
   actionCoverOptions: string[];
   showValidation?: boolean;
   savedOutputs?: OutputEntity[];
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
   savedCovers?: CoverEntity[];
   clickType?: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single' | 'pressed' | 'released';
   allBinarySensors?: BinarySensorEntity[];
@@ -110,10 +118,11 @@ interface ActionFieldsProps {
  * Supports multiple action types: output, cover, mqtt, output_over_mqtt, cover_over_mqtt, remote_output, remote_cover.
  */
 const ActionFields: React.FC<ActionFieldsProps> = ({
-  action,
+  action: actionInput,
   index,
   onUpdate,
   onRemove,
+  title,
   allOutputs,
   allOutputGroups,
   allCovers,
@@ -134,6 +143,9 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   preferredArea,
 }) => {
   const { t } = useTranslation();
+  // The forms hold actions as plain records; every field they put there is
+  // one ActionDef declares, so this is where the editor starts reading it typed.
+  const action = actionInput as ActionDef;
   const actionType = action.action || 'output';
   const isLongPress = clickType === 'long' || clickType === 'double_then_long' || clickType === 'single_then_long';
   const hasDurationThresholds = !!(action.min_duration || action.max_duration);
@@ -146,7 +158,9 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
    */
   const isCoverSaved = (coverId: string): boolean => {
     if (!savedCovers) return true;
-    return savedCovers.some((c: any) => c.id === coverId || c === coverId);
+    // Older callers passed bare ids here, hence the string branch.
+    return savedCovers.some((c: CoverEntity | string) =>
+      typeof c === 'string' ? c === coverId : c.id === coverId);
   };
 
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -163,9 +177,12 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
       await axios.post('/api/test-action', { action });
       setTestStatus('success');
       setTimeout(() => setTestStatus('idle'), 2000);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || err.message || 'Unknown error';
-      setTestError(detail);
+    } catch (err: unknown) {
+      const detail = fieldOf(fieldOf(fieldOf(err, 'response'), 'data'), 'detail')
+        || fieldOf(err, 'message')
+        || 'Unknown error';
+      // Only ever shown as a title attribute, which stringifies it anyway.
+      setTestError(String(detail));
       setTestStatus('error');
       setTimeout(() => { setTestStatus('idle'); setTestError(null); }, 4000);
     }
@@ -174,7 +191,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   return (
     <div className="border border-base-300 rounded-lg p-4 mb-3 bg-base-100">
       <div className="flex justify-between items-center mb-3">
-        <span className="font-medium">{t('event_form.action')} {index + 1}</span>
+        <span className="font-medium">{title ?? `${t('event_form.action')} ${index + 1}`}</span>
         <div className="flex items-center gap-1">
           {testStatus === 'success' && (
             <span className="text-success text-xs font-medium mr-1">{t('event_form.test_action_success')}</span>
@@ -199,13 +216,15 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <FaPlay className="w-3 h-3" />
             )}
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm text-error"
-            onClick={onRemove}
-          >
-            <FaTrash />
-          </button>
+          {onRemove && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm text-error"
+              onClick={onRemove}
+            >
+              <FaTrash />
+            </button>
+          )}
         </div>
       </div>
 
@@ -360,9 +379,11 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
       {/* Duration thresholds - only for long press actions, hidden when repeat is enabled */}
       {isLongPress && !hasRepeat && (
         <div className="form-control mb-3">
-          <label className="label">
+          {/* Wraps: the hint is a sentence, and in a narrow column (Teach
+              Mode, the quick action) it pushed the card into a sideways scroll. */}
+          <label className="label flex-wrap gap-x-2 gap-y-0.5">
             <span className="label-text font-medium">{t('event_form.duration_thresholds')}</span>
-            <span className="label-text-alt">{t('event_form.duration_thresholds_hint')}</span>
+            <span className="label-text-alt whitespace-normal">{t('event_form.duration_thresholds_hint')}</span>
           </label>
           <div className="flex gap-2">
             <div className="flex-1">

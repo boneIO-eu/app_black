@@ -13,7 +13,7 @@ import type { Area, RemoteDevice } from './types';
 
 /** The entity lists ActionFields takes, forwarded to it whole.
  *
- * Spelled out rather than Pick<ActionFieldsProps>: the copy in `types.ts` is
+ * Spelled out rather than Pick<ActionFieldsProps>: an older copy in `types.ts` was
  * missing the three condition lists that ActionFields actually declares, so
  * deriving from it would quietly drop them. */
 interface ActionEntities {

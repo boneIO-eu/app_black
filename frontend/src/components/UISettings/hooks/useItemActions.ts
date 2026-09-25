@@ -4,6 +4,16 @@
  */
 import { useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import type {
+  BinarySensorActions,
+  BinarySensorEntity,
+  CoverEntity,
+  EventActions,
+  EventEntity,
+  OutputEntity,
+} from '@/types/config';
+import type { ConfigRecord } from '@/types/jsonSchema';
+import type { OutputGroupRecord } from '../ActionFields/types';
 
 interface AffectedAction {
   type: string;
@@ -11,17 +21,26 @@ interface AffectedAction {
   actionType: string;
 }
 
+/** The fields of a group / sensor / modbus / virtual energy entry read here. */
+type AreaItem = {
+  id?: string;
+  name?: string;
+  area?: string;
+  address?: string;
+  model?: string;
+};
+
 interface UseItemActionsProps {
-  allEvents: any[];
-  allBinarySensors: any[];
-  allOutputs: any[];
-  allOutputGroups: any[];
-  allCovers: any[];
-  allSensors: any[];
-  allModbusDevices: any[];
-  allVirtualEnergySensors: any[];
-  onUpdateEvents?: (newEvents: any[]) => void;
-  onUpdateBinarySensors?: (newBinarySensors: any[]) => void;
+  allEvents: EventEntity[];
+  allBinarySensors: BinarySensorEntity[];
+  allOutputs: OutputEntity[];
+  allOutputGroups: OutputGroupRecord[];
+  allCovers: CoverEntity[];
+  allSensors: ConfigRecord[];
+  allModbusDevices: ConfigRecord[];
+  allVirtualEnergySensors: ConfigRecord[];
+  onUpdateEvents?: (newEvents: EventEntity[]) => void;
+  onUpdateBinarySensors?: (newBinarySensors: BinarySensorEntity[]) => void;
 }
 
 /**
@@ -47,7 +66,7 @@ export function useItemActions({
   const findItemsUsingArea = useCallback((areaId: string): AffectedAction[] => {
     const affected: AffectedAction[] = [];
 
-    allOutputs.forEach((item: any) => {
+    allOutputs.forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('navigation.outputs'),
@@ -57,7 +76,7 @@ export function useItemActions({
       }
     });
 
-    allOutputGroups.forEach((item: any) => {
+    (allOutputGroups as AreaItem[]).forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('outputs.output_group'),
@@ -67,7 +86,7 @@ export function useItemActions({
       }
     });
 
-    allCovers.forEach((item: any) => {
+    allCovers.forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('covers.title'),
@@ -77,7 +96,7 @@ export function useItemActions({
       }
     });
 
-    allBinarySensors.forEach((item: any) => {
+    allBinarySensors.forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('navigation.inputs'),
@@ -87,7 +106,7 @@ export function useItemActions({
       }
     });
 
-    allEvents.forEach((item: any) => {
+    allEvents.forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('event_form.title'),
@@ -97,7 +116,7 @@ export function useItemActions({
       }
     });
 
-    allSensors.forEach((item: any) => {
+    (allSensors as AreaItem[]).forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('navigation.sensors'),
@@ -107,7 +126,7 @@ export function useItemActions({
       }
     });
 
-    allModbusDevices.forEach((item: any) => {
+    (allModbusDevices as AreaItem[]).forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('navigation.modbus'),
@@ -117,7 +136,7 @@ export function useItemActions({
       }
     });
 
-    allVirtualEnergySensors.forEach((item: any) => {
+    (allVirtualEnergySensors as AreaItem[]).forEach((item) => {
       if (item.area === areaId) {
         affected.push({
           type: t('virtual_energy_sensor.title'),
@@ -137,11 +156,11 @@ export function useItemActions({
   const findAffectedActions = useCallback((itemId: string, isRemoteDevice: boolean = false): AffectedAction[] => {
     const affected: AffectedAction[] = [];
 
-    allEvents.forEach((event: any) => {
+    allEvents.forEach((event) => {
       const eventName = event.name || event.boneio_input || t('array_table_widget.unknown_event');
       ['single', 'double', 'long'].forEach((pressType) => {
         const actions = event.actions?.[pressType] || [];
-        actions.forEach((action: any) => {
+        actions.forEach((action) => {
           if (isRemoteDevice) {
             if (action.remote_device === itemId) {
               affected.push({
@@ -163,11 +182,11 @@ export function useItemActions({
       });
     });
 
-    allBinarySensors.forEach((sensor: any) => {
+    allBinarySensors.forEach((sensor) => {
       const sensorName = sensor.name || sensor.boneio_input || t('array_table_widget.unknown_sensor');
       ['pressed', 'released'].forEach((pressType) => {
         const actions = sensor.actions?.[pressType] || [];
-        actions.forEach((action: any) => {
+        actions.forEach((action) => {
           if (isRemoteDevice) {
             if (action.remote_device === itemId) {
               affected.push({
@@ -196,16 +215,16 @@ export function useItemActions({
    * Remove actions that reference the given item ID from events and binary_sensors.
    * Returns the updated data for immediate saving.
    */
-  const removeOrphanedActions = useCallback((itemId: string, isRemoteDevice: boolean = false): { updatedEvents: any[] | null, updatedSensors: any[] | null } => {
-    let updatedEvents: any[] | null = null;
-    let updatedSensors: any[] | null = null;
+  const removeOrphanedActions = useCallback((itemId: string, isRemoteDevice: boolean = false): { updatedEvents: EventEntity[] | null, updatedSensors: BinarySensorEntity[] | null } => {
+    let updatedEvents: EventEntity[] | null = null;
+    let updatedSensors: BinarySensorEntity[] | null = null;
 
     if (onUpdateEvents) {
-      updatedEvents = allEvents.map((event: any) => {
-        const updatedActions: any = {};
+      updatedEvents = allEvents.map((event) => {
+        const updatedActions: EventActions = {};
         ['single', 'double', 'long'].forEach((pressType) => {
           const actions = event.actions?.[pressType] || [];
-          updatedActions[pressType] = actions.filter((action: any) => {
+          updatedActions[pressType] = actions.filter((action) => {
             if (isRemoteDevice) return action.remote_device !== itemId;
             return action.pin !== itemId && action.boneio_output !== itemId;
           });
@@ -216,11 +235,11 @@ export function useItemActions({
     }
 
     if (onUpdateBinarySensors) {
-      updatedSensors = allBinarySensors.map((sensor: any) => {
-        const updatedActions: any = {};
+      updatedSensors = allBinarySensors.map((sensor) => {
+        const updatedActions: BinarySensorActions = {};
         ['pressed', 'released'].forEach((pressType) => {
           const actions = sensor.actions?.[pressType] || [];
-          updatedActions[pressType] = actions.filter((action: any) => {
+          updatedActions[pressType] = actions.filter((action) => {
             if (isRemoteDevice) return action.remote_device !== itemId;
             return action.pin !== itemId && action.boneio_output !== itemId;
           });

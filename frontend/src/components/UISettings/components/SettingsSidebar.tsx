@@ -10,6 +10,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
 import { useSecurityPosture } from '@/hooks/useSecurityPosture';
 import { SECTION_GROUPS } from '../constants/sectionDefinitions';
+import type { ConfigSection } from '../types/section';
 
 interface SectionConfig {
   name: string;
@@ -18,14 +19,6 @@ interface SectionConfig {
   translationKey: string;
   badge?: string;
   group?: string;
-}
-
-interface ConfigSection {
-  name: string;
-  schema: any;
-  normalizedSchema: any;
-  uiSchema: any;
-  data: Record<string, any>;
 }
 
 interface SettingsSidebarProps {

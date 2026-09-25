@@ -32,7 +32,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
   preferredArea,
 }) => {
   // Wrapper for onUpdate that removes deprecated 'pin' field
-  const handleUpdate = (field: string, value: any) => {
+  const handleUpdate = (field: string, value: unknown) => {
     if (action.pin) {
       onUpdate('pin', undefined);
     }
@@ -88,7 +88,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
             handleUpdate('boneio_cover', value);
             // If switching from venetian to non-venetian, clear tilt action
             const newCover = normalizeCovers(allCovers).find(c => c.id === value);
-            if (newCover?.platform !== 'venetian' && TILT_ACTIONS.includes(action.action_cover)) {
+            if (newCover?.platform !== 'venetian' && !!action.action_cover && TILT_ACTIONS.includes(action.action_cover)) {
               onUpdate('action_cover', 'TOGGLE');
               onUpdate('data', undefined);
             }

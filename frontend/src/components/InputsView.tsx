@@ -398,15 +398,20 @@ export default function InputsView() {
                 </ul>
               </div>
               <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
-              {/* Teach Mode button */}
-              <button
-                className="btn btn-sm btn-accent gap-1"
-                onClick={() => setTeachMode(true)}
-                title={t('teach_mode.button_label')}
-              >
-                <FaGraduationCap className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('teach_mode.button_label')}</span>
-              </button>
+              {/* Teach Mode writes input→action bindings into the
+                  configuration (/api/config/quick-action, admin-only), so a
+                  read-only account is not offered it — the same rule as the
+                  quick action in the long-press dialog below. */}
+              {isAdmin && (
+                <button
+                  className="btn btn-sm btn-accent gap-1"
+                  onClick={() => setTeachMode(true)}
+                  title={t('teach_mode.button_label')}
+                >
+                  <FaGraduationCap className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('teach_mode.button_label')}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -559,15 +564,21 @@ export default function InputsView() {
         entityName={mqttRef.entityName}
       />
 
-      {/* Quick Action Sheet */}
-      <QuickActionSheet
-        open={quickAction.open}
-        onOpenChange={(open) => setQuickAction({ open, inputEvent: open ? quickAction.inputEvent : null })}
-        inputEvent={quickAction.inputEvent}
-      />
+      {/* Both edit the configuration, so neither is mounted for a
+          read-only account — not merely left unopened. */}
+      {isAdmin && (
+        <>
+          {/* Quick Action Sheet */}
+          <QuickActionSheet
+            open={quickAction.open}
+            onOpenChange={(open) => setQuickAction({ open, inputEvent: open ? quickAction.inputEvent : null })}
+            inputEvent={quickAction.inputEvent}
+          />
 
-      {/* Teach Mode dialog */}
-      <TeachMode open={teachMode} onClose={() => setTeachMode(false)} />
+          {/* Teach Mode dialog */}
+          <TeachMode open={teachMode} onClose={() => setTeachMode(false)} />
+        </>
+      )}
     </div>
   );
 }

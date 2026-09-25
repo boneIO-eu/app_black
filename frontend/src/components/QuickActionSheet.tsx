@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,98 +6,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useTranslation } from '@/hooks/useTranslation';
-import { WebSocketContext } from '@/contexts/WebSocketContext';
-import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';
-import type { EntityItem } from '@/components/UISettings/EntitySelectDropdown';
-import SearchableEntityPicker from '@/components/UISettings/SearchableEntityPicker';
+import type { InputEvent } from '@/hooks/useWebSocket';
+import { useActionEditorData } from '@/hooks/useActionEditorData';
+import InputActionEditor from '@/components/InputActionEditor';
+import { validateAction } from '@/components/UISettings/ActionFields';
+import { actionIsIncomplete, type ActionEntry } from '@/components/UISettings/helpers/actionSummary';
+import { invalidateConfigCache } from '@/api/configCache';
 import axios from '@/api/axios';
-import { FaPlug, FaCheck, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
+import { FaPlug, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
-
-/** Shape of an action entry inside the config YAML. */
-interface ConfigAction {
-  action?: string;
-  boneio_output?: string;
-  boneio_cover?: string;
-  remote_device?: string;
-  output_id?: string;
-  cover_id?: string;
-  boneio_id?: string;
-  action_output?: string;
-  action_cover?: string;
-}
-
-/** Extracts existing action target ids for a given click type from a config input entry. */
-function extractExistingTargets(
-  entry: Record<string, unknown>,
-  clickType: string,
-  inputType: 'event' | 'binary_sensor' | 'remote_inputs',
-): Set<string> {
-  const ids = new Set<string>();
-  let actionsList: ConfigAction[] = [];
-
-  if (inputType === 'binary_sensor') {
-    // binary_sensor uses actions_on_press / actions_on_release
-    const key = (clickType === 'pressed' || clickType === 'single')
-      ? 'actions_on_press'
-      : 'actions_on_release';
-    const raw = entry[key];
-    if (Array.isArray(raw)) actionsList = raw as ConfigAction[];
-  } else {
-    // event / remote_inputs use actions.{click_type}
-    const actions = entry['actions'] as Record<string, unknown> | undefined;
-    if (actions && Array.isArray(actions[clickType])) {
-      actionsList = actions[clickType] as ConfigAction[];
-    }
-    // Also check flat keys like actions_single
-    const flatKey = `actions_${clickType}`;
-    if (Array.isArray(entry[flatKey])) {
-      actionsList = [...actionsList, ...(entry[flatKey] as ConfigAction[])];
-    }
-  }
-
-  for (const act of actionsList) {
-    if (act.boneio_output) ids.add(act.boneio_output.toLowerCase());
-    if (act.boneio_cover) ids.add(act.boneio_cover.toLowerCase());
-    // Remote: combine device + output/cover id
-    if (act.remote_device && act.output_id) {
-      ids.add(`${act.remote_device}/${act.output_id}`.toLowerCase());
-    }
-    if (act.remote_device && act.cover_id) {
-      ids.add(`${act.remote_device}/${act.cover_id}`.toLowerCase());
-    }
-  }
-  return ids;
-}
-
-/**
- * Extended EntityItem that tracks whether this is a local or remote entity
- * and optionally stores the remote_device id for remote entities.
- */
-interface QuickEntityItem extends EntityItem {
-  /** The action_type to use for this entity */
-  actionType: 'output' | 'cover' | 'remote_output' | 'remote_cover';
-  /** Remote device id (only for remote_output / remote_cover) */
-  remoteDevice?: string;
-}
-
-/** Lightweight shape of a remote device returned by /api/remote-devices. */
-interface QuickRemoteDeviceData {
-  id: string;
-  name: string;
-  protocol: string;
-  esphome_covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
-  covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
-}
 
 interface QuickActionSheetProps {
   /** Whether the sheet is open */
@@ -108,11 +27,6 @@ interface QuickActionSheetProps {
   inputEvent: InputEvent | null;
 }
 
-/** Output action options for the action dropdown. */
-const OUTPUT_ACTIONS = ['TOGGLE', 'ON', 'OFF'] as const;
-/** Cover action options for the action dropdown. */
-const COVER_ACTIONS = ['TOGGLE', 'OPEN', 'CLOSE', 'STOP'] as const;
-
 /** Click types available for event-type inputs. */
 const EVENT_CLICK_TYPES = [
   'single', 'double', 'triple', 'long',
@@ -122,14 +36,16 @@ const EVENT_CLICK_TYPES = [
 /** Click types available for binary_sensor-type inputs. */
 const BINARY_SENSOR_CLICK_TYPES = ['pressed', 'released'] as const;
 
+/** What a new action starts as: the commonest thing a button does. */
+const newAction = (): ActionEntry => ({ action: 'output', action_output: 'TOGGLE' });
+
 /**
- * Quick Action Sheet — a simplified dialog for adding an action to an input.
- * Opens from InputsView when user presses ⚡. Lets user pick:
- * 1. Click type (single/double/long)
- * 2. Target type (output or cover — includes both local and remote)
- * 3. Target entity (via SearchableEntityPicker)
- * 4. Action (Toggle/On/Off)
- * Then saves via POST /api/config/quick-action.
+ * Quick Action Sheet — add one action to an input without leaving the Inputs
+ * view. Opens from InputsView when an admin long-presses an input.
+ *
+ * The action itself is edited with the same fields as Settings → Inputs, so
+ * everything that editor can set can be set here, then saved on its own via
+ * POST /api/config/quick-action without a full section save.
  */
 const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
   open,
@@ -137,258 +53,46 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
   inputEvent,
 }) => {
   const { t } = useTranslation();
-  const { outputs, covers } = useContext(WebSocketContext);
+  const { data: editorData, loading } = useActionEditorData(open);
 
-  // Form state
   const [clickType, setClickType] = useState('single');
-  const [targetMode, setTargetMode] = useState<'output' | 'cover'>('output');
-  const [targetId, setTargetId] = useState('');
-  const [actionValue, setActionValue] = useState('TOGGLE');
+  const [action, setAction] = useState<ActionEntry>(newAction);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [attempted, setAttempted] = useState(false);
 
-  // Existing actions for this input (loaded from config on open)
-  const [inputConfigEntry, setInputConfigEntry] = useState<Record<string, unknown> | null>(null);
-  const [inputSectionType, setInputSectionType] = useState<'event' | 'binary_sensor' | 'remote_inputs'>('event');
-  const fetchAbortRef = useRef<AbortController | null>(null);
-
-  // Remote devices for ESPHome covers
-  const [remoteDevices, setRemoteDevices] = useState<QuickRemoteDeviceData[]>([]);
-
-  // Reset form and fetch existing actions when dialog opens
+  // Reset the form each time the dialog opens
   useEffect(() => {
     if (open && inputEvent) {
-      const isEvent = inputEvent.state.type === 'input';
-      setClickType(isEvent ? 'single' : 'pressed');
-      setTargetMode('output');
-      setTargetId('');
-      setActionValue('TOGGLE');
+      setClickType(inputEvent.state.type === 'input' ? 'single' : 'pressed');
+      setAction(newAction());
       setSaveStatus('idle');
       setErrorMessage('');
-      setInputConfigEntry(null);
-
-      // Fetch remote devices for ESPHome covers
-      axios.get('/api/remote-devices')
-        .then(({ data }) => {
-          const devices = Array.isArray(data?.devices) ? data.devices : [];
-          setRemoteDevices(devices as QuickRemoteDeviceData[]);
-        })
-        .catch(() => setRemoteDevices([]));
-
-      // Fetch config to get existing actions for this input
-      const abortController = new AbortController();
-      fetchAbortRef.current = abortController;
-
-      axios.get('/api/config', { signal: abortController.signal })
-        .then(({ data }) => {
-          if (abortController.signal.aborted) return;
-          const config = data?.config;
-          if (!config) return;
-
-          const entityId = inputEvent.entity_id;
-          // Search through event, binary_sensor, remote_inputs sections
-          for (const secName of ['event', 'binary_sensor', 'remote_inputs'] as const) {
-            const entries = config[secName];
-            if (!Array.isArray(entries)) continue;
-            for (const entry of entries) {
-              if (typeof entry !== 'object' || entry === null) continue;
-              const eid = String(entry.id || entry.pin || '').toLowerCase();
-              const boneioIn = String(entry.boneio_input || '').toLowerCase();
-              if (eid === entityId.toLowerCase() || boneioIn === entityId.toLowerCase()) {
-                setInputConfigEntry(entry as Record<string, unknown>);
-                setInputSectionType(secName);
-                return;
-              }
-            }
-          }
-        })
-        .catch(() => {
-          // Non-critical — duplicate detection just won't work
-        });
-
-      return () => { abortController.abort(); };
+      setAttempted(false);
     }
   }, [open, inputEvent]);
 
   const isEvent = inputEvent?.state.type === 'input';
   const clickTypes = isEvent ? EVENT_CLICK_TYPES : BINARY_SENSOR_CLICK_TYPES;
-  const actionOptions = targetMode === 'cover' ? COVER_ACTIONS : OUTPUT_ACTIONS;
+  const validationError = validateAction(action, t);
 
-  /**
-   * Build unified output items list (local + remote).
-   * Each item carries its actionType and optional remoteDevice for the API call.
-   */
-  const outputItems: QuickEntityItem[] = useMemo(() => {
-    const items: QuickEntityItem[] = [];
-
-    // Local outputs (exclude 'none' and 'cover' — none has no HA entity,
-    // cover must be controlled via cover entities only)
-    outputs
-      .filter((o: OutputEvent) => {
-        if (o.state.remote) return false;
-        const ot = o.state.type?.toLowerCase();
-        return ot !== 'none' && ot !== 'cover';
-      })
-      .forEach((o: OutputEvent) => {
-        items.push({
-          id: o.state.id || o.entity_id,
-          name: o.state.name || o.state.id || o.entity_id,
-          area: o.state.area || undefined,
-          badge: o.state.type || undefined,
-          badgeClass: o.state.type === 'light' ? 'badge-warning'
-            : o.state.type === 'switch' ? 'badge-info'
-            : o.state.type === 'valve' ? 'badge-accent'
-            : 'badge-ghost',
-          actionType: 'output',
-        });
-      });
-
-    // Remote outputs
-    outputs
-      .filter((o: OutputEvent) => o.state.remote)
-      .forEach((o: OutputEvent) => {
-        // entity_id for remote outputs is like "remote_device_id/output_id"
-        const entityId = o.entity_id;
-        const parts = entityId.split('/');
-        const remoteDevice = parts.length > 1 ? parts[0] : '';
-
-        items.push({
-          id: entityId,
-          name: o.state.name || entityId,
-          area: o.state.area || undefined,
-          badge: `🌐 ${o.state.type || 'remote'}`,
-          badgeClass: 'badge-secondary',
-          actionType: 'remote_output',
-          remoteDevice,
-        });
-      });
-
-    return items;
-  }, [outputs]);
-
-  /**
-   * Build unified cover items list (local + remote).
-   */
-  const coverItems: QuickEntityItem[] = useMemo(() => {
-    const items: QuickEntityItem[] = [];
-
-    // Local covers
-    covers
-      .filter((c: CoverEvent) => !c.state.remote)
-      .forEach((c: CoverEvent) => {
-        items.push({
-          id: c.state.id || c.entity_id,
-          name: c.state.name || c.state.id || c.entity_id,
-          badge: c.state.kind || 'cover',
-          badgeClass: 'badge-accent',
-          actionType: 'cover',
-        });
-      });
-
-    // Remote covers from WebSocket
-    covers
-      .filter((c: CoverEvent) => c.state.remote)
-      .forEach((c: CoverEvent) => {
-        const entityId = c.entity_id;
-        const parts = entityId.split('/');
-        const remoteDevice = parts.length > 1 ? parts[0] : '';
-
-        items.push({
-          id: entityId,
-          name: c.state.name || entityId,
-          badge: `🌐 ${c.state.kind || 'cover'}`,
-          badgeClass: 'badge-secondary',
-          actionType: 'remote_cover',
-          remoteDevice,
-        });
-      });
-
-    // ESPHome covers from API (not present in WebSocket)
-    const existingIds = new Set(items.map(i => i.id));
-    for (const device of remoteDevices) {
-      const deviceCovers = device.esphome_covers || device.covers || [];
-      for (const cover of deviceCovers) {
-        const compositeId = `${device.id}/${cover.id}`;
-        if (existingIds.has(compositeId)) continue;
-        items.push({
-          id: compositeId,
-          name: cover.name || cover.id,
-          badge: `🌐 ${cover.kind || 'cover'}`,
-          badgeClass: 'badge-secondary',
-          actionType: 'remote_cover',
-          remoteDevice: device.id,
-        });
-      }
-    }
-
-    return items;
-  }, [covers, remoteDevices]);
-
-  const currentItems = targetMode === 'cover' ? coverItems : outputItems;
-
-  /** Find the selected item to extract its actionType and remoteDevice. */
-  const selectedItem = useMemo(
-    () => currentItems.find((item) => item.id === targetId),
-    [currentItems, targetId]
-  );
-
-  /**
-   * Check if the selected output/cover is already used in an action for the
-   * current click type.  Returns a translated warning string or null.
-   */
-  const duplicateWarning = useMemo<string | null>(() => {
-    if (!targetId || !inputConfigEntry) return null;
-
-    const existingIds = extractExistingTargets(
-      inputConfigEntry,
-      clickType,
-      inputSectionType,
-    );
-    if (existingIds.has(targetId.toLowerCase())) {
-      return t('quick_action.already_assigned');
-    }
-    return null;
-  }, [targetId, clickType, inputConfigEntry, inputSectionType, t]);
-
-  /** Handle save. */
   const handleSave = useCallback(async () => {
-    if (!inputEvent || !targetId || !selectedItem) return;
+    if (!inputEvent) return;
+    setAttempted(true);
+    if (validationError) return;
 
     setSaveStatus('saving');
     setErrorMessage('');
 
     try {
-      const payload: Record<string, string> = {
+      await axios.post('/api/config/quick-action', {
         entity_id: inputEvent.entity_id,
         click_type: clickType,
-        action_type: selectedItem.actionType,
-        action: actionValue,
-      };
-
-      // Set the right IDs based on action type
-      switch (selectedItem.actionType) {
-        case 'output':
-          payload.output_id = targetId;
-          break;
-        case 'cover':
-          payload.cover_id = targetId;
-          break;
-        case 'remote_output': {
-          payload.remote_device = selectedItem.remoteDevice || '';
-          // Extract output_id from entity_id (remove device prefix)
-          const parts = targetId.split('/');
-          payload.output_id = parts.length > 1 ? parts.slice(1).join('/') : targetId;
-          break;
-        }
-        case 'remote_cover': {
-          payload.remote_device = selectedItem.remoteDevice || '';
-          const coverParts = targetId.split('/');
-          payload.cover_id = coverParts.length > 1 ? coverParts.slice(1).join('/') : targetId;
-          break;
-        }
-      }
-
-      await axios.post('/api/config/quick-action', payload, { timeout: 15_000 });
+        action_def: action,
+      }, { timeout: 15_000 });
+      // Settings reads the cached config; without this it would show the
+      // input without the action just added.
+      invalidateConfigCache();
       setSaveStatus('success');
 
       // Auto-close after success
@@ -396,30 +100,28 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
         onOpenChange(false);
       }, 1200);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { status?: number; data?: { detail?: string | { message?: string } } } };
+      const axiosErr = err as { response?: { status?: number; data?: { detail?: string | { message?: string; errors?: string[] } } } };
+      setSaveStatus('error');
       if (axiosErr.response?.status === 409) {
-        // Duplicate action — show warning, not error
-        setSaveStatus('error');
         setErrorMessage(t('quick_action.duplicate_action'));
       } else {
-        setSaveStatus('error');
         const detail = axiosErr.response?.data?.detail;
         setErrorMessage(
           typeof detail === 'string' ? detail
-            : (detail as { message?: string })?.message || t('quick_action.save_error')
+            : detail?.errors?.join(' ') || detail?.message || t('quick_action.save_error')
         );
       }
     }
-  }, [inputEvent, targetId, selectedItem, clickType, actionValue, onOpenChange, t]);
+  }, [inputEvent, clickType, action, validationError, onOpenChange, t]);
 
-  const canSave = targetId && saveStatus !== 'saving' && saveStatus !== 'success';
+  const canSave = !actionIsIncomplete(action) && saveStatus !== 'saving' && saveStatus !== 'success';
 
   if (!inputEvent) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="bg-base-100 p-0 gap-0 max-h-[90vh] overflow-y-auto sm:max-w-md"
+        className="bg-base-100 p-0 gap-0 max-h-[90vh] overflow-y-auto sm:max-w-lg"
       >
         <DialogHeader className="px-5 pt-4 pb-0 sm:pt-5">
           <DialogTitle className="flex items-center gap-2">
@@ -452,73 +154,23 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
             </div>
           </div>
 
-          {/* Target mode toggle (output vs cover) */}
-          <div className="form-control">
-            <label className="label pb-1">
-              <span className="label-text font-medium text-sm">{t('quick_action.target_type')}</span>
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => { setTargetMode('output'); setTargetId(''); setActionValue('TOGGLE'); }}
-                className={`btn btn-sm flex-1 ${targetMode === 'output' ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
-              >
-                {t('quick_action.output')}
-              </button>
-              {coverItems.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => { setTargetMode('cover'); setTargetId(''); setActionValue('TOGGLE'); }}
-                  className={`btn btn-sm flex-1 ${targetMode === 'cover' ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
-                >
-                  {t('quick_action.cover')}
-                </button>
-              )}
+          {/* The action — same editor as Settings → Inputs */}
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <span className="loading loading-spinner loading-md text-primary" />
             </div>
-          </div>
-
-          {/* Target entity picker */}
-          <div className="form-control">
-            <label className="label pb-1">
-              <span className="label-text font-medium text-sm">
-                {targetMode === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
-              </span>
-            </label>
-            <SearchableEntityPicker
-              value={targetId}
-              onChange={setTargetId}
-              items={currentItems}
-              placeholder={targetMode === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
-              recentKey={targetMode === 'cover' ? 'covers' : 'outputs'}
-              preferredArea={inputEvent?.state.area || undefined}
-              nested
+          ) : (
+            <InputActionEditor
+              action={action}
+              onChange={setAction}
+              clickType={clickType}
+              data={editorData}
+              title={t('quick_action.action')}
+              showValidation={attempted}
+              excludeEntityId={inputEvent.entity_id}
+              preferredArea={inputEvent.state.area || undefined}
             />
-            {duplicateWarning && (
-              <div className="alert alert-warning text-sm py-2 mt-2">
-                <FaInfoCircle className="w-4 h-4 shrink-0" />
-                <span>{duplicateWarning}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Action selector */}
-          <div className="form-control">
-            <label className="label pb-1">
-              <span className="label-text font-medium text-sm">{t('quick_action.action')}</span>
-            </label>
-            <Select value={actionValue} onValueChange={setActionValue}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-base-100">
-                {actionOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {t(`quick_action.actions.${opt}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          )}
 
           {/* Error message */}
           {saveStatus === 'error' && errorMessage && (

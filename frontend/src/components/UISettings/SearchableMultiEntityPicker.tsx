@@ -221,7 +221,7 @@ const SearchableMultiEntityPicker: React.FC<SearchableMultiEntityPickerProps> = 
   };
 
   /** Remove a single chip from selection. */
-  const removeChip = (id: string, e: React.MouseEvent) => {
+  const removeChip = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     onChange(value.filter((v) => v !== id));
   };
@@ -269,7 +269,7 @@ const SearchableMultiEntityPicker: React.FC<SearchableMultiEntityPickerProps> = 
                     className="hover:text-error transition-colors cursor-pointer"
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') removeChip(item.id, e as any); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') removeChip(item.id, e); }}
                   >
                     <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M18 6 6 18M6 6l12 12" />

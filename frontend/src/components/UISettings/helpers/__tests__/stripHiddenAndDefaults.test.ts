@@ -20,7 +20,7 @@ const schemas = {
 
 const sectionSchema = (section: keyof typeof schemas) => schemas[section];
 
-const schedule = (actions: unknown) => [
+const schedule = <A,>(actions: A) => [
   {
     name: 'uruchomienie swiatel',
     enabled: true,

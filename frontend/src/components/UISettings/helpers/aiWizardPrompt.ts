@@ -4,6 +4,8 @@ import type {
   OutputEntity,
   RemoteDeviceEntity,
 } from '@/types/config';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { OutputGroupRecord } from '../ActionFields/types';
 import { buildAiConfigContext, type AiEntityType } from './aiConfig';
 import type { EventEntity, BinarySensorEntity } from '@/types/config';
 
@@ -12,9 +14,9 @@ type SupportedEntity = EventEntity | BinarySensorEntity;
 interface WizardPromptParams<T extends SupportedEntity> {
   entityType: AiEntityType;
   data: T;
-  schema?: any;
+  schema?: JsonSchema;
   allOutputs?: OutputEntity[];
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];

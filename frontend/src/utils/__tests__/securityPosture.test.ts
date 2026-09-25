@@ -76,7 +76,7 @@ describe('every shipped check is translated', () => {
 
   for (const [lang, bundle] of [['pl', plCommon], ['en', enCommon]] as const) {
     it(`${lang} has title, detail, ok and remedy for each check`, () => {
-      const checks = (bundle as any).security.checks;
+      const checks = (bundle as { security: { checks: Record<string, Record<string, string>> } }).security.checks;
       for (const id of ids) {
         expect(checks[id], `${lang}: ${id}`).toBeDefined();
         for (const field of ['title', 'detail', 'ok', 'remedy']) {
@@ -221,7 +221,7 @@ describe('the framing card is translated', () => {
 
   for (const [lang, bundle] of [['pl', plCommon], ['en', enCommon]] as const) {
     it(`${lang} has every framing string`, () => {
-      const framing = (bundle as any).security.framing;
+      const framing = (bundle as { security: { framing?: Record<string, string> } }).security.framing;
       for (const key of keys) {
         expect(framing?.[key], `${lang}: framing.${key}`).toBeTruthy();
       }

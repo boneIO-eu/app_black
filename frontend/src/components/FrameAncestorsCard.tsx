@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import axios from '../api/axios';
+import type { AxiosError } from 'axios';
 import { FaObjectGroup } from 'react-icons/fa';
 import { SettingsCard, FormField, FormActions, ToggleRow } from './UISettings/ui';
+
+type ApiError = AxiosError<{ detail?: string }>;
 
 interface FramingState {
   restrict: boolean;
@@ -54,9 +57,10 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
         setState(data);
         setRestrict(data.restrict);
         setOrigins(data.extra_origins);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const apiErr = err as ApiError;
         if (cancelled) return;
-        setError(err.message || 'Failed to load framing settings');
+        setError(apiErr.message || 'Failed to load framing settings');
       }
     })();
     return () => {
@@ -92,8 +96,9 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
       setOrigins(data.extra_origins);
       setSaved(true);
       onSaved?.();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Failed to save');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.detail || apiErr.message || 'Failed to save');
     } finally {
       setSaving(false);
     }

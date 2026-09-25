@@ -16,6 +16,22 @@ import {
   EmptyState,
 } from '../ui';
 
+/** Answer of the factory-reset and restore-backup endpoints. */
+interface FactoryResetResult {
+  status: string;
+  message?: string;
+  backup_path?: string;
+  copied_files?: string[];
+  restart_required?: boolean;
+}
+
+/** One entry of the config backups listing. */
+interface ConfigBackup {
+  path: string;
+  timestamp: string;
+  file_count: number;
+}
+
 interface FactoryResetSectionProps {
   onRestartRequired: () => void;
 }
@@ -31,8 +47,8 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
   const [selectedDeviceType, setSelectedDeviceType] = useState<string | null>(null);
   const [selectedHardwareVersion, setSelectedHardwareVersion] = useState<string>('0.8');
   const [isResettingFactory, setIsResettingFactory] = useState(false);
-  const [factoryResetResult, setFactoryResetResult] = useState<any>(null);
-  const [configBackups, setConfigBackups] = useState<any[]>([]);
+  const [factoryResetResult, setFactoryResetResult] = useState<FactoryResetResult | null>(null);
+  const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
   const [showConfigBackups, setShowConfigBackups] = useState(false);
 
   const fetchDeviceTypes = useCallback(async () => {

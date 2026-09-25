@@ -5,9 +5,11 @@ import TableActions from './TableActions';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import type { AreaEntity } from '@/types/config';
 
 interface AreasTableProps {
-  items: any[];
+  /** Rows being edited: `id` / `name` can still be empty. */
+  items: Partial<AreaEntity>[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
 }
@@ -23,8 +25,8 @@ const AreasTable: React.FC<AreasTableProps> = ({ items, onEdit, onDelete }) => {
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      id: (item: any) => (item.id || '').toLowerCase(),
-      name: (item: any) => (item.name || '').toLowerCase(),
+      id: (item) => (item.id || '').toLowerCase(),
+      name: (item) => (item.name || '').toLowerCase(),
     });
   }, [indexedItems, sortItems]);
 

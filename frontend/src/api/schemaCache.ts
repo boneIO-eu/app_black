@@ -20,11 +20,10 @@
  */
 
 import axios from '@/api/axios';
+import type { JsonSchema } from '@/types/jsonSchema';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-/** The parsed schema. Its shape is JSON Schema; consumers index into it. */
-export type ConfigSchema = Record<string, any>;
+/** The parsed schema. */
+export type ConfigSchema = JsonSchema;
 
 const SCHEMA_URL = '/schema/config.schema.json';
 

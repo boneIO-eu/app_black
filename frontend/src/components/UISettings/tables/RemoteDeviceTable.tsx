@@ -7,8 +7,11 @@ import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { FaPlus, FaWifi, FaLink, FaSync, FaSearch, FaTrash, FaNetworkWired } from 'react-icons/fa';
+import type { ESPHomeApiConfig, RemoteDeviceEntity, RemoteDeviceProtocol, WLEDConfig } from '@/types/config';
 
-interface AutodiscoveredDevice {
+/** A device offered for adding: from MQTT autodiscovery, or built here from
+ *  an mDNS scan (ESPHome, WLED) or a CAN node. */
+export interface AutodiscoveredDevice {
   id: string;
   name: string;
   protocol: string;
@@ -19,7 +22,17 @@ interface AutodiscoveredDevice {
     outputs?: { id: string; name: string }[];
     covers?: { id: string; name: string }[];
   };
+  /** Set for ESPHome devices (the mDNS scan fills only host and port). */
+  esphome_api?: ESPHomeApiConfig;
+  /** Set for WLED devices (the mDNS scan fills only host and port). */
+  wled?: WLEDConfig;
 }
+
+/** A configured `remote_devices` entry. The UI also knows CAN devices,
+ *  which the schema does not list as a protocol yet. */
+export type RemoteDeviceRow = Omit<RemoteDeviceEntity, 'protocol'> & {
+  protocol?: RemoteDeviceProtocol | 'can';
+};
 
 interface ManagedByDevice {
   id: string;
@@ -28,11 +41,11 @@ interface ManagedByDevice {
 }
 
 interface RemoteDeviceTableProps {
-  items: any[];
+  items: RemoteDeviceRow[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
   onAddFromDiscovery?: (device: AutodiscoveredDevice) => void;
-  onUpdateItem?: (index: number, updatedItem: any) => void;
+  onUpdateItem?: (index: number, updatedItem: RemoteDeviceRow) => void;
 }
 
 const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, onDelete, onAddFromDiscovery, onUpdateItem }) => {
@@ -186,7 +199,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   /**
    * Discover entities for an ESPHome device
    */
-  const discoverEsphomeEntities = async (index: number, item: any) => {
+  const discoverEsphomeEntities = async (index: number, item: RemoteDeviceRow) => {
     const esphomeConfig = item?.esphome_api;
     if (!esphomeConfig?.host) {
       console.error('No host configured for ESPHome device');
@@ -224,7 +237,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   /**
    * Get entity counts for an ESPHome device
    */
-  const getEsphomeEntityCounts = (item: any) => {
+  const getEsphomeEntityCounts = (item: RemoteDeviceRow) => {
     const esphome = item?.esphome_api;
     if (!esphome) return null;
     const switches = esphome.switches?.length || 0;
@@ -275,10 +288,10 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
 
   const sortedItems = useMemo(() => {
     return sortItems(indexedItems, {
-      id: (item: any) => (item.id || '').toLowerCase(),
-      name: (item: any) => (item.name || '').toLowerCase(),
-      protocol: (item: any) => (item.protocol || 'mqtt').toLowerCase(),
-      device_type: (item: any) => (item.device_type || '').toLowerCase(),
+      id: (item) => (item.id || '').toLowerCase(),
+      name: (item) => (item.name || '').toLowerCase(),
+      protocol: (item) => (item.protocol || 'mqtt').toLowerCase(),
+      device_type: (item) => (item.device_type || '').toLowerCase(),
     });
   }, [indexedItems, sortItems]);
 
@@ -394,7 +407,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                           outputs: [],
                           covers: [],
                           esphome_api: { host: device.host, port: device.port }
-                        } as any)}
+                        })}
                       >
                         <FaPlus className="w-3 h-3" />
                         {t('remote_devices.add')}
@@ -428,7 +441,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                           outputs: [],
                           covers: [],
                           wled: { host: device.host, port: device.port }
-                        } as any)}
+                        })}
                       >
                         <FaPlus className="w-3 h-3" />
                         {t('remote_devices.add')}
@@ -462,7 +475,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                           device_type: 'boneio_black',
                           outputs: Object.keys(node.outputs).map(idx => ({ id: idx, name: `Output ${idx}` })),
                           covers: [],
-                        } as any)}
+                        })}
                       >
                         <FaPlus className="w-3 h-3" />
                         {t('remote_devices.add')}
@@ -564,7 +577,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                               host: device.host,
                               port: device.port,
                             }
-                          } as any)}
+                          })}
                           title={t('remote_devices.add_from_discovery')}
                         >
                           <FaPlus className="w-3 h-3" />
@@ -605,7 +618,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                               host: device.host,
                               port: device.port,
                             }
-                          } as any)}
+                          })}
                           title={t('remote_devices.add_from_discovery')}
                         >
                           <FaPlus className="w-3 h-3" />
@@ -649,7 +662,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                             device_type: 'boneio_black',
                             outputs: Object.keys(node.outputs).map(idx => ({ id: idx, name: `Output ${idx}` })),
                             covers: [],
-                          } as any)}
+                          })}
                           title={t('remote_devices.add_from_discovery')}
                         >
                           <FaPlus className="w-3 h-3" />

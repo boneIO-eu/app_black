@@ -6,13 +6,20 @@ import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { normalizeCovers } from '../helpers/coverUtils';
 import { normalizeOutputs } from '../helpers/outputUtils';
+import type { AreaEntity, CoverEntity, OutputEntity, RemoteDeviceEntity } from '@/types/config';
+import type { ActionCondition, ActionDef } from '../ActionFields/types';
+
+/** A binary_sensor / event item: only its action lists are read here. */
+interface ActionDetailsItem {
+  actions?: Record<string, ActionDef[] | undefined>;
+}
 
 interface ActionDetailsProps {
-  item: any;
-  allAreas: any[];
-  allOutputs: any[];
-  allCovers: any[];
-  allRemoteDevices: any[];
+  item: ActionDetailsItem;
+  allAreas: AreaEntity[];
+  allOutputs: OutputEntity[];
+  allCovers: CoverEntity[];
+  allRemoteDevices: RemoteDeviceEntity[];
 }
 
 /**
@@ -43,10 +50,11 @@ const ACTION_TYPES = ['pressed', 'released', 'single', 'double', 'triple', 'long
 /**
  * Check if item has any configured actions.
  */
-export function hasActions(item: any): boolean {
+export function hasActions(item: { actions?: unknown }): boolean {
   if (!item.actions || typeof item.actions !== 'object') return false;
+  const itemActions = item.actions as Record<string, unknown>;
   return ACTION_TYPES.some(type => {
-    const actions = item.actions?.[type];
+    const actions = itemActions[type];
     return Array.isArray(actions) && actions.length > 0;
   });
 }
@@ -54,9 +62,9 @@ export function hasActions(item: any): boolean {
 /**
  * Render condition badges for an action.
  */
-function ConditionBadges({ action }: { action: any }) {
+function ConditionBadges({ action }: { action: ActionDef }) {
   const { t } = useTranslation();
-  const conditions: any[] = [];
+  const conditions: ActionCondition[] = [];
   let mode = 'and';
 
   if (action.conditions?.list?.length) {
@@ -70,7 +78,7 @@ function ConditionBadges({ action }: { action: any }) {
 
   const separator = mode === 'or' ? ` ${t('event_form.condition_mode_or').split(' ')[0]} ` : ' + ';
 
-  const formatLabel = (cond: any): string => {
+  const formatLabel = (cond: ActionCondition): string => {
     if (!cond?.type) return '';
     if (cond.type === 'time') {
       const parts: string[] = [];
@@ -133,18 +141,18 @@ function ConditionBadges({ action }: { action: any }) {
  * Resolve action target display text (output name, cover name, remote device).
  */
 function resolveActionTarget(
-  action: any,
-  allOutputs: any[],
-  allCovers: any[],
-  allAreas: any[],
-  allRemoteDevices: any[],
+  action: ActionDef,
+  allOutputs: OutputEntity[],
+  allCovers: CoverEntity[],
+  allAreas: AreaEntity[],
+  allRemoteDevices: RemoteDeviceEntity[],
 ): { details: string[]; areaName: string } {
   const details: string[] = [];
   let areaName = '';
 
   if (action.boneio_output) {
     const normalized = normalizeOutputs(allOutputs);
-    const output = normalized.find((o: any) => o.id === action.boneio_output);
+    const output = normalized.find((o) => o.id === action.boneio_output);
     details.push(output?.name ? `${output.name} (${action.boneio_output})` : action.boneio_output);
     if (output?.area) {
       const area = allAreas.find(a => a.id === output.area);
@@ -152,7 +160,7 @@ function resolveActionTarget(
     }
   } else if (action.boneio_cover) {
     const normalized = normalizeCovers(allCovers);
-    const cover = normalized.find((c: any) => c.id === action.boneio_cover);
+    const cover = normalized.find((c) => c.id === action.boneio_cover);
     details.push(cover?.name ? `${cover.name} (${action.boneio_cover})` : action.boneio_cover);
     if (cover?.area) {
       const area = allAreas.find(a => a.id === cover.area);
@@ -165,10 +173,10 @@ function resolveActionTarget(
     const deviceName = device?.name || action.remote_device;
     let targetName = '';
     if (action.output_id) {
-      const remoteOutput = device?.mqtt?.outputs?.find((o: any) => o.id === action.output_id);
+      const remoteOutput = device?.mqtt?.outputs?.find((o) => o.id === action.output_id);
       targetName = remoteOutput?.name || action.output_id;
     } else if (action.cover_id) {
-      const remoteCover = device?.mqtt?.covers?.find((c: any) => c.id === action.cover_id);
+      const remoteCover = device?.mqtt?.covers?.find((c) => c.id === action.cover_id);
       targetName = remoteCover?.name || action.cover_id;
     }
     details.push(targetName ? `${deviceName} → ${targetName}` : deviceName);
@@ -203,7 +211,7 @@ const ActionDetails: React.FC<ActionDetailsProps> = ({ item, allAreas, allOutput
           <div key={type} className="space-y-1.5">
             <div className="font-semibold text-xs text-base-content/70">{getLabel(type)}</div>
             <div className="space-y-1.5">
-              {actions?.map((action: any, idx: number) => {
+              {actions?.map((action: ActionDef, idx: number) => {
                 const { details, areaName } = resolveActionTarget(action, allOutputs, allCovers, allAreas, allRemoteDevices);
                 return (
                   <div key={idx} className="bg-base-100 rounded-lg p-2.5 text-xs space-y-1">

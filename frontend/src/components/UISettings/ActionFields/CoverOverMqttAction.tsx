@@ -21,7 +21,7 @@ const CoverOverMqttAction: React.FC<CoverOverMqttActionProps> = ({
   actionCoverOptions,
 }) => {
   // Wrapper for onUpdate that removes deprecated 'pin' field
-  const handleUpdate = (field: string, value: any) => {
+  const handleUpdate = (field: string, value: unknown) => {
     if (action.pin) {
       onUpdate('pin', undefined);
     }

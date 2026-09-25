@@ -14,33 +14,19 @@ import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import { useConfig } from '@/contexts/ConfigContext';
 import { validateCondition } from './helpers';
+import type { ActionCondition, ActionDef, ActionInput, ActionUpdate } from './types';
 
-interface SingleCondition {
-  type: 'time' | 'date' | 'state' | 'sun';
-  /** HH:MM for time, MM-DD for date, a sun anchor name for sun. */
-  after?: string;
-  before?: string;
-  /** Sun only. Read as seconds when it comes from the backend, written as "-30min". */
-  after_offset?: string | number;
-  before_offset?: string | number;
-  /** Sun only. */
-  phase?: string;
-  above?: number;
-  below?: number;
-  entity?: string;
-  entity_id?: string;
-  state?: string;
-}
+type SingleCondition = ActionCondition;
 
 interface ActionConditionsProps {
   /** Hide the "Conditions" divider, for a caller that already heads the group.
    *  Inside an action card there is nothing else saying what these fields are,
    *  so it stays on by default. */
   hideHeading?: boolean;
-  /** The current action object */
-  action: any;
+  /** The current action object (or a schedule — anything carrying `condition` / `conditions`) */
+  action: ActionInput;
   /** Callback to update a field on the action */
-  onUpdate: (field: string, value: any) => void;
+  onUpdate: ActionUpdate;
   /** Translation function */
   t: (key: string) => string;
   /** Available outputs for state condition entity selection */
@@ -155,7 +141,7 @@ const STATE_OPTIONS: Record<string, string[]> = {
  */
 const ActionConditions: React.FC<ActionConditionsProps> = ({
   hideHeading = false,
-  action,
+  action: actionInput,
   onUpdate,
   t,
   allOutputs = [],
@@ -167,6 +153,9 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   showValidation = false,
   excludeEntityId,
 }) => {
+  // Only `condition` / `conditions` are read here; see ActionInput.
+  const action = actionInput as ActionDef;
+
   // Normalize: read from either `condition` (single) or `conditions` (multi)
   const getConditionsList = (): SingleCondition[] => {
     if (action.conditions?.list?.length) {
@@ -216,7 +205,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
     updateConditions(newList);
   };
 
-  const updateSingleCondition = (index: number, field: string, value: any) => {
+  const updateSingleCondition = (index: number, field: string, value: unknown) => {
     const newList = [...conditionsList];
     const updated = { ...newList[index], [field]: value };
 

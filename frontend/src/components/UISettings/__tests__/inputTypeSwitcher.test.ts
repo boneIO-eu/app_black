@@ -14,11 +14,24 @@ const EVENT_ONLY_FIELDS = [
   'max_long_press_duration', 'mqtt_sequences',
 ];
 
-function eventToBinarySensor(data: any): any {
+/** An action entry, as far as these tests look into it. */
+type TestAction = Record<string, unknown>;
+
+/** Action lists keyed by trigger type (single, pressed, ...). */
+type ActionLists = Record<string, TestAction[]>;
+
+/** An input item: raw config fields plus the `_type` marker and its actions. */
+interface InputItem {
+  _type?: string;
+  actions?: ActionLists;
+  [key: string]: unknown;
+}
+
+function eventToBinarySensor(data: InputItem): InputItem {
   const { _type, ...rest } = data;
-  const newData: any = { ...rest, _type: 'binary_sensor' };
-  const oldActions = data.actions || {};
-  const newActions: any = {};
+  const newData: InputItem = { ...rest, _type: 'binary_sensor' };
+  const oldActions: ActionLists = data.actions || {};
+  const newActions: ActionLists = {};
   if (oldActions.single?.length > 0) {
     newActions.pressed = [...oldActions.single];
   }
@@ -27,11 +40,11 @@ function eventToBinarySensor(data: any): any {
   return newData;
 }
 
-function binarySensorToEvent(data: any): any {
+function binarySensorToEvent(data: InputItem): InputItem {
   const { _type, ...rest } = data;
-  const newData: any = { ...rest, _type: 'event' };
-  const oldActions = data.actions || {};
-  const newActions: any = {};
+  const newData: InputItem = { ...rest, _type: 'event' };
+  const oldActions: ActionLists = data.actions || {};
+  const newActions: ActionLists = {};
   if (oldActions.pressed?.length > 0) {
     newActions.single = [...oldActions.pressed];
   }
@@ -40,10 +53,10 @@ function binarySensorToEvent(data: any): any {
   return newData;
 }
 
-function countActions(actions: any, types: string[]): number {
+function countActions(actions: unknown, types: string[]): number {
   if (!actions || typeof actions !== 'object') return 0;
   return types.reduce((sum, type) => {
-    const arr = actions[type];
+    const arr = (actions as Record<string, unknown>)[type];
     return sum + (Array.isArray(arr) ? arr.length : 0);
   }, 0);
 }
@@ -67,11 +80,11 @@ describe('eventToBinarySensor', () => {
     expect(result.name).toBe('test');
     expect(result.boneio_input).toBe('in_01');
     // single → pressed
-    expect(result.actions.pressed).toHaveLength(1);
-    expect(result.actions.pressed[0].boneio_output).toBe('rel_01');
+    expect(result.actions?.pressed).toHaveLength(1);
+    expect(result.actions?.pressed[0].boneio_output).toBe('rel_01');
     // double and long are NOT migrated
-    expect(result.actions.double).toBeUndefined();
-    expect(result.actions.long).toBeUndefined();
+    expect(result.actions?.double).toBeUndefined();
+    expect(result.actions?.long).toBeUndefined();
   });
 
   it('removes event-only timing fields', () => {
@@ -127,10 +140,10 @@ describe('binarySensorToEvent', () => {
 
     expect(result._type).toBe('event');
     // pressed → single
-    expect(result.actions.single).toHaveLength(1);
-    expect(result.actions.single[0].boneio_output).toBe('rel_03');
+    expect(result.actions?.single).toHaveLength(1);
+    expect(result.actions?.single[0].boneio_output).toBe('rel_03');
     // released is NOT migrated
-    expect(result.actions.released).toBeUndefined();
+    expect(result.actions?.released).toBeUndefined();
   });
 
   it('removes binary_sensor-only fields', () => {

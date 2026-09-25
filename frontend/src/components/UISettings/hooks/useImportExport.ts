@@ -4,11 +4,18 @@
 import { useState, useRef, useCallback } from 'react';
 import * as yaml from 'js-yaml';
 import { useTranslation } from '@/hooks/useTranslation';
+import type { ConfigRecord } from '@/types/jsonSchema';
 
 interface UseImportExportProps {
   sectionType: string;
-  value: any[];
-  onChange: (value: any[]) => void;
+  value: ConfigRecord[];
+  onChange: (value: ConfigRecord[]) => void;
+}
+
+/** What an exported file looks like once parsed; nothing about it is checked but `data`. */
+interface ImportFile {
+  section?: unknown;
+  data?: unknown;
 }
 
 /**
@@ -17,7 +24,7 @@ interface UseImportExportProps {
 export function useImportExport({ sectionType, value, onChange }: UseImportExportProps) {
   const { t } = useTranslation();
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [importData, setImportData] = useState<any[] | null>(null);
+  const [importData, setImportData] = useState<ConfigRecord[] | null>(null);
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge');
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,11 +59,13 @@ export function useImportExport({ sectionType, value, onChange }: UseImportExpor
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
-        let parsed: any;
+        // Parsed from the user's file: the shape is only assumed, as it was
+        // before. A null result still throws on `.data` below, into the catch.
+        let parsed: ImportFile;
         try {
-          parsed = yaml.load(content);
+          parsed = yaml.load(content) as ImportFile;
         } catch {
-          parsed = JSON.parse(content);
+          parsed = JSON.parse(content) as ImportFile;
         }
 
         if (!parsed.data || !Array.isArray(parsed.data)) {
@@ -70,7 +79,7 @@ export function useImportExport({ sectionType, value, onChange }: UseImportExpor
           console.warn(`Import section mismatch: expected ${sectionType}, got ${parsed.section}`);
         }
 
-        setImportData(parsed.data);
+        setImportData(parsed.data as ConfigRecord[]);
         setImportError(null);
         setImportDialogOpen(true);
       } catch {

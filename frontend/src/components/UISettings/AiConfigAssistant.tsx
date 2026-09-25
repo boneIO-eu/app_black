@@ -9,6 +9,8 @@ import type {
   OutputEntity,
   RemoteDeviceEntity,
 } from '@/types/config';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { OutputGroupRecord } from './ActionFields/types';
 import { applyAiConfigResponse, buildAiConfigPrompt, type AiEntityType } from './helpers/aiConfig';
 import AiAssistantShell from './AiAssistantShell';
 
@@ -17,9 +19,9 @@ type SupportedEntity = EventEntity | BinarySensorEntity;
 interface AiConfigAssistantProps<T extends SupportedEntity> {
   entityType: AiEntityType;
   data: T;
-  schema?: any;
+  schema?: JsonSchema;
   allOutputs?: OutputEntity[];
-  allOutputGroups?: any[];
+  allOutputGroups?: OutputGroupRecord[];
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];

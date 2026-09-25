@@ -11,24 +11,29 @@
  * schemas under 'x-variants'; FormRenderer then hands each form its own.
  */
 
+import { isRecord, type JsonSchema } from '@/types/jsonSchema';
+
 /** Item type held by the merged section. */
 export type LocalInputType = 'event' | 'binary_sensor';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 /** Narrow a schema's boneio_input enum to the inputs this board actually has. */
-export function withFilteredInputs(schema: any, allowedInputs: string[]): any {
-  const current = schema?.items?.properties?.boneio_input?.enum;
-  if (!current) return schema;
+export function withFilteredInputs(schema: JsonSchema, allowedInputs: string[]): JsonSchema;
+export function withFilteredInputs(schema: JsonSchema | undefined, allowedInputs: string[]): JsonSchema | undefined;
+export function withFilteredInputs(schema: JsonSchema | undefined, allowedInputs: string[]): JsonSchema | undefined {
+  const items = schema?.items;
+  const properties = items?.properties;
+  const boneioInput = properties?.boneio_input;
+  const current = boneioInput?.enum;
+  if (!schema || !items || !properties || !boneioInput || !current) return schema;
   return {
     ...schema,
     items: {
-      ...schema.items,
+      ...items,
       properties: {
-        ...schema.items.properties,
+        ...properties,
         boneio_input: {
-          ...schema.items.properties.boneio_input,
-          enum: current.filter((v: string) => allowedInputs.includes(v)),
+          ...boneioInput,
+          enum: current.filter((v) => typeof v === 'string' && allowedInputs.includes(v)),
         },
       },
     },
@@ -41,7 +46,7 @@ export function withFilteredInputs(schema: any, allowedInputs: string[]): any {
  * @param mainSchema Parsed config.schema.json.
  * @param allowedInputs boneio_input values this board version exposes.
  */
-export function buildLocalInputsSchema(mainSchema: any, allowedInputs: string[]): any {
+export function buildLocalInputsSchema(mainSchema: JsonSchema | undefined, allowedInputs: string[]): JsonSchema | undefined {
   const eventSchema = withFilteredInputs(mainSchema?.properties?.event, allowedInputs);
   const bsSchema = withFilteredInputs(mainSchema?.properties?.binary_sensor, allowedInputs);
   if (!eventSchema?.items || !bsSchema?.items) return eventSchema || bsSchema;
@@ -67,7 +72,11 @@ export function buildLocalInputsSchema(mainSchema: any, allowedInputs: string[])
  * Falls back to the given schema when there are no variants (plain
  * 'event' / 'binary_sensor' sections, or an older cached schema).
  */
-export function pickInputVariantSchema(schema: any, type: LocalInputType): any {
-  const variant = schema?.items?.['x-variants']?.[type];
+export function pickInputVariantSchema(schema: JsonSchema, type: LocalInputType): JsonSchema;
+export function pickInputVariantSchema(schema: JsonSchema | undefined, type: LocalInputType): JsonSchema | undefined;
+export function pickInputVariantSchema(schema: JsonSchema | undefined, type: LocalInputType): JsonSchema | undefined {
+  const variants = schema?.items?.['x-variants'];
+  // 'x-variants' is written by buildLocalInputsSchema: one item schema per type.
+  const variant = isRecord(variants) ? (variants[type] as JsonSchema | undefined) : undefined;
   return variant ? { ...schema, items: variant } : schema;
 }

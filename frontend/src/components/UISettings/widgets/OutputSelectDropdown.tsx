@@ -7,17 +7,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { AreaEntity } from '@/types/config';
+import type { OutputGroupRecord } from '../ActionFields/types';
+
+/** An entry the dropdown can list: a local or remote output, or an output
+ *  group mixed in with `isGroup` set. */
+export interface OutputSelectOption {
+  id?: string;
+  name?: string;
+  area?: string;
+  boneio_output?: string;
+  /** Remote outputs only. */
+  device_id?: string;
+  /** Remote outputs only. */
+  output_id?: string;
+  isGroup?: boolean;
+}
 
 interface OutputSelectDropdownProps {
   value: string;
   onChange: (value: string) => void;
-  allOutputs: any[];
-  allAreas: any[];
+  allOutputs: OutputSelectOption[];
+  allAreas: AreaEntity[];
   placeholder?: string;
   /** Saved (committed) outputs for comparison - items not in saved are disabled */
-  savedOutputs?: any[];
+  savedOutputs?: OutputSelectOption[];
   /** Saved (committed) output groups for comparison */
-  savedOutputGroups?: any[];
+  savedOutputGroups?: OutputGroupRecord[];
   /** IDs to exclude from the list (e.g., to prevent selecting same output twice) */
   excludeIds?: string[];
   /** Hint message shown when no outputs are available */
@@ -47,10 +63,10 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
   const isOutputSaved = (outputId: string, isGroup: boolean): boolean => {
     if (isGroup) {
       if (!savedOutputGroups) return true; // If no saved data provided, assume all are saved
-      return savedOutputGroups.some((g: any) => g.id === outputId);
+      return savedOutputGroups.some((g) => g.id === outputId);
     } else {
       if (!savedOutputs) return true;
-      return savedOutputs.some((o: any) => {
+      return savedOutputs.some((o) => {
         const id = o.id || o.boneio_output;
         return id === outputId;
       });
@@ -62,7 +78,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
    * Remote outputs may have an empty `id` — in that case, generate
    * the same fallback as the backend: `${device_id}_${output_id}`.
    */
-  const deriveOutputId = (output: any): string => {
+  const deriveOutputId = (output: OutputSelectOption): string => {
     if (output.id) return output.id;
     if (output.boneio_output) return output.boneio_output;
     // Remote output fallback: device_id + output_id (mirrors backend logic)

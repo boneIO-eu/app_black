@@ -12,13 +12,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { JsonSchema } from '@/types/jsonSchema';
+import type { AreaEntity, OutputEntity } from '@/types/config';
+
+/** One `output_group` list item as edited here (other keys pass through untouched). */
+interface OutputGroupFormData {
+  [key: string]: unknown;
+  id?: string;
+  name?: string;
+  outputs?: string[];
+  output_type?: string;
+  area?: string;
+  all_on_behaviour?: boolean;
+}
 
 interface OutputGroupFormProps {
-  data: any;
-  onChange: (data: any) => void;
-  schema?: any;
-  allOutputs?: any[];
-  allAreas?: any[];
+  data: OutputGroupFormData;
+  onChange: (data: OutputGroupFormData) => void;
+  schema?: JsonSchema;
+  allOutputs?: OutputEntity[];
+  allAreas?: AreaEntity[];
 }
 
 const OutputGroupForm: React.FC<OutputGroupFormProps> = ({ 
@@ -50,7 +63,8 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
       const isRemote = !!output.remote_source;
       const effectiveId = isRemote
         ? (output.id || `${output.device_id}_${output.output_id}`)
-        : (output.id || output.boneio_output);
+        // The filter above only lets a local output through when it has boneio_output.
+        : ((output.id || output.boneio_output) as string);
       return {
         id: effectiveId,
         name: output.name || effectiveId,
@@ -64,9 +78,9 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
     .sort((a, b) => a.id.localeCompare(b.id)), [allOutputs]);
 
   // Extract enums from schema
-  const outputTypeOptions = schema?.items?.properties?.output_type?.enum || ['switch', 'light'];
+  const outputTypeOptions = (schema?.items?.properties?.output_type?.enum as string[] | undefined) || ['switch', 'light'];
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 

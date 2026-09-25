@@ -97,7 +97,7 @@ describe('Wizard config output', () => {
     area?: string;
     customId?: string;
   }) {
-    const config: Record<string, any> = {
+    const config: Record<string, unknown> = {
       model: params.model.modelKey,
       address: Number(params.address),
       name: params.name.trim(),
