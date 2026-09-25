@@ -387,6 +387,7 @@
                         "TOGGLE_OPEN",
                         "TOGGLE_CLOSE",
                         "SMART_TOGGLE",
+                        "SET_POSITION",
                         "TILT",
                         "TILT_OPEN",
                         "TILT_CLOSE"
@@ -409,7 +410,7 @@
                             "integer",
                             "string"
                           ],
-                          "description": "Position to set cover to",
+                          "description": "Position to set cover to for SET_POSITION. 0 means closed, 100 means opened.",
                           "title": "Position"
                         },
                         "tilt_position": {
@@ -429,7 +430,7 @@
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
                       "title": "Data"
                     },
                     "restore_tilt": {
@@ -982,6 +983,7 @@
                         "TOGGLE_OPEN",
                         "TOGGLE_CLOSE",
                         "SMART_TOGGLE",
+                        "SET_POSITION",
                         "TILT",
                         "TILT_OPEN",
                         "TILT_CLOSE"
@@ -1004,7 +1006,7 @@
                             "integer",
                             "string"
                           ],
-                          "description": "Position to set cover to",
+                          "description": "Position to set cover to for SET_POSITION. 0 means closed, 100 means opened.",
                           "title": "Position"
                         },
                         "tilt_position": {
@@ -1024,7 +1026,7 @@
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Currently used only for cover tilt.",
+                      "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
                       "title": "Data"
                     },
                     "restore_tilt": {

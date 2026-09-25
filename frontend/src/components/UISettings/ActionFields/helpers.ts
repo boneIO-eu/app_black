@@ -1,5 +1,5 @@
 import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
-import type { ActionCondition, ActionDef, ActionInput } from './types';
+import type { ActionCondition, ActionDef, ActionInput, CoverActionData } from './types';
 
 /**
  * Fields allowed per action type. When switching action type,
@@ -166,11 +166,14 @@ export const validateAction = (input: ActionInput, t: (key: string) => string): 
     if (!action.boneio_cover) return t('event_form.validation_cover_required');
   }
   
-  // TILT action requires tilt_position
+  // TILT action requires tilt_position, SET_POSITION requires position
   if (['cover', 'cover_over_mqtt', 'remote_cover', 'esphome_cover'].includes(actionType)) {
     const coverAction = action.action_cover || action.action_esphome_cover;
     if (coverAction === 'TILT' && (action.data?.tilt_position === undefined || action.data?.tilt_position === null || action.data?.tilt_position === '')) {
       return t('event_form.validation_tilt_position_required');
+    }
+    if (coverAction === 'SET_POSITION' && (action.data?.position === undefined || action.data?.position === null || action.data?.position === '')) {
+      return t('event_form.validation_position_required');
     }
   }
   
@@ -268,6 +271,46 @@ export const coverSupportsTilt = (cover: object | null | undefined): boolean => 
   if ('kind' in cover) return cover.kind === 'venetian';
   // Unknown — hide tilt by default (safer UX)
   return false;
+};
+
+/** The `data` key each parameterised cover action reads. */
+const COVER_DATA_KEY_BY_ACTION: Record<string, keyof CoverActionData> = {
+  SET_POSITION: 'position',
+  TILT: 'tilt_position',
+  SMART_TOGGLE: 'always_open_till',
+};
+
+/**
+ * The cover action's `data` after switching to `newAction`: keeps only the
+ * key that action reads, so a position typed for SET_POSITION does not ride
+ * along on OPEN (remote covers read `position` ahead of the action name).
+ * @returns The pruned data, or undefined when nothing is left
+ */
+export const coverDataForAction = (
+  data: CoverActionData | undefined,
+  newAction: string,
+): CoverActionData | undefined => {
+  const key = COVER_DATA_KEY_BY_ACTION[newAction];
+  if (!data || !key || data[key] === undefined) return undefined;
+  return { [key]: data[key] };
+};
+
+/**
+ * Removes SET_POSITION when discovery says the cover cannot be positioned.
+ * Unknown support keeps it: boneIO covers always take a position, and only
+ * ESPHome reports `supports_position`.
+ * @param actionOptions - Cover action option strings
+ * @param selectedCover - Currently selected cover object (or null/undefined)
+ * @returns Filtered list of action options
+ */
+export const filterCoverActionsByPosition = (
+  actionOptions: string[],
+  selectedCover: object | null | undefined,
+): string[] => {
+  if (selectedCover && 'supports_position' in selectedCover && selectedCover.supports_position === false) {
+    return actionOptions.filter(opt => opt !== 'SET_POSITION');
+  }
+  return actionOptions;
 };
 
 /**

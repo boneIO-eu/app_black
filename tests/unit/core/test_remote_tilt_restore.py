@@ -463,3 +463,47 @@ class TestRemoteCoverRestoreTiltDispatch:
                 await new_task
             except asyncio.CancelledError:
                 pass
+
+
+# ==================== REMOTE_COVER extra data filtering ====================
+
+
+class TestRemoteCoverExtraData:
+    """REMOTE_COVER passes only the data its action reads."""
+
+    async def _dispatch(self, action_cover: str, extra_data: dict[str, Any]) -> AsyncMock:
+        from boneio.core.manager.manager import Manager
+
+        manager = MagicMock(spec=Manager)
+        manager._pending_tilt_restores = {}
+        remote_mgr = _make_remote_manager()
+        remote_mgr.control_cover = AsyncMock(return_value=True)
+        manager.remote_devices = remote_mgr
+        manager._execute_single_action = Manager._execute_single_action.__get__(
+            manager, Manager
+        )
+        await manager._execute_single_action({
+            "action": "remote_cover",
+            "remote_device": "esp32",
+            "cover_id": "gabinet",
+            "action_cover": action_cover,
+            "extra_data": extra_data,
+        })
+        return remote_mgr.control_cover
+
+    async def test_set_position_sends_position(self):
+        control = await self._dispatch("SET_POSITION", {"position": 40})
+        control.assert_awaited_once_with(
+            device_id="esp32", cover_id="gabinet", action="SET_POSITION", position=40
+        )
+
+    async def test_stale_position_does_not_reach_open(self):
+        """ESPHome and MQTT read `position` before the action name — OPEN must stay OPEN."""
+        control = await self._dispatch("OPEN", {"position": 40, "tilt_position": 10})
+        control.assert_awaited_once_with(device_id="esp32", cover_id="gabinet", action="OPEN")
+
+    async def test_tilt_keeps_tilt_position(self):
+        control = await self._dispatch("TILT", {"tilt_position": 30, "position": 40})
+        control.assert_awaited_once_with(
+            device_id="esp32", cover_id="gabinet", action="TILT", tilt_position=30
+        )

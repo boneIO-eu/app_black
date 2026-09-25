@@ -53,7 +53,7 @@ export function buildAiWizardPrompt<T extends SupportedEntity>(params: WizardPro
     '   - Brightness level (0-255)',
     '   - Color temperature (if supported)',
     '6. When the user mentions a "cover" or "blind" or "roller shutter", ask about:',
-    '   - Cover action (TOGGLE, OPEN, CLOSE, STOP, SMART_TOGGLE, TILT)',
+    '   - Cover action (TOGGLE, OPEN, CLOSE, STOP, SMART_TOGGLE, SET_POSITION, TILT)',
     '   - Position (0-100) if applicable',
     '7. When the user mentions MQTT action, ask for the MQTT topic and message payload.',
     '8. Skip questions about features the user says they don\'t need.',

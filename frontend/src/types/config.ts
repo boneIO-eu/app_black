@@ -38,7 +38,7 @@ export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';
 /** Cover action options */
 export type CoverAction =
   | 'TOGGLE' | 'OPEN' | 'CLOSE' | 'STOP'
-  | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' | 'SMART_TOGGLE'
+  | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' | 'SMART_TOGGLE' | 'SET_POSITION'
   | 'TILT' | 'TILT_OPEN' | 'TILT_CLOSE';
 
 /** BoneIO input pin identifiers (IN_01 to IN_49 on boards 0.5+, IN_01 to IN_52 on boards 0.2–0.4) */

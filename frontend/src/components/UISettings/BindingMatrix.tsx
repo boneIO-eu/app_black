@@ -151,6 +151,7 @@ const ACTION_SHORT_KEYS: Record<string, string> = {
   OPEN: 'short_open',
   CLOSE: 'short_close',
   STOP: 'short_stop',
+  SET_POSITION: 'short_set_position',
 };
 
 /**

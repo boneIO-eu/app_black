@@ -74,7 +74,8 @@ const CoverOverMqttAction: React.FC<CoverOverMqttActionProps> = ({
             <SelectValue placeholder="Select action..." />
           </SelectTrigger>
           <SelectContent>
-            {actionCoverOptions.map((option: string) => (
+            {/* SET_POSITION needs a value, and this command topic carries only the action name */}
+            {actionCoverOptions.filter(opt => opt !== 'SET_POSITION').map((option: string) => (
               <SelectItem key={option} value={option}>
                 {formatActionLabel(option, t)}
               </SelectItem>

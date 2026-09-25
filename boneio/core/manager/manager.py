@@ -1231,7 +1231,13 @@ class Manager:
         elif action == REMOTE_COVER:
             assert entity_id and remote_device_id  # guaranteed by guard above
             action_cover = action_definition.get("action_cover", "TOGGLE")
-            extra_data = action_definition.get("extra_data", {})
+            # Same per-action filter as local covers: the remote protocols read
+            # `position` / `tilt_position` ahead of the action name, so a value
+            # left behind in `data` must not turn OPEN into a set-position.
+            extra_data = filter_cover_extra_data(
+                cover_actions.get(action_cover.upper(), ""),
+                action_definition.get("extra_data", {}),
+            )
             restore_tilt = action_definition.get("restore_tilt", False)
 
             # Save tilt before executing action (ESPHome only)
@@ -2096,7 +2102,13 @@ class Manager:
         if msg_type == OUTPUT and command == SET_BRIGHTNESS:
             target_device = self.outputs.get_output(device_id)
             if target_device and target_device.output_type != "none" and message != "":
-                brightness_val = int(message)
+                try:
+                    brightness_val = int(message)
+                except ValueError:
+                    _LOGGER.warning(
+                        "Invalid brightness '%s' for output %s.", message, device_id
+                    )
+                    return
                 # Brightness > 0 effectively turns ON — must respect interlock
                 if brightness_val > 0 and hasattr(target_device, "check_interlock") and not target_device.check_interlock():
                     _LOGGER.warning(

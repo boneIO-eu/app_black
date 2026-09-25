@@ -39,10 +39,10 @@ export type ActionConditionGroup = {
   list?: ActionCondition[];
 };
 
-/** Extra data carried by cover actions. `tilt_position` is '' or null while
- *  the field is being edited, which is what the validator looks for. */
+/** Extra data carried by cover actions. `position` / `tilt_position` are ''
+ *  or null while the field is being edited, which is what the validator looks for. */
 export type CoverActionData = {
-  position?: number;
+  position?: number | '' | null;
   tilt_position?: number | '' | null;
   always_open_till?: number;
 };

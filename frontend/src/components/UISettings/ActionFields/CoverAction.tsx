@@ -11,7 +11,7 @@ import { normalizeCovers } from '../helpers/coverUtils';
 import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import type { CoverActionProps } from './types';
-import { formatActionLabel } from './helpers';
+import { coverDataForAction, formatActionLabel } from './helpers';
 
 /** Tilt-related cover actions that only apply to venetian covers. */
 const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
@@ -109,14 +109,8 @@ const CoverAction: React.FC<CoverActionProps> = ({
           value={action.action_cover || 'TOGGLE'}
           onValueChange={(value) => {
             onUpdate('action_cover', value);
-            // Clear tilt_position data when switching away from TILT
-            if (value !== 'TILT') {
-              const currentData = action.data || {};
-              if (currentData.tilt_position !== undefined) {
-                const { tilt_position, ...rest } = currentData;
-                onUpdate('data', Object.keys(rest).length > 0 ? rest : undefined);
-              }
-            }
+            // Keep only the data the new action reads (position, tilt, threshold)
+            onUpdate('data', coverDataForAction(action.data, value));
           }}
         >
           <SelectTrigger className="w-full">
@@ -131,6 +125,29 @@ const CoverAction: React.FC<CoverActionProps> = ({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Position input — required for SET_POSITION action */}
+      {action.action_cover === 'SET_POSITION' && (
+        <div className="form-control mb-3">
+          <label className="label">
+            <span className="label-text font-medium">{t('event_form.cover_position')} <span className="text-error">*</span></span>
+          </label>
+          <NumericInput
+            className={(action.data?.position === undefined || action.data?.position === null || action.data?.position === '') ? 'input-error' : ''}
+            min={0}
+            max={100}
+            placeholder="50"
+            value={action.data?.position ?? ''}
+            onChange={(v) => {
+              const data = { ...(action.data || {}), position: v === '' ? undefined : v };
+              onUpdate('data', data);
+            }}
+          />
+          <label className="label">
+            <span className="label-text-alt">{t('event_form.cover_position_hint')}</span>
+          </label>
+        </div>
+      )}
 
       {/* Tilt position input — required for TILT action */}
       {action.action_cover === 'TILT' && (

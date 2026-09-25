@@ -117,7 +117,7 @@ const EventForm: React.FC<EventFormProps> = ({
   // Deduplicate: schema may provide both uppercase and lowercase variants
   const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
   const actionCoverOptions = (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum as string[] | undefined) || [
-    'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
+    'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'SET_POSITION', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
   ];
   const actionOutputOptions = (schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum as string[] | undefined) || [
     'TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'

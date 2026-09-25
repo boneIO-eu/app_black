@@ -1360,11 +1360,14 @@
     "esphome_cover_action": "Cover Action",
     "always_open_till": "Always open till (%)",
     "always_open_till_hint": "If cover position is at or below this value, it will always open. Above it, normal toggle applies.",
+    "cover_position": "Cover position (%)",
+    "cover_position_hint": "Position the cover moves to (0 = fully closed, 100 = fully open). Required for the Set position action.",
     "tilt_position": "Tilt Position (%)",
     "tilt_position_hint": "Tilt position to set (0 = fully closed lamellae, 100 = fully open). Required for TILT action.",
     "restore_tilt": "Restore tilt after movement",
     "restore_tilt_hint": "Save tilt angle before this action and restore it after movement ends",
     "validation_tilt_position_required": "Tilt position is required for TILT action (0-100)",
+    "validation_position_required": "Position is required for the Set position action (0-100)",
     "validation_esphome_device_required": "ESPHome device is required",
     "duration_thresholds": "Duration Thresholds",
     "duration_thresholds_hint": "Optional: Execute this action only when long press duration is within specified range (in milliseconds)",
@@ -2184,6 +2187,7 @@
     "toggle_open": "Toggle Open",
     "toggle_close": "Toggle Close",
     "smart_toggle": "Smart Toggle",
+    "set_position": "Set position",
     "tilt": "Tilt",
     "tilt_open": "Tilt Open",
     "tilt_close": "Tilt Close",
@@ -2206,7 +2210,8 @@
     "short_off": "OFF",
     "short_open": "OPN",
     "short_close": "CLS",
-    "short_stop": "STP"
+    "short_stop": "STP",
+    "short_set_position": "POS"
   },
   "blueprints": {
     "title": "Action Templates",

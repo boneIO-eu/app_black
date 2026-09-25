@@ -6,6 +6,8 @@ import {
   validateCondition,
   coverSupportsTilt,
   filterCoverActionsByTilt,
+  filterCoverActionsByPosition,
+  coverDataForAction,
   TILT_ACTIONS,
 } from './helpers';
 
@@ -589,6 +591,42 @@ describe('TILT_ACTIONS', () => {
 
   it('has 3 entries', () => {
     expect(TILT_ACTIONS).toHaveLength(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SET_POSITION
+// ---------------------------------------------------------------------------
+
+describe('SET_POSITION', () => {
+  it('requires a position', () => {
+    const base = { action: 'cover', boneio_cover: 'blind_01', action_cover: 'SET_POSITION' } as const;
+    expect(validateAction(base, t)).toBe('event_form.validation_position_required');
+    expect(validateAction({ ...base, data: { position: '' } }, t)).toBe('event_form.validation_position_required');
+    expect(validateAction({ ...base, data: { position: 0 } }, t)).toBeNull();
+  });
+
+  it('is hidden only when discovery says the cover cannot be positioned', () => {
+    const opts = ['OPEN', 'SET_POSITION'];
+    expect(filterCoverActionsByPosition(opts, { id: 'c1', supports_position: false })).toEqual(['OPEN']);
+    expect(filterCoverActionsByPosition(opts, { id: 'c1', supports_position: true })).toEqual(opts);
+    expect(filterCoverActionsByPosition(opts, { id: 'c1' })).toEqual(opts);
+    expect(filterCoverActionsByPosition(opts, undefined)).toEqual(opts);
+  });
+});
+
+describe('coverDataForAction', () => {
+  it('keeps only the key the new action reads', () => {
+    const data = { position: 40, tilt_position: 20, always_open_till: 60 };
+    expect(coverDataForAction(data, 'SET_POSITION')).toEqual({ position: 40 });
+    expect(coverDataForAction(data, 'TILT')).toEqual({ tilt_position: 20 });
+    expect(coverDataForAction(data, 'SMART_TOGGLE')).toEqual({ always_open_till: 60 });
+  });
+
+  it('drops everything for actions without data', () => {
+    expect(coverDataForAction({ position: 40 }, 'OPEN')).toBeUndefined();
+    expect(coverDataForAction({ tilt_position: 20 }, 'SET_POSITION')).toBeUndefined();
+    expect(coverDataForAction(undefined, 'TILT')).toBeUndefined();
   });
 });
 

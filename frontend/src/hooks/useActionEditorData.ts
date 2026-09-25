@@ -19,7 +19,7 @@ export const ACTION_OUTPUT_OPTIONS = [
 /** Commands for a cover action, as the input editor offers them. */
 export const ACTION_COVER_OPTIONS = [
   'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE',
-  'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE',
+  'SMART_TOGGLE', 'SET_POSITION', 'TILT', 'TILT_OPEN', 'TILT_CLOSE',
 ];
 
 /** The entity lists ActionFields needs, in the shape Settings passes them. */
