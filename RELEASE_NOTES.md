@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev16` exists so that we can test the new system-migration chain on a
+`1.6.0.dev17` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,45 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev17 — internal test build
+
+## Since dev16
+
+A device with no administrator has refused its API since 1.6 — a fresh
+image, or an update from 1.5 that had no `web.auth` to migrate — but the
+OLED said so only once, at boot, and then went dark with the rest of the
+screensaver. The display now opens on a notice instead — "Setup required",
+"Onboarding needed.", "Open in a browser:" and the panel's address — and does
+not sleep while it stands. The button still leafs through the configured
+screens, and a minute without a press brings the notice back rather than
+dimming the panel. The address is rebuilt every few seconds, so a DHCP lease
+handed out after boot appears, and a cloud address too wide for the panel
+breaks after a dot instead of losing its port. Whether an admin exists is
+checked every five seconds, so the notice clears itself however the account
+was created — the wizard, the accounts CLI, a restored backup. Checked with
+a luma render and the test suite; not yet seen on a physical display.
+
+`/boot/firmware`, the small FAT partition a PC can open, was in fstab
+without `nofail`, so local-fs.target required it. FAT has no journal, and a
+power cut while it is mounted read-write leaves it dirty — the test
+controller carried two `FSCK*.REC` files already. The day `fsck.fat` or the
+mount gives up, systemd drops to emergency mode with a healthy root, no
+network and no panel; U-Boot reads `uEnv.txt` and the kernel from the ext4
+root, so nothing the boot actually needs was ever at risk. Migration 1.6.23
+teaches the migration helper a new action, `fstab_add_options`, which edits
+only the options field of one mount point's entries, atomically, and only
+with options it lists itself; 1.6.24 applies `nofail` to `/boot/firmware`.
+Needs the helper from 1.6.23. 1.6.24 is v2-only. New images get the option
+from the eMMC flasher directly, so this pair is for controllers already
+installed.
+
+Two new system migrations, 1.6.23 and 1.6.24. Plans 1.6.5, 1.6.16 and
+1.6.19 are re-signed because they install `boneio-migrate-v2`, which
+changed; at release, only the manifest gets a new signature on top of that,
+because it names the release.
 
 ---
 

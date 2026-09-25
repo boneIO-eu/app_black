@@ -6,6 +6,49 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev17 (2026-09-25) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 📟 "Setup required" stays on the OLED until an admin exists
+
+- **The display now opens on a notice, not a blank panel.** A device with no
+  administrator refuses its API from 1.6 on — a fresh image, or an update
+  from 1.5 that had no `web.auth` to migrate — and until now the boot screen
+  said so once and then went quiet, screensaver and all, leaving whoever
+  walked up to the cabinet with nothing on the glass.
+- **It does not sleep while the notice stands.** "Setup required",
+  "Onboarding needed.", "Open in a browser:" and the panel's address replace
+  the screensaver for as long as there is no administrator.
+- **The button still leafs through the configured screens**; a minute
+  without a press brings the notice back instead of dimming the display.
+- **The address rebuilds every few seconds**, so a DHCP lease handed out
+  after boot appears on the display, and a cloud address too wide for the
+  panel breaks after a dot instead of losing its port.
+- **The notice clears itself.** Whether an admin exists is checked every
+  five seconds, so it goes away however the account was created — the
+  first-run wizard, the accounts CLI, or a restored backup. Checked with a
+  luma render and the test suite; not yet seen on a physical display.
+
+### 🛟 A damaged boot partition no longer stops the boot
+
+- **`/boot/firmware` mounts `nofail`.** It is the small FAT partition a PC
+  can open — `sysconf.txt`, `boneio.txt` — and nothing the boot needs lives
+  there; U-Boot reads `uEnv.txt` and the kernel from the ext4 root. FAT has
+  no journal, and a power cut while it is mounted read-write leaves it
+  dirty. Without `nofail`, the day `fsck.fat` or the mount gives up,
+  systemd drops to emergency mode with a healthy root, no network and no
+  panel.
+- **Migration 1.6.23 teaches the helper a new action, `fstab_add_options`**,
+  which edits only the options field of one mount point's entries, and only
+  with options the helper itself lists for that mount point.
+- **Migration 1.6.24 applies it** to `/boot/firmware`. Needs the helper from
+  1.6.23. 1.6.24 is v2-only.
+- Plans 1.6.5, 1.6.16 and 1.6.19 are re-signed because they install
+  `boneio-migrate-v2`, which changed.
+- New images get `nofail` on `/boot/firmware` from the eMMC flasher, so this
+  is for controllers already installed.
+
 ## v1.6.0.dev16 (2026-09-25) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
