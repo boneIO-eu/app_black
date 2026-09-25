@@ -8,7 +8,7 @@ import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import EntityInfoCard from './entityCard/EntityInfoCard';
 import { historyFormatters } from './entityCard/format';
 import { historyKey, recordTemplates } from '@/utils/entityHistory';
-import type { AlarmState, GateState, TemplatesData, ThermostatState } from './templates/types';
+import type { AlarmCommandResult, AlarmState, GateState, TemplatesData, ThermostatState } from './templates/types';
 import ThermostatCard from './templates/ThermostatCard';
 import AlarmCard from './templates/AlarmCard';
 import GateCard from './templates/GateCard';
@@ -112,14 +112,26 @@ export default function TemplatesView() {
   }, []);
 
   // -- Alarm actions --
-  const sendAlarmCommand = useCallback(async (id: string, command: string, code?: string) => {
+  const sendAlarmCommand = useCallback(async (id: string, command: string, code?: string): Promise<AlarmCommandResult> => {
     try {
       const body: Record<string, string> = { command };
       if (code) body.code = code;
       await axios.post(`/api/templates/alarms/${id}/command`, body);
       fetchRef.current();
+      return { ok: true };
     } catch (err) {
+      // 403 is a wrong or missing code, 429 the lockout after too many; the
+      // PIN pad says which. Refetch either way, so the tile shows the
+      // lockout countdown the controller now reports.
+      fetchRef.current();
+      const response = (err as { response?: { status?: number; data?: { detail?: { reason?: string; retry_after?: number } } } }).response;
+      const detail = response?.data?.detail;
+      if (response?.status === 429) return { ok: false, reason: 'locked', retryAfter: detail?.retry_after };
+      if (response?.status === 403 && (detail?.reason === 'invalid_code' || detail?.reason === 'code_required')) {
+        return { ok: false, reason: detail.reason };
+      }
       console.error('Error sending alarm command:', err);
+      return { ok: false, reason: 'error' };
     }
   }, []);
 

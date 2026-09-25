@@ -1917,7 +1917,13 @@
     "open": "Open",
     "close": "Close",
     "cancel": "Cancel",
-    "enter_pin": "Enter PIN code"
+    "enter_pin": "Enter PIN code",
+    "pin_invalid": "Wrong code",
+    "pin_locked": "Too many wrong codes. Try again in {{s}} s",
+    "pin_locked_short": "Codes locked for {{s}} s",
+    "pin_error": "Could not send the command",
+    "pin_backspace": "Delete digit",
+    "pin_digits": "{{n}} digits entered"
   },
   "startup": {
     "initializing": "Initializing...",

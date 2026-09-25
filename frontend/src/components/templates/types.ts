@@ -15,7 +15,14 @@ export interface AlarmState {
   code_required: boolean;
   code_arm_required: boolean;
   arming_remaining_s?: number;
+  /** Seconds until codes are checked again after too many wrong ones. */
+  code_locked_s?: number;
 }
+
+/** What became of an alarm command, as far as the PIN pad needs to know. */
+export type AlarmCommandResult =
+  | { ok: true }
+  | { ok: false; reason: 'invalid_code' | 'code_required' | 'locked' | 'error'; retryAfter?: number };
 
 export interface GateState {
   id: string;

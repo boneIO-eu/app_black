@@ -46,7 +46,9 @@ export function TemplateTile({
           {!embedded && <span className="text-base font-medium truncate">{name}</span>}
           <span className="flex items-center gap-1.5 text-sm text-base-content/70">
             <span className={clsx('w-2 h-2 rounded-full shrink-0', DOT_TONE[tone])} aria-hidden="true" />
-            <span className="truncate">{state}</span>
+            {/* min-w-0: a flex item will not shrink below its text without it,
+                and a long state pushed the tile wider than its column. */}
+            <span className="truncate min-w-0">{state}</span>
           </span>
         </div>
         {action}

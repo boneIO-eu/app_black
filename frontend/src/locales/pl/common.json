@@ -1916,7 +1916,13 @@
     "open": "Otwórz",
     "close": "Zamknij",
     "cancel": "Anuluj",
-    "enter_pin": "Wprowadź kod PIN"
+    "enter_pin": "Wprowadź kod PIN",
+    "pin_invalid": "Błędny kod",
+    "pin_locked": "Za dużo błędnych kodów. Spróbuj ponownie za {{s}} s",
+    "pin_locked_short": "Kody zablokowane na {{s}} s",
+    "pin_error": "Nie udało się wysłać polecenia",
+    "pin_backspace": "Usuń cyfrę",
+    "pin_digits": "Wpisano cyfr: {{n}}"
   },
   "startup": {
     "initializing": "Inicjalizacja...",
