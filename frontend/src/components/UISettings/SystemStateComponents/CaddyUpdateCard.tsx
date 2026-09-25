@@ -44,7 +44,7 @@ export const CaddyUpdateCard: React.FC = () => {
 
   const refresh = useCallback(async () => {
     try {
-      const { data } = await axios.get<CaddyState>('/api/os-update/caddy');
+      const { data } = await axios.get<CaddyState>('/api/os-update/caddy', { timeout: 30_000 });
       setState(data);
       return data;
     } catch {
@@ -72,7 +72,7 @@ export const CaddyUpdateCard: React.FC = () => {
     if (!confirm(t('caddy_update.confirm'))) return;
     setError(null);
     try {
-      await axios.post('/api/os-update/caddy/apply');
+      await axios.post('/api/os-update/caddy/apply', null, { timeout: 30_000 });
       setKick(k => k + 1);
     } catch (err) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;

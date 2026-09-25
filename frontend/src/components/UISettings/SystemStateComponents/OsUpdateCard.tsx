@@ -54,6 +54,13 @@ interface OsUpdateState {
 const POLL_MS = 3000;
 
 /**
+ * Every call here runs the Python system helper through sudo on a BeagleBone:
+ * 2-3 s idle and over the axios default of 5 s while an upgrade or a first boot
+ * has the CPU. Timing out then showed an error for a request that succeeded.
+ */
+const HELPER_TIMEOUT = { timeout: 30_000 };
+
+/**
  * Seconds per package on a BeagleBone, measured on the dev controller
  * (2026-09-24): 161 packages — a new kernel, systemd, OpenSSH, python3.13,
  * docker.io — took 1770 s from apt-get update to the kernel check, most of it
@@ -104,10 +111,10 @@ export const OsUpdateCard: React.FC = () => {
 
   const refresh = useCallback(async () => {
     try {
-      const { data } = await axios.get<OsUpdateState>('/api/os-update/state');
+      const { data } = await axios.get<OsUpdateState>('/api/os-update/state', HELPER_TIMEOUT);
       setState(data);
       if (data.running || data.last?.result === 'running') {
-        const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log');
+        const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log', HELPER_TIMEOUT);
         setLog(logData.log);
       }
       return data;
@@ -126,7 +133,7 @@ export const OsUpdateCard: React.FC = () => {
         timer.current = setTimeout(tick, POLL_MS);
       } else if (!cancelled && data?.last) {
         // One last read, so the finished run's log is on screen.
-        const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log');
+        const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log', HELPER_TIMEOUT);
         if (!cancelled) setLog(logData.log);
       }
     };
@@ -142,7 +149,7 @@ export const OsUpdateCard: React.FC = () => {
     setError(null);
     setSwitching(true);
     try {
-      await axios.post('/api/os-update/autoupdate', { enabled });
+      await axios.post('/api/os-update/autoupdate', { enabled }, HELPER_TIMEOUT);
       await refresh();
     } catch (err) {
       setError(apiDetail(err) || t('os_update.autoupdate_failed'));
@@ -166,7 +173,7 @@ export const OsUpdateCard: React.FC = () => {
     setError(null);
     setStarting(true);
     try {
-      await axios.post(`/api/os-update/${mode}`);
+      await axios.post(`/api/os-update/${mode}`, null, HELPER_TIMEOUT);
       watchUntil.current = Date.now() + 15000;
     } catch (err) {
       setError(apiDetail(err) || t('os_update.start_failed'));

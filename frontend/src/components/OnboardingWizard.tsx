@@ -175,7 +175,16 @@ export default function OnboardingWizard() {
 
     setIsSubmitting(true);
     try {
-      const response = await axios.post('/api/onboarding/admin', { username, password });
+      // Not the default 5 s. On a BeagleBone this is a scrypt hash plus two
+      // runs of the Python system helper (the SSH password's state, then
+      // chpasswd) — past 5 s easily on a first boot that is also pulling
+      // containers. The panel then said "could not create the account" while
+      // the server went on and created it, and the retry met "already set up".
+      const response = await axios.post(
+        '/api/onboarding/admin',
+        { username, password },
+        { timeout: 60_000 },
+      );
       // The device is now ours; adopt the token before anything else so the
       // remaining steps run authenticated rather than through the open window.
       loginWithToken(response.data.token);

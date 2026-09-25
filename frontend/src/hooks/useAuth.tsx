@@ -92,7 +92,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await axios.post('/api/login', { username, password });
+      // scrypt costs ~0.9 s on a BeagleBone, more while it is busy: the 5 s
+      // default is too close to call a failure.
+      const response = await axios.post('/api/login', { username, password }, { timeout: 30_000 });
       const { token } = response.data;
       localStorage.setItem('token', token);
       // Token is automatically added by axios interceptor from localStorage
