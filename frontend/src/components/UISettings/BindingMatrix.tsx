@@ -153,6 +153,31 @@ const ACTION_SHORT_KEYS: Record<string, string> = {
   STOP: 'short_stop',
 };
 
+/**
+ * Row colours per input kind — the same pair the input settings use
+ * (event = primary, binary_sensor = warning), so a row reads as the kind
+ * of input it is without opening it.
+ *
+ * The row header is sticky and cells scroll underneath it, so its tint is
+ * mixed into base-100 rather than laid over it with alpha.
+ */
+const INPUT_KIND_STYLE: Record<InputRow['inputKind'], { header: string; headerHover: string; card: string; dot: string; labelKey: string }> = {
+  event: {
+    header: 'bg-[color-mix(in_oklab,var(--color-primary)_13%,var(--color-base-100))] shadow-[inset_3px_0_0_var(--color-primary)]',
+    headerHover: 'bg-[color-mix(in_oklab,var(--color-primary)_22%,var(--color-base-100))] shadow-[inset_3px_0_0_var(--color-primary)]',
+    card: 'border-l-4 border-l-primary',
+    dot: 'bg-primary',
+    labelKey: 'sections.event',
+  },
+  binary_sensor: {
+    header: 'bg-[color-mix(in_oklab,var(--color-warning)_15%,var(--color-base-100))] shadow-[inset_3px_0_0_var(--color-warning)]',
+    headerHover: 'bg-[color-mix(in_oklab,var(--color-warning)_25%,var(--color-base-100))] shadow-[inset_3px_0_0_var(--color-warning)]',
+    card: 'border-l-4 border-l-warning',
+    dot: 'bg-warning',
+    labelKey: 'sections.binary_sensor',
+  },
+};
+
 /** Full legend items for the legend card — keys reference binding_matrix.legend_* */
 const CLICK_TYPE_LEGEND: { key: string; labelKey: string; icon: string }[] = [
   { key: 'single', labelKey: 'binding_matrix.legend_single', icon: '1×' },
@@ -461,6 +486,13 @@ function StatsBanner({ inputs, outputs, t }: {
           {ACTION_LEGEND_KEYS.map(item => (
             <span key={item.shortKey} className="text-xxs text-base-content/60 whitespace-nowrap">
               <span className="font-mono font-bold text-base-content/80">{t(item.shortKey)}</span> {t(item.labelKey)}
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 pt-1.5 border-base-content/10 border-t">
+          {Object.values(INPUT_KIND_STYLE).map(kind => (
+            <span key={kind.labelKey} className="flex items-center gap-1 text-xxs text-base-content/60 whitespace-nowrap">
+              <span className={clsx('inline-block rounded-sm w-2.5 h-2.5', kind.dot)} /> {t(kind.labelKey)}
             </span>
           ))}
         </div>
@@ -888,12 +920,14 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
               >
                 <td
                   className={clsx(
-                    'group/row left-0 z-10 sticky bg-base-100 border-base-300 border-r font-medium text-xs cursor-pointer',
-                    hoverRow === row.id && 'bg-base-200/60',
+                    'group/row left-0 z-10 sticky border-base-300 border-r font-medium text-xs cursor-pointer',
+                    hoverRow === row.id
+                      ? INPUT_KIND_STYLE[row.inputKind].headerHover
+                      : INPUT_KIND_STYLE[row.inputKind].header,
                     row.bindings.length === 0 && 'text-base-content/30',
                   )}
                   onClick={() => onEditInput(row)}
-                  title={t('binding_matrix.click_to_edit')}
+                  title={`${t(INPUT_KIND_STYLE[row.inputKind].labelKey)}\n${t('binding_matrix.click_to_edit')}`}
                 >
                   <div className="flex items-center gap-1 max-w-30 font-bold truncate" title={row.id}>
                     {row.name}
@@ -1043,6 +1077,7 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
             className={clsx(
               'border rounded-xl overflow-hidden transition-colors',
               hasBind ? 'border-success/20 bg-success/5' : 'border-base-300 bg-base-200/30',
+              INPUT_KIND_STYLE[input.inputKind].card,
             )}
           >
             <button
