@@ -316,8 +316,8 @@ class DisplayManager:
             self._oled._sleep_timeout = TimePeriod(seconds=int(timeout_seconds))
 
             # Reset to first screen and refresh
-            if self._configured_screen_order:
-                self._oled._current_screen = self._configured_screen_order[0]
+            # The notice, if one stands, stays first.
+            self._oled._current_screen = self._oled.first_screen()
             self._oled.render_display()
 
             _LOGGER.info(

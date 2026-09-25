@@ -74,3 +74,36 @@ def test_missing_display_is_fine(config_file):
     with patch("boneio.runner._draw_startup_status") as draw:
         _warn_if_setup_required(None, config_file, {"port": 8090})
     draw.assert_called_once()
+
+
+def test_the_notice_goes_to_the_running_display(config_file):
+    """The boot-screen line is gone once the screens start; this one stays."""
+    from unittest.mock import MagicMock
+
+    from boneio.runner import _show_setup_notice
+
+    manager = MagicMock()
+    manager.config_helper.configuration_url = None
+    _show_setup_notice(manager, config_file, 8090)
+
+    oled = manager.display.get_oled.return_value
+    title, lines = oled.show_notice.call_args.args
+    assert title == "Setup required"
+    assert "http://<device-ip>:8090" in lines()
+    still_needed = oled.show_notice.call_args.kwargs["still_needed"]
+    assert still_needed() is True
+
+    store = UserStore.for_config_file(config_file)
+    store.load()
+    store.add_user("admin", "a-long-password-1", Role.ADMIN)
+    assert still_needed() is False
+
+
+def test_no_display_is_fine(config_file):
+    from unittest.mock import MagicMock
+
+    from boneio.runner import _show_setup_notice
+
+    manager = MagicMock()
+    manager.display.get_oled.return_value = None
+    _show_setup_notice(manager, config_file, 8090)

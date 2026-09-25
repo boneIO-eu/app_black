@@ -65,7 +65,10 @@ class FakeCanvas:
         self._device = device
 
     def __enter__(self):
-        return MagicMock()  # acts as PIL ImageDraw
+        draw = MagicMock()  # acts as PIL ImageDraw
+        # Measured like a 7 pt font: about 4.5 px a character.
+        draw.textlength.side_effect = lambda text, font=None: 4.5 * len(text)
+        return draw
 
     def __exit__(self, *args):
         pass
@@ -340,3 +343,95 @@ class TestOledShutdownFlow:
         await oled._handle_button_press(event)
 
         assert oled._shutdown_state is None
+
+
+# ---------------------------------------------------------------------------
+# Tests – Notice ("Setup required")
+# ---------------------------------------------------------------------------
+
+
+class TestOledNotice:
+    """A notice stands first, keeps the display awake and goes by itself."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_canvas(self):
+        with patch("boneio.hardware.display.oled.canvas", FakeCanvas):
+            yield
+
+    @staticmethod
+    def _notice(oled, needed):
+        oled.show_notice("Setup required", lambda: ["Open:", "http://x:8090"], lambda: needed[0])
+
+    @pytest.mark.asyncio
+    async def test_the_notice_is_shown_and_does_not_sleep(self):
+        from boneio.hardware.display.oled import NOTICE
+
+        oled, _ = _make_oled(asyncio.get_running_loop(), sleep_seconds=1)
+        self._notice(oled, [True])
+
+        assert oled._current_screen == NOTICE
+        assert oled._cancel_sleep_handle is None
+        assert oled.first_screen() == NOTICE
+
+    @pytest.mark.asyncio
+    async def test_idle_on_another_screen_comes_back_instead_of_sleeping(self):
+        from boneio.const import SINGLE
+        from boneio.hardware.display.oled import NOTICE
+
+        oled, _ = _make_oled(asyncio.get_running_loop(), sleep_seconds=1)
+        self._notice(oled, [True])
+        await oled._handle_button_press(SimpleNamespace(click_type=SINGLE, duration=0.0))
+        assert oled._current_screen == "uptime"
+        assert oled._cancel_sleep_handle is not None
+
+        await oled._sleep_callback(None)
+        assert oled._current_screen == NOTICE
+        assert not oled._sleep
+
+    @pytest.mark.asyncio
+    async def test_it_goes_once_no_longer_needed_and_sleep_returns(self):
+        oled, _ = _make_oled(asyncio.get_running_loop(), sleep_seconds=30)
+        needed = [True]
+        self._notice(oled, needed)
+
+        oled._check_notice()
+        assert oled.notice is not None
+        needed[0] = False
+        oled._check_notice()
+
+        assert oled.notice is None
+        assert oled._current_screen == "uptime"
+        assert oled._cancel_sleep_handle is not None  # screensaver back
+        oled.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_lines_are_rebuilt_at_each_check(self):
+        oled, _ = _make_oled(asyncio.get_running_loop())
+        url = ["http://<device-ip>:8090"]
+        oled.show_notice("Setup required", lambda: ["Open:", url[0]], lambda: True)
+        url[0] = "http://192.168.50.220:8090"
+        oled._check_notice()
+        assert oled.notice == ("Setup required", ["Open:", "http://192.168.50.220:8090"])
+        oled.shutdown()
+
+    def test_a_long_address_breaks_after_a_dot_and_keeps_its_port(self):
+        from boneio.hardware.display.oled import _split_to_width
+
+        draw = FakeCanvas(None).__enter__()
+        parts = _split_to_width(draw, "https://blk265f49.black.boneio.app:8443", None, 124)
+        assert len(parts) == 2
+        assert "".join(parts) == "https://blk265f49.black.boneio.app:8443"
+        assert parts[0].endswith((".", ":", "/"))
+        assert _split_to_width(draw, "http://10.0.0.2:8090", None, 124) == ["http://10.0.0.2:8090"]
+
+    @pytest.mark.asyncio
+    async def test_a_failing_check_keeps_the_notice(self):
+        oled, _ = _make_oled(asyncio.get_running_loop())
+
+        def boom():
+            raise OSError("users.json unreadable")
+
+        oled.show_notice("Setup required", lambda: [], boom)
+        oled._check_notice()
+        assert oled.notice is not None
+        oled.shutdown()
