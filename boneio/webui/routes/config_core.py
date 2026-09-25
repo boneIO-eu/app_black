@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -640,9 +641,18 @@ async def _apply_cloud_toggle(app_state, previous: object, current: object) -> s
 
 
 
+# Every configuration section is a snake_case key. The route below writes
+# whatever name it is given into config.yaml, so a path that is not one — an
+# endpoint registered after it, like /config/quick-action — would otherwise be
+# stored as a section of that name instead of reaching its own handler.
+_SECTION_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
+    if not _SECTION_NAME.match(section):
+        raise HTTPException(status_code=404, detail=f"Not a configuration section: '{section}'")
     # The client was shown a placeholder instead of each configured secret, and
     # posts the whole section back. Anything still carrying the placeholder is
     # resolved from what is stored, so saving an unrelated field cannot

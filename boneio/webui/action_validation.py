@@ -16,6 +16,10 @@ ACTION_ALLOWED_FIELDS: dict[str, set[str]] = {
     "output": {"boneio_output", "action_output"},
     "cover": {"boneio_cover", "action_cover", "data", "restore_tilt"},
     "mqtt": {"topic", "action_mqtt_msg"},
+    # Sets a flag that conditions read. Offered by the input editor since
+    # virtual switches landed, but missing here, so saving an input that used
+    # it was refused as an unknown action type.
+    "virtual_switch": {"boneio_virtual_switch", "action_output"},
     "output_over_mqtt": {"boneio_id", "boneio_output", "action_output", "action_mqtt_msg"},
     "cover_over_mqtt": {"boneio_id", "boneio_cover", "action_cover", "action_mqtt_msg"},
     "remote_output": {

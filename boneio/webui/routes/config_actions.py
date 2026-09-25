@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import threading
@@ -32,6 +33,13 @@ from boneio.core.config.input_bindings import (
     taken_inputs,
 )
 from boneio.core.manager import Manager
+from boneio.core.utils import TimePeriod
+from boneio.webui.action_validation import (
+    ACTION_ALLOWED_FIELDS,
+    SHARED_FIELDS,
+    clean_action_fields,
+    validate_action_fields,
+)
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 from boneio.webui.routes.config_core import (
     _get_app_state,
@@ -173,6 +181,28 @@ EVENT_CLICK_TYPES = (
     "double_then_long", "single_then_long", "double_then_single",
 )
 
+BINARY_CLICK_TYPES = ("pressed", "released")
+
+# Where a binary input kept its actions before they moved under ``actions``.
+# Only this module ever wrote them, and the config loader purges unknown keys,
+# so an action saved there vanished at the next restart. Read and moved on edit.
+_LEGACY_BINARY_KEYS = {"actions_on_press": "pressed", "actions_on_release": "released"}
+
+# Fields that name what an action drives, per action type. A full action from
+# the editor must carry them: the section validator checks which fields are
+# allowed, not which are present, and an action without a target loads as a
+# warning and then does nothing.
+_ACTION_TARGET_FIELDS: dict[str, tuple[str, ...]] = {
+    "output": ("boneio_output",),
+    "cover": ("boneio_cover",),
+    "virtual_switch": ("boneio_virtual_switch",),
+    "mqtt": ("topic",),
+    "output_over_mqtt": ("boneio_id", "boneio_output"),
+    "cover_over_mqtt": ("boneio_id", "boneio_cover"),
+    "remote_output": ("remote_device", "output_id"),
+    "remote_cover": ("remote_device", "cover_id"),
+}
+
 VALID_ACTION_TYPES = {
     "output", "cover", "remote_output", "remote_cover",
     "mqtt", "output_over_mqtt", "cover_over_mqtt",
@@ -268,6 +298,113 @@ def _build_action(payload: dict) -> dict:
     return new_action
 
 
+def _strip_empty(value):
+    """Drop ``None`` and empty-string values, recursively.
+
+    The editor leaves a cleared field as ``""`` and the YAML should not carry
+    it — the section save strips the same way before Cerberus sees it.
+
+    Args:
+        value: Any JSON value.
+
+    Returns:
+        The value without empty leaves.
+    """
+    if isinstance(value, dict):
+        return {k: _strip_empty(v) for k, v in value.items() if v is not None and v != ""}
+    if isinstance(value, list):
+        return [_strip_empty(v) for v in value if v is not None and v != ""]
+    return value
+
+
+def _plain_time_periods(value):
+    """Turn every time period into the string the YAML carries ("800ms").
+
+    Actions are read from the parsed config, where a duration is a TimePeriod
+    object. JSON-encoded it becomes a dict of its internals, which the editor
+    cannot show and which, sent back, the config loader refuses — the device
+    would not start. The input editor converts these on load; this makes the
+    routes safe without depending on that.
+
+    Args:
+        value: Any value from an action.
+
+    Returns:
+        The value with each TimePeriod (object, or its JSON dict) as a string.
+    """
+    if isinstance(value, TimePeriod):
+        return str(value)
+    if isinstance(value, dict):
+        if "_total_in_seconds" in value:
+            total = value.get("_total_in_seconds")
+            if isinstance(total, (int, float)) and not isinstance(total, bool):
+                whole_seconds = float(total).is_integer()
+                return str(TimePeriod(seconds=total) if whole_seconds else TimePeriod(milliseconds=total * 1000))
+        return {k: _plain_time_periods(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_plain_time_periods(v) for v in value]
+    return value
+
+
+def _normalize_action_def(raw) -> dict:
+    """Accept a whole action as the settings editor builds it.
+
+    This is what lets Teach Mode and the quick action offer everything the
+    input editor does — conditions, delays, repeat, brightness, tilt, presets —
+    instead of the handful of fields ``_build_action`` knows how to assemble.
+
+    Args:
+        raw: The ``action_def`` object from the request.
+
+    Returns:
+        A cleaned copy, ready to store.
+
+    Raises:
+        HTTPException: 422 when it is not an action this device can run.
+    """
+    if not isinstance(raw, dict):
+        raise HTTPException(status_code=422, detail="action_def must be an object")
+
+    action = _plain_time_periods(_strip_empty(copy.deepcopy(raw)))
+    action_type = str(action.get("action") or "").strip().lower()
+    if action_type not in ACTION_ALLOWED_FIELDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid action type: '{action_type}'. Must be one of {sorted(ACTION_ALLOWED_FIELDS)}",
+        )
+    action["action"] = action_type
+
+    # Leftovers from a type the user switched away from, not a mistake worth
+    # refusing; the section save drops them the same way.
+    clean_action_fields(action)
+    error = validate_action_fields(action)
+    if error:
+        raise HTTPException(status_code=422, detail=error)
+
+    missing = [f for f in _ACTION_TARGET_FIELDS.get(action_type, ()) if not action.get(f)]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{', '.join(missing)} required for {action_type} action",
+        )
+    return action
+
+
+def _action_from_payload(payload: dict) -> dict:
+    """The action a quick-action request asks to store.
+
+    Args:
+        payload: Request body. ``action_def`` carries a whole action; without
+            it the flat fields (``action_type``, ``output_id``...) are used.
+
+    Returns:
+        The action dict.
+    """
+    if "action_def" in payload:
+        return _normalize_action_def(payload["action_def"])
+    return _build_action(payload)
+
+
 def _find_input_entry(config: dict, entity_id: str) -> tuple[str, int]:
     """Locate an input entry by entity id across all input sections.
 
@@ -309,32 +446,43 @@ def _find_input_entry(config: dict, entity_id: str) -> tuple[str, int]:
 
 
 def _migrate_flat_action_keys(entry: dict, section: str) -> None:
-    """Merge legacy ``actions_<click>`` keys into the nested ``actions`` dict.
+    """Move actions stored under legacy keys into the nested ``actions`` dict.
+
+    Event inputs had ``actions_<click>`` keys; binary inputs had
+    ``actions_on_press``/``actions_on_release``, which the config loader purges
+    as unknown, so actions saved there were lost at the next restart.
 
     Args:
         entry: Input entry to normalize in place.
         section: Config section the entry belongs to.
     """
-    if section not in ("event", "remote_inputs"):
+    if _uses_binary_actions(entry, section):
+        legacy = _LEGACY_BINARY_KEYS
+    elif section in ("event", "remote_inputs"):
+        legacy = {f"actions_{act_type}": act_type for act_type in EVENT_CLICK_TYPES}
+    else:
         return
-    for act_type in EVENT_CLICK_TYPES:
-        flat_key = f"actions_{act_type}"
-        if flat_key in entry:
-            if not isinstance(entry.get("actions"), dict):
-                entry["actions"] = {}
-            existing = entry["actions"].get(act_type, [])
-            entry["actions"][act_type] = existing + entry.pop(flat_key)
+    for flat_key, click_type in legacy.items():
+        if flat_key not in entry:
+            continue
+        moved = entry.pop(flat_key)
+        if not isinstance(moved, list) or not moved:
+            continue
+        if not isinstance(entry.get("actions"), dict):
+            entry["actions"] = {}
+        existing = entry["actions"].get(click_type) or []
+        entry["actions"][click_type] = existing + moved
 
 
 def _uses_binary_actions(entry: dict, section: str) -> bool:
-    """Return True when the entry stores actions in on_press/on_release lists.
+    """Return True when the entry is a binary input (pressed/released).
 
     Args:
         entry: Input entry.
         section: Config section the entry belongs to.
 
     Returns:
-        True for binary_sensor style storage, False for the nested actions dict.
+        True for a binary sensor, False for an event input.
     """
     if section == "binary_sensor":
         return True
@@ -343,16 +491,37 @@ def _uses_binary_actions(entry: dict, section: str) -> bool:
     return False
 
 
-def _binary_actions_key(click_type: str) -> str:
-    """Map a click type to the binary_sensor action list key.
+def _click_type_for_entry(entry: dict, section: str, click_type: str) -> str:
+    """Check a click type against the kind of input it is stored on.
+
+    An event input has no ``pressed`` and a binary one no ``double``: an action
+    filed under the wrong one is never fired and the validator never looks at
+    it. ``single`` on a binary input is taken as ``pressed``, which is what the
+    quick action used to do.
 
     Args:
-        click_type: Click type such as ``pressed`` or ``released``.
+        entry: Input entry.
+        section: Config section the entry belongs to.
+        click_type: Requested click type.
 
     Returns:
-        Either ``actions_on_press`` or ``actions_on_release``.
+        The click type to use.
+
+    Raises:
+        HTTPException: 422 when the input has no such click type.
     """
-    return "actions_on_press" if click_type in ("pressed", "single") else "actions_on_release"
+    if _uses_binary_actions(entry, section):
+        if click_type == "single":
+            return "pressed"
+        allowed = BINARY_CLICK_TYPES
+    else:
+        allowed = EVENT_CLICK_TYPES
+    if click_type not in allowed:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Click type '{click_type}' does not apply to this input. Use one of {list(allowed)}",
+        )
+    return click_type
 
 
 def _get_target_list(entry: dict, section: str, click_type: str, *, create: bool = True) -> list:
@@ -368,20 +537,12 @@ def _get_target_list(entry: dict, section: str, click_type: str, *, create: bool
         The list of actions for this click type (empty list when missing and
         *create* is False).
     """
-    if _uses_binary_actions(entry, section):
-        key = _binary_actions_key(click_type)
-        if key not in entry:
-            if not create:
-                return []
-            entry[key] = []
-        return entry[key]
-
     if not isinstance(entry.get("actions"), dict):
         if not create:
             return []
         entry["actions"] = {}
     actions = entry["actions"]
-    if click_type not in actions:
+    if not isinstance(actions.get(click_type), list):
         if not create:
             return []
         actions[click_type] = []
@@ -404,6 +565,7 @@ def _describe_action(act: dict) -> dict:
             or act.get("boneio_cover")
             or act.get("output_id")
             or act.get("cover_id")
+            or act.get("boneio_virtual_switch")
             or act.get("switch_id")
             or act.get("light_id")
             or act.get("topic")
@@ -418,7 +580,8 @@ def _describe_action(act: dict) -> dict:
             or "?"
         ),
         "remote_device": act.get("remote_device") or act.get("boneio_id") or None,
-        "raw": act,
+        # As the YAML spells it, so an editor can load it and send it back.
+        "raw": _plain_time_periods(act),
     }
 
 
@@ -430,7 +593,12 @@ def _assert_no_duplicate(
     *,
     skip_index: int | None = None,
 ) -> None:
-    """Reject an action that already targets the same output/cover.
+    """Reject an action identical to one the click type already runs.
+
+    Only an exact copy is refused — linking the same button twice in Teach
+    Mode. Two different actions on one target are legitimate, and the input
+    editor allows them: ON while it is dark and OFF otherwise, or a toggle plus
+    a delayed OFF.
 
     Args:
         target_list: Existing actions for this click type.
@@ -440,26 +608,12 @@ def _assert_no_duplicate(
         skip_index: Index to ignore, used when updating an action in place.
 
     Raises:
-        HTTPException: 409 when an equivalent action already exists.
+        HTTPException: 409 when an identical action already exists.
     """
     for idx, existing in enumerate(target_list):
         if skip_index is not None and idx == skip_index:
             continue
-        same_output = (
-            existing.get("boneio_output") and existing.get("boneio_output") == new_action.get("boneio_output")
-        )
-        same_cover = (
-            existing.get("boneio_cover") and existing.get("boneio_cover") == new_action.get("boneio_cover")
-        )
-        same_remote_output = (
-            existing.get("remote_device") == new_action.get("remote_device")
-            and existing.get("output_id") and existing.get("output_id") == new_action.get("output_id")
-        )
-        same_remote_cover = (
-            existing.get("remote_device") == new_action.get("remote_device")
-            and existing.get("cover_id") and existing.get("cover_id") == new_action.get("cover_id")
-        )
-        if same_output or same_cover or same_remote_output or same_remote_cover:
+        if existing == new_action:
             raise HTTPException(
                 status_code=409,
                 detail=f"This action already exists for {entity_id} ({click_type})",
@@ -483,14 +637,8 @@ def _hot_update_input(app_state, section: str, entry: dict, entity_id: str) -> N
                 "Input %s not in memory — actions will apply after restart", entity_id
             )
             return
-        raw_actions = entry.get("actions", {})
-        if not raw_actions and _uses_binary_actions(entry, section):
-            raw_actions = {
-                "pressed": entry.get("actions_on_press", []),
-                "released": entry.get("actions_on_release", []),
-            }
         parsed = manager.parse_actions(
-            getattr(input_device, "pin", entity_id), raw_actions
+            getattr(input_device, "pin", entity_id), entry.get("actions") or {}
         )
         input_device.set_actions(actions=parsed)
         _LOGGER.info("Hot-updated actions for input %s", entity_id)
@@ -517,9 +665,15 @@ def _persist_entry_change(
         click_type: Click type that was modified (for logging).
 
     Raises:
-        HTTPException: 422 when the resulting section fails validation.
+        HTTPException: 422 when the changed entry fails validation.
     """
-    errors = _validate_section_actions(section, entries)
+    # Only the entry being changed: a problem in another input is not this
+    # request's to report, and would block every quick action until someone
+    # found it. Validated as what it is — a remote input can be either kind,
+    # and the validator walks the click types of the section it is told.
+    kind = "binary_sensor" if _uses_binary_actions(entry, section) else "event"
+    config = _load_config_from_cache_or_disk(app_state) or {}
+    errors = _validate_section_actions(kind, [entry], has_location=bool(config.get("location")))
     if errors:
         raise HTTPException(
             status_code=422,
@@ -602,8 +756,6 @@ def _load_entry_for_edit(entity_id: str) -> tuple:
     Returns:
         Tuple of (app_state, section, entries, input_index, entry).
     """
-    import copy
-
     app_state = _get_app_state()
     config = _load_config_from_cache_or_disk(app_state)
     section, input_index = _find_input_entry(config, entity_id)
@@ -635,32 +787,28 @@ async def get_input_actions(entity_id: str):
         app_state = _get_app_state()
         config = _load_config_from_cache_or_disk(app_state)
         section, input_index = _find_input_entry(config, entity_id)
-        entry = dict(config[section][input_index])
+        # Legacy keys are folded in exactly as an edit would fold them, so the
+        # indexes listed here are the ones PUT/DELETE will find.
+        entry = copy.deepcopy(config[section][input_index])
         _migrate_flat_action_keys(entry, section)
 
         binary_mode = _uses_binary_actions(entry, section)
         actions: list[dict] = []
-
-        if binary_mode:
-            for click_type, key in (("pressed", "actions_on_press"), ("released", "actions_on_release")):
-                for idx, act in enumerate(entry.get(key) or []):
+        raw_actions = entry.get("actions")
+        if isinstance(raw_actions, dict):
+            for click_type, act_list in raw_actions.items():
+                if not isinstance(act_list, list):
+                    continue
+                for idx, act in enumerate(act_list):
                     if isinstance(act, dict):
                         actions.append({"click_type": click_type, "index": idx, **_describe_action(act)})
-        else:
-            raw_actions = entry.get("actions")
-            if isinstance(raw_actions, dict):
-                for click_type, act_list in raw_actions.items():
-                    if not isinstance(act_list, list):
-                        continue
-                    for idx, act in enumerate(act_list):
-                        if isinstance(act, dict):
-                            actions.append({"click_type": click_type, "index": idx, **_describe_action(act)})
 
         return {
             "status": "ok",
             "entity_id": entity_id,
             "section": section,
             "mode": "binary_sensor" if binary_mode else "event",
+            "area": entry.get("area"),
             "actions": actions,
         }
 
@@ -673,15 +821,24 @@ async def get_input_actions(entity_id: str):
 
 @router.post("/config/quick-action")
 async def add_quick_action(payload: dict = Body(...)):
-    """Add a single action to an input's click type without full section save."""
+    """Add a single action to an input's click type without full section save.
+
+    Args:
+        payload: ``entity_id``, ``click_type`` and either ``action_def`` (a
+            whole action, as the input editor builds it) or the flat fields.
+
+    Returns:
+        Status dict with the section, click type and index of the new action.
+    """
     entity_id = payload.get("entity_id", "").strip()
     if not entity_id:
         raise HTTPException(status_code=422, detail="entity_id is required")
     click_type = _validate_click_type(payload.get("click_type", "").strip())
-    new_action = _build_action(payload)
+    new_action = _action_from_payload(payload)
 
     try:
         app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
+        click_type = _click_type_for_entry(entry, section, click_type)
 
         target_list = _get_target_list(entry, section, click_type)
         _assert_no_duplicate(target_list, new_action, entity_id, click_type)
@@ -712,14 +869,21 @@ async def add_quick_action(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=f"Error adding quick action: {e}") from e
 
 
+# What an update in the flat format leaves alone. That format only names a
+# target and a command, so everything else on the action — conditions, delay,
+# thresholds, repeat, tilt — is kept from the one it replaces instead of being
+# silently dropped. ``action_def`` replaces the whole action and skips this.
+_PRESERVED_KEYS = (SHARED_FIELDS - {"action"}) | {"data", "restore_tilt"}
+
+
 @router.put("/config/quick-action")
 async def update_quick_action(payload: dict = Body(...)):
     """Replace an existing action of an input, optionally moving its click type.
 
     Args:
         payload: Must contain ``entity_id``, ``click_type``, ``index`` and the
-            action fields. An optional ``new_click_type`` moves the action to a
-            different click type.
+            action — ``action_def`` or the flat fields. An optional
+            ``new_click_type`` moves the action to a different click type.
 
     Returns:
         Status dict with the resulting click type and index.
@@ -732,13 +896,16 @@ async def update_quick_action(payload: dict = Body(...)):
         (payload.get("new_click_type") or click_type).strip()
     )
     index = payload.get("index")
-    if not isinstance(index, int) or index < 0:
+    if not isinstance(index, int) or isinstance(index, bool) or index < 0:
         raise HTTPException(status_code=422, detail="index must be a non-negative integer")
 
-    new_action = _build_action(payload)
+    replaces_whole = "action_def" in payload
+    new_action = _action_from_payload(payload)
 
     try:
         app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
+        click_type = _click_type_for_entry(entry, section, click_type)
+        new_click_type = _click_type_for_entry(entry, section, new_click_type)
 
         source_list = _get_target_list(entry, section, click_type, create=False)
         if index >= len(source_list):
@@ -747,27 +914,26 @@ async def update_quick_action(payload: dict = Body(...)):
                 detail=f"No action at index {index} for {entity_id} ({click_type})",
             )
 
-        # Preserve auxiliary keys from the original action that are not
-        # managed by _build_action (conditions, brightness_step, repeat, etc.)
-        _PRESERVED_KEYS = {
-            "condition", "conditions", "brightness_step",
-            "repeat", "repeat_delay",
-        }
-        original_action: dict = source_list[index]
-        for key in _PRESERVED_KEYS:
-            if key in original_action and key not in new_action:
-                new_action[key] = original_action[key]
+        if not replaces_whole:
+            original_action: dict = source_list[index]
+            for key in _PRESERVED_KEYS:
+                if key in original_action and key not in new_action:
+                    new_action[key] = original_action[key]
+            clean_action_fields(new_action)
 
         if new_click_type == click_type:
             _assert_no_duplicate(
                 source_list, new_action, entity_id, click_type, skip_index=index
             )
             source_list[index] = new_action
+            new_index = index
         else:
             target_list = _get_target_list(entry, section, new_click_type)
             _assert_no_duplicate(target_list, new_action, entity_id, new_click_type)
             source_list.pop(index)
             target_list.append(new_action)
+            new_index = len(target_list) - 1
+            _drop_empty_action_list(entry, click_type)
 
         entries[input_index] = entry
 
@@ -784,6 +950,7 @@ async def update_quick_action(payload: dict = Body(...)):
             "message": f"Action updated for {entity_id} ({new_click_type})",
             "section": section,
             "click_type": new_click_type,
+            "index": new_index,
         }
 
     except HTTPException:
@@ -791,6 +958,48 @@ async def update_quick_action(payload: dict = Body(...)):
     except Exception as e:
         _LOGGER.error("Error updating quick action: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error updating quick action: {e}") from e
+
+
+def _route_ahead_of_section_put() -> None:
+    """Put ``PUT /config/quick-action`` ahead of ``PUT /config/{section}``.
+
+    Both live on the same router and Starlette takes the first match. The
+    section route is registered first (this module imports it), so every edit
+    from Teach Mode was written into config.yaml as a section called
+    ``quick-action`` and the action itself never changed. The section route now
+    refuses names like that too; this makes the edit reach its handler.
+    """
+    routes = router.routes
+
+    def _is(route, path: str) -> bool:
+        return getattr(route, "path", None) == path and "PUT" in (getattr(route, "methods", None) or ())
+
+    specific = next((r for r in routes if _is(r, "/api/config/quick-action")), None)
+    generic = next((r for r in routes if _is(r, "/api/config/{section}")), None)
+    if specific is None or generic is None:
+        return
+    if routes.index(specific) > routes.index(generic):
+        routes.remove(specific)
+        routes.insert(routes.index(generic), specific)
+
+
+_route_ahead_of_section_put()
+
+
+def _drop_empty_action_list(entry: dict, click_type: str) -> None:
+    """Remove a click type left with no actions, and ``actions`` if it empties.
+
+    Args:
+        entry: Input entry, modified in place.
+        click_type: Click type whose list may now be empty.
+    """
+    actions = entry.get("actions")
+    if not isinstance(actions, dict):
+        return
+    if not actions.get(click_type):
+        actions.pop(click_type, None)
+    if not actions:
+        entry.pop("actions", None)
 
 
 @router.delete("/config/quick-action")
@@ -808,11 +1017,12 @@ async def delete_quick_action(payload: dict = Body(...)):
         raise HTTPException(status_code=422, detail="entity_id is required")
     click_type = _validate_click_type(payload.get("click_type", "").strip())
     index = payload.get("index")
-    if not isinstance(index, int) or index < 0:
+    if not isinstance(index, int) or isinstance(index, bool) or index < 0:
         raise HTTPException(status_code=422, detail="index must be a non-negative integer")
 
     try:
         app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
+        click_type = _click_type_for_entry(entry, section, click_type)
 
         target_list = _get_target_list(entry, section, click_type, create=False)
         if index >= len(target_list):
@@ -822,17 +1032,8 @@ async def delete_quick_action(payload: dict = Body(...)):
             )
 
         removed = target_list.pop(index)
-
         # Drop empty containers so the YAML stays clean
-        if not target_list:
-            if _uses_binary_actions(entry, section):
-                entry.pop(_binary_actions_key(click_type), None)
-            else:
-                actions = entry.get("actions")
-                if isinstance(actions, dict):
-                    actions.pop(click_type, None)
-                    if not actions:
-                        entry.pop("actions", None)
+        _drop_empty_action_list(entry, click_type)
 
         entries[input_index] = entry
 
