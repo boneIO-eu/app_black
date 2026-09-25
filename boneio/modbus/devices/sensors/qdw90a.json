@@ -30,7 +30,7 @@
         {
           "name": "Measurement Value",
           "address": 4,
-          "unit_of_measurement": "Bar",
+          "unit_of_measurement": "bar",
           "state_class": "measurement",
           "value_type": "S_WORD",
           "device_class": "pressure",
