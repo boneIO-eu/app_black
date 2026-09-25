@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
+from boneio.components.template.alarm_panel import CODE_INVALID, CODE_LOCKED, CODE_MISSING
 from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,6 +60,9 @@ async def list_templates(manager: Manager = Depends(get_manager)):
         remaining = a.arming_remaining_s
         if remaining is not None:
             alarm_data["arming_remaining_s"] = remaining
+        locked = a.code_locked_remaining_s
+        if locked is not None:
+            alarm_data["code_locked_s"] = locked
         alarms.append(alarm_data)
 
     gates = []
@@ -162,7 +166,16 @@ async def alarm_command(
         "action": data.get("command", ""),
         "code": data.get("code"),
     })
-    await alarm.handle_command("", payload)
+    outcome = await alarm.handle_command("", payload)
+    if outcome == CODE_LOCKED:
+        retry = max(1, int((alarm.code_locked_remaining_s or 0) + 0.999))
+        raise HTTPException(
+            status_code=429,
+            detail={"reason": outcome, "retry_after": retry},
+            headers={"Retry-After": str(retry)},
+        )
+    if outcome in (CODE_INVALID, CODE_MISSING):
+        raise HTTPException(status_code=403, detail={"reason": outcome})
     return {"status": "ok", "state": alarm.state}
 
 

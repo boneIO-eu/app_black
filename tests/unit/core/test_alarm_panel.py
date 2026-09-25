@@ -10,7 +10,7 @@ Timers are exercised with sub-second durations instead of being faked, so the
 real ``loop.call_later`` paths run.
 
 A group of tests at the end pins down behaviour that is deliberately weak
-today (no lockout, unsalted hashes, ``TRIGGER`` without a code).  They assert
+today (unsalted hashes, ``TRIGGER`` without a code, no codes = no protection).  They assert
 what the code *does*, not what it *should* do, and are marked as such — when
 that hardening lands they are expected to fail and be rewritten.
 """
@@ -29,6 +29,13 @@ from boneio.components.template.alarm_panel import (
     ARMED_HOME,
     ARMED_NIGHT,
     ARMING,
+    CODE_INVALID,
+    CODE_LOCKED,
+    CODE_LOCKOUT_BASE_S,
+    CODE_LOCKOUT_MAX_S,
+    CODE_MAX_FAILURES,
+    CODE_MISSING,
+    CODE_OK,
     DISARMED,
     NORMALLY_CLOSED,
     NORMALLY_OPEN,
@@ -712,6 +719,107 @@ class TestMqtt:
 
 
 # ---------------------------------------------------------------------------
+# Wrong-code throttling (PLAN_OSDP §7.2 pt 1)
+# ---------------------------------------------------------------------------
+
+
+def disarm_with(code: str) -> str:
+    return json.dumps({"action": "DISARM", "code": code})
+
+
+class FakeClock:
+    """Stands in for time.monotonic so a 30-second lockout takes no time."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    fake = FakeClock()
+    monkeypatch.setattr("boneio.components.template.alarm_panel.time.monotonic", fake)
+    return fake
+
+
+class TestCodeThrottling:
+    async def armed_panel(self) -> BoneIOAlarmPanel:
+        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)], arming_time_s=0)
+        await panel.handle_command("", "ARM_AWAY")
+        return panel
+
+    async def test_outcomes_are_reported(self, clock):
+        panel = await self.armed_panel()
+        assert await panel.handle_command("", "DISARM") == CODE_MISSING
+        assert await panel.handle_command("", disarm_with(PIN_BAD)) == CODE_INVALID
+        assert await panel.handle_command("", disarm_with(PIN_OK)) == CODE_OK
+
+    async def test_locks_after_the_limit_and_refuses_even_the_right_code(self, clock):
+        panel = await self.armed_panel()
+        for _ in range(CODE_MAX_FAILURES - 1):
+            assert await panel.handle_command("", disarm_with(PIN_BAD)) == CODE_INVALID
+        assert await panel.handle_command("", disarm_with(PIN_BAD)) == CODE_LOCKED
+        assert panel.code_locked_remaining_s == CODE_LOCKOUT_BASE_S
+        # Unchecked while locked: the right code does not get through either.
+        assert await panel.handle_command("", disarm_with(PIN_OK)) == CODE_LOCKED
+        assert panel.state == ARMED_AWAY
+
+    async def test_lock_expires_and_the_right_code_then_works(self, clock):
+        panel = await self.armed_panel()
+        for _ in range(CODE_MAX_FAILURES):
+            await panel.handle_command("", disarm_with(PIN_BAD))
+        clock.now += CODE_LOCKOUT_BASE_S + 0.1
+        assert panel.code_locked_remaining_s is None
+        assert await panel.handle_command("", disarm_with(PIN_OK)) == CODE_OK
+        assert panel.state == DISARMED
+        assert panel.code_failed_attempts == 0
+
+    async def test_each_further_run_doubles_the_pause_up_to_the_cap(self, clock):
+        panel = await self.armed_panel()
+        pauses = []
+        for _ in range(8):
+            for _ in range(CODE_MAX_FAILURES):
+                await panel.handle_command("", disarm_with(PIN_BAD))
+            pauses.append(panel.code_locked_remaining_s)
+            clock.now += CODE_LOCKOUT_MAX_S + 1
+        assert pauses[:4] == [30.0, 60.0, 120.0, 240.0]
+        assert max(pauses) == CODE_LOCKOUT_MAX_S
+
+    async def test_the_right_code_resets_the_count(self, clock):
+        panel = await self.armed_panel()
+        for _ in range(CODE_MAX_FAILURES - 1):
+            await panel.handle_command("", disarm_with(PIN_BAD))
+        await panel.handle_command("", disarm_with(PIN_OK))
+        await panel.handle_command("", "ARM_AWAY")
+        # A fresh allowance: another four wrong codes do not lock.
+        for _ in range(CODE_MAX_FAILURES - 1):
+            assert await panel.handle_command("", disarm_with(PIN_BAD)) == CODE_INVALID
+
+    async def test_a_missing_code_is_not_counted_as_a_guess(self, clock):
+        panel = await self.armed_panel()
+        for _ in range(CODE_MAX_FAILURES * 2):
+            assert await panel.handle_command("", "DISARM") == CODE_MISSING
+        assert panel.code_failed_attempts == 0
+
+    async def test_lockout_is_published_for_ha(self, clock):
+        panel = await self.armed_panel()
+        for _ in range(CODE_MAX_FAILURES):
+            await panel.handle_command("", disarm_with(PIN_BAD))
+        attrs = json.loads(sent_payloads(panel, "/attributes")[-1])
+        assert attrs["code_failed_attempts"] == CODE_MAX_FAILURES
+        assert attrs["code_locked_s"] == CODE_LOCKOUT_BASE_S
+
+    async def test_arming_with_code_arm_required_is_throttled_too(self, clock):
+        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)], code_arm_required=True, arming_time_s=0)
+        for _ in range(CODE_MAX_FAILURES):
+            await panel.handle_command("", json.dumps({"action": "ARM_AWAY", "code": PIN_BAD}))
+        assert await panel.handle_command("", json.dumps({"action": "ARM_AWAY", "code": PIN_OK})) == CODE_LOCKED
+        assert panel.state == DISARMED
+
+
+# ---------------------------------------------------------------------------
 # Current weaknesses — pinned deliberately
 # ---------------------------------------------------------------------------
 
@@ -742,20 +850,6 @@ class TestKnownWeaknesses:
         await asyncio.sleep(0.02)
         assert panel.state == TRIGGERED
         siren.output.async_turn_on.assert_awaited_once()
-
-    async def test_repeated_wrong_codes_are_never_throttled(self):
-        """§7.2 pkt 1 — no lockout, no backoff; 10k PINs is hours of brute force."""
-        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)], arming_time_s=0)
-        await panel.handle_command("", "ARM_AWAY")
-        for _ in range(50):
-            await panel.handle_command(
-                "",
-                json.dumps({"action": "DISARM", "code": PIN_BAD}),
-            )
-        assert panel.state == ARMED_AWAY
-        # The correct code still works immediately — nothing was locked out.
-        await panel.handle_command("", json.dumps({"action": "DISARM", "code": PIN_OK}))
-        assert panel.state == DISARMED
 
     def test_pin_hash_is_unsalted_sha256(self):
         """§7.2 pkt 2 — a 4-digit PIN falls to a rainbow table instantly."""

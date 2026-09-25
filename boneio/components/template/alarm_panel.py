@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
+import hmac
 import json
 import logging
 import time
@@ -48,6 +49,22 @@ OUTPUT_SIREN = "siren"
 OUTPUT_NOTIFICATION = "notification"
 OUTPUT_LIGHT = "light"
 OUTPUT_CUSTOM = "custom"
+
+# Outcome of a command that needed a code; the web API maps these to HTTP.
+CODE_OK = "ok"
+CODE_INVALID = "invalid_code"
+CODE_MISSING = "code_required"
+CODE_LOCKED = "locked"
+
+# Wrong-code throttling (PLAN_OSDP §7.2 pt 1). A four-digit PIN is 10 000
+# guesses; unthrottled, a script over the API or MQTT runs through them in
+# minutes. After this many wrong codes in a row every code is refused, the
+# right one included, for a pause that doubles with each further run of
+# failures. It throttles and never locks for good — the same rule as
+# webui/rate_limit.py: the worst a guesser can do is make the owner wait.
+CODE_MAX_FAILURES = 5
+CODE_LOCKOUT_BASE_S = 30.0
+CODE_LOCKOUT_MAX_S = 900.0
 
 # Input wiring types
 NORMALLY_CLOSED = "normally_closed"
@@ -199,7 +216,9 @@ class AlarmPinCode:
         Returns:
             True if the PIN matches.
         """
-        return self._hash == self.hash_code(plain_code)
+        # Constant-time: `==` on the digests leaks, through timing, how much of
+        # a guess matched (PLAN_OSDP §7.2 pt 3).
+        return hmac.compare_digest(self._hash, self.hash_code(plain_code))
 
     @staticmethod
     def hash_code(plain: str) -> str:
@@ -296,6 +315,13 @@ class BoneIOAlarmPanel:
         self._triggered_zone: str | None = None
         self._triggered_input: str | None = None
 
+        # Wrong-code throttling. One counter for the panel, whatever the code
+        # came through — HA, the web UI, a keypad — so switching paths does
+        # not buy a guesser a fresh allowance.
+        self._code_failures = 0
+        self._code_lockouts = 0
+        self._code_locked_until: float | None = None
+
         _LOGGER.info(
             "Initialized BoneIOAlarmPanel: id=%s, zones=%d, outputs=%d, "
             "codes=%d, arming=%.0fs, delay=%.0fs, trigger=%.0fs",
@@ -359,6 +385,21 @@ class BoneIOAlarmPanel:
         remaining = self._arming_time_s - elapsed
         return max(0.0, round(remaining, 1))
 
+    @property
+    def code_failed_attempts(self) -> int:
+        """Wrong codes entered in a row since the last right one."""
+        return self._code_failures
+
+    @property
+    def code_locked_remaining_s(self) -> float | None:
+        """Seconds until codes are checked again, or None when not locked."""
+        if self._code_locked_until is None:
+            return None
+        remaining = self._code_locked_until - time.monotonic()
+        if remaining <= 0:
+            return None
+        return round(remaining, 1)
+
     # -- State persistence ----------------------------------------------------
 
     _PERSIST_ATTR_TYPE = ALARM_CONTROL_PANEL
@@ -396,34 +437,67 @@ class BoneIOAlarmPanel:
 
     # -- PIN code validation -------------------------------------------------
 
-    def _validate_code(self, code: str | None, action: str) -> tuple[bool, str | None]:
-        """Validate a PIN code against configured codes.
+    def _validate_code(self, code: str | None, action: str) -> tuple[str, str | None]:
+        """Validate a PIN code against configured codes, with throttling.
 
         Args:
             code: The PIN code to validate (None if not provided).
             action: The action being performed (for logging).
 
         Returns:
-            Tuple of (is_valid, user_name). If no codes are configured,
-            always returns (True, None).
+            Tuple of (outcome, user_name): outcome is CODE_OK, CODE_MISSING,
+            CODE_INVALID or CODE_LOCKED. If no codes are configured, always
+            (CODE_OK, None).
         """
         if not self._codes:
-            return True, None
+            return CODE_OK, None
+
+        # Refused unchecked while locked — checking would let a guesser keep
+        # going and only hide which guess was right.
+        locked_s = self.code_locked_remaining_s
+        if locked_s is not None:
+            _LOGGER.warning(
+                "Alarm %s: %s rejected — codes locked for %.0fs after %d wrong codes",
+                self._id, action, locked_s, self._code_failures,
+            )
+            return CODE_LOCKED, None
 
         if not code:
+            # Not a guess, so not counted: HA sends a bare command when the
+            # user taps a button before typing anything.
             _LOGGER.warning("Alarm %s: %s rejected — no code provided", self._id, action)
-            return False, None
+            return CODE_MISSING, None
 
         for pin in self._codes:
-            if pin.verify(code):
-                return True, pin.name
+            if pin.verify(str(code)):
+                if self._code_failures:
+                    self._code_failures = 0
+                    self._code_lockouts = 0
+                    self._code_locked_until = None
+                    self._publish_attributes()
+                return CODE_OK, pin.name
 
-        _LOGGER.warning("Alarm %s: %s rejected — invalid code", self._id, action)
-        return False, None
+        self._code_failures += 1
+        _LOGGER.warning(
+            "Alarm %s: %s rejected — invalid code (%d in a row)",
+            self._id, action, self._code_failures,
+        )
+        if self._code_failures % CODE_MAX_FAILURES == 0:
+            lock_s = min(CODE_LOCKOUT_MAX_S, CODE_LOCKOUT_BASE_S * (2 ** self._code_lockouts))
+            self._code_lockouts += 1
+            self._code_locked_until = time.monotonic() + lock_s
+            _LOGGER.warning(
+                "Alarm %s: %d wrong codes in a row — codes locked for %.0fs",
+                self._id, self._code_failures, lock_s,
+            )
+            self._publish_attributes()
+            return CODE_LOCKED, None
+        self._publish_attributes()
+        return CODE_INVALID, None
 
     # -- MQTT command handler ------------------------------------------------
 
-    async def handle_command(self, _topic: str, payload: str) -> None:
+    async def handle_command(self, _topic: str, payload: str) -> str:
         """Handle alarm command from HA.
 
         Payload can be a plain command string (ARM_HOME, DISARM, etc.)
@@ -433,6 +507,11 @@ class BoneIOAlarmPanel:
         Args:
             _topic: MQTT topic (unused).
             payload: Command string or JSON payload.
+
+        Returns:
+            CODE_OK when the command was accepted, otherwise why the code was
+            refused (CODE_MISSING, CODE_INVALID, CODE_LOCKED). MQTT ignores
+            it; the web API turns it into a status code.
         """
         code: str | None = None
         command: str
@@ -452,17 +531,17 @@ class BoneIOAlarmPanel:
                       self._id, command, self._state)
 
         if command == CMD_DISARM:
-            valid, user_name = self._validate_code(code, "DISARM")
-            if not valid:
-                return
+            outcome, user_name = self._validate_code(code, "DISARM")
+            if outcome != CODE_OK:
+                return outcome
             if user_name:
                 _LOGGER.info("Alarm %s disarmed by %s", self._id, user_name)
             await self._disarm()
         elif command in (CMD_ARM_HOME, CMD_ARM_AWAY, CMD_ARM_NIGHT):
             if self._code_arm_required:
-                valid, user_name = self._validate_code(code, command)
-                if not valid:
-                    return
+                outcome, user_name = self._validate_code(code, command)
+                if outcome != CODE_OK:
+                    return outcome
                 if user_name:
                     _LOGGER.info("Alarm %s armed (%s) by %s", self._id, command, user_name)
             target = {
@@ -475,6 +554,7 @@ class BoneIOAlarmPanel:
             await self._trigger("manual", "manual")
         else:
             _LOGGER.warning("Unknown alarm command: %s", command)
+        return CODE_OK
 
     # -- Input event handler -------------------------------------------------
 
@@ -776,6 +856,9 @@ class BoneIOAlarmPanel:
         attrs: dict[str, Any] = {
             "triggered_zone": self._triggered_zone,
             "triggered_input": self._triggered_input,
+            # For an HA automation that tells someone their PIN is being guessed.
+            "code_failed_attempts": self._code_failures,
+            "code_locked_s": self.code_locked_remaining_s,
         }
         if blocking_inputs is not None:
             attrs["blocking_inputs"] = blocking_inputs
