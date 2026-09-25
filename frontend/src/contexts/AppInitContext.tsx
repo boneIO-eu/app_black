@@ -42,6 +42,9 @@ interface AppInitData {
   has_boneio: boolean;
   board_version: string | null;
   has_irrigation: boolean;
+  /** Whether the config has any template (thermostat, alarm, gate, irrigation).
+   *  Absent from firmware older than the panel. */
+  has_templates?: boolean;
   /** Whether latitude and longitude are configured. */
   has_location: boolean;
 }

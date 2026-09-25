@@ -331,6 +331,7 @@ async def get_init(
     has_boneio = False
     board_version: str | None = None
     has_irrigation = False
+    has_templates = False
     has_location = False
     try:
         config = config_helper.get_config()
@@ -350,6 +351,9 @@ async def get_init(
             (isinstance(irrigation_direct, list) and len(irrigation_direct) > 0)
             or len(irrigation_from_templates) > 0
         )
+        # The Templates page shows thermostats, alarms, gates and irrigation.
+        # With any of them it earns a slot of its own in the phone's bottom bar.
+        has_templates = has_irrigation or any(isinstance(t, dict) for t in templates)
 
         # Everything sun-related is unusable without coordinates, and the panel
         # hides those options rather than letting someone configure a condition
@@ -392,6 +396,7 @@ async def get_init(
         "has_boneio": has_boneio,
         "board_version": board_version,
         "has_irrigation": has_irrigation,
+        "has_templates": has_templates,
         "has_location": has_location,
         # The wizard reads this to drop the import and device-binding steps on
         # a controller that already has a configuration. It lives here rather

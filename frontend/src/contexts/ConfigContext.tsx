@@ -32,6 +32,8 @@ interface ConfigContextType {
   hasBoneioSection: boolean;
   /** Whether the 'irrigation' section exists and has entries */
   hasIrrigationSection: boolean;
+  /** Whether there is anything to show on the Templates page */
+  hasTemplates: boolean;
   /** Whether coordinates are configured — everything sun-related needs them */
   hasLocation: boolean;
   /** Whether the config is still loading */
@@ -67,6 +69,7 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
     return {
       hasBoneioSection: initData?.has_boneio ?? false,
       hasIrrigationSection: initData?.has_irrigation ?? false,
+      hasTemplates: initData?.has_templates ?? initData?.has_irrigation ?? false,
       hasLocation: initData?.has_location ?? false,
       isLoading,
       boardVersion,

@@ -171,21 +171,26 @@ interface MenuItem {
   right?: boolean;
   /** Gets a slot of its own in the mobile bottom bar; the rest go under "More". */
   primary?: boolean;
+  /** Position in the bottom bar, when it differs from the top bar's order. */
+  mobileOrder?: number;
 }
 
 function useMenuItems() {
   const { t } = useTranslation();
   const location = useLocation();
-  const { hasBoneioSection } = useConfig();
+  const { hasBoneioSection, hasTemplates } = useConfig();
   const { isNodeRedAvailable } = useNodeRedAvailability();
   const { isAdmin } = useAuth();
 
   const menuItems: MenuItem[] = [
     { path: '/', default: true, icon: FaLightbulb, label: t('navigation.outputs'), primary: true },
     { path: '/inputs', icon: FaInbox, label: t('navigation.inputs'), primary: true },
-    { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors'), primary: true },
-    { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus'), primary: true },
-    { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
+    // The bottom bar has four slots. Templates takes the third when there are
+    // any — a thermostat or a gate is something you reach for from a phone,
+    // board sensors less so — and Sensors moves under "More".
+    { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors'), primary: !hasTemplates, mobileOrder: 3 },
+    { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus'), primary: true, mobileOrder: 4 },
+    { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates'), primary: hasTemplates, mobileOrder: 3 },
     // Everything below configures the device, so a viewer is not offered it.
     // The backend refuses these routes for a viewer regardless; hiding them
     // just avoids dead ends. See boneio/webui/middleware/policy.py.
@@ -273,7 +278,11 @@ export function BottomNav() {
   const { menuItems, isActive } = useMenuItems();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const primaryItems = menuItems.filter((item) => item.primary);
+  const primaryItems = menuItems
+    .filter((item) => item.primary)
+    .map((item, i) => ({ item, key: item.mobileOrder ?? i }))
+    .sort((a, b) => a.key - b.key)
+    .map(({ item }) => item);
   const moreItems = menuItems.filter((item) => !item.primary);
   const helpActive = location.pathname === '/help';
   const moreActive = helpActive || moreItems.some((item) => isActive(item));
