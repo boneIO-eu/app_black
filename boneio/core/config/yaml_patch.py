@@ -590,7 +590,9 @@ def set_secret(secrets_file: str | Path, name: str, value: str) -> None:
 
 
 @_locked
-def move_to_secret(config_file: str | Path, path: tuple[str, ...], name: str) -> str | None:
+def move_to_secret(
+    config_file: str | Path, path: tuple[str, ...], name: str, *, overwrite: bool = False
+) -> str | None:
     """Move a plain value into secrets.yaml and leave a ``!secret`` in its place.
 
     The secrets file is the one beside the file holding the field — that is
@@ -602,6 +604,8 @@ def move_to_secret(config_file: str | Path, path: tuple[str, ...], name: str) ->
         config_file: Path to config.yaml.
         path: Field path, outermost first, e.g. ``("mqtt", "password")``.
         name: The secret's preferred name.
+        overwrite: Store the value under ``name`` whatever it held — for a
+            field that referred to that secret before a save wrote it out.
 
     Returns:
         The name the value went under, or None when there was nothing to move:
@@ -647,10 +651,10 @@ def move_to_secret(config_file: str | Path, path: tuple[str, ...], name: str) ->
         write_atomically(secrets_file, "", mode=0o600)
 
     chosen, suffix = name, 1
-    while chosen in existing and str(existing[chosen]) != value:
+    while not overwrite and chosen in existing and str(existing[chosen]) != value:
         suffix += 1
         chosen = f"{name}_{suffix}"
-    if chosen not in existing:
+    if chosen not in existing or str(existing[chosen]) != value:
         set_secret(secrets_file, chosen, value)
     # It holds a password now, whatever it held before.
     os.chmod(secrets_file, 0o600)

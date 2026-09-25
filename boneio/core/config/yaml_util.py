@@ -2098,6 +2098,52 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
         return data
 
 
+def _section_secret_refs(config_file: str, section: str, data: Any) -> dict[str, str]:
+    """Which of a section's fields defer to secrets.yaml, before a save.
+
+    A save dumps the section from the values the panel sent back, and the
+    dumper writes a secret as the plain string it is. Recorded here, each
+    reference is put back afterwards by :func:`_keep_secret_refs`.
+    """
+    if not isinstance(data, dict):
+        return {}
+    from boneio.core.config.yaml_patch import secret_reference
+
+    refs: dict[str, str] = {}
+    for key in data:
+        try:
+            ref = secret_reference(config_file, (section, str(key)))
+        except OSError:
+            continue
+        if ref is not None:
+            refs[str(key)] = ref
+    return refs
+
+
+def _keep_secret_refs(config_file: str, section: str, data: Any, refs: dict[str, str]) -> None:
+    """Move secret values a save wrote out back into secrets.yaml.
+
+    Every field that was ``!secret name`` gets its (possibly new) value stored
+    under that name and the reference back. The broker password goes to
+    secrets.yaml even when it was plain, as migration v7 does on upgrade.
+    """
+    if not isinstance(data, dict):
+        return
+    from boneio.core.config.yaml_patch import YamlPatchError, move_to_secret
+
+    fields = dict(refs)
+    if section == "mqtt" and "password" not in fields:
+        fields["password"] = "mqtt_password"
+    for key, name in fields.items():
+        value = data.get(key)
+        if not isinstance(value, str) or not value:
+            continue
+        try:
+            move_to_secret(config_file, (section, key), name, overwrite=key in refs)
+        except (OSError, YamlPatchError) as err:
+            _LOGGER.error("%s.%s saved in the config instead of secrets.yaml: %s", section, key, err)
+
+
 def update_config_section(config_file: str, section: str, data: dict | list) -> dict:
     """
     Update content of a configuration section with intelligent !include handling.
@@ -2119,6 +2165,8 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
             "[SAVE] START section='%s' data_size=%d bytes",
             section, data_size,
         )
+
+        secret_refs = _section_secret_refs(config_file, section, data)
 
         # Special handling for mcp23017 - convert hex strings to integers
         # This ensures YAML writes them as integers which are then read back as hex
@@ -2291,6 +2339,8 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                     f.write("\n" + section_yaml)
 
                 _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
+
+            _keep_secret_refs(config_file, section, data, secret_refs)
 
             t_total = time.perf_counter() - t_start
             _LOGGER.info(
