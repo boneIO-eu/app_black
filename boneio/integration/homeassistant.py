@@ -1573,6 +1573,49 @@ def ha_climate_availability_message(
     }
 
 
+
+def ha_alarm_code_lock_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    area: str | None = None,
+) -> HomeAssistantDiscoveryMessage:
+    """Discovery for an alarm panel's "codes locked" binary_sensor.
+
+    On while the panel refuses codes after too many wrong ones in a row, so
+    an automation can react to someone guessing the PIN — a push to the
+    owner, or the siren. It is ``tamper`` because that is what it reports:
+    someone working at the code, not a fault in the panel.
+
+    Args:
+        id: Alarm panel ID.
+        name: Alarm panel name; the entity is named after it.
+        config_helper: ConfigHelper instance.
+        area: Optional area, the same as the panel's.
+
+    Returns:
+        HA discovery message for the binary_sensor.
+    """
+    from boneio.const import ALARM_CONTROL_PANEL
+
+    topic = config_helper.topic_prefix
+    msg = ha_availabilty_message(
+        device_type=ALARM_CONTROL_PANEL,
+        entity_type="binary_sensor",
+        config_helper=config_helper,
+        id=f"{id}_code_lock",
+        name=f"{name} code lockout",
+        area=area,
+    )
+    msg["state_topic"] = f"{topic}/alarm/{id}/code_lock"
+    msg["payload_on"] = "ON"
+    msg["payload_off"] = "OFF"
+    msg["device_class"] = "tamper"
+    # The panel's own attributes carry the count and the seconds left.
+    msg["json_attributes_topic"] = f"{topic}/alarm/{id}/attributes"
+    return msg
+
+
 def ha_alarm_panel_availability_message(
     id: str,
     name: str,

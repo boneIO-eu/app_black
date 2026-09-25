@@ -310,6 +310,8 @@ class BoneIOAlarmPanel:
         self._state_topic = f"{topic_prefix}/alarm/{id}/{STATE}"
         self._cmd_topic = f"{topic_prefix}/cmd/alarm/{id}/set"
         self._attributes_topic = f"{topic_prefix}/alarm/{id}/attributes"
+        # The "codes locked" binary_sensor in HA, for automations.
+        self._code_lock_topic = f"{topic_prefix}/alarm/{id}/code_lock"
 
         # Track triggered inputs for logging
         self._triggered_zone: str | None = None
@@ -321,6 +323,7 @@ class BoneIOAlarmPanel:
         self._code_failures = 0
         self._code_lockouts = 0
         self._code_locked_until: float | None = None
+        self._code_unlock_timer: asyncio.TimerHandle | None = None
 
         _LOGGER.info(
             "Initialized BoneIOAlarmPanel: id=%s, zones=%d, outputs=%d, "
@@ -490,10 +493,41 @@ class BoneIOAlarmPanel:
                 "Alarm %s: %d wrong codes in a row — codes locked for %.0fs",
                 self._id, self._code_failures, lock_s,
             )
+            self._publish_code_lock(True)
+            self._schedule_code_unlock(lock_s)
             self._publish_attributes()
             return CODE_LOCKED, None
         self._publish_attributes()
         return CODE_INVALID, None
+
+    def _publish_code_lock(self, locked: bool) -> None:
+        """Publish the "codes locked" binary_sensor state (retained)."""
+        self._message_bus.send_message(
+            topic=self._code_lock_topic,
+            payload="ON" if locked else "OFF",
+            retain=True,
+        )
+
+    def _schedule_code_unlock(self, delay_s: float) -> None:
+        """Turn the binary_sensor off again when the lockout runs out.
+
+        The lockout itself needs no timer — it is a deadline checked on the
+        next code — but HA only learns it ended if something says so.
+        """
+        if self._code_unlock_timer is not None:
+            self._code_unlock_timer.cancel()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._code_unlock_timer = loop.call_later(delay_s, self._on_code_unlock)
+
+    def _on_code_unlock(self) -> None:
+        """Lockout over: tell HA, and refresh the attributes it reads."""
+        self._code_unlock_timer = None
+        _LOGGER.info("Alarm %s: code lockout ended", self._id)
+        self._publish_code_lock(False)
+        self._publish_attributes()
 
     # -- MQTT command handler ------------------------------------------------
 
@@ -876,11 +910,18 @@ class BoneIOAlarmPanel:
             self._cmd_topic, self.handle_command
         )
         self._publish_state()
+        # A lockout lives in memory only, so after a restart codes are open —
+        # say so, rather than leave a retained ON from before the restart.
+        if self._codes:
+            self._publish_code_lock(False)
         _LOGGER.info("Alarm panel %s started", self._id)
 
     async def stop(self) -> None:
         """Stop alarm panel — cancel timers and unsubscribe."""
         self._cancel_all_timers()
+        if self._code_unlock_timer is not None:
+            self._code_unlock_timer.cancel()
+            self._code_unlock_timer = None
         await self._deactivate_outputs()
         with contextlib.suppress(Exception):
             await self._message_bus.unsubscribe_and_stop_listen(self._cmd_topic)

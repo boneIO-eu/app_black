@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
+import { NoticeCallout } from './ui';
 import type { TemplateSubFormProps, AlarmPanelData, AlarmZone, AlarmOutput, AlarmPin, ZoneInput } from './types/template';
 import { ARM_MODE_OPTIONS, OUTPUT_TYPE_OPTIONS } from './types/template';
 
@@ -397,6 +398,24 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps<AlarmPanelData>> = ({
                 <label className="label">
                   <span className="label-text-alt text-info">{t('template.alarm_codes_hint')}</span>
                 </label>
+                {/* What the controller does with wrong codes, and the HA entity
+                    that says so — without this nobody learns the entity exists. */}
+                {pinCodes.length > 0 && (
+                  <NoticeCallout
+                    variant="info"
+                    className="mt-2"
+                    title={t('template.code_lock_title')}
+                    message={
+                      <>
+                        <span className="block">{t('template.code_lock_hint')}</span>
+                        <span className="block mt-1">
+                          {t('template.code_lock_entity')}{' '}
+                          <code className="font-mono text-xs">binary_sensor.…_{data.id || '<id>'}_code_lock</code>
+                        </span>
+                      </>
+                    }
+                  />
+                )}
               </div>
 
               {/* Zones */}

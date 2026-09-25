@@ -19,7 +19,7 @@ from boneio.components.template.alarm_panel import (
 )
 from boneio.components.template.gate_cover import BoneIOGateCover, CYCLE_CLOSE, CYCLE_OPEN
 from boneio.components.template.thermostat import BoneIOThermostat
-from boneio.const import ALARM_CONTROL_PANEL, CLIMATE, CLOSED, COVER, IDLE, OPEN
+from boneio.const import ALARM_CONTROL_PANEL, BINARY_SENSOR, CLIMATE, CLOSED, COVER, IDLE, OPEN
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 
 if TYPE_CHECKING:
@@ -456,7 +456,10 @@ class TemplateManager:
         Args:
             alarm: The alarm panel instance.
         """
-        from boneio.integration.homeassistant import ha_alarm_panel_availability_message
+        from boneio.integration.homeassistant import (
+            ha_alarm_code_lock_message,
+            ha_alarm_panel_availability_message,
+        )
 
         has_codes = bool(alarm.codes)
         payload = ha_alarm_panel_availability_message(
@@ -470,6 +473,19 @@ class TemplateManager:
         self._manager.publish_ha_discovery(
             id=alarm.id, ha_type=ALARM_CONTROL_PANEL, payload=payload
         )
+        # Only a panel with codes can lock them. Without, the entity is not
+        # announced, and a retained one from before is removed as unused.
+        if has_codes:
+            self._manager.publish_ha_discovery(
+                id=f"{alarm.id}_code_lock",
+                ha_type=BINARY_SENSOR,
+                payload=ha_alarm_code_lock_message(
+                    id=alarm.id,
+                    name=alarm.name,
+                    config_helper=self._manager._config_helper,
+                    area=alarm.area,
+                ),
+            )
 
     def _publish_gate_cover_discovery(self, gate: BoneIOGateCover) -> None:
         """Publish HA autodiscovery for a gate cover.

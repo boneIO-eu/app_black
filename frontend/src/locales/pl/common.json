@@ -1852,7 +1852,10 @@
     "invalid_target_temperature": "Temperatura docelowa musi być poprawną liczbą.",
     "hysteresis_positive": "Histereza musi być liczbą dodatnią.",
     "min_max_invalid": "Temperatura minimalna musi być mniejsza od maksymalnej.",
-    "target_out_of_range": "Temperatura docelowa musi mieścić się w zakresie min/max."
+    "target_out_of_range": "Temperatura docelowa musi mieścić się w zakresie min/max.",
+    "code_lock_title": "Blokada po błędnych kodach",
+    "code_lock_hint": "Po 5 błędnych kodach z rzędu sterownik przestaje przyjmować kody na 30 s, a każda kolejna seria podwaja ten czas, do 15 min. W tym czasie w Home Assistant włączona jest encja typu sabotaż (binary_sensor) — użyj jej w automatyzacji, np. powiadomienie na telefon albo wyzwolenie syreny, gdy alarm jest uzbrojony.",
+    "code_lock_entity": "Encja w Home Assistant:"
   },
   "gate_cover": {
     "name_placeholder": "np. Brama Wjazdowa",

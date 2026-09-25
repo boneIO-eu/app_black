@@ -1853,7 +1853,10 @@
     "invalid_target_temperature": "Target temperature must be a valid number.",
     "hysteresis_positive": "Hysteresis must be a positive number.",
     "min_max_invalid": "Minimum temperature must be less than maximum temperature.",
-    "target_out_of_range": "Target temperature must be within min/max range."
+    "target_out_of_range": "Target temperature must be within min/max range.",
+    "code_lock_title": "Lockout after wrong codes",
+    "code_lock_hint": "After 5 wrong codes in a row the controller stops accepting codes for 30 s, and each further run doubles that, up to 15 min. Meanwhile a tamper binary_sensor is on in Home Assistant — use it in an automation, e.g. a push notification, or the siren when the alarm is armed.",
+    "code_lock_entity": "Home Assistant entity:"
   },
   "gate_cover": {
     "name_placeholder": "e.g. Driveway Gate",

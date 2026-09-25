@@ -819,6 +819,74 @@ class TestCodeThrottling:
         assert panel.state == DISARMED
 
 
+class TestCodeLockSensor:
+    """The "codes locked" binary_sensor HA automations react to."""
+
+    async def test_lockout_turns_it_on_and_its_end_turns_it_off(self, monkeypatch):
+        # Real time with a short lockout: the OFF comes from loop.call_later.
+        monkeypatch.setattr("boneio.components.template.alarm_panel.CODE_LOCKOUT_BASE_S", 0.05)
+        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)], arming_time_s=0)
+        await panel.handle_command("", "ARM_AWAY")
+        for _ in range(CODE_MAX_FAILURES):
+            await panel.handle_command("", disarm_with(PIN_BAD))
+        assert sent_payloads(panel, "/code_lock") == ["ON"]
+        await asyncio.sleep(0.1)
+        assert sent_payloads(panel, "/code_lock") == ["ON", "OFF"]
+        # And the attributes HA shows beside it no longer claim a lock.
+        assert json.loads(sent_payloads(panel, "/attributes")[-1])["code_locked_s"] is None
+
+    async def test_wrong_codes_below_the_limit_leave_it_alone(self):
+        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)], arming_time_s=0)
+        await panel.handle_command("", "ARM_AWAY")
+        for _ in range(CODE_MAX_FAILURES - 1):
+            await panel.handle_command("", disarm_with(PIN_BAD))
+        assert sent_payloads(panel, "/code_lock") == []
+
+    async def test_start_clears_a_retained_on_from_before_a_restart(self):
+        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)])
+        panel._message_bus.subscribe_and_listen = AsyncMock()
+        await panel.start()
+        call = [c for c in panel._message_bus.send_message.call_args_list if c.kwargs["topic"].endswith("/code_lock")]
+        assert [c.kwargs["payload"] for c in call] == ["OFF"]
+        assert call[0].kwargs["retain"] is True
+
+    async def test_a_panel_without_codes_never_publishes_it(self):
+        panel = make_panel()
+        panel._message_bus.subscribe_and_listen = AsyncMock()
+        await panel.start()
+        assert sent_payloads(panel, "/code_lock") == []
+
+    async def test_stop_cancels_the_pending_off(self, monkeypatch):
+        monkeypatch.setattr("boneio.components.template.alarm_panel.CODE_LOCKOUT_BASE_S", 0.05)
+        panel = make_panel(codes=[AlarmPinCode("Paweł", PIN_OK)], arming_time_s=0)
+        panel._message_bus.unsubscribe_and_stop_listen = AsyncMock()
+        await panel.handle_command("", "ARM_AWAY")
+        for _ in range(CODE_MAX_FAILURES):
+            await panel.handle_command("", disarm_with(PIN_BAD))
+        await panel.stop()
+        await asyncio.sleep(0.1)
+        assert sent_payloads(panel, "/code_lock") == ["ON"]
+
+
+def test_code_lock_discovery_message():
+    from boneio.integration.homeassistant import ha_alarm_code_lock_message
+
+    helper = MagicMock()
+    helper.topic_prefix = "boneio/blk265f49"
+    helper.name = "boneIO Black"
+    helper.device_type = "32x10"
+    helper.configuration_url = None
+    helper.real_serial = "blk265f49"
+    helper.serial_number = "blk265f49"
+    helper.ha_child_devices = False
+    msg = ha_alarm_code_lock_message(id="alarm_dom", name="Alarm Dom", config_helper=helper)
+    assert msg["state_topic"] == "boneio/blk265f49/alarm/alarm_dom/code_lock"
+    assert msg["json_attributes_topic"] == "boneio/blk265f49/alarm/alarm_dom/attributes"
+    assert (msg["payload_on"], msg["payload_off"], msg["device_class"]) == ("ON", "OFF", "tamper")
+    assert msg["default_entity_id"] == "binary_sensor.blk265f49_alarm_dom_code_lock"
+    assert msg["name"] == "Alarm Dom code lockout"
+
+
 # ---------------------------------------------------------------------------
 # Current weaknesses — pinned deliberately
 # ---------------------------------------------------------------------------
