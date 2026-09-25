@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTickingRemaining } from '@/hooks/useTickingRemaining';
 import { FaShieldAlt, FaHome, FaWalking, FaMoon, FaUnlock } from 'react-icons/fa';
 import clsx from 'clsx';
 import type { AlarmState } from './types';
@@ -26,6 +27,7 @@ export default function AlarmCard({
   onCommand: (id: string, command: string, code?: string) => void;
 }) {
   const { t } = useTranslation();
+  const armingLeft = useTickingRemaining(data.state === 'arming' ? data.arming_remaining_s : null);
   const [pinDialogCommand, setPinDialogCommand] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -87,8 +89,8 @@ export default function AlarmCard({
   const state = (
     <>
       {stateLabel[data.state] || data.state}
-      {data.state === 'arming' && data.arming_remaining_s != null && (
-        <span className="ml-1 tabular-nums">{Math.ceil(data.arming_remaining_s)}s</span>
+      {data.state === 'arming' && armingLeft != null && (
+        <span className="ml-1 tabular-nums">{Math.ceil(armingLeft)}s</span>
       )}
     </>
   );
