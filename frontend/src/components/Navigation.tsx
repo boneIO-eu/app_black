@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export default function Navigation() {
   const { t } = useTranslation();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, username, role } = useAuth();
   const [logoutOpen, setLogoutOpen] = useState(false);
   const { data: initData } = useAppInit();
   const deviceName = initData?.name || '';
@@ -69,6 +69,21 @@ export default function Navigation() {
                     ({t('navigation.serial_override', { serial: serialOverride })})
                   </span>
                 )}
+                {/* Who is signed in, and as what. A viewer sees no Settings,
+                    and without this there was no telling that from a bug. */}
+                {isAuthenticated && username && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span title={t('navigation.logged_in_as', { username })}>
+                      <span className="font-mono">{username}</span>
+                      {role && (
+                        <span className={role === 'admin' ? 'text-primary' : ''}>
+                          {' '}({t(`accounts.role_${role}`)})
+                        </span>
+                      )}
+                    </span>
+                  </>
+                )}
                 {cloudDomain && (
                   <>
                     <span aria-hidden="true">·</span>
@@ -94,7 +109,11 @@ export default function Navigation() {
             <button
               onClick={() => setLogoutOpen(true)}
               className="btn btn-ghost btn-circle"
-              title={t('navigation.logout')}
+              title={
+                username
+                  ? `${t('navigation.logout')} — ${t('navigation.logged_in_as', { username })}`
+                  : t('navigation.logout')
+              }
               aria-label={t('navigation.logout')}
             >
               <FaSignOutAlt className="w-5 h-5" />
@@ -107,7 +126,15 @@ export default function Navigation() {
             <DialogContent className="sm:max-w-sm">
               <DialogHeader>
                 <DialogTitle>{t('navigation.logout_confirm_title')}</DialogTitle>
-                <DialogDescription>{t('navigation.logout_confirm')}</DialogDescription>
+                <DialogDescription>
+                  {username && (
+                    <span className="block mb-1">
+                      {t('navigation.logged_in_as', { username })}
+                      {role && ` (${t(`accounts.role_${role}`)})`}
+                    </span>
+                  )}
+                  {t('navigation.logout_confirm')}
+                </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <button type="button" className="btn btn-ghost max-sm:btn-lg" onClick={() => setLogoutOpen(false)}>
@@ -320,6 +347,7 @@ export function BottomNav() {
  */
 function DeviceDetails({ className = '' }: { className?: string }) {
   const { t } = useTranslation();
+  const { username, role } = useAuth();
   const { data: initData } = useAppInit();
   const deviceName = initData?.name || '';
   const pwaName = initData?.pwa_name || '';
@@ -330,6 +358,12 @@ function DeviceDetails({ className = '' }: { className?: string }) {
     ? initData.cloud.domain : '';
 
   const rows: [string, React.ReactNode][] = [];
+  if (username) rows.push([t('navigation.logged_in_as_label'), (
+    <span>
+      <span className="font-mono">{username}</span>
+      {role && <span className="block text-xs opacity-70">{t(`accounts.role_${role}`)}</span>}
+    </span>
+  )]);
   if (version) rows.push([t('navigation.version'), <span className="font-mono">{version}</span>]);
   if (serialNo) rows.push([t('navigation.serial'), (
     <span className="font-mono">

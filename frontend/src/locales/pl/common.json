@@ -22,7 +22,9 @@
     "cloud": "Chmura",
     "logout": "Wyloguj",
     "logout_confirm_title": "Wylogować się?",
-    "logout_confirm": "Czy na pewno chcesz się wylogować?"
+    "logout_confirm": "Czy na pewno chcesz się wylogować?",
+    "logged_in_as": "Zalogowany jako {{username}}",
+    "logged_in_as_label": "Zalogowany jako"
   },
   "outputs": {
     "title": "Wyjścia",
