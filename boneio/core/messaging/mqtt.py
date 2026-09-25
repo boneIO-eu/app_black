@@ -314,7 +314,10 @@ class MQTTClient(MessageBus):
                     if self._manager is not None:
                         self._manager.display.notify_mqtt_state_changed()
                     self.asyncio_client = self.create_client()
-                except MqttError as err:
+                except Exception as err:
+                    # Not only MqttError: anything else escaping the session
+                    # ended this loop, and nothing restarts it. CancelledError
+                    # and GracefulExit are not Exceptions and still get out.
                     self.reconnect_interval = min(
                         self.reconnect_interval * 2, 60
                     )
@@ -322,6 +325,7 @@ class MQTTClient(MessageBus):
                         "MQTT error: %s. Reconnecting in %s seconds",
                         err,
                         self.reconnect_interval,
+                        exc_info=not isinstance(err, MqttError),
                     )
                     self._connection_established = False
                     self.publish_queue.set_connected(False)
@@ -370,6 +374,9 @@ class MQTTClient(MessageBus):
 
                 topics = self._topics + list(self._mqtt_energy_listeners.keys()) + self._discovery_topics
                 await self.subscribe(topics=topics)
+                # Connected: the next outage starts the backoff from scratch
+                # instead of waiting as long as the worst one before it.
+                self.reconnect_interval = 1
 
                 # Wait for everything to complete (or fail due to, e.g., network errors).
                 await asyncio.gather(*tasks)
@@ -399,7 +406,17 @@ class MQTTClient(MessageBus):
     ):
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
-            payload = message.payload.decode()
+            # Anything a client of the broker sends ends up here. An exception
+            # left to escape ends the session, and one that isn't an MqttError
+            # used to end the client with it — MQTT stayed down until restart.
+            try:
+                payload = message.payload.decode()
+            except UnicodeDecodeError:
+                _LOGGER.warning(
+                    "Dropping MQTT message on %s: payload is not UTF-8",
+                    message.topic,
+                )
+                continue
             callback_start = True
             for discovery_topic in self._discovery_topics:
                 if message.topic.matches(discovery_topic):
@@ -435,4 +452,10 @@ class MQTTClient(MessageBus):
                     message.topic,
                     payload,
                 )
-                await callback(str(message.topic), payload)
+                try:
+                    await callback(str(message.topic), payload)
+                except Exception as exc:
+                    _LOGGER.error(
+                        "Error handling MQTT message on %s: %s",
+                        message.topic, exc, exc_info=True,
+                    )
