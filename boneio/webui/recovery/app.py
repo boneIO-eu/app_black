@@ -20,7 +20,6 @@ import asyncio
 import logging
 import os
 import tarfile
-import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +28,7 @@ from typing import Any
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 
+from boneio.core.atomic_file import write_atomically
 from boneio.core.auth.store import UserStore
 from boneio.core.recovery import RecoveryReason, describe_config_error
 from boneio.version import __version__
@@ -150,26 +150,6 @@ def list_config_files(config_dir: Path) -> list[dict[str, Any]]:
                 return found
     found.sort(key=lambda f: (f["path"] != "config.yaml", "/" in f["path"], f["path"]))
     return found
-
-
-def write_atomically(path: Path, content: str | bytes) -> None:
-    """Replace a file's content without ever leaving half of it on disk.
-
-    Keeps the original's permission bits: an included file that holds a broker
-    password is often 0600, and a rewrite must not widen that.
-    """
-    mode = path.stat().st_mode & 0o777
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(content.encode("utf-8") if isinstance(content, str) else content)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp, mode)
-        os.replace(tmp, path)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
 
 
 def _collect_log_secrets(config_file: str) -> set[str]:

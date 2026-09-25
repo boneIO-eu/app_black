@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 import os
 
+from boneio.core.atomic_file import write_atomically
+
 _LOGGER = logging.getLogger(__name__)
 
 # CANopen node_id valid range
@@ -75,8 +77,7 @@ def persist_node_id(config_dir: str, node_id: int) -> bool:
     """
     path = os.path.join(config_dir, NODE_ID_FILENAME)
     try:
-        with open(path, "w") as f:
-            f.write(str(node_id))
+        write_atomically(path, str(node_id))
         _LOGGER.info("Persisted CAN node_id=%d to %s", node_id, path)
         return True
     except OSError as e:

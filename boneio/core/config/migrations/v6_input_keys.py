@@ -27,6 +27,7 @@ import logging
 import re
 from pathlib import Path
 
+from boneio.core.atomic_file import write_atomically
 from boneio.core.config.migrations import register_migration
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ def strip_item_keys(config_file: str, sections: tuple[str, ...], keys: tuple[str
     flush()
 
     if main_removed:
-        main.write_text("".join(out), encoding="utf-8")
+        write_atomically(main, "".join(out))
         _LOGGER.info("Removed %d deprecated line(s) from %s", main_removed, main)
 
 
@@ -128,7 +129,7 @@ def _strip_file(path: Path, keys: tuple[str, ...]) -> None:
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     cleaned, removed = _strip_key_lines(lines, keys)
     if removed:
-        path.write_text("".join(cleaned), encoding="utf-8")
+        write_atomically(path, "".join(cleaned))
         _LOGGER.info("Removed %d deprecated line(s) from %s", removed, path)
 
 

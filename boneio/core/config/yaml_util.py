@@ -15,6 +15,7 @@ from cerberus.schema import DefinitionSchema
 from yaml import MarkedYAMLError, YAMLError, dump, load
 
 from boneio.const import OUTPUT, VIRTUAL_SWITCH
+from boneio.core.atomic_file import write_atomically
 from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
 from boneio.core.utils.naming import resolve_id
@@ -2051,8 +2052,7 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                         time.perf_counter() - t_dump, len(content),
                     )
                     t_write = time.perf_counter()
-                    with open(include_file_path, "w", encoding="utf-8") as f:
-                        f.write(content)
+                    write_atomically(include_file_path, content)
                     _LOGGER.info(
                         "[SAVE] file write (!include) took %.3fs",
                         time.perf_counter() - t_write,
@@ -2119,8 +2119,7 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
                     # Write updated config
                     t_write = time.perf_counter()
-                    with open(config_file, "w", encoding="utf-8") as f:
-                        f.writelines(updated_lines)
+                    write_atomically(config_file, "".join(updated_lines))
                     _LOGGER.info(
                         "[SAVE] file write (config.yaml) took %.3fs",
                         time.perf_counter() - t_write,
@@ -2162,6 +2161,19 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
 
 def update_yaml_field(config_file: str, section: str, field: str, value: str) -> dict:
+    """Update a single field within a YAML section without overwriting other fields.
+
+    Takes the same lock as update_config_section: both read the whole file,
+    edit it in memory and write it back, so running side by side the later
+    write silently undid the earlier one.
+
+    See _update_yaml_field for the arguments.
+    """
+    with _yaml_write_lock:
+        return _update_yaml_field(config_file, section, field, value)
+
+
+def _update_yaml_field(config_file: str, section: str, field: str, value: str) -> dict:
     """Update a single field within a YAML section without overwriting other fields.
 
     Supports nested sections via dot notation (e.g. 'web.cloud' to target
@@ -2242,8 +2254,7 @@ def update_yaml_field(config_file: str, section: str, field: str, value: str) ->
             updated_lines.insert(insert_index, f"{indent}{field}: {value}\n")
 
         full_path = f"{section}.{field}"
-        with open(config_file, "w", encoding="utf-8") as f:
-            f.writelines(updated_lines)
+        write_atomically(config_file, "".join(updated_lines))
 
         _LOGGER.info("Updated field '%s' = '%s'", full_path, value)
         return {"status": "success", "message": f"Field '{full_path}' updated"}

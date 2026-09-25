@@ -16,6 +16,8 @@ import logging
 import re
 from pathlib import Path
 
+from boneio.core.atomic_file import write_atomically
+
 _LOGGER = logging.getLogger(__name__)
 
 #: Two spaces per level, matching the rest of the file and update_yaml_field.
@@ -172,7 +174,7 @@ def set_block_list(
     else:
         lines[start : (end if end is not None else len(lines))] = [block]
 
-    file_path.write_text("".join(lines), encoding="utf-8")
+    write_atomically(file_path, "".join(lines))
     _LOGGER.info("Wrote %s.%s (%d entries)", ".".join(path), field, len(items))
 
 
@@ -257,7 +259,7 @@ def ensure_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
         f"{INDENT * (depth + offset)}{key}:\n" for offset, key in enumerate(missing)
     )
     lines.insert(insert_at, block)
-    file_path.write_text("".join(lines), encoding="utf-8")
+    write_atomically(file_path, "".join(lines))
     _LOGGER.info("Created section '%s' in %s", ".".join(path), file_path)
     return True
 
@@ -379,7 +381,7 @@ def remove_section(config_file: str | Path, path: tuple[str, ...]) -> bool:
         break
 
     del lines[start:end]
-    file_path.write_text("".join(lines), encoding="utf-8")
+    write_atomically(file_path, "".join(lines))
     return True
 
 
@@ -525,7 +527,7 @@ def set_scalar(config_file: str | Path, path: tuple[str, ...], value: str) -> No
             lines[-1] += "\n"
         lines.append(line)
 
-    file_path.write_text("".join(lines), encoding="utf-8")
+    write_atomically(file_path, "".join(lines))
     # The value is the point of this function and stays out of the log.
     _LOGGER.info("Wrote %s in %s", ".".join(path), file_path.name)
 
@@ -559,5 +561,5 @@ def set_secret(secrets_file: str | Path, name: str, value: str) -> None:
             lines[-1] += "\n"
         lines.append(line)
 
-    file_path.write_text("".join(lines), encoding="utf-8")
+    write_atomically(file_path, "".join(lines))
     _LOGGER.info("Wrote the secret %s", name)

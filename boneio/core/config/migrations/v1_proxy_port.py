@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 
+from boneio.core.atomic_file import write_atomically
 from boneio.core.config.migrations import register_migration
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,8 +42,7 @@ def _persist_proxy_port(config_file: str) -> None:
             updated_lines.append(line)
 
     if updated:
-        with open(config_file, "w", encoding="utf-8") as f:
-            f.writelines(updated_lines)
+        write_atomically(config_file, "".join(updated_lines))
 
 
 @register_migration(

@@ -468,7 +468,10 @@ async def set_pwa_name(
     # Persist to YAML config
     try:
         if _app_state and _app_state.yaml_config_file:
-            result = update_yaml_field(
+            # A thread: it reads and rewrites the whole file, and waits for
+            # any other config save to finish first.
+            result = await asyncio.to_thread(
+                update_yaml_field,
                 _app_state.yaml_config_file,
                 "web.cloud",
                 "pwa_name",

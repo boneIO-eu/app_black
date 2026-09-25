@@ -14,6 +14,7 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from boneio.core.atomic_file import write_atomically
 from boneio.hardware.can.client import CANOPEN_AVAILABLE, CANopenClient
 from boneio.hardware.can.node import (
     BoneIOCANNode,
@@ -506,8 +507,7 @@ class CANopenManager:
             config_path = self._manager._config_file_path
             try:
                 # Optionally backup old config?
-                with open(config_path, "w") as f:
-                    f.write(config_str)
+                write_atomically(config_path, config_str)
                 _LOGGER.info("Successfully overwrote config at %s", config_path)
 
                 # Signal manager to reload config

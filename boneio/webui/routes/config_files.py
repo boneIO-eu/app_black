@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from pathlib import Path
 
 from fastapi import Body, HTTPException
 
+from boneio.core.atomic_file import write_atomically
 from boneio.webui.routes.config_core import _get_app_state, router
 
 _LOGGER = logging.getLogger(__name__)
@@ -138,8 +140,7 @@ async def update_file_content(file_path: str, content: dict = Body(...)):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     try:
-        with open(full_path, "w") as f:
-            f.write(content["content"])
+        await asyncio.to_thread(write_atomically, full_path, content["content"])
         return {"status": "success"}
     except HTTPException:
         raise

@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
+from boneio.core.atomic_file import write_atomically
 from boneio.core.config.yaml_util import load_config_from_file, load_yaml_file, normalize_board_name
 from boneio.version import __version__
 from boneio.webui.routes.system import get_config_helper
@@ -1034,8 +1035,7 @@ async def factory_reset(request: FactoryResetRequest):
                 with open(example_file) as f:
                     content = f.read()
                 adjusted_content = _adjust_config_for_hardware_version(content, version, device_type)
-                with open(dest_path, 'w') as f:
-                    f.write(adjusted_content)
+                write_atomically(dest_path, adjusted_content)
                 if content != adjusted_content:
                     adjusted_files.append(filename)
                     _LOGGER.info(f"Adjusted {filename} for hardware version {version}")

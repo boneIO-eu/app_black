@@ -16,6 +16,7 @@ import logging
 import re
 from pathlib import Path
 
+from boneio.core.atomic_file import write_atomically
 from boneio.core.config.migrations import register_migration
 
 _LOGGER = logging.getLogger(__name__)
@@ -200,8 +201,7 @@ def _strip_wled_fields_from_file(
         content = pattern.sub("", content)
 
     if content != original_content:
-        with open(yaml_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        write_atomically(yaml_path, content)
         _LOGGER.info(
             "Stripped WLED cache fields from %s (saved %d bytes)",
             yaml_path.name,

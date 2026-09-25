@@ -14,6 +14,8 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from boneio.core.atomic_file import write_atomically
+
 _LOGGER = logging.getLogger(__name__)
 
 # Current schema version — bump this when adding new migrations
@@ -308,8 +310,7 @@ def _persist_config_version(config_file: str, version: int) -> None:
         indent = " " * (boneio_indent + 2)
         updated_lines.append(f"{indent}config_version: {version}\n")
 
-    with open(config_file, "w", encoding="utf-8") as f:
-        f.writelines(updated_lines)
+    write_atomically(config_file, "".join(updated_lines))
 
     _LOGGER.info("Persisted config_version: %d to %s", version, config_file)
 
