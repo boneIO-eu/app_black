@@ -1761,8 +1761,12 @@ template:
             code:
               type: string
               required: True
+              # Digits, or the SHA-256 the settings form stores in their place.
+              # Home Assistant is told REMOTE_CODE, which is a numeric keypad,
+              # so a PIN with letters could never be typed there anyway.
+              regex: '^([0-9]+|[0-9a-fA-F]{64})$'
               meta:
-                label: Numeric PIN code.
+                label: Numeric PIN code (digits only), or its SHA-256 hash.
       code_arm_required:
         type: boolean
         required: False
