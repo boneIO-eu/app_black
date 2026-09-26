@@ -34,11 +34,29 @@ class _PymodbusNoResponseFilter(logging.Filter):
     INFO after. Without this the same timeout is logged twice per poll and the
     pymodbus copy stays at ERROR forever. Everything else pymodbus logs is
     left alone.
+
+    pymodbus replaces the second identical message in a row with
+    "Repeating....", so that is dropped too, but only straight after a dropped
+    no-response line; after anything else it is the only trace of a repeat.
     """
+
+    def __init__(self) -> None:
+        """Initialize the filter."""
+        super().__init__()
+        self._dropped_last = False
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Return False for the duplicated no-response message."""
-        return not str(record.msg).startswith("No response received after")
+        msg = str(record.msg)
+        if msg.startswith("No response received after"):
+            self._dropped_last = True
+            return False
+        # pymodbus appends the last frames it sent to an error, so the marker
+        # is a prefix, not the whole message.
+        if msg.startswith("Repeating....") and self._dropped_last:
+            return False
+        self._dropped_last = False
+        return True
 
 
 _PYMODBUS_NO_RESPONSE_FILTER = _PymodbusNoResponseFilter()

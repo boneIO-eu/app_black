@@ -175,3 +175,35 @@ class TestPymodbusFilter:
         assert not f.filter(record("No response received after 2 retries, continue with next request"))
         assert f.filter(record("ERROR: No response received of the last requests, CLOSING CONNECTION."))
         assert f.filter(record("Frame check failed"))
+
+    def test_what_pymodbus_really_logs_is_dropped(self, caplog):
+        """Through pymodbus's own Log, which rewrites repeats as "Repeating....".
+
+        Pins the behaviour to the pymodbus in use: if its wording changes, the
+        filter silently stops matching and this fails.
+        """
+        from pymodbus.logging import Log
+
+        boneio_logger.configure_logger(log_config={}, debug=0)
+        caplog.set_level(logging.INFO, logger=boneio_logger.PYMODBUS_INTERNAL_LOGGER)
+        Log.last_log_text = ""
+        for _ in range(3):
+            # A real timeout: the request went out, so pymodbus has a frame to
+            # append to the error.
+            Log.transport_dump(Log.SEND_DATA, b"\x0a\x04\x00\x00\x00\x02", b"")
+            Log.error("No response received after 2 retries, continue with next request")
+        assert [
+            r for r in caplog.records if r.name == boneio_logger.PYMODBUS_INTERNAL_LOGGER
+        ] == []
+
+        Log.error("Frame check failed")
+        assert [r.getMessage() for r in caplog.records] == ["Frame check failed"]
+
+    def test_repeating_marker_is_kept_after_other_messages(self):
+        f = boneio_logger._PymodbusNoResponseFilter()
+
+        def record(msg):
+            return logging.LogRecord("pymodbus.logging", logging.ERROR, "", 0, msg, None, None)
+
+        assert f.filter(record("Frame check failed"))
+        assert f.filter(record("Repeating...."))
