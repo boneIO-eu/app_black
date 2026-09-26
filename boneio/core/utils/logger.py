@@ -21,8 +21,49 @@ _nameToLevel = {
 }
 
 
+#: The one logger pymodbus 3.x writes through (its ``Log`` class).
+PYMODBUS_INTERNAL_LOGGER = "pymodbus.logging"
+
+
+class _PymodbusNoResponseFilter(logging.Filter):
+    """Drop pymodbus's own report of a device that did not answer.
+
+    pymodbus logs "No response received after N retries" at ERROR and then
+    raises ModbusIOException, which boneio.modbus.client catches and reports
+    itself — with the device and register, and rate-limited, WARNING once and
+    INFO after. Without this the same timeout is logged twice per poll and the
+    pymodbus copy stays at ERROR forever. Everything else pymodbus logs is
+    left alone.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False for the duplicated no-response message."""
+        return not str(record.msg).startswith("No response received after")
+
+
+_PYMODBUS_NO_RESPONSE_FILTER = _PymodbusNoResponseFilter()
+
+
+def _configure_pymodbus_filter(log_config: dict, debug: int) -> None:
+    """Install the no-response filter unless the operator asked for pymodbus.
+
+    An explicit ``logger.logs`` entry for pymodbus, or ``-dd``, means somebody
+    wants to see what pymodbus says, so the filter stays off. Removed first
+    because this runs again on every config reload.
+    """
+    internal = logging.getLogger(PYMODBUS_INTERNAL_LOGGER)
+    internal.removeFilter(_PYMODBUS_NO_RESPONSE_FILTER)
+    configured = (log_config or {}).get("logs") or {}
+    explicit = any(
+        name == PYMODBUS or name.startswith(PYMODBUS + ".") for name in configured
+    )
+    if not explicit and debug <= 1:
+        internal.addFilter(_PYMODBUS_NO_RESPONSE_FILTER)
+
+
 def configure_logger(log_config: dict, debug: int) -> None:
     """Configure logger based on config yaml."""
+    _configure_pymodbus_filter(log_config, debug)
 
     def debug_logger():
         # Always suppress hypercorn access logs (they spam INFO level)

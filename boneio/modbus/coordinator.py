@@ -133,6 +133,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._additional_data = additional_data
         self._update_cycle_count = 0
         self._failed_groups: set[int] = set()  # Track register group indices that failed last read
+        # Groups whose current run of failures has already been logged at
+        # WARNING. Separate from _failed_groups, which is also filled to force
+        # a re-read and so does not mean "a failure was reported".
+        self._reported_groups: set[int] = set()
         self._polling_enabled: bool = True  # Runtime toggle for temporarily disabling polling
 
         self.__init_modbus_entities__()
@@ -1082,10 +1086,16 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             if not values:
                 # Mark this group as failed so it retries next cycle
                 self._failed_groups.add(index)
+                # A dead device fails every cycle, forever. Warn when the
+                # failure starts, then drop to INFO until it answers, so
+                # anything read at warning level is not buried by it.
+                level = logging.INFO if index in self._reported_groups else logging.WARNING
+                self._reported_groups.add(index)
                 
                 # For groups with update_every_n, just skip — don't abort entire update
                 if update_every_n:
-                    _LOGGER.warning(
+                    _LOGGER.log(
+                        level,
                         "Can't fetch data from modbus device %s (group %d, base=%s, update_every_n=%d). "
                         "Will retry next cycle.",
                         self.id, index, data.get(BASE), update_every_n,
@@ -1104,7 +1114,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         retain=True,
                     )
                     self._discovery_sent = False
-                _LOGGER.warning(
+                _LOGGER.log(
+                    level,
                     "Can't fetch data from modbus device %s (group %d, base=%s). Will sleep for %s seconds",
                     self.id,
                     index,
@@ -1115,6 +1126,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             else:
                 # Read succeeded — clear failed flag for this group
                 self._failed_groups.discard(index)
+                self._reported_groups.discard(index)
                 if update_interval != self._update_interval.total_in_seconds:
                     update_interval = self._update_interval.total_in_seconds
                 

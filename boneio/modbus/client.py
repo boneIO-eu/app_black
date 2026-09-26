@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import struct
+import threading
 import time
+from collections.abc import Hashable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from typing import Any
@@ -93,6 +95,67 @@ MAX_WORKERS = 4
 OPERATION_TIMEOUT = 5
 # Auto-resume timeout in seconds (safety net if frontend disconnects)
 SUSPEND_AUTO_TIMEOUT = 300  # 5 minutes
+#: Failure-tracker key for the serial port itself, as opposed to one register.
+PORT_KEY = "port"
+
+
+class FailureLog:
+    """Report a repeating Modbus failure once loudly, then quietly.
+
+    A device that stops answering fails the same read on every poll cycle.
+    Logged at ERROR each time, that buried every other warning and error in
+    the journal. The first failure after a period of success is a WARNING,
+    repeats are INFO, and the first success after a failure is a WARNING
+    again, so anyone reading at warning level sees the outage close as well
+    as open.
+
+    Keys are chosen by the caller. The client uses ``(unit, address)``: an
+    exception response means the device did answer, so keying on the unit
+    alone would flip between "failing" and "recovered" every cycle when one
+    register is misconfigured and the rest are fine.
+    """
+
+    def __init__(self, logger: logging.Logger) -> None:
+        """Initialize the tracker.
+
+        Args:
+            logger: Logger the messages are emitted on.
+        """
+        self._logger = logger
+        self._failures: dict[Hashable, int] = {}
+        # The blocking calls run on a thread pool; the asyncio lock serializes
+        # them today, but this must not depend on it.
+        self._lock = threading.Lock()
+
+    def failed(self, key: Hashable, msg: str, *args: Any) -> None:
+        """Record a failure and log it.
+
+        Args:
+            key: What failed, e.g. ``(unit, address)``.
+            msg: Log message, %-style.
+            *args: Arguments for ``msg``.
+        """
+        with self._lock:
+            count = self._failures.get(key, 0) + 1
+            self._failures[key] = count
+        if count == 1:
+            self._logger.warning(msg, *args)
+        else:
+            self._logger.info(msg + " (failed %d times in a row)", *args, count)
+
+    def succeeded(self, key: Hashable, what: str) -> None:
+        """Record a success; log the recovery if ``key`` was failing.
+
+        Args:
+            key: What succeeded, the same key passed to :meth:`failed`.
+            what: Human-readable name of it for the recovery message.
+        """
+        with self._lock:
+            count = self._failures.pop(key, 0)
+        if count:
+            self._logger.warning(
+                "%s responding again after %d failed attempt(s)", what, count
+            )
 
 
 class Modbus:
@@ -152,6 +215,7 @@ class Modbus:
             )
         timeout = clamped_timeout
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
+        self._failures = FailureLog(_LOGGER)
 
         _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
         # Calculate inter-character timeout based on baudrate (3.5 characters)
@@ -267,11 +331,13 @@ class Modbus:
         try:
             if not self._client:
                 if not silent:
-                    _LOGGER.error("Modbus client was closed")
+                    self._failures.failed(PORT_KEY, "Modbus client was closed")
                 return False
 
             # Check if already connected
             if self._client.connected:
+                if not silent:
+                    self._port_ok()
                 return True
 
             # Try to connect (pymodbus 3.x handles this automatically on first request)
@@ -280,20 +346,34 @@ class Modbus:
             if result:
                 if not silent:
                     _LOGGER.debug("Modbus client connected successfully")
+                    self._port_ok()
                 return True
             else:
                 if not silent:
-                    _LOGGER.error(f"Failed to connect Modbus client to {self._uart[ID]}")
+                    self._failures.failed(
+                        PORT_KEY, "Failed to connect Modbus client to %s", self._uart[ID]
+                    )
                 return False
 
         except ModbusException as exception_error:
             if not silent:
-                _LOGGER.error(f"ModbusException during connect: {exception_error}")
+                self._failures.failed(
+                    PORT_KEY, "ModbusException during connect: %s", exception_error
+                )
             return False
         except Exception as e:
             if not silent:
-                _LOGGER.error(f"Unexpected error during Modbus connect: {type(e).__name__}: {e}")
+                self._failures.failed(
+                    PORT_KEY,
+                    "Unexpected error during Modbus connect: %s: %s",
+                    type(e).__name__,
+                    e,
+                )
             return False
+
+    def _port_ok(self) -> None:
+        """Record that the serial port is usable again."""
+        self._failures.succeeded(PORT_KEY, f"Modbus port {self._uart[ID]}")
 
     async def read_and_decode(
         self,
@@ -321,7 +401,8 @@ class Modbus:
             # In pymodbus 3.x, connection is automatic
             connected = self._pymodbus_connect()
             if not connected:
-                _LOGGER.error("Can't connect to Modbus.")
+                # _pymodbus_connect() has already reported why, rate-limited.
+                _LOGGER.debug("Can't connect to Modbus.")
                 return None
 
             _LOGGER.debug(
@@ -347,20 +428,58 @@ class Modbus:
                 _LOGGER.error(f"Unknown method: {method}")
                 return None
 
+            key = (str(unit), address)
             if not hasattr(result, REGISTERS):
-                _LOGGER.error("No result from read for device %s at address %s: %s", unit, address, str(result))
+                self._failures.failed(
+                    key,
+                    "No result from read for device %s at address %s: %s",
+                    unit,
+                    address,
+                    str(result),
+                )
                 result = None
+            elif isinstance(result, ExceptionResponse):
+                # pymodbus 3.x gives ExceptionResponse an empty ``registers``,
+                # so it passes the check above. It is still returned as before:
+                # boneio.modbus.cli prints its exception code.
+                self._failures.failed(
+                    key,
+                    "Device %s refused read at address %s: %s",
+                    unit,
+                    address,
+                    result,
+                )
+            else:
+                self._failures.succeeded(key, f"Modbus device {unit} at address {address}")
 
         except ValueError as exception_error:
-            _LOGGER.error("Error reading registers from device %s at address %s: %s", unit, address, exception_error)
+            self._failures.failed(
+                (str(unit), address),
+                "Error reading registers from device %s at address %s: %s",
+                unit,
+                address,
+                exception_error,
+            )
         except (ModbusException, struct.error) as exception_error:
-            _LOGGER.error("Error reading registers from device %s at address %s: %s", unit, address, exception_error)
+            self._failures.failed(
+                (str(unit), address),
+                "Error reading registers from device %s at address %s: %s",
+                unit,
+                address,
+                exception_error,
+            )
         except TimeoutError:
-            _LOGGER.error("Timeout reading registers from device %s at address %s", unit, address)
+            self._failures.failed(
+                (str(unit), address),
+                "Timeout reading registers from device %s at address %s",
+                unit,
+                address,
+            )
         except asyncio.CancelledError as err:
             _LOGGER.error("Operation cancelled reading registers from device %s at address %s: %s", unit, address, err)
         except Exception as e:
-            _LOGGER.error(
+            self._failures.failed(
+                (str(unit), address),
                 "Unexpected error reading registers from device %s at address %s: %s - %s",
                 unit,
                 address,
@@ -384,7 +503,8 @@ class Modbus:
             # In pymodbus 3.x, connection is automatic
             connected = self._pymodbus_connect()
             if not connected:
-                _LOGGER.error("Can't connect to Modbus.")
+                # _pymodbus_connect() has already reported why, rate-limited.
+                _LOGGER.debug("Can't connect to Modbus.")
                 return None
 
             _LOGGER.debug(
@@ -399,20 +519,55 @@ class Modbus:
             assert self._client is not None
             result = self._client.write_register(address=address, value=int(value), device_id=int(unit))
 
+            # Same key as reads: a holding register is usually both polled and
+            # written, and a device that is down fails both.
+            key = (str(unit), address)
             if isinstance(result, ExceptionResponse):
-                _LOGGER.error(f"Operation failed: {result}")
+                self._failures.failed(
+                    key,
+                    "Write to device %s at address %s failed: %s",
+                    unit,
+                    address,
+                    result,
+                )
                 result = None
+            else:
+                self._failures.succeeded(key, f"Modbus device {unit} at address {address}")
 
         except ValueError as exception_error:
-            _LOGGER.error("ValueError: Error writing registers: %s", exception_error)
+            self._failures.failed(
+                (str(unit), address),
+                "ValueError: Error writing register %s on device %s: %s",
+                address,
+                unit,
+                exception_error,
+            )
         except (ModbusException, struct.error) as exception_error:
-            _LOGGER.error("ModbusException: Error writing registers: %s", exception_error)
+            self._failures.failed(
+                (str(unit), address),
+                "ModbusException: Error writing register %s on device %s: %s",
+                address,
+                unit,
+                exception_error,
+            )
         except TimeoutError:
-            _LOGGER.error("Timeout writing registers to device %s", unit)
+            self._failures.failed(
+                (str(unit), address),
+                "Timeout writing register %s to device %s",
+                address,
+                unit,
+            )
         except asyncio.CancelledError as err:
             _LOGGER.error("Operation cancelled writing registers to device %s with error %s", unit, err)
         except Exception as e:
-            _LOGGER.error(f"Unexpected error writing registers: {type(e).__name__} - {e}")
+            self._failures.failed(
+                (str(unit), address),
+                "Unexpected error writing register %s on device %s: %s - %s",
+                address,
+                unit,
+                type(e).__name__,
+                e,
+            )
         finally:
             end_time = time.perf_counter()
             _LOGGER.debug(
@@ -598,7 +753,8 @@ class Modbus:
         try:
             connected = self._pymodbus_connect()
             if not connected:
-                _LOGGER.error("Can't connect to Modbus.")
+                # _pymodbus_connect() has already reported why, rate-limited.
+                _LOGGER.debug("Can't connect to Modbus.")
                 return None
 
             _LOGGER.debug(
@@ -614,20 +770,53 @@ class Modbus:
                 address=address, values=values, device_id=int(unit)
             )
 
+            key = (str(unit), address)
             if isinstance(result, ExceptionResponse):
-                _LOGGER.error("FC16 write operation failed: %s", result)
+                self._failures.failed(
+                    key,
+                    "FC16 write to device %s at address %s failed: %s",
+                    unit,
+                    address,
+                    result,
+                )
                 result = None
+            else:
+                self._failures.succeeded(key, f"Modbus device {unit} at address {address}")
 
         except ValueError as exception_error:
-            _LOGGER.error("ValueError: Error writing multiple registers: %s", exception_error)
+            self._failures.failed(
+                (str(unit), address),
+                "ValueError: Error writing multiple registers at %s on device %s: %s",
+                address,
+                unit,
+                exception_error,
+            )
         except (ModbusException, struct.error) as exception_error:
-            _LOGGER.error("ModbusException: Error writing multiple registers: %s", exception_error)
+            self._failures.failed(
+                (str(unit), address),
+                "ModbusException: Error writing multiple registers at %s on device %s: %s",
+                address,
+                unit,
+                exception_error,
+            )
         except TimeoutError:
-            _LOGGER.error("Timeout writing multiple registers to device %s", unit)
+            self._failures.failed(
+                (str(unit), address),
+                "Timeout writing multiple registers at %s to device %s",
+                address,
+                unit,
+            )
         except asyncio.CancelledError as err:
             _LOGGER.error("Operation cancelled writing multiple registers to device %s: %s", unit, err)
         except Exception as e:
-            _LOGGER.error("Unexpected error writing multiple registers: %s - %s", type(e).__name__, e)
+            self._failures.failed(
+                (str(unit), address),
+                "Unexpected error writing multiple registers at %s on device %s: %s - %s",
+                address,
+                unit,
+                type(e).__name__,
+                e,
+            )
         finally:
             end_time = time.perf_counter()
             _LOGGER.debug(
