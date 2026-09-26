@@ -6,6 +6,94 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev18 (2026-09-26) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🛟 A freshly flashed controller no longer boots into a black-screen loop
+
+Since `boneio.service` stopped waiting for `multi-user.target`, a first boot
+can reach a device node before udev has handed it to the `gpio` group. On a
+dev17 controller that meant `PermissionError` on `/dev/i2c-2`, three times in
+a row, into a crash loop — and because the image has no administrator
+account yet, recovery refused too. Refusing recovery used to exit at once, so
+systemd's restart came straight back into the same refusal every few
+seconds, forever: a black OLED and Caddy answering 502. This is a regression
+from dev14, when the recovery panel was added.
+
+- **boneIO now waits for udev before giving up on `/dev/i2c-N`.** The first
+  open of the I2C bus retries once a second for up to 60 s while the node is
+  missing or not accessible, logging one WARNING when the wait starts and an
+  INFO when it opens; after that the original error is raised as before.
+  Reopens at runtime don't wait, and the legacy hardware scripts still fail
+  fast.
+- **The same wait applies to `/dev/gpiochip*`**, sharing the 60 s budget with
+  the I2C bus. Before this, a chip not yet handed to `gpio` failed at once,
+  was reported and skipped, and its inputs stayed dead — silently, with no
+  crash and no retry — until boneIO was restarted by hand. Past the 60 s the
+  chip is still reported and skipped, same as before; the wait only helps
+  when udev catches up within that window, which is the common case.
+- **A refused recovery now hands back to a normal start instead of looping
+  forever.** The refusal (no web section, no usable account store, no
+  administrator) logs why, shows "Start failed" / "Retrying in 60 s" on the
+  OLED, and — under systemd — waits 60 s before exiting so the next start is
+  a normal one rather than another recovery attempt. This is a trade-off,
+  not a fix in itself: if the crash persists, the controller still does a
+  real start that drives its outputs, roughly once a minute, instead of
+  sitting in recovery. A device that does have an account, whose panel
+  merely fails to serve, is unaffected — it's still offered the panel again
+  on the next start.
+- **Crash messages stay on the OLED instead of vanishing.** `luma`'s
+  `atexit` hook switches the panel off and clears it on exit unless the
+  device is marked "persist", so the crash notice used to show for about a
+  second before the display went black. It now stays up until the next
+  start.
+- Diagnosed on a controller at 192.168.50.125 (`startup_failures.json`
+  showed `PermissionError` on `/dev/i2c-2`); **none of these four fixes have
+  been tried on hardware yet.**
+
+### 📟 Warnings and errors reach the serial console without a login
+
+- **Migration 1.6.25** installs a `journald` drop-in that forwards journal
+  entries at warning level or worse to `/dev/ttyS0`, early boot included —
+  journald does the forwarding itself, no extra process. The `boneio`
+  account is locked by default, so the serial getty can't be used to read
+  the journal. Reaching the UART header needs the enclosure open, and
+  whoever has that already has the SD card and eMMC, with the whole journal
+  and configuration on them — this doesn't lower that bar. The console is
+  **not** masked: secrets are hidden only where the panel shows the journal
+  (`/api/logs`), so the wire carries exactly what `journalctl` does. Part of
+  adapting the 1.6 series to the CRA: a device that fails should be
+  diagnosable without weakening its login.
+- **boneIO now tells journald the level of every line it writes.** Plain
+  stdout/stderr text is filed by systemd at `info` regardless of what it
+  says, so none of boneIO's own warnings, errors or tracebacks reached the
+  new serial console, and `journalctl -p err` and the panel's log-level
+  filter didn't work either. When stderr is the stream systemd is watching,
+  each line is now prefixed with its level for journald to strip; a crash
+  outside the startup handlers is logged the same way via `sys.excepthook`
+  and `threading.excepthook`.
+- Not yet tried on Debian 13 hardware, only against a local journald.
+
+### 🔇 A silent Modbus device warns once, then goes quiet
+
+- **A device that stops answering logs one WARNING, not one ERROR per
+  poll.** Failures are now tracked per unit and register group: the first
+  is a WARNING, repeats are INFO with a running count, and the first good
+  read afterwards logs — at WARNING — that it's responding again, so an
+  outage visibly closes instead of burying every other warning in the
+  journal.
+- **pymodbus's own duplicate "No response" and "Repeating...." lines are
+  filtered**, unless a pymodbus logger is named explicitly in
+  `logger.logs` or boneIO runs with `-dd`.
+- **An exception response is a failed read, not an online device.**
+  pymodbus 3.x returns an `ExceptionResponse` with an empty registers list
+  on purpose; the coordinator used to treat that as data, mark the device
+  ONLINE, and then fail to decode the empty payload on every poll, at
+  ERROR. It's now treated as a failed read of that group — retried, logged
+  once as a WARNING and then as INFO — while the rest of the device's
+  groups keep being read normally.
+
 ## v1.6.0.dev17 (2026-09-25) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

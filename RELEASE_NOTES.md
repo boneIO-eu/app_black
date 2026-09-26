@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev17` exists so that we can test the new system-migration chain on a
+`1.6.0.dev18` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,74 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev18 — internal test build
+
+## Since dev17
+
+This is a fix-up release after a freshly flashed dev17 controller failed to
+come up at all: it started before udev had handed `/dev/i2c-2` its `gpio`
+group, since `boneio.service` no longer waits for `multi-user.target`,
+crashed on `PermissionError` three times, dropped into recovery, and recovery
+refused too — the image has no administrator account yet. Refusing recovery
+used to exit at once, so systemd's restart brought the controller straight
+back into the same refusal every few seconds, forever, with a black OLED and
+Caddy answering 502. This is a regression from dev14, when the recovery panel
+was added. `/dev/gpiochip*` has the same first-boot race: a chip not yet
+handed to `gpio` failed at once, was reported and skipped, and its inputs
+stayed dead — silently, no crash, no retry — until the service was restarted
+by hand.
+
+Four changes close this. boneIO now waits up to 60 s (a shared budget) for
+`/dev/i2c-N` and `/dev/gpiochip*` to appear before giving up — past that
+window the behaviour is what it was before (I2C raises, a GPIO chip is
+reported and skipped), but the common first-boot race is now covered. A
+refused recovery logs why, shows "Start failed" / "Retrying in 60 s" on the
+OLED, and, under systemd, waits 60 s before exiting so the next start is a
+normal one instead of another recovery attempt; this is a trade-off, not a
+fix by itself — if the crash persists, that loop now does a real start that
+drives the outputs roughly once a minute, instead of sitting in recovery
+forever. A device that already has an account, whose panel merely fails to
+serve, is unaffected and is still offered the panel again next start. Last,
+crash messages on the OLED no longer vanish, because `luma`'s exit handler
+used to blank the panel regardless of what was just drawn. This was
+diagnosed on the controller at 192.168.50.125 — its `startup_failures.json`
+recorded the `PermissionError` on `/dev/i2c-2` — but none of these four
+fixes have been tried on hardware yet.
+
+Migration 1.6.25 installs a `journald` drop-in that forwards journal entries
+at warning level or worse to the serial console (`/dev/ttyS0`), early boot
+included, so a controller that won't start can be diagnosed with a
+USB-serial adapter even though the `boneio` account is locked and the serial
+getty can't be used. Reaching the UART header needs the enclosure open, and
+whoever has that already has the SD card and eMMC with the whole journal and
+configuration on them, so this doesn't lower the bar for getting at the
+device. The console is **not** masked: secrets are hidden only where the
+panel shows the journal (`/api/logs`), so the wire carries exactly what
+`journalctl` does. Part of adapting the 1.6 series to the CRA — a device
+that fails should be diagnosable without weakening its login. Alongside it,
+boneIO now tells journald the level of every line it writes instead of
+leaving everything at `info`, so its own warnings, errors and tracebacks
+reach that console too, and `journalctl -p err` and the panel's log-level
+filter start working. This has only been checked against a local journald,
+not yet on Debian 13 hardware.
+
+A Modbus device that stops answering used to log an ERROR on every single
+poll, from boneIO and from pymodbus both, burying every other warning in the
+journal; it now warns once, then counts silently at INFO until it answers
+again, and logs at WARNING once more when it recovers. A separate bug had
+the coordinator treat a Modbus exception response — which pymodbus returns
+on purpose, with no registers — as real data, marking the device ONLINE and
+then failing to decode an empty payload on every poll. It's now correctly
+treated as a failed read of that one register group, retried and logged
+like any other failure, while the device's other groups keep being read
+normally.
+
+One new system migration, 1.6.25; its plan is already signed. At release,
+only the manifest gets a new signature on top of that, because it names the
+release.
 
 ---
 
