@@ -7,6 +7,8 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Union
 
+from pymodbus.pdu import ExceptionResponse
+
 from boneio.const import (
     ADDRESS,
     BASE,
@@ -1063,7 +1065,26 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 count=data[LENGTH],
                 method=data.get("register_type", "input"),
             )
-            
+            # The client hands an exception response back as is, because the
+            # modbus CLI prints its code. Here it is a failed read of this
+            # group: pymodbus 3.x gives it an empty ``registers``, so taken as
+            # data it marked the device ONLINE and every sensor then failed to
+            # decode it, at ERROR, on every poll. It is not "no response"
+            # either - the device answered, it just refuses this block (a
+            # model variant without it, a wrong register map) - so the other
+            # groups are still read, nothing backs off, and only a real read
+            # brings the device ONLINE.
+            if isinstance(values, ExceptionResponse):
+                self._failed_groups.add(index)
+                level = logging.INFO if index in self._reported_groups else logging.WARNING
+                self._reported_groups.add(index)
+                _LOGGER.log(
+                    level,
+                    "Modbus device %s refused register group %d (base=%s): %s",
+                    self.id, index, data.get(BASE), values,
+                )
+                continue
+
             # Handle online/offline status
             if self._payload_online == OFFLINE and values:
                 _LOGGER.info("Sending online payload about device %s.", self._name)
