@@ -25,6 +25,16 @@ CRASH_RETRY_IDLE_SECONDS = 600
 
 _RETRY_CHECK_SECONDS = 15
 
+#: How long a controller that cannot serve the panel waits before systemd gets
+#: to try a normal start again. Exiting at once would restart every
+#: RestartSec (3 s), and with no panel to wait for there is nobody to give
+#: the ten minutes above to. A minute keeps a transient cause - a bus udev
+#: had not handed over yet on the first boot - down to one more attempt, and
+#: a persistent one to a start and a traceback in the journal per cycle
+#: rather than one every few seconds. Waiting here needs no change to the
+#: systemd unit.
+REFUSED_RETRY_SECONDS = 60
+
 
 #: How often the notice is drawn again. SH1106 keeps its image by itself; this
 #: is for the address, which on DHCP can arrive after recovery has started,
@@ -68,6 +78,59 @@ async def _keep_oled_notice(reason: RecoveryReason, settings: WebSettings) -> No
 
 def _is_service() -> bool:
     return bool(os.environ.get("INVOCATION_ID"))
+
+
+def _retry_later(config_file: str, reason: RecoveryReason) -> int:
+    """Recovery cannot run here: say why startup failed, then try again.
+
+    Refusing used to end the process with exit code 1 and nothing else. With
+    the crash count still at the threshold, systemd's next start came
+    straight back here, refused again, and so on for good: a fresh controller
+    whose bus udev had not handed over in time sat in that loop behind a
+    black screen until somebody deleted startup_failures.json by hand.
+
+    So the next start is made a normal one, as leaving recovery would, and
+    the reason goes to the two places anybody can see it without the panel:
+    the journal and the display.
+
+    Args:
+        config_file: The config.yaml boneIO was started with.
+        reason: Why it could not start.
+
+    Returns:
+        The process exit code, 1: systemd starts boneIO again (Restart=always).
+    """
+    service = _is_service()
+    where = f" ({reason.file}:{reason.line})" if reason.file and reason.line else ""
+    retry = f"trying a normal start again in {REFUSED_RETRY_SECONDS} s" if service else "run boneIO again once it is fixed"
+    _LOGGER.error(
+        "boneIO could not start (%s): %s%s - %s.",
+        "configuration error" if reason.kind == "config" else f"crash, {reason.failures} in a row",
+        reason.message,
+        where,
+        retry,
+    )
+
+    try:
+        from boneio.hardware.display.early_oled import draw_recovery, keep_on_exit
+
+        note = f"Retrying in {REFUSED_RETRY_SECONDS} s. " if service else ""
+        draw_recovery(
+            title="Config error" if reason.kind == "config" else "Start failed",
+            # The retry note first: draw_recovery keeps four lines and drops
+            # the rest, and a long error must not push it off the screen.
+            message=f"{note}{reason.message}",
+        )
+        keep_on_exit()
+    except Exception:  # noqa: BLE001 - no display is no reason to fail
+        _LOGGER.debug("OLED not available for the startup failure notice")
+
+    # Before the wait, so a restart by hand in the meantime gets a normal
+    # start too.
+    StartupFailures(config_file).allow_one_retry()
+    if service:
+        time.sleep(REFUSED_RETRY_SECONDS)
+    return 1
 
 
 async def _serve(
@@ -156,7 +219,9 @@ def run_recovery(config_file: str, reason: RecoveryReason) -> int:
     Returns without serving anything when the panel would not be safe or not
     wanted: a config without a ``web`` section, or a device that has no
     account to sign in with - recovery must not become a way to reach a
-    controller's config that the regular panel would not give.
+    controller's config that the regular panel would not give. The next start
+    is then a normal one, after :data:`REFUSED_RETRY_SECONDS`, see
+    :func:`_retry_later`.
 
     Args:
         config_file: The config.yaml boneIO was started with.
@@ -170,7 +235,7 @@ def run_recovery(config_file: str, reason: RecoveryReason) -> int:
     settings = read_web_settings(config_file)
     if not settings.enabled:
         _LOGGER.error("Recovery mode not started: config.yaml has no web section.")
-        return 1
+        return _retry_later(config_file, reason)
 
     store = UserStore.for_config_file(config_file)
     try:
@@ -178,14 +243,14 @@ def run_recovery(config_file: str, reason: RecoveryReason) -> int:
         provisioned = store.is_provisioned()
     except UserStoreError as err:
         _LOGGER.error("Recovery mode not started: the account store is unusable: %s", err)
-        return 1
+        return _retry_later(config_file, reason)
     if not provisioned:
         _LOGGER.error(
             "Recovery mode not started: this device has no administrator account "
             "to sign in with. Fix config.yaml over SSH, or create an account "
             "with 'boneio accounts add'."
         )
-        return 1
+        return _retry_later(config_file, reason)
 
     jwt_secret = load_or_create_jwt_secret(store.path.parent)
     _show_on_oled(reason, settings)
@@ -194,6 +259,8 @@ def run_recovery(config_file: str, reason: RecoveryReason) -> int:
         restart = asyncio.run(_serve(config_file, reason, settings, store, jwt_secret))
     except Exception as err:  # noqa: BLE001 - recovery failing must not hide the original error
         _LOGGER.error("Recovery panel failed: %s", err, exc_info=True)
+        # Not _retry_later(): this device has an account, so the next start
+        # should offer the panel again rather than drive outputs.
         return 1
 
     if not restart:

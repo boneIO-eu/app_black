@@ -231,10 +231,12 @@ class StartupFailures:
     def allow_one_retry(self) -> None:
         """Let the next start run normally, but only that one.
 
-        Called when the owner leaves recovery. Clearing the count outright
-        would cost three more crashes - most of a minute each on a BeagleBone
-        - before the panel came back if the fix did not work; one below the
-        threshold gives the fix a single try.
+        Called when the owner leaves recovery, and when recovery cannot run
+        at all (no ``web`` section, no account to sign in with): without a
+        panel, another normal start is the only way out of the loop.
+        Clearing the count outright would cost three more crashes - most of
+        a minute each on a BeagleBone - before the panel came back if the fix
+        did not work; one below the threshold gives the fix a single try.
         """
         data = self._read()
         if self.count >= CRASH_LOOP_THRESHOLD:

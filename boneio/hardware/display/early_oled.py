@@ -274,6 +274,23 @@ def draw_recovery(title: str, message: str, url: str | None = None, device: Any 
         _LOGGER.debug("Failed to draw recovery notice on OLED: %s", err)
 
 
+def keep_on_exit(device: Any | None = None) -> None:
+    """Leave whatever is on the display there when the process exits.
+
+    luma registers an atexit hook that switches the panel off and clears it
+    unless the device is marked ``persist``. Right for a clean shutdown, but
+    a message drawn just before a deliberate exit - one systemd will follow
+    with another start - would otherwise vanish with the process and leave
+    the cabinet with a black screen instead of the reason.
+
+    Args:
+        device: Optional device override; uses singleton if not provided.
+    """
+    dev = device or _early_device
+    if dev is not None:
+        dev.persist = True
+
+
 def clear_display(device: Any | None = None) -> None:
     """Clear the OLED display (turn all pixels off).
 
