@@ -208,6 +208,11 @@ def draw_crash(exception: BaseException, device: Any | None = None) -> None:
     This function ALWAYS works, even after handoff() — crashes must be
     visible to the user regardless of which component owns the screen.
 
+    It also marks the display to survive the exit. Every caller returns 1
+    straight after drawing, and luma's atexit hook would otherwise blank
+    the panel a moment later - the message was up for about a second, then
+    the cabinet showed a black screen until systemd's next start.
+
     Args:
         exception: The exception that caused the crash.
         device: Optional device override; uses singleton if not provided.
@@ -223,6 +228,7 @@ def draw_crash(exception: BaseException, device: Any | None = None) -> None:
             detail=exc_msg,
             device=device,
         )
+        keep_on_exit(device)
     finally:
         _taken_over = was_taken_over
 
