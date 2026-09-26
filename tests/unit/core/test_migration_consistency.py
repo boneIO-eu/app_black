@@ -241,6 +241,52 @@ class TestConsoleIssue:
         assert actions[0]["dst"] != "/etc/issue"
 
 
+class TestJournalOnSerialConsole:
+    """The journald drop-in added by 1.6.25."""
+
+    @staticmethod
+    def _settings() -> dict[str, str]:
+        from boneio.migrations.runner import ASSETS_DIR
+
+        text = (ASSETS_DIR / "journald" / "boneio-console.conf").read_text()
+        settings = {}
+        section = None
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("["):
+                section = line
+                continue
+            key, _, value = line.partition("=")
+            settings[f"{section}{key}"] = value
+        return settings
+
+    def test_it_forwards_to_the_debug_uart(self):
+        settings = self._settings()
+        assert settings["[Journal]ForwardToConsole"] == "yes"
+        assert settings["[Journal]TTYPath"] == "/dev/ttyS0"
+
+    def test_it_forwards_warnings_and_worse_only(self):
+        """A serial line is slow and journald writes to it as it logs; info
+        would put every routine message on the wire."""
+        assert self._settings()["[Journal]MaxLevelConsole"] == "warning"
+
+    def test_it_is_a_drop_in_and_restarts_journald(self):
+        """journald.conf itself is installed whole by 1.5.7 and 1.5.14."""
+        from boneio.migrations.versions import (
+            v1_6_25_journal_to_serial_console as migration,
+        )
+
+        actions = [a.to_dict() for a in migration.plan()]
+        assert len(actions) == 1
+        assert actions[0]["dst"] == "/etc/systemd/journald.conf.d/boneio-console.conf"
+        assert actions[0]["on_change"] == {
+            "action": "systemctl_restart",
+            "unit": "systemd-journald",
+        }
+
+
 class TestCertificateLifetime:
     """The device's own certificate lasts long enough to be worth trusting.
 
