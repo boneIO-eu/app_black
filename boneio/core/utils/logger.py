@@ -1,6 +1,9 @@
 import logging
 import os
+import sys
+import threading
 from logging import Formatter
+from typing import IO
 from logging.handlers import RotatingFileHandler
 
 from colorlog import ColoredFormatter
@@ -142,8 +145,84 @@ def is_running_under_systemd():
     """Check if the process is running under systemd."""
     return os.getenv('JOURNAL_STREAM') is not None
 
-def get_log_formatter(color: bool = True) -> Formatter:
-    """Get log formatter with optional color support."""
+def is_journal_stream(stream: IO | None) -> bool:
+    """Whether ``stream`` is the one systemd connected to the journal.
+
+    systemd sets JOURNAL_STREAM to "device:inode" of the socket it gave the
+    service as stdout/stderr (systemd.exec(5)). The variable alone is not
+    enough: a child of boneIO inherits it with its stderr piped elsewhere, and
+    there a level prefix would be noise in somebody else's output.
+    """
+    value = os.environ.get("JOURNAL_STREAM")
+    if not value or stream is None:
+        return False
+    try:
+        device, inode = (int(part) for part in value.split(":"))
+        st = os.fstat(stream.fileno())
+    except (ValueError, OSError, AttributeError):
+        # io.UnsupportedOperation (no real fd, e.g. pytest's capture) is
+        # both an OSError and a ValueError.
+        return False
+    return (st.st_dev, st.st_ino) == (device, inode)
+
+
+def syslog_priority(levelno: int) -> int:
+    """Map a logging level to the syslog priority journald files it under."""
+    if levelno >= logging.CRITICAL:
+        return 2
+    if levelno >= logging.ERROR:
+        return 3
+    if levelno >= logging.WARNING:
+        return 4
+    if levelno >= logging.INFO:
+        return 6
+    return 7
+
+
+class JournalLevelFormatter(Formatter):
+    """Prefix every line of a record with its level for journald.
+
+    journald reads what a service writes to stdout/stderr line by line and
+    files each line at PRIORITY=6 unless it starts with "<N>" (the sd-daemon
+    prefix; SyslogLevelPrefix= is on by default). boneIO wrote plain text, so
+    its warnings, errors and tracebacks were all "info" to the journal - and
+    never reached the serial console, which since 1.6.25 shows warning and
+    above. A traceback is one record but many lines, and journald makes each
+    line a separate entry, so every line gets the prefix, not just the first.
+    journald strips it again; the stored message is unchanged.
+
+    Only the formatted text is prefixed. The record, including the traceback
+    text the base class caches on it, is left alone for the other handlers.
+    """
+
+    def __init__(self, inner: Formatter) -> None:
+        """Wrap ``inner``, which does the actual formatting."""
+        super().__init__()
+        self._inner = inner
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format with the inner formatter and prefix each line."""
+        prefix = f"<{syslog_priority(record.levelno)}>"
+        text = self._inner.format(record)
+        return "\n".join(prefix + line for line in text.split("\n"))
+
+
+def get_log_formatter(color: bool = True, stream: IO | None = None) -> Formatter:
+    """Get log formatter with optional color support.
+
+    Args:
+        color: Colour the output by level.
+        stream: Stream the handler writes to. When it is the journal, the
+            formatter tells journald each line's level and drops the colours:
+            journald keeps a message with escape codes as a byte array rather
+            than text, the level now travels in PRIORITY (journalctl colours
+            by it), and the prefix has to be the first thing on the line.
+    """
+    if is_journal_stream(stream):
+        return JournalLevelFormatter(
+            Formatter("%(levelname)s (%(threadName)s) [%(name)s] %(message)s")
+        )
+
     # When running under systemd, omit timestamp since journald adds it
     if is_running_under_systemd():
         log_format = "%(levelname)s (%(threadName)s) [%(name)s] %(message)s"
@@ -169,6 +248,48 @@ def get_log_formatter(color: bool = True) -> Formatter:
     return Formatter(log_format, datefmt=date_format)
 
 
+def install_excepthooks() -> None:
+    """Send exceptions nobody caught through logging instead of bare stderr.
+
+    Python prints an uncaught exception straight to stderr, which under
+    systemd means one journal entry per traceback line, all at "info" - so
+    the one message that explains why boneIO died never reached the serial
+    console. Through logging it gets the level prefix like everything else.
+    An exception in the main thread ends the process and is CRITICAL; one
+    that ends another thread is ERROR, since boneIO carries on without it.
+    Ctrl+C keeps Python's usual short output, and a thread ending with
+    SystemExit stays silent, as it is by default.
+    """
+    logger = logging.getLogger("boneio")
+
+    def _log_uncaught(exc_type, exc_value, exc_traceback) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        try:
+            logger.critical(
+                "Uncaught exception, boneIO is exiting",
+                exc_info=(exc_type, exc_value, exc_traceback),
+            )
+        except Exception:  # noqa: BLE001 - the traceback must come out somehow
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+    def _log_uncaught_in_thread(args: threading.ExceptHookArgs) -> None:
+        if args.exc_type is SystemExit:
+            return
+        try:
+            logger.error(
+                "Uncaught exception in thread %s",
+                args.thread.name if args.thread is not None else "unknown",
+                exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+            )
+        except Exception:  # noqa: BLE001
+            threading.__excepthook__(args)
+
+    sys.excepthook = _log_uncaught
+    threading.excepthook = _log_uncaught_in_thread
+
+
 def setup_logging(debug_level: int = 0) -> None:
     """Setup logging configuration."""
     log_format = "%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s"
@@ -185,12 +306,17 @@ def setup_logging(debug_level: int = 0) -> None:
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO if debug_level == 0 else logging.DEBUG)
     
-    # Create formatter for console handler
-    console_formatter = get_log_formatter(color=True)
+    # Create formatter for console handler. basicConfig's handler writes to
+    # stderr; the formatter needs to know whether that is the journal.
+    root_handler = logging.getLogger().handlers[0]
+    console_formatter = get_log_formatter(
+        color=True, stream=getattr(root_handler, "stream", None)
+    )
     console_handler.setFormatter(console_formatter)
     
     # Add console handler to root logger
-    logging.getLogger().handlers[0].setFormatter(console_formatter)
+    root_handler.setFormatter(console_formatter)
+    install_excepthooks()
     
     # If debug level > 1, also log to file with rotation
     if debug_level > 1:
