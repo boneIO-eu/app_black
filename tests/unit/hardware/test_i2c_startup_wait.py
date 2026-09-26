@@ -7,8 +7,17 @@ import logging
 
 import pytest
 
+from boneio.hardware import udev_wait
 from boneio.hardware.i2c import bus as bus_module
 from boneio.hardware.i2c.bus import SMBus2I2C
+
+
+@pytest.fixture(autouse=True)
+def _fresh_budget():
+    """The startup budget is process-wide; every test starts a new boot."""
+    udev_wait.reset_startup_budget()
+    yield
+    udev_wait.reset_startup_budget()
 
 
 class _Clock:
@@ -133,3 +142,20 @@ def test_a_reopen_at_runtime_does_not_wait(monkeypatch, clock):
 
     assert i2c.try_lock() is False
     assert clock.slept == 0
+
+
+def test_the_budget_is_shared_with_whatever_waited_before(monkeypatch, clock, caplog):
+    """Time already spent waiting for another node counts against the bus."""
+    other = udev_wait.NodeWait("/dev/gpiochip0", logging.getLogger("test"), clock=clock.monotonic)
+    assert other.retry(_denied()) is True
+    clock.sleep(50)  # the other node took 50 s
+
+    def always_denied(bus_number: int):
+        raise _denied()
+
+    monkeypatch.setattr(bus_module, "SMBus", always_denied)
+
+    with pytest.raises(PermissionError):
+        SMBus2I2C(bus_number=2)
+
+    assert clock.slept == pytest.approx(60.0)

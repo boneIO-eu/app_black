@@ -14,6 +14,7 @@ from gpiod import LineSettings
 from gpiod.line import Bias, Direction, Edge
 
 from boneio.const import PINS
+from boneio.hardware.udev_wait import RETRY_SECONDS, NodeWait, is_not_ready
 
 if TYPE_CHECKING:
     from boneio.components.input.detectors import BinarySensorDetector, MultiClickDetector
@@ -52,6 +53,8 @@ class GpioManager:
         if debounce_ms > self.MAX_DEBOUNCE_MS:
             raise ValueError(f"debounce_ms={debounce_ms} exceeds BeagleBone hardware limit of {self.MAX_DEBOUNCE_MS}ms")
         self._loop = loop
+        # Awaited between attempts to open a chip; a test swaps in a fake clock.
+        self._sleep = asyncio.sleep
         self._debounce_ms = debounce_ms
         self._inputs: list[GpioInputDefinition] = []
         self._requests: dict[int, gpiod.LineRequest] = {}
@@ -176,6 +179,41 @@ class GpioManager:
 
         return successful_lines, failed_lines
 
+    async def _request_lines_when_ready(
+        self, chip: int, consumer: str, config: dict[tuple[int, ...], LineSettings]
+    ) -> gpiod.LineRequest:
+        """Request the chip's lines, waiting for udev if it has to.
+
+        On the first boot of a fresh image boneIO can get here before udev
+        has handed /dev/gpiochip* to the gpio group. One attempt used to be
+        all there was: the chip was logged as failed and skipped, and its
+        inputs stayed dead until someone restarted boneIO by hand. Now a
+        missing or not yet accessible chip is retried once a second within
+        the startup budget shared with the I2C bus
+        (:mod:`boneio.hardware.udev_wait`). The sleep is awaited, so the event
+        loop keeps running. When the budget runs out, or on any other error,
+        the original error is raised and start() reports and skips the chip
+        as before.
+        """
+        path = f"/dev/gpiochip{chip}"
+        node = NodeWait(path, _LOGGER)
+        while True:
+            try:
+                request = gpiod.request_lines(
+                    path,
+                    consumer=consumer,
+                    config=config,  # type: ignore[arg-type]
+                )
+            except OSError as err:
+                if node.retry(err):
+                    await self._sleep(RETRY_SECONDS)
+                    continue
+                if node.waiting and is_not_ready(err):
+                    _LOGGER.error("%s still not accessible after %.0f s", path, node.elapsed)
+                raise
+            node.opened()
+            return request
+
     async def start(self, debug_mode: bool = False) -> None:
         """Start monitoring GPIO inputs.
 
@@ -250,11 +288,7 @@ class GpioManager:
 
             # Request all lines at once (fast mode or after debug validation)
             try:
-                request = gpiod.request_lines(
-                    f"/dev/gpiochip{chip}",
-                    consumer=consumer,
-                    config=config,  # type: ignore[arg-type]
-                )
+                request = await self._request_lines_when_ready(chip, consumer, config)
                 self._requests[chip] = request
                 _LOGGER.info("✓ Successfully configured chip %d with %d lines", chip, len(config))
             except OSError as err:
