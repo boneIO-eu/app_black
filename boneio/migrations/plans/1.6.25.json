@@ -1,0 +1,1 @@
+[{"action":"install_file","dst":"/etc/systemd/journald.conf.d/boneio-console.conf","expected_sha256":"83260e860f5431f3240617e88dba456ba39c52dbe4625e832d00fd241bad7701","group":"root","mode":420,"on_change":{"action":"systemctl_restart","unit":"systemd-journald"},"owner":"root","src":"journald/boneio-console.conf","template_vars":{}}]
