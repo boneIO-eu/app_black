@@ -105,6 +105,16 @@ def test_the_overlay_is_reported(helper, uenv, capsys):
     assert reported["overlay"] == "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo"
 
 
+def test_the_last_overlay_line_is_reported(helper, uenv, capsys):
+    """For a key assigned twice U-Boot uses the last value, as the kernel check does."""
+    uenv.write_text(
+        uenv.read_text(encoding="utf-8") + "uboot_overlay_addr1=BONEIO-BLACK-PINS-v1.0.dtbo\n",
+        encoding="utf-8",
+    )
+    assert helper.main(["overlay-get"]) == 0
+    assert json.loads(capsys.readouterr().out)["overlay"] == "BONEIO-BLACK-PINS-v1.0.dtbo"
+
+
 def test_setting_the_overlay_rewrites_only_the_matching_lines(helper, uenv):
     assert helper.main(["overlay-set", "BONEIO-BLACK-PINS-v1.0.dtbo"]) == 0
     after = uenv.read_text(encoding="utf-8").splitlines()
@@ -720,6 +730,7 @@ def boot(helper, monkeypatch, tmp_path):
     )
     monkeypatch.setattr(helper, "BOOT_DIR", root)
     monkeypatch.setattr(helper, "UENV_PATHS", (uenv,))
+    monkeypatch.setattr(helper, "DT_CHOSEN_OVERLAYS", tmp_path / "chosen-overlays")
     monkeypatch.setattr(
         helper.os, "uname", lambda: os.uname_result(("Linux", "h", "6.18.52-bone54", "", "armv7l"))
     )
@@ -818,6 +829,127 @@ def test_the_overlay_is_copied_from_the_overlays_subdirectory(helper, boot):
     (old / "BONEIO-BLACK-PINS-v1.0.dtbo").rename(old / "overlays" / "BONEIO-BLACK-PINS-v1.0.dtbo")
     assert helper._kernel_check(repair=True)["status"] == "repaired"
     assert (boot / "dtbs" / "6.18.60-bone56" / "BONEIO-BLACK-PINS-v1.0.dtbo").is_file()
+
+
+# An old image that never had a second kernel: 6.18.2-bone12 boots and runs,
+# and the legacy overlay sits only under its overlays/ directory.
+
+OLD = "6.18.2-bone12"
+LEGACY = "BONEIO-BLACK-PINS.dtbo"
+
+
+@pytest.fixture
+def old_image(helper, monkeypatch, tmp_path):
+    root = tmp_path / "old-boot"
+    (root / "dtbs" / OLD / "overlays").mkdir(parents=True)
+    (root / f"vmlinuz-{OLD}").write_text("k")
+    (root / f"initrd.img-{OLD}").write_text("i")
+    (root / "dtbs" / OLD / "overlays" / LEGACY).write_text("dtbo")
+    uenv = root / "uEnv.txt"
+    uenv.write_text(
+        f"uname_r={OLD}\nenable_uboot_overlays=1\n"
+        f"uboot_overlay_addr0=/boot/dtbs/{OLD}/overlays/{LEGACY}\n"
+    )
+    monkeypatch.setattr(helper, "BOOT_DIR", root)
+    monkeypatch.setattr(helper, "UENV_PATHS", (uenv,))
+    monkeypatch.setattr(helper, "DT_CHOSEN_OVERLAYS", tmp_path / "chosen-overlays")
+    monkeypatch.setattr(helper, "_boot_time", lambda: uenv.stat().st_mtime + 60)
+    monkeypatch.setattr(
+        helper.os, "uname", lambda: os.uname_result(("Linux", "h", OLD, "", "armv7l"))
+    )
+    return root
+
+
+def _bare_name(boot):
+    uenv = boot / "uEnv.txt"
+    uenv.write_text(f"uname_r={OLD}\nenable_uboot_overlays=1\nuboot_overlay_addr0={LEGACY}\n")
+    return uenv
+
+
+def _overlay_live(tmp_path, entry="BONEIO-BLACK-PINS.kernel"):
+    (tmp_path / "chosen-overlays").mkdir(exist_ok=True)
+    (tmp_path / "chosen-overlays" / entry).write_text("")
+
+
+def test_a_path_into_the_own_overlays_directory_is_not_a_problem(helper, old_image):
+    """The report from the field: U-Boot reads the written path, which exists;
+    the empty kernel directory beside it does not matter to it."""
+    report = helper._kernel_check(repair=False)
+    assert report["status"] == "ok"
+    assert f"/boot/dtbs/{OLD}/overlays/" in report["message"]
+
+
+def test_repair_copies_from_the_own_overlays_directory(helper, old_image):
+    """No other kernel to copy from: the boot kernel's overlays/ is the source."""
+    report = helper._kernel_check(repair=True)
+    assert report["status"] == "repaired"
+    assert (old_image / "dtbs" / OLD / LEGACY).read_text() == "dtbo"
+    assert f"uboot_overlay_addr0={LEGACY}\n" in (old_image / "uEnv.txt").read_text()
+    assert helper._kernel_check(repair=False)["message"] is None
+
+
+def test_a_bare_name_missing_from_the_kernel_directory_is_a_problem(helper, old_image):
+    _bare_name(old_image)
+    report = helper._kernel_check(repair=False)
+    assert report["status"] == "problem"
+    assert f"{LEGACY} is missing from /boot/dtbs/{OLD}/" in report["message"]
+
+
+def test_repair_of_a_bare_name_copies_from_the_own_overlays_directory(helper, old_image):
+    _bare_name(old_image)
+    assert helper._kernel_check(repair=True)["status"] == "repaired"
+    assert (old_image / "dtbs" / OLD / LEGACY).is_file()
+    assert helper._kernel_check(repair=False)["status"] == "ok"
+
+
+def test_a_boot_that_worked_is_not_a_problem_when_nothing_changed(helper, old_image, tmp_path):
+    """Same kernel, uEnv.txt untouched, the overlay live: the next boot finds
+    it wherever this one did, even where the check does not look."""
+    _bare_name(old_image)
+    _overlay_live(tmp_path)
+    report = helper._kernel_check(repair=False)
+    assert report["status"] == "ok"
+    assert "missing" in report["message"]
+
+
+def test_a_uenv_changed_since_boot_is_still_a_problem(helper, old_image, monkeypatch, tmp_path):
+    uenv = _bare_name(old_image)
+    _overlay_live(tmp_path)
+    monkeypatch.setattr(helper, "_boot_time", lambda: uenv.stat().st_mtime - 60)
+    assert helper._kernel_check(repair=False)["status"] == "problem"
+
+
+def test_a_new_kernel_is_a_problem_even_with_the_overlay_live(helper, boot, tmp_path):
+    """The live device tree says nothing about a kernel that has not booted."""
+    _overlay_live(tmp_path, "BONEIO-BLACK-PINS-v1.0.kernel")
+    assert helper._kernel_check(repair=False)["status"] == "problem"
+
+
+def test_the_last_overlay_line_is_the_one_checked(helper, old_image):
+    """U-Boot imports uEnv.txt as an environment, so the last line wins."""
+    uenv = old_image / "uEnv.txt"
+    (old_image / "dtbs" / OLD / "BONEIO-BLACK-PINS-v1.0.dtbo").write_text("dtbo")
+    uenv.write_text(
+        f"uname_r={OLD}\nenable_uboot_overlays=1\n"
+        "uboot_overlay_addr0=BONEIO-BLACK-PINS-v0.2-v0.3.dtbo\n"
+        "uboot_overlay_addr0=BONEIO-BLACK-PINS-v1.0.dtbo\n"
+    )
+    assert helper._kernel_check(repair=False) == {
+        "status": "ok", "kernel": OLD, "running": OLD, "message": None,
+    }
+
+
+def test_every_overlay_key_is_checked(helper, old_image):
+    """addr0 and addr1 are both loaded; a missing second one is still a problem."""
+    (old_image / "dtbs" / OLD / "BONEIO-BLACK-PINS-v1.0.dtbo").write_text("dtbo")
+    (old_image / "uEnv.txt").write_text(
+        f"uname_r={OLD}\nenable_uboot_overlays=1\n"
+        "uboot_overlay_addr0=BONEIO-BLACK-PINS-v1.0.dtbo\n"
+        f"uboot_overlay_addr1={LEGACY}\n"
+    )
+    report = helper._kernel_check(repair=False)
+    assert report["status"] == "problem"
+    assert LEGACY in report["message"]
 
 
 def test_apt_output_reaches_the_log_while_the_step_runs(helper, tmp_path):
