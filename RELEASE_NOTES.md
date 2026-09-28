@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev18` exists so that we can test the new system-migration chain on a
+`1.6.0.dev19` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,46 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev19 — internal test build
+
+## Since dev18
+
+This is a fix-up release for the first-run wizard, found on a brand-new
+controller flashed straight from the dev18 image — not one upgraded from
+1.5. Both bugs below matter for every freshly flashed controller: the first
+put every one of them on the same path as an upgraded device, so every
+fresh controller also hit the second.
+
+The schema fills `web.auth` with its defaults (`allow_anonymous: false`) on
+every device, so the legacy-auth migration always found a non-empty block
+with no username or password in it, logged "web.auth is incomplete" and
+"Missing username or password", and marked the controller
+`configured_before`. The first-run wizard reads that flag to decide which
+steps to show, so it hid Import and Devices from every controller straight
+out of the box — exactly the ones that need them, since none of them has a
+login pair yet either. Only a username or a password now makes `web.auth`
+count as a pre-1.6 block; a fresh, empty one no longer does.
+
+On a controller the wizard treats as `configured_before` — every fresh one,
+plus any genuinely upgraded from 1.5 — creating the administrator account
+then jumped straight from Account to Done, skipping the Cloud step that the
+progress bar at the top still showed as upcoming. "Back" from Done returned
+to Account and offered to create an account that already existed, rather
+than going anywhere useful. The wizard now goes Account → Cloud → Done in
+that case, and no step leads back to Account once it has been left.
+
+Alongside those two, Templates with nothing configured now matches the
+centered grey text already used in Modbus and Sensors instead of a blue
+alert box, and Inputs' "No inputs configured." is translated instead of
+hard-coded English.
+
+No new system migration and no plan changed since dev18
+(`git diff --stat v1.6.0.dev18..HEAD -- boneio/migrations/` is empty). At
+release, only the manifest gets a new signature, because it names the
+release. Not yet tried on hardware.
 
 ---
 

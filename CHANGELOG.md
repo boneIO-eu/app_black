@@ -6,6 +6,39 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev19 (2026-09-28) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🧙 The first-run wizard no longer hides steps or loops back to a finished account
+
+Found on a brand-new controller flashed straight from the dev18 image — not
+one upgraded from 1.5. Both fixes below matter for **every** freshly flashed
+controller: the first bug put every one of them on the same path as an
+upgraded device, so every fresh controller also hit the second.
+
+- **A fresh controller is no longer taken for one upgraded from 1.5.** The
+  schema fills `web.auth` with its defaults (`allow_anonymous: false`) on
+  every device, so the legacy-auth migration always found a non-empty block
+  without a login pair, logged "web.auth is incomplete" and "Missing
+  username or password", and marked the controller `configured_before` —
+  which hid the Import and Devices steps from every fresh controller, the
+  ones that need them most. Only a username or a password now makes
+  `web.auth` count as a pre-1.6 block.
+- **The wizard goes Account → Cloud → Done, and never back to Account.** On a
+  controller the wizard treats as `configured_before` — every fresh one, plus
+  any genuinely upgraded from 1.5 — creating the account used to jump
+  straight from Account to Done, past the Cloud step the progress bar still
+  showed, and "Back" from Done returned to Account and offered to create an
+  account that already existed.
+- Not yet tried on hardware.
+
+### 🧹 Minor
+
+- **Templates with nothing configured now matches Modbus and Sensors** (a
+  centered, grey message) instead of a blue alert box, and Inputs' hard-coded
+  "No inputs configured." is translated instead of English-only.
+
 ## v1.6.0.dev18 (2026-09-26) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
