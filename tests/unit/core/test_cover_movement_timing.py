@@ -59,11 +59,12 @@ def _common_kwargs() -> dict:
     }
 
 
-def _time_based(position: float, activation_ms: float = 0) -> TimeBasedCover:
+def _time_based(position: float, activation_ms: float = 0, **extra) -> TimeBasedCover:
     return TimeBasedCover(
         restored_state={"position": position},
         actuator_activation_duration=TimePeriod(milliseconds=activation_ms),
         **_common_kwargs(),
+        **extra,
     )
 
 
@@ -189,3 +190,64 @@ class TestActivationConfigReload:
 
         assert cover._actuator_activation_ms == 250
         assert cover._tilt_duration == 2000
+
+
+class TestEndstopOverrun:
+    async def test_full_close_runs_past_zero_by_overrun(self):
+        """50% of a 1s cover plus the default 10% overrun: 600ms of relay."""
+        cover = _time_based(position=50)
+
+        await cover.close()
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._close_relay)
+        assert 600 <= on_ms <= 600 + TIMING_SLACK_MS
+        assert cover._position == 0
+
+    async def test_position_target_at_the_end_also_overruns(self):
+        cover = _time_based(position=50, endstop_overrun=20)
+
+        await cover.set_cover_position(100)
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._open_relay)
+        assert 700 <= on_ms <= 700 + TIMING_SLACK_MS
+        assert cover._position == 100
+
+    async def test_overrun_zero_stops_at_computed_time(self):
+        cover = _time_based(position=50, endstop_overrun=0)
+
+        await cover.close()
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._close_relay)
+        assert 500 <= on_ms <= 500 + TIMING_SLACK_MS
+
+    async def test_closed_cover_is_not_driven_again(self):
+        cover = _time_based(position=0)
+
+        await cover.close()
+
+        cover._close_relay.turn_on.assert_not_called()
+        assert cover._movement_thread is None
+
+    async def test_venetian_overrun_after_slats_and_travel(self):
+        """Tilt 100→0 (1s) + 30% of travel (300ms) + 10% overrun (100ms)."""
+        cover = _venetian(position=30, tilt=100)
+
+        await cover.close()
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._close_relay)
+        assert 1400 <= on_ms <= 1400 + TIMING_SLACK_MS
+        assert cover._position == 0
+        assert cover._tilt_position == 0
+
+    async def test_reload_sets_and_resets_overrun(self):
+        cover = _time_based(position=50)
+
+        cover.update_config_times({"endstop_overrun": 0})
+        assert cover._endstop_overrun == 0
+
+        cover.update_config_times({})
+        assert cover._endstop_overrun == 10

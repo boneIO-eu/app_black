@@ -82,6 +82,7 @@ class TimeBasedCover(BaseCover):
         # duration is full time for 100% movement, scale it by actual distance to travel
         end_position = target_position if target_position is not None else (100 if direction == OPEN else 0)
         travel_ms = duration * abs(end_position - self._initial_position) / 100.0
+        travel_ms += self._endstop_overrun_ms(duration, self._initial_position, end_position)
         sign = 1 if direction == OPEN else -1
 
         def apply_movement(moving_ms: float) -> None:

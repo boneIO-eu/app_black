@@ -29,6 +29,10 @@ _LOGGER = logging.getLogger(__name__)
 # How often a moving cover recomputes its position. The relay is not switched
 # off on this grid — the last wait is cut short to end exactly at the target.
 MOVE_POLL_INTERVAL = 0.05  # s
+# Extra relay time on a movement ending fully open or closed, as a percent of
+# open_time/close_time. Time-based position drifts; running into the motor's
+# own endstop brings it back to a known 0% / 100%.
+DEFAULT_ENDSTOP_OVERRUN = 10  # %
 
 
 class BaseCoverABC(ABC):
@@ -164,6 +168,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         position: float = 100.0,
         name: str | None = None,
         actuator_activation_duration: TimePeriod | None = None,
+        endstop_overrun: int = DEFAULT_ENDSTOP_OVERRUN,
         **kwargs,
     ) -> None:
         # Use provided name or fall back to id
@@ -183,6 +188,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._actuator_activation_ms = (
             actuator_activation_duration.total_milliseconds if actuator_activation_duration is not None else 0.0
         )
+        self._endstop_overrun = float(endstop_overrun)
         self._position = position
         self._initial_position: float = position
         self._current_operation = IDLE
@@ -264,6 +270,21 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         with suppress(RuntimeError):
             self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
 
+    def _endstop_overrun_ms(self, duration: float, start: float, end: float) -> float:
+        """Relay time to add so a movement ending at 0% or 100% hits the endstop.
+
+        Only a movement that really travels to an end gets it: an already
+        closed cover is not driven into its endstop again.
+
+        Args:
+            duration: Full 0-100% time of this direction, in ms.
+            start: Position the movement starts from.
+            end: Position the movement ends at.
+        """
+        if end not in (0, 100) or abs(end - start) <= 0:
+            return 0.0
+        return duration * self._endstop_overrun / 100.0
+
     def update_config_times(self, config: dict) -> None:
         """Update timing shared by all cover platforms.
 
@@ -277,6 +298,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         # Optional field: a removed value means "no activation delay" again.
         activation = config.get("actuator_activation_duration")
         self._actuator_activation_ms = ensure_time_period(activation).total_milliseconds if activation else 0.0
+        self._endstop_overrun = float(config.get("endstop_overrun", DEFAULT_ENDSTOP_OVERRUN))
 
     async def on_exit(self) -> None:
         """Stop on exit."""

@@ -109,6 +109,15 @@
             "description": "Time from switching the relay on until the motor starts moving, added to every movement. Example 200ms for Somfy J4 WT, which ignores shorter orders. Default 0ms.",
             "title": "Actuator activation duration"
           },
+          "endstop_overrun": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "default": 10,
+            "description": "Extra relay time when the cover moves to fully open or fully closed, as a percent of open_time/close_time. The cover runs into its endstop, so the time-based position is exact again at 0% and 100%. 0 disables it.",
+            "title": "Endstop overrun"
+          },
           "tilt_restore_after_close": {
             "oneOf": [
               {

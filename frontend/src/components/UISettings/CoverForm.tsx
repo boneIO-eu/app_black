@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { NumericInput } from '@/components/ui/NumericInput';
 import AreaSelect from './widgets/AreaSelect';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import OutputSelectDropdown from './OutputSelectDropdown';
@@ -282,6 +283,28 @@ const CoverForm: React.FC<CoverFormProps> = ({
             label: t('settings.advanced_settings'),
             content: (
               <div className="space-y-4">
+                {/* Endstop Overrun */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('covers.endstop_overrun')}</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <NumericInput
+                      value={data.endstop_overrun ?? 10}
+                      onChange={(v) => updateField('endstop_overrun', v === '' ? undefined : v)}
+                      min={0}
+                      max={100}
+                      className="flex-1 min-h-12"
+                    />
+                    <span className="text-base-content/70">%</span>
+                  </div>
+                  <label className="label">
+                    <span className="label-text-alt text-info">
+                      {t('covers.endstop_overrun_hint')}
+                    </span>
+                  </label>
+                </div>
+
                 {/* Device Class */}
                 <div className="form-control">
                   <label className="label">

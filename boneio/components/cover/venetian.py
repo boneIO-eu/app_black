@@ -122,6 +122,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         else:
             end_position = target_position if target_position is not None else (100 if direction == OPEN else 0)
             travel_ms = tilt_room_ms + duration * abs(end_position - self._initial_position) / 100.0
+            travel_ms += self._endstop_overrun_ms(duration, self._initial_position, end_position)
 
         def apply_movement(moving_ms: float) -> None:
             tilt_moved = min(tilt_room, moving_ms / tilt_duration * 100.0) if tilt_duration > 0 else tilt_room

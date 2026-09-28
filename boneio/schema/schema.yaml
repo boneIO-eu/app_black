@@ -1644,6 +1644,18 @@ cover:
             Time from switching the relay on until the motor starts moving,
             added to every movement. Example 200ms for Somfy J4 WT, which
             ignores shorter orders. Default 0ms.
+      endstop_overrun:
+        type: integer
+        required: False
+        default: 10
+        min: 0
+        max: 100
+        meta:
+          label: >-
+            Extra relay time when the cover moves to fully open or fully
+            closed, as a percent of open_time/close_time. The cover runs into
+            its endstop, so the time-based position is exact again at 0% and
+            100%. 0 disables it.
       tilt_restore_after_close:
         type: boolean
         required: False
