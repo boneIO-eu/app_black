@@ -162,6 +162,15 @@ def overlay_set(overlay: str, timeout: int = 30) -> Result:
     return run("overlay-set", overlay, timeout=timeout)
 
 
+def overlay_repair(timeout: int = 60) -> Result:
+    """Copy a missing boneIO overlay into the boot kernel's directories.
+
+    Files only: the helper leaves uEnv.txt as it is. The output is the kernel
+    check's report — ``status`` ok, repaired or problem, and ``message``.
+    """
+    return run("overlay-repair", timeout=timeout)
+
+
 def mqtt_password(account: str, password: str, timeout: int = 60) -> Result:
     """Set a broker password for one of the managed accounts.
 

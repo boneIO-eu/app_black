@@ -71,40 +71,6 @@ def overlay_dirs_for_kernel(kernel_version: str) -> tuple[Path, Path]:
     return base, base / "overlays"
 
 
-def find_overlay_source(exclude: tuple[Path, ...] = ()) -> Path | None:
-    """Find a directory containing boneIO overlays, to copy from.
-
-    Searches every ``/boot/dtbs/*/`` directory and its ``overlays/``
-    subdirectory, newest kernel first, so a repair prefers the most recent
-    known-good set.
-
-    Args:
-        exclude: Directories to skip (typically the repair destinations).
-
-    Returns:
-        Directory containing at least one boneIO overlay, or ``None``.
-    """
-    if not DTBS_ROOT.is_dir():
-        return None
-
-    excluded = {p.resolve() for p in exclude if p.exists()}
-
-    for kdir in sorted(DTBS_ROOT.iterdir(), reverse=True):
-        if not kdir.is_dir():
-            continue
-        for candidate in (kdir, kdir / "overlays"):
-            if not candidate.is_dir():
-                continue
-            try:
-                if candidate.resolve() in excluded:
-                    continue
-            except OSError:
-                continue
-            if any(candidate.glob(OVERLAY_GLOB)):
-                return candidate
-    return None
-
-
 def missing_overlay_dirs(kernel_version: str) -> list[Path]:
     """Return the overlay destinations that lack boneIO overlays.
 

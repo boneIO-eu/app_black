@@ -952,6 +952,79 @@ def test_every_overlay_key_is_checked(helper, old_image):
     assert LEGACY in report["message"]
 
 
+# overlay-repair: what boneIO's startup check asks for. Nobody is watching,
+# so files only; uEnv.txt stays as it is.
+
+
+def _repair(helper, monkeypatch, capsys, *argv):
+    monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    rc = helper.main(["overlay-repair", *argv])
+    out = capsys.readouterr().out
+    return rc, (json.loads(out) if out else None)
+
+
+def test_overlay_repair_copies_but_leaves_uenv_alone(helper, old_image, monkeypatch, capsys):
+    uenv = (old_image / "uEnv.txt").read_text()
+    rc, report = _repair(helper, monkeypatch, capsys)
+    assert rc == 0
+    assert report["status"] == "repaired"
+    assert (old_image / "dtbs" / OLD / LEGACY).read_text() == "dtbo"
+    assert (old_image / "uEnv.txt").read_text() == uenv
+
+
+def test_overlay_repair_fills_the_overlays_directory_from_the_boot_file(
+    helper, old_image, monkeypatch, capsys
+):
+    """Otherwise the startup check finds overlays/ empty and asks on every boot."""
+    _bare_name(old_image)
+    (old_image / "dtbs" / OLD / "overlays" / LEGACY).unlink()
+    (old_image / "dtbs" / OLD / LEGACY).write_text("boot copy")
+    rc, report = _repair(helper, monkeypatch, capsys)
+    assert (rc, report["status"]) == (0, "repaired")
+    assert (old_image / "dtbs" / OLD / "overlays" / LEGACY).read_text() == "boot copy"
+    assert _repair(helper, monkeypatch, capsys)[1]["status"] == "ok"
+
+
+def test_the_update_repair_does_not_touch_the_overlays_directory(helper, old_image):
+    """The system update's repair is unchanged by the startup mode."""
+    _bare_name(old_image)
+    (old_image / "dtbs" / OLD / "overlays" / LEGACY).unlink()
+    (old_image / "dtbs" / OLD / LEGACY).write_text("boot copy")
+    assert helper._kernel_check(repair=True)["status"] == "ok"
+    assert not (old_image / "dtbs" / OLD / "overlays" / LEGACY).exists()
+
+
+def test_overlay_repair_does_not_call_a_dead_path_repaired(
+    helper, old_image, monkeypatch, capsys
+):
+    """uEnv.txt points into a removed kernel: copying beside it fixes nothing,
+    and only the uEnv.txt edit it must not make would."""
+    uenv = old_image / "uEnv.txt"
+    uenv.write_text(uenv.read_text().replace(f"/boot/dtbs/{OLD}/", "/boot/dtbs/6.1.0-gone/"))
+    rc, report = _repair(helper, monkeypatch, capsys)
+    assert (rc, report["status"]) == (1, "problem")
+    assert "/boot/dtbs/6.1.0-gone/overlays/" in report["message"]
+    assert (old_image / "dtbs" / OLD / LEGACY).is_file()
+    assert "6.1.0-gone" in uenv.read_text()
+
+
+def test_overlay_repair_reports_a_problem_with_a_failing_status(
+    helper, old_image, monkeypatch, capsys
+):
+    _bare_name(old_image)
+    (old_image / "dtbs" / OLD / "overlays" / LEGACY).unlink()
+    rc, report = _repair(helper, monkeypatch, capsys)
+    assert rc == 1
+    assert report["status"] == "problem"
+
+
+@pytest.mark.parametrize("argv", [["x"], ["x", "y"], ["--force"]])
+def test_overlay_repair_takes_no_arguments(helper, old_image, monkeypatch, capsys, argv):
+    rc, report = _repair(helper, monkeypatch, capsys, *argv)
+    assert (rc, report) == (1, None)
+    assert not (old_image / "dtbs" / OLD / LEGACY).exists()
+
+
 def test_apt_output_reaches_the_log_while_the_step_runs(helper, tmp_path):
     """Written only at the end, a 30-minute configure looked hung in the panel."""
     log_path = tmp_path / "update.log"

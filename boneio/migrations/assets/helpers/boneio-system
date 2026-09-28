@@ -220,6 +220,7 @@ _APT_INST_RE = re.compile(
 
 VERBS = (
     "can-up", "can-down", "can-restart", "overlay-get", "overlay-set",
+    "overlay-repair",
     "hostname-set",
     "ntp-get", "ntp-set",
     "mqtt-password", "mqtt-reload",
@@ -1089,7 +1090,7 @@ def _boot_kernel() -> str | None:
     return None
 
 
-def _kernel_check(repair: bool = False) -> dict[str, str | None]:
+def _kernel_check(repair: bool = False, unattended: bool = False) -> dict[str, str | None]:
     """Will the next boot come up with the boneIO pinmux?
 
     A kernel upgrade brings a new /boot/dtbs/<version>/ that has never heard of
@@ -1102,6 +1103,10 @@ def _kernel_check(repair: bool = False) -> dict[str, str | None]:
 
     Args:
         repair: Copy a missing overlay into the boot kernel's directory.
+        unattended: Repair for boneIO's startup check, with nobody watching:
+            files only, into both of the boot kernel's directories. uEnv.txt is
+            left alone — switching it to the bare name stays with the system
+            update an operator starts.
 
     Returns:
         ``status`` (ok, repaired, problem), ``kernel`` (what will boot),
@@ -1165,6 +1170,14 @@ def _kernel_check(repair: bool = False) -> dict[str, str | None]:
         written = f"{directory}{overlay}" if directory else None
         target = dtbs / overlay
         if target.is_file():
+            tooling = dtbs / "overlays" / overlay
+            if unattended and not tooling.is_file():
+                # Otherwise the startup check finds overlays/ empty on every
+                # boot and asks again. Never from another kernel: the file
+                # U-Boot loads is the one to keep.
+                tooling.parent.mkdir(exist_ok=True)
+                shutil.copy2(target, tooling)
+                notes.append(f"{overlay} was missing from /boot/dtbs/{kernel}/overlays/")
             continue
         sources = [_on_boot(written)] if written else []
         sources += [running_dtbs / overlay, running_dtbs / "overlays" / overlay]
@@ -1185,9 +1198,19 @@ def _kernel_check(repair: bool = False) -> dict[str, str | None]:
         _LOGGER.warning("Copied %s from %s into /boot/dtbs/%s/", overlay, source.parent, kernel)
         notes.append(f"{overlay} was missing for kernel {kernel}; copied from {source.parent}")
 
+    if unattended:
+        # U-Boot reads a written path exactly, whatever was copied beside it.
+        stale = [f"{d}{o}" for o, d in configured if d and not _on_boot(f"{d}{o}").is_file()]
+        if stale:
+            return _problem("; ".join(notes + [
+                f"uEnv.txt loads the overlay from {path}, which does not exist — "
+                "a system update from the panel switches it to the bare name"
+                for path in stale
+            ]))
+
     # Only once every file is in place: from here U-Boot looks for bare names.
     for overlay, directory in configured:
-        if directory:
+        if directory and not unattended:
             _overlay_to_bare_name(_find_uenv())
             notes.append(f"uEnv.txt pointed at {directory}{overlay}; now uses the bare name")
 
@@ -1195,6 +1218,25 @@ def _kernel_check(repair: bool = False) -> dict[str, str | None]:
         report["status"] = "repaired"
         report["message"] = "; ".join(notes)
     return report
+
+
+def _overlay_repair(argument: str | None, value: str | None) -> int:
+    """Copy a missing boneIO overlay into the boot kernel's directories.
+
+    boneIO asks for this at startup when /boot/dtbs/$uname_r/ has no boneIO
+    overlay. That used to be a plan piped to boneio-migrate, which 1.6.6
+    retired, so the check had only been logging that it could not help. The
+    caller chooses nothing: which overlay is uEnv.txt's, which files may be
+    copied is VALID_OVERLAYS, and where from is /boot/dtbs.
+
+    Returns:
+        0 with the kernel check's report on stdout; 1 when it is a problem.
+    """
+    if argument is not None or value is not None:
+        raise Refused("overlay-repair takes no arguments")
+    report = _kernel_check(repair=True, unattended=True)
+    print(json.dumps(report))
+    return 1 if report["status"] == "problem" else 0
 
 
 def _next_boot_is_this_one(kernel: str, running: str) -> bool:
@@ -1601,6 +1643,8 @@ def main(argv: list[str] | None = None) -> int:
             return _overlay_get()
         if args.verb == "overlay-set":
             return _overlay_set(args.argument)
+        if args.verb == "overlay-repair":
+            return _overlay_repair(args.argument, args.value)
         if args.verb == "mqtt-password":
             return _mqtt_password(args.argument)
         if args.verb == "mqtt-reload":

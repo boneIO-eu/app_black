@@ -68,40 +68,6 @@ class TestMissingOverlayDirs:
         assert overlay_util.missing_overlay_dirs("9.9.9-absent") == []
 
 
-class TestFindOverlaySource:
-    def test_finds_source_in_overlays_subdir(self, dtbs: Path) -> None:
-        _make_kernel(dtbs, "6.0.0-old", in_uboot=False, in_overlays=True)
-        assert overlay_util.find_overlay_source() == dtbs / "6.0.0-old" / "overlays"
-
-    def test_finds_source_in_uboot_path(self, dtbs: Path) -> None:
-        _make_kernel(dtbs, "6.0.0-old", in_uboot=True, in_overlays=False)
-        assert overlay_util.find_overlay_source() == dtbs / "6.0.0-old"
-
-    def test_prefers_newest_kernel(self, dtbs: Path) -> None:
-        _make_kernel(dtbs, "6.0.0-old", in_uboot=True, in_overlays=True)
-        _make_kernel(dtbs, "6.9.0-new", in_uboot=True, in_overlays=True)
-        assert overlay_util.find_overlay_source() == dtbs / "6.9.0-new"
-
-    def test_excludes_repair_destinations(self, dtbs: Path) -> None:
-        """A destination being repaired must not be chosen as its own source."""
-        _make_kernel(dtbs, "6.9.0-new", in_uboot=False, in_overlays=True)
-        _make_kernel(dtbs, "6.0.0-old", in_uboot=True, in_overlays=True)
-        src = overlay_util.find_overlay_source(
-            exclude=(dtbs / "6.9.0-new", dtbs / "6.9.0-new" / "overlays")
-        )
-        assert src == dtbs / "6.0.0-old"
-
-    def test_returns_none_when_no_overlays_anywhere(self, dtbs: Path) -> None:
-        _make_kernel(dtbs, "6.0.0-old", in_uboot=False, in_overlays=False)
-        assert overlay_util.find_overlay_source() is None
-
-    def test_returns_none_when_dtbs_root_absent(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(overlay_util, "DTBS_ROOT", tmp_path / "nope")
-        assert overlay_util.find_overlay_source() is None
-
-
 class TestAppliedState:
     def test_no_chosen_overlays_node_means_not_applied(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
