@@ -85,6 +85,9 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         elif direction == CLOSE:
             relay = self._close_relay
             total_steps = self._position
+            if total_steps == 0 and target_position is None:
+                # Down at 0% with the slats still open: closing turns them shut.
+                total_steps = self._initial_tilt_position
         else:
             return
         if target_tilt_position is not None:
@@ -256,6 +259,10 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             self._tilt_duration,
         )
         await self.set_tilt(tilt_position=0)
+
+    def _is_fully_closed(self) -> bool:
+        """Closed means down at 0% *and* the slats shut, not just 0%."""
+        return self._position <= 0 and self._tilt_position <= 0
 
     def _save_tilt_for_restore(self) -> None:
         """Save current tilt position for later restoration.

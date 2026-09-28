@@ -251,3 +251,25 @@ class TestEndstopOverrun:
 
         cover.update_config_times({})
         assert cover._endstop_overrun == 10
+
+
+class TestVenetianCloseAtZero:
+    async def test_close_at_zero_with_open_slats_shuts_them(self):
+        """Down at 0% with slats at 50%: close turns them shut, no overrun."""
+        cover = _venetian(position=0, tilt=50)
+
+        await cover.close()
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._close_relay)
+        assert 500 <= on_ms <= 500 + TIMING_SLACK_MS
+        assert cover._tilt_position == pytest.approx(50 - on_ms / 10, abs=0.5)
+        assert cover._position == 0
+
+    async def test_close_with_shut_slats_does_nothing(self):
+        cover = _venetian(position=0, tilt=0)
+
+        await cover.close()
+
+        cover._close_relay.turn_on.assert_not_called()
+        assert cover._movement_thread is None

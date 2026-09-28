@@ -109,7 +109,8 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           <button
             className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => action(cover.id, cover.name, 'close')}
-            disabled={error !== null || cover.current_operation === 'closing' || (cover.state === 'closed' && cover.position === 0)}
+            // A venetian down at 0% with open slats can still close them.
+            disabled={error !== null || cover.current_operation === 'closing' || (cover.state === 'closed' && cover.position === 0 && !cover.tilt)}
           >
             <LuArrowDownNarrowWide />
           </button>

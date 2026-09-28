@@ -285,6 +285,14 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return 0.0
         return duration * self._endstop_overrun / 100.0
 
+    def _is_fully_open(self) -> bool:
+        """Whether open() has nothing left to do."""
+        return self._position >= 100
+
+    def _is_fully_closed(self) -> bool:
+        """Whether close() has nothing left to do."""
+        return self._position <= 0
+
     def update_config_times(self, config: dict) -> None:
         """Update timing shared by all cover platforms.
 
@@ -335,7 +343,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
                 self.send_state(self.state, self.json_position)
 
     async def open(self) -> None:
-        if self._position >= 100:
+        if self._is_fully_open():
             return
         estimated_time_s = (100 - self._position) / 100 * self._open_time / 1000
         _LOGGER.info(
@@ -350,7 +358,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
 
     async def close(self) -> None:
-        if self._position <= 0:
+        if self._is_fully_closed():
             return
         estimated_time_s = self._position / 100 * self._close_time / 1000
         _LOGGER.info(
