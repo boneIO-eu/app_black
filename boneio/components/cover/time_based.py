@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 import time
@@ -81,48 +80,16 @@ class TimeBasedCover(BaseCover):
                 self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
             return
 
-        # Calculate actual duration based on remaining distance
         # duration is full time for 100% movement, scale it by actual distance to travel
-        actual_duration = duration * (total_steps / 100.0)
+        end_position = target_position if target_position is not None else (100 if direction == OPEN else 0)
+        travel_ms = duration * abs(end_position - self._initial_position) / 100.0
+        sign = 1 if direction == OPEN else -1
 
-        relay.turn_on()
-        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
-        with suppress(RuntimeError):
-            self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
-        start_time = time.monotonic()
+        def apply_movement(moving_ms: float) -> None:
+            moved = moving_ms / duration * 100.0
+            self._position = min(100.0, max(0.0, self._initial_position + sign * moved))
 
-        while not self._stop_event.is_set():
-            current_time = time.monotonic()  # Pobierz aktualny czas tylko raz na iterację
-            elapsed_time = (current_time - start_time) * 1000  # Konwersja na milisekundy
-            progress = elapsed_time / actual_duration if actual_duration > 0 else 1.0
-
-            if direction == OPEN:
-                self._position = min(100.0, self._initial_position + progress * total_steps)
-            elif direction == CLOSE:
-                self._position = max(0.0, self._initial_position - progress * total_steps)
-
-            self._last_timestamp = time.time()  # Wall clock for display
-            if current_time - self._last_update_time >= 1:
-                try:
-                    self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
-                except RuntimeError:
-                    break
-                self._last_update_time = current_time
-
-            if target_position is not None and (
-                (direction == OPEN and self._position >= target_position)
-                or (direction == CLOSE and self._position <= target_position)
-            ):
-                break
-
-            if progress >= 1.0:
-                break
-
-            time.sleep(0.05)  # Małe opóźnienie, aby nie blokować CPU
-        relay.turn_off()
-        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
-        with suppress(RuntimeError):
-            self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        self._drive_relay(relay, travel_ms, apply_movement)
         self._current_operation = IDLE
         with suppress(RuntimeError):
             self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))

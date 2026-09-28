@@ -79,12 +79,9 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         if direction == OPEN:
             relay = self._open_relay
             total_steps = 100 - self._position
-            total_tilt_step = tilt_delta if target_tilt_position is not None else 100 - self._initial_tilt_position
-
         elif direction == CLOSE:
             relay = self._close_relay
             total_steps = self._position
-            total_tilt_step = tilt_delta if target_tilt_position is not None else self._initial_tilt_position
         else:
             return
         if target_tilt_position is not None:
@@ -112,85 +109,26 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             self._loop.call_soon_threadsafe(self.send_state, self.state, self.json_position)
             return
 
-        # Calculate actual duration based on remaining distance
-        # duration is full time for 100% movement, scale it by actual distance to travel
-        actual_duration = duration * (total_steps / 100.0)
+        # Slats turn first, over the tilt range left in this direction; only
+        # once they are fully turned does the cover itself travel.
+        sign = 1 if direction == OPEN else -1
+        tilt_room = 100 - self._initial_tilt_position if direction == OPEN else self._initial_tilt_position
+        tilt_room_ms = tilt_duration * tilt_room / 100.0
+        if target_tilt_position is not None:
+            travel_ms = tilt_duration * tilt_delta / 100.0
+        else:
+            end_position = target_position if target_position is not None else (100 if direction == OPEN else 0)
+            travel_ms = tilt_room_ms + duration * abs(end_position - self._initial_position) / 100.0
 
-        relay.turn_on()
-        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
-        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
-        start_time = time.monotonic()
-        progress = 0.0
-        tilt_progress = 0.0
-        needed_tilt_duration = tilt_duration * (total_tilt_step / 100)
-        if target_tilt_position is None:
-            tilt_delta = 1.0
+        def apply_movement(moving_ms: float) -> None:
+            tilt_moved = min(tilt_room, moving_ms / tilt_duration * 100.0) if tilt_duration > 0 else tilt_room
+            self._tilt_position = self._initial_tilt_position + sign * tilt_moved
+            # Movement past the tilt range is cover travel — also when a tilt
+            # step overruns, since the motor really did keep going.
+            moved = max(0.0, moving_ms - tilt_room_ms) / duration * 100.0
+            self._position = min(100.0, max(0.0, self._initial_position + sign * moved))
 
-        while not self._stop_event.is_set():
-            current_time = time.monotonic()  # Pobierz aktualny czas tylko raz na iterację
-            elapsed_time = (current_time - start_time) * 1000  # Konwersja na milisekundy
-
-            if elapsed_time < needed_tilt_duration:
-                tilt_progress = elapsed_time / needed_tilt_duration if needed_tilt_duration > 0 else 1.0
-                progress = 0.0
-            else:
-                tilt_progress = 1.0
-                progress = (elapsed_time - needed_tilt_duration) / actual_duration if actual_duration > 0 else 1.0
-
-            if direction == OPEN:
-                # Obliczanie _position dla kierunku OPEN
-                self._position = min(100.0, self._initial_position + progress * total_steps)
-
-                # Obliczanie _tilt_position dla kierunku OPEN
-                if target_tilt_position is not None:
-                    self._tilt_position = min(
-                        target_tilt_position, self._initial_tilt_position + tilt_progress * tilt_delta
-                    )
-                else:  # Fallback jeśli nie ma target_tilt_position
-                    self._tilt_position = min(
-                        100.0, self._initial_tilt_position + tilt_progress * (100 - self._initial_tilt_position)
-                    )
-            elif direction == CLOSE:
-                # Obliczanie _position dla kierunku CLOSE
-                self._position = max(0.0, self._initial_position - progress * total_steps)
-
-                # Obliczanie _tilt_position dla kierunku CLOSE
-                if target_tilt_position is not None:
-                    self._tilt_position = max(
-                        target_tilt_position, self._initial_tilt_position - tilt_progress * tilt_delta
-                    )
-                else:  # Fallback jeśli nie ma target_tilt_position
-                    self._tilt_position = max(
-                        0.0, self._initial_tilt_position - tilt_progress * self._initial_tilt_position
-                    )
-
-            self._last_timestamp = time.time()  # Wall clock for display
-            if current_time - self._last_update_time >= 1:
-                self._loop.call_soon_threadsafe(self.send_state, self.state, self.json_position)
-                self._last_update_time = current_time
-
-            if target_tilt_position is not None and (
-                (direction == OPEN and self._tilt_position >= target_tilt_position)
-                or (direction == CLOSE and self._tilt_position <= target_tilt_position)
-            ):
-                break
-
-            if target_position is not None and (
-                (direction == OPEN and self._position >= target_position)
-                or (direction == CLOSE and self._position <= target_position)
-            ):
-                break
-
-            if progress >= 1.0 or (target_tilt_position and tilt_progress >= 1.0):
-                break
-
-            if target_tilt_position is not None and abs(self._tilt_position - target_tilt_position) < 5:
-                time.sleep(0.01)
-            else:
-                time.sleep(0.05)
-        relay.turn_off()
-        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
-        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        self._drive_relay(relay, travel_ms, apply_movement)
         self._current_operation = IDLE
         self._loop.call_soon_threadsafe(self.send_state_and_save, self.json_position)
         self._last_update_time = time.monotonic()  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu

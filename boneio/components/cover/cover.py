@@ -25,6 +25,9 @@ from boneio.models import CoverState, PositionDict, SavedPositionDict
 from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
+# How often a moving cover recomputes its position. The relay is not switched
+# off on this grid — the last wait is cut short to end exactly at the target.
+MOVE_POLL_INTERVAL = 0.05  # s
 
 
 class BaseCoverABC(ABC):
@@ -202,6 +205,51 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
         with suppress(RuntimeError):
             self._loop.call_soon_threadsafe(self._loop.call_later, 0.5, self.send_state, self.state, self.json_position)
+
+    def _drive_relay(self, relay: BasicOutput, travel_ms: float, apply_movement: Callable[[float], None]) -> None:
+        """Hold ``relay`` on until the cover has travelled ``travel_ms``, or until stopped.
+
+        Runs in the movement thread.
+
+        ``apply_movement`` gets how long the relay has been on (ms)
+        and updates the position from it. It is called on every poll and once
+        more after the relay has dropped, timed at the turn-off — so a stop
+        between polls, or the I2C write itself, is not lost from the position.
+
+        Args:
+            relay: The open or close relay to drive.
+            travel_ms: Motor movement time needed to reach the target.
+            apply_movement: Callback converting moving time to position.
+        """
+        relay.turn_on()
+        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
+        with suppress(RuntimeError):
+            self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        # Both timestamps are taken after the relay write returns, so the I2C
+        # latency of turn_on and turn_off cancels out.
+        start_time = time.monotonic()
+
+        while True:
+            current_time = time.monotonic()
+            elapsed_ms = (current_time - start_time) * 1000
+            if elapsed_ms >= travel_ms:
+                break
+            apply_movement(elapsed_ms)
+            self._last_timestamp = time.time()  # Wall clock for display
+            if current_time - self._last_update_time >= 1:
+                with suppress(RuntimeError):
+                    self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
+                self._last_update_time = current_time
+            # Waiting on the event instead of sleeping lets stop() cut in at once.
+            if self._stop_event.wait(min(travel_ms - elapsed_ms, MOVE_POLL_INTERVAL * 1000) / 1000):
+                break
+
+        relay.turn_off()
+        elapsed_ms = (time.monotonic() - start_time) * 1000
+        apply_movement(elapsed_ms)
+        self._last_timestamp = time.time()
+        with suppress(RuntimeError):
+            self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
 
     async def on_exit(self) -> None:
         """Stop on exit."""
