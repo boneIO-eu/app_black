@@ -905,7 +905,10 @@ def init_app(
 
     # Keep the legacy pair reachable for a device whose web.auth could not be
     # migrated (an unrepresentable username, say), so it can still log in.
-    if auth_config:
+    # Only the login pair counts: the schema's defaults (allow_anonymous) make
+    # web.auth non-empty on every device, which made this an error on each
+    # fresh controller.
+    if auth_config.get("username") or auth_config.get("password"):
         if auth_config.get("username") and auth_config.get("password"):
             set_auth_config(auth_config)
         else:

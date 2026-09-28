@@ -65,7 +65,11 @@ def test_existing_admin_is_never_overwritten(store):
         ("not-a-dict", "no_legacy_auth"),
         ({"username": "pawel"}, "incomplete_legacy_auth"),
         ({"password": "sekret123"}, "incomplete_legacy_auth"),
-        ({"username": "", "password": ""}, "incomplete_legacy_auth"),
+        ({"username": "", "password": ""}, "no_legacy_auth"),
+        # What the schema's defaults make of a config with no web.auth at all:
+        # every fresh controller. It used to be "incomplete", which marked the
+        # device configured before and hid half the first-run wizard.
+        ({"allow_anonymous": False}, "no_legacy_auth"),
     ],
 )
 def test_nothing_to_migrate(store, legacy, reason):

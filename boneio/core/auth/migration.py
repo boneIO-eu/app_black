@@ -69,11 +69,20 @@ def migrate_legacy_auth(
     if store.is_provisioned():
         return MigrationResult(False, reason="already_provisioned")
 
-    if not isinstance(legacy_auth, dict) or not legacy_auth:
+    if not isinstance(legacy_auth, dict):
         return MigrationResult(False, reason="no_legacy_auth")
 
     username = str(legacy_auth.get("username") or "").strip()
     password = str(legacy_auth.get("password") or "")
+
+    # Only the login pair makes this a pre-1.6 block. The schema fills
+    # web.auth with its defaults (allow_anonymous: false) on every device, so
+    # "non-empty" was true everywhere: each fresh controller was reported as
+    # incomplete legacy auth and, through that, as configured before — and the
+    # wizard hid the import and device steps from exactly the devices that
+    # need them.
+    if not username and not password:
+        return MigrationResult(False, reason="no_legacy_auth")
 
     if not username or not password:
         _LOGGER.warning(
