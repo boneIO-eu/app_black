@@ -366,10 +366,10 @@ export default function InputsView() {
     return (
       <div className="container mx-auto p-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">{t('inputs.title')}</h2>
+          <h2 className="text-xl font-bold tracking-tight">{t('inputs.title')}</h2>
         </div>
-        <div>
-          No inputs configured.
+        <div className="text-center py-8 text-base-content/60">
+          {t('inputs.no_inputs')}
         </div>
       </div>)
   }

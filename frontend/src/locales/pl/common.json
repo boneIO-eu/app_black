@@ -130,6 +130,7 @@
   },
   "inputs": {
     "title": "Wejścia",
+    "no_inputs": "Brak skonfigurowanych wejść",
     "local_inputs": "Wejścia lokalne",
     "remote_inputs": "Wejścia zdalne",
     "name": "Nazwa",

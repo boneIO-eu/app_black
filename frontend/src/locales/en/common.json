@@ -130,6 +130,7 @@
   },
   "inputs": {
     "title": "Inputs",
+    "no_inputs": "No inputs configured",
     "local_inputs": "Local Inputs",
     "remote_inputs": "Remote Inputs",
     "name": "Name",

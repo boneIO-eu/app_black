@@ -210,8 +210,8 @@ export default function TemplatesView() {
           <h2 className="text-xl font-bold tracking-tight mb-4">{t('templates.title')}</h2>
 
           {isEmpty && !hasIrrigationSection && (
-            <div className="alert alert-info">
-              <span>{t('templates.no_templates')}</span>
+            <div className="text-center py-8 text-base-content/60">
+              {t('templates.no_templates')}
             </div>
           )}
 
