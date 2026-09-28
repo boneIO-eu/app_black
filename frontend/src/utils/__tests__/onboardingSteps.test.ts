@@ -4,6 +4,7 @@ import {
   stepsFor,
   previousStepFor,
   stepAfterImport,
+  stepAfterAccount,
 } from '../onboardingSteps';
 
 describe('stepsFor', () => {
@@ -47,7 +48,19 @@ describe('previousStepFor', () => {
       }
     }
     expect(previousStepFor('account', false, true)).toBe('welcome');
-    expect(previousStepFor('done', false, true)).toBe('account');
+    expect(previousStepFor('done', false, true)).toBe('cloud');
+  });
+
+  it('never leads back to the account step once it has been left', () => {
+    // The account exists by then; going back offered to create it again.
+    for (const configured of [true, false]) {
+      for (const importRestored of [true, false]) {
+        for (const step of stepsFor(configured)) {
+          if (step === 'account' || step === 'welcome') continue;
+          expect(previousStepFor(step, importRestored, configured)).not.toBe('account');
+        }
+      }
+    }
   });
 
   it('has no predecessor for the first screen', () => {
@@ -63,5 +76,16 @@ describe('stepAfterImport', () => {
 
   it('skips to done when a configuration was restored', () => {
     expect(stepAfterImport(true)).toBe('done');
+  });
+});
+
+describe('stepAfterAccount', () => {
+  it('goes to import on a first-run device', () => {
+    expect(stepAfterAccount(false)).toBe('import');
+  });
+
+  it('goes to cloud, not past it, on an upgraded device', () => {
+    expect(stepAfterAccount(true)).toBe('cloud');
+    expect(stepsFor(true)).toContain(stepAfterAccount(true));
   });
 });

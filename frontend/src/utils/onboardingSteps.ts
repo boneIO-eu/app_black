@@ -46,9 +46,11 @@ export function previousStepFor(
   configuredBefore = false,
 ): Step | undefined {
   if (configuredBefore) {
-    // Only welcome → account → done exist here.
+    // welcome → account → cloud → done. Nothing leads back to the account
+    // step: the account exists once it is left, and going back there offered
+    // to create it a second time, which the server refuses.
     if (step === 'account') return 'welcome';
-    if (step === 'done') return 'account';
+    if (step === 'done') return 'cloud';
     return undefined;
   }
   const map: Partial<Record<Step, Step>> = {
@@ -73,4 +75,19 @@ export function previousStepFor(
  */
 export function stepAfterImport(importRestored: boolean): Step {
   return importRestored ? 'done' : 'devices';
+}
+
+/**
+ * Where the account step goes once the account exists.
+ *
+ * An upgraded device skips import and devices (see {@link stepsFor}) but
+ * still has the cloud step: it only turns web.cloud on in the device's own
+ * web section, which is as much the owner's choice on an upgraded controller
+ * as on a new one. It used to jump straight to done, past a step the progress
+ * bar was showing.
+ *
+ * @param configuredBefore - Whether the device was already configured.
+ */
+export function stepAfterAccount(configuredBefore: boolean): Step {
+  return configuredBefore ? 'cloud' : 'import';
 }

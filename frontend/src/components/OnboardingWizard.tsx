@@ -5,7 +5,13 @@ import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useAppInit } from '@/contexts/AppInitContext';
 import { useTranslation } from '../hooks/useTranslation';
-import { type Step, stepsFor, previousStepFor, stepAfterImport } from '@/utils/onboardingSteps';
+import {
+  type Step,
+  stepsFor,
+  previousStepFor,
+  stepAfterImport,
+  stepAfterAccount,
+} from '@/utils/onboardingSteps';
 import { checkImportFile, interpretRestoreResponse } from '@/utils/onboardingImport';
 import {
   MIN_PASSWORD_LENGTH,
@@ -198,9 +204,8 @@ export default function OnboardingWizard() {
       // say) should not cost the user both passwords as well.
       setPassword('');
       setConfirmPassword('');
-      // On an upgraded device there is nothing to import and nothing to wire:
-      // the account was the only thing missing.
-      goTo(configuredBefore ? 'done' : 'import');
+      // On an upgraded device there is nothing to import and nothing to wire.
+      goTo(stepAfterAccount(configuredBefore));
     } catch (err: unknown) {
       if ((err as ApiError)?.response?.status === 409) {
         // Somebody else finished the wizard between page load and submit.
