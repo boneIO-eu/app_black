@@ -16,6 +16,7 @@ export interface CoverFormData {
   close_time?: string;
   actuator_activation_duration?: string;
   endstop_overrun?: number;
+  direction_change_wait_time?: string;
   tilt_duration?: string;
   tilt_restore_after_close?: boolean;
   device_class?: string;

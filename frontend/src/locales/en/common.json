@@ -538,6 +538,8 @@
     "actuator_duration_hint": "Time from switching the relay on until the motor starts moving, added to every movement. E.g. 200ms for Somfy J4 WT, which ignores shorter orders. Leave 0 if the motor starts at once.",
     "endstop_overrun": "Endstop Overrun",
     "endstop_overrun_hint": "On a move to fully open or closed, the relay stays on longer by this percent of the open/close time. The cover runs into its endstop, so the position at 0% and 100% is exact again. 0 disables it.",
+    "direction_change_wait": "Direction Change Wait",
+    "direction_change_wait_hint": "Time between switching one direction off and the opposite one on, so the motor comes to rest. 0 disables it.",
     "device_class_hint": "Device class for Home Assistant UI",
     "restore_state": "Restore State",
     "restore_state_hint": "Restore saved state after restart",

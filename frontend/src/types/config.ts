@@ -277,6 +277,8 @@ export interface CoverEntity {
   actuator_activation_duration?: number | string;
   /** Extra relay time on a move to fully open/closed, % of open/close time */
   endstop_overrun?: number;
+  /** Pause before driving the cover the other way */
+  direction_change_wait_time?: number | string;
   /** Cover platform: 'time_based' (standard) or 'venetian' (with tilt support) */
   platform?: 'time_based' | 'venetian';
 }

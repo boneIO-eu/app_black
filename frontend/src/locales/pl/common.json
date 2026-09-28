@@ -832,6 +832,8 @@
     "actuator_duration_hint": "Czas od załączenia przekaźnika do ruszenia silnika, doliczany do każdego ruchu. Np. 200ms dla Somfy J4 WT, który ignoruje krótsze polecenia. Zostaw 0, jeśli silnik rusza od razu.",
     "endstop_overrun": "Dojazd Do Krańcówki",
     "endstop_overrun_hint": "Przy ruchu do pełnego otwarcia lub zamknięcia przekaźnik trzyma dłużej o ten procent czasu otwierania/zamykania. Roleta dochodzi do krańcówki, więc pozycja przy 0% i 100% znów jest dokładna. 0 wyłącza.",
+    "direction_change_wait": "Przerwa Przy Zmianie Kierunku",
+    "direction_change_wait_hint": "Czas między wyłączeniem jednego kierunku a załączeniem przeciwnego, żeby silnik zdążył stanąć. 0 wyłącza.",
     "device_class_hint": "Klasa urządzenia dla interfejsu Home Assistant",
     "restore_state": "Przywróć Stan",
     "restore_state_hint": "Przywróć zapisany stan po restarcie",

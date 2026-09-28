@@ -35,6 +35,11 @@ def _relay(name: str) -> MagicMock:
     return relay
 
 
+def _switch_time(relay: MagicMock, kind: str) -> float:
+    """Monotonic time of the relay's first ``kind`` ("on"/"off") switch."""
+    return next(t for k, t in relay.switched if k == kind)
+
+
 def _on_time_ms(relay: MagicMock) -> float:
     """How long the relay was held on during its first on/off cycle."""
     on = next(t for kind, t in relay.switched if kind == "on")
@@ -273,3 +278,67 @@ class TestVenetianCloseAtZero:
 
         cover._close_relay.turn_on.assert_not_called()
         assert cover._movement_thread is None
+
+
+class TestDirectionChangeWait:
+    async def test_reversal_waits_before_the_other_relay(self):
+        cover = _time_based(position=50)
+
+        await cover.run_cover(current_operation=OPENING)
+        await asyncio.sleep(0.1)
+        await cover.run_cover(current_operation=CLOSING)
+        await asyncio.sleep(0.6)
+        await cover.stop()
+
+        gap_ms = (_switch_time(cover._close_relay, "on") - _switch_time(cover._open_relay, "off")) * 1000
+        assert 500 <= gap_ms <= 500 + TIMING_SLACK_MS
+
+    async def test_same_direction_does_not_wait(self):
+        cover = _time_based(position=50)
+
+        await cover.run_cover(current_operation=OPENING)
+        await asyncio.sleep(0.1)
+        await cover.stop()
+        await cover.run_cover(current_operation=OPENING)
+        await asyncio.sleep(0.05)
+        await cover.stop()
+
+        on_times = [t for kind, t in cover._open_relay.switched if kind == "on"]
+        off_time = _switch_time(cover._open_relay, "off")
+        assert len(on_times) == 2
+        assert (on_times[1] - off_time) * 1000 < TIMING_SLACK_MS
+
+    async def test_stop_during_the_wait_never_energises_the_relay(self):
+        cover = _time_based(position=50)
+
+        await cover.run_cover(current_operation=OPENING)
+        await asyncio.sleep(0.1)
+        await cover.run_cover(current_operation=CLOSING)
+        position = cover._position
+        await asyncio.sleep(0.2)
+        await cover.stop()
+
+        cover._close_relay.turn_on.assert_not_called()
+        assert cover._position == position
+        assert cover.current_operation == IDLE
+
+    async def test_zero_wait_reverses_at_once(self):
+        cover = _time_based(position=50, direction_change_wait_time=TimePeriod(milliseconds=0))
+
+        await cover.run_cover(current_operation=OPENING)
+        await asyncio.sleep(0.1)
+        await cover.run_cover(current_operation=CLOSING)
+        await asyncio.sleep(0.05)
+        await cover.stop()
+
+        gap_ms = (_switch_time(cover._close_relay, "on") - _switch_time(cover._open_relay, "off")) * 1000
+        assert gap_ms < TIMING_SLACK_MS
+
+    async def test_reload_sets_and_resets_wait(self):
+        cover = _time_based(position=50)
+
+        cover.update_config_times({"direction_change_wait_time": "1s"})
+        assert cover._direction_change_wait_ms == 1000
+
+        cover.update_config_times({})
+        assert cover._direction_change_wait_ms == 500

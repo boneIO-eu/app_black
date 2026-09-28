@@ -305,6 +305,23 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   </label>
                 </div>
 
+                {/* Direction Change Wait Time */}
+                <div>
+                  <SimpleTimePeriodInput
+                    value={data.direction_change_wait_time || '500ms'}
+                    onChange={(value: string) => updateField('direction_change_wait_time', value)}
+                    label={t('covers.direction_change_wait')}
+                    required={false}
+                    minimum={0}
+                    maximum={10000}
+                  />
+                  <label className="label">
+                    <span className="label-text-alt text-info">
+                      {t('covers.direction_change_wait_hint')}
+                    </span>
+                  </label>
+                </div>
+
                 {/* Device Class */}
                 <div className="form-control">
                   <label className="label">

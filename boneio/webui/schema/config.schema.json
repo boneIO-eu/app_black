@@ -9195,6 +9195,16 @@
             "description": "Extra relay time when the cover moves to fully open or fully closed, as a percent of open_time/close_time. The cover runs into its endstop, so the time-based position is exact again at 0% and 100%. 0 disables it.",
             "title": "Endstop overrun"
           },
+          "direction_change_wait_time": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "default": "500ms",
+            "description": "Pause before the cover is driven in the opposite direction, so the motor stops before it reverses. 0ms disables it.",
+            "title": "Direction change wait time"
+          },
           "tilt_restore_after_close": {
             "oneOf": [
               {

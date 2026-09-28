@@ -33,6 +33,9 @@ MOVE_POLL_INTERVAL = 0.05  # s
 # open_time/close_time. Time-based position drifts; running into the motor's
 # own endstop brings it back to a known 0% / 100%.
 DEFAULT_ENDSTOP_OVERRUN = 10  # %
+# Pause before energising the opposite relay, so a capacitor motor comes to
+# rest before it is driven the other way.
+DEFAULT_DIRECTION_CHANGE_WAIT_MS = 500
 
 
 class BaseCoverABC(ABC):
@@ -169,6 +172,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         name: str | None = None,
         actuator_activation_duration: TimePeriod | None = None,
         endstop_overrun: int = DEFAULT_ENDSTOP_OVERRUN,
+        direction_change_wait_time: TimePeriod | None = None,
         **kwargs,
     ) -> None:
         # Use provided name or fall back to id
@@ -189,6 +193,14 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             actuator_activation_duration.total_milliseconds if actuator_activation_duration is not None else 0.0
         )
         self._endstop_overrun = float(endstop_overrun)
+        self._direction_change_wait_ms = (
+            direction_change_wait_time.total_milliseconds
+            if direction_change_wait_time is not None
+            else DEFAULT_DIRECTION_CHANGE_WAIT_MS
+        )
+        # (relay, monotonic time) of the last relay this cover switched off —
+        # a reversal waits out direction_change_wait_time from that moment.
+        self._last_relay_off: tuple[BasicOutput, float] | None = None
         self._position = position
         self._initial_position: float = position
         self._current_operation = IDLE
@@ -227,6 +239,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         the first ``actuator_activation_duration`` after the relay closes, so
         the relay stays on for that long *plus* ``travel_ms``.
 
+        When the other relay was switched off less than
+        ``direction_change_wait_time`` ago, it first waits out the rest of that
+        time. A stop during the wait leaves the relay untouched.
+
         ``apply_movement`` gets how long the motor has really been moving (ms)
         and updates the position from it. It is called on every poll and once
         more after the relay has dropped, timed at the turn-off — so a stop
@@ -239,6 +255,14 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         """
         activation_ms = self._actuator_activation_ms
         deadline_ms = activation_ms + travel_ms
+
+        if self._last_relay_off is not None and self._last_relay_off[0] is not relay:
+            since_off_ms = (time.monotonic() - self._last_relay_off[1]) * 1000
+            wait_ms = self._direction_change_wait_ms - since_off_ms
+            if wait_ms > 0:
+                _LOGGER.debug("Cover %s reverses direction, waiting %dms first", self._id, wait_ms)
+                if self._stop_event.wait(wait_ms / 1000):
+                    return
 
         relay.turn_on()
         # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
@@ -264,7 +288,9 @@ class BaseCover(BaseCoverABC, BasicMqtt):
                 break
 
         relay.turn_off()
-        elapsed_ms = (time.monotonic() - start_time) * 1000
+        off_time = time.monotonic()
+        self._last_relay_off = (relay, off_time)
+        elapsed_ms = (off_time - start_time) * 1000
         apply_movement(max(0.0, elapsed_ms - activation_ms))
         self._last_timestamp = time.time()
         with suppress(RuntimeError):
@@ -307,6 +333,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         activation = config.get("actuator_activation_duration")
         self._actuator_activation_ms = ensure_time_period(activation).total_milliseconds if activation else 0.0
         self._endstop_overrun = float(config.get("endstop_overrun", DEFAULT_ENDSTOP_OVERRUN))
+        wait = config.get("direction_change_wait_time")
+        self._direction_change_wait_ms = (
+            ensure_time_period(wait).total_milliseconds if wait is not None else DEFAULT_DIRECTION_CHANGE_WAIT_MS
+        )
 
     async def on_exit(self) -> None:
         """Stop on exit."""

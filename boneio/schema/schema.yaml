@@ -1656,6 +1656,19 @@ cover:
             closed, as a percent of open_time/close_time. The cover runs into
             its endstop, so the time-based position is exact again at 0% and
             100%. 0 disables it.
+      direction_change_wait_time:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        default: 500ms
+        meta:
+          label: >-
+            Pause before the cover is driven in the opposite direction, so the
+            motor stops before it reverses. 0ms disables it.
       tilt_restore_after_close:
         type: boolean
         required: False

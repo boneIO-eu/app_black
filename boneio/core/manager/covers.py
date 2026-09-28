@@ -232,7 +232,7 @@ class CoverManager:
 
         # Normalize time period fields — during hot-reload YAML values may
         # arrive as raw strings (e.g. "5s") instead of TimePeriod objects.
-        for time_key in ("open_time", "close_time", "actuator_activation_duration"):
+        for time_key in ("open_time", "close_time", "actuator_activation_duration", "direction_change_wait_time"):
             if time_key in config and config[time_key] is not None:
                 config[time_key] = ensure_time_period(config[time_key])
 
