@@ -269,6 +269,45 @@ class DisplayManager:
         if self._host_data is not None:
             self._host_data.refresh_mqtt_status()
 
+    def show_migration_progress(self, pct: int, message: str) -> None:
+        """Say on the display that system migrations are running.
+
+        They run before the web server starts and can take minutes — an apt
+        install on a controller several releases behind. Until now the display
+        froze on the host/version screen, the panel did not answer, and the
+        controller looked hung to whoever had just updated it: exactly when
+        somebody pulls the plug.
+
+        Args:
+            pct: Share of the pending migrations already done.
+            message: The runner's line for the migration now running.
+        """
+        step = message.removeprefix("Applying migration ")
+        try:
+            if self._oled is not None:
+                self._oled.show_notice(
+                    "Updating",
+                    lambda: ["Do not power off.", f"{pct}% {step}"],
+                    still_needed=lambda: True,
+                )
+            else:
+                # No oled: section, so early_oled still owns the screen.
+                from boneio.hardware.display.early_oled import draw_status
+
+                draw_status(f"Updating system {pct}%", device=self._early_oled_device)
+        except Exception as err:  # noqa: BLE001 - never stop a migration over the display
+            _LOGGER.debug("Could not show migration progress on the OLED: %s", err)
+
+    def clear_migration_progress(self) -> None:
+        """Take the migration notice down once the migrations are over."""
+        if self._oled is None:
+            return
+        try:
+            if self._oled.notice is not None and self._oled.notice[0] == "Updating":
+                self._oled.clear_notice()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Could not clear migration progress on the OLED: %s", err)
+
     def reload_oled(self) -> None:
         """Hot-reload OLED configuration from file.
         

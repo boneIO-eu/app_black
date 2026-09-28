@@ -333,7 +333,9 @@ class Manager:
         # Run system migration startup check (discovers pending migrations,
         # detects bootstrap_required, applies if helper is installed).
         try:
-            migration_status = self.migration_runner.startup_check()
+            migration_status = self.migration_runner.startup_check(
+                progress_callback=self.display.show_migration_progress
+            )
             _LOGGER.info(
                 "Migration startup_check finished: status=%s, pending=%d, bootstrap_required=%s",
                 migration_status.value,
@@ -342,6 +344,8 @@ class Manager:
             )
         except Exception as exc:
             _LOGGER.error("Migration startup_check failed: %s", exc, exc_info=True)
+        finally:
+            self.display.clear_migration_progress()
 
         _LOGGER.info("Manager initialization complete")
 

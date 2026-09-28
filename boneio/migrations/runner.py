@@ -167,8 +167,12 @@ class MigrationRunner:
     # Public API
     # ------------------------------------------------------------------
 
-    def startup_check(self) -> MigrationStatus:
+    def startup_check(self, progress_callback: Any | None = None) -> MigrationStatus:
         """Discover migrations, check helper, apply if possible.
+
+        Args:
+            progress_callback: Optional callable(pct, msg), called before each
+                migration is applied.
 
         Returns:
             Current :class:`MigrationStatus` after the check.
@@ -209,7 +213,7 @@ class MigrationRunner:
                 return self.status
 
             self._ensure_helper_up_to_date()
-            self._apply_pending(pending)
+            self._apply_pending(pending, progress_callback)
 
         except Exception as exc:
             _LOGGER.error("Migration startup_check failed: %s", exc, exc_info=True)
