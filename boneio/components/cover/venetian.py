@@ -33,7 +33,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
         Args:
             tilt_duration: Duration for full tilt movement.
-            actuator_activation_duration: Actuator activation time (unused).
+            actuator_activation_duration: Time from energising the relay until
+                the motor moves; added to every movement.
             restored_state: Persisted position/tilt from disk.
             tilt_restore_after_close: If True, restore previous tilt
                 position after closing the cover (UI/HA calls).
@@ -52,15 +53,17 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
         super().__init__(
             position=position,
+            actuator_activation_duration=actuator_activation_duration,
             **kwargs,
         )
         _LOGGER.debug(
             "VenetianCover %s initialized: open_time=%dms, close_time=%dms, tilt_duration=%dms, "
-            "position=%d%%, tilt=%d%%, tilt_restore=%s",
+            "actuator_activation=%dms, position=%d%%, tilt=%d%%, tilt_restore=%s",
             self._id,
             self._open_time,
             self._close_time,
             self._tilt_duration,
+            self._actuator_activation_ms,
             position,
             self._tilt_position,
             self._tilt_restore_after_close,
@@ -311,12 +314,10 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
         Args:
             config: Dictionary with timing values as TimePeriod objects.
-                   Keys: open_time, close_time, tilt_duration, tilt_restore_after_close
+                   Keys: open_time, close_time, actuator_activation_duration,
+                   tilt_duration, tilt_restore_after_close
         """
-        if "open_time" in config:
-            self._open_time = ensure_time_period(config["open_time"]).total_milliseconds
-        if "close_time" in config:
-            self._close_time = ensure_time_period(config["close_time"]).total_milliseconds
+        super().update_config_times(config)
         if "tilt_duration" in config and config["tilt_duration"]:
             self._tilt_duration = ensure_time_period(config["tilt_duration"]).total_milliseconds
         if "tilt_restore_after_close" in config:

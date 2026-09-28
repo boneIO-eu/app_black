@@ -3,7 +3,8 @@
 The movement thread runs for real here, with short cover times, and the mock
 relays record when they were switched. That checks the two things a unit test
 can: how long the relay is held on, and that the reported position matches
-that on-time — including a stop between polls.
+that on-time — including a stop between polls and the actuator activation
+delay, during which the motor has not started yet.
 """
 
 from __future__ import annotations
@@ -58,14 +59,18 @@ def _common_kwargs() -> dict:
     }
 
 
-def _time_based(position: float) -> TimeBasedCover:
-    return TimeBasedCover(restored_state={"position": position}, **_common_kwargs())
+def _time_based(position: float, activation_ms: float = 0) -> TimeBasedCover:
+    return TimeBasedCover(
+        restored_state={"position": position},
+        actuator_activation_duration=TimePeriod(milliseconds=activation_ms),
+        **_common_kwargs(),
+    )
 
 
-def _venetian(position: float, tilt: float) -> VenetianCover:
+def _venetian(position: float, tilt: float, activation_ms: float = 0) -> VenetianCover:
     return VenetianCover(
         tilt_duration=TimePeriod(milliseconds=1000),
-        actuator_activation_duration=TimePeriod(milliseconds=0),
+        actuator_activation_duration=TimePeriod(milliseconds=activation_ms),
         restored_state={"position": position, "tilt": tilt},
         **_common_kwargs(),
     )
@@ -127,3 +132,60 @@ class TestPositionFollowsRelayOnTime:
         on_ms = _on_time_ms(cover._close_relay)
         assert cover._tilt_position == pytest.approx(100 - on_ms / 1000 * 100, abs=1.0)
         assert cover._position == 40
+
+
+class TestActuatorActivation:
+    async def test_tilt_step_holds_relay_for_activation_plus_travel(self):
+        """A 10% tilt step with 1s tilt and 200ms activation needs ~300ms of relay."""
+        cover = _venetian(position=50, tilt=50, activation_ms=200)
+
+        await cover.set_tilt(60)
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._open_relay)
+        assert 300 <= on_ms <= 300 + TIMING_SLACK_MS
+        assert cover._tilt_position == pytest.approx(50 + (on_ms - 200) / 10, abs=0.5)
+        assert cover._position == 50
+
+    async def test_time_based_position_includes_activation(self):
+        cover = _time_based(position=0, activation_ms=150)
+
+        await cover.set_cover_position(20)
+        await _finish(cover)
+
+        on_ms = _on_time_ms(cover._open_relay)
+        assert 350 <= on_ms <= 350 + TIMING_SLACK_MS
+        assert cover._position == pytest.approx((on_ms - 150) / 10, abs=0.5)
+
+    async def test_stop_during_activation_moves_nothing(self):
+        """The motor had not started yet, so neither position nor tilt changes."""
+        cover = _venetian(position=50, tilt=50, activation_ms=300)
+
+        await cover.run_cover(current_operation=CLOSING)
+        await asyncio.sleep(0.1)
+        await cover.stop()
+
+        assert cover._close_relay.turn_off.called
+        assert cover._position == 50
+        assert cover._tilt_position == 50
+
+
+class TestActivationConfigReload:
+    async def test_reload_sets_and_clears_activation(self):
+        cover = _time_based(position=0)
+        assert cover._actuator_activation_ms == 0
+
+        cover.update_config_times({"actuator_activation_duration": "200ms"})
+        assert cover._actuator_activation_ms == 200
+
+        cover.update_config_times({"open_time": TimePeriod(seconds=20)})
+        assert cover._actuator_activation_ms == 0
+        assert cover._open_time == 20000
+
+    async def test_venetian_reload_keeps_tilt_handling(self):
+        cover = _venetian(position=0, tilt=0)
+
+        cover.update_config_times({"actuator_activation_duration": TimePeriod(milliseconds=250), "tilt_duration": "2s"})
+
+        assert cover._actuator_activation_ms == 250
+        assert cover._tilt_duration == 2000

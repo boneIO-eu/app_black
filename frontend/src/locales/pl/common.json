@@ -829,6 +829,7 @@
     "close_time": "Czas Zamykania",
     "tilt_duration": "Czas Nachylenia",
     "actuator_duration": "Czas Aktywacji Siłownika",
+    "actuator_duration_hint": "Czas od załączenia przekaźnika do ruszenia silnika, doliczany do każdego ruchu. Np. 200ms dla Somfy J4 WT, który ignoruje krótsze polecenia. Zostaw 0, jeśli silnik rusza od razu.",
     "device_class_hint": "Klasa urządzenia dla interfejsu Home Assistant",
     "restore_state": "Przywróć Stan",
     "restore_state_hint": "Przywróć zapisany stan po restarcie",

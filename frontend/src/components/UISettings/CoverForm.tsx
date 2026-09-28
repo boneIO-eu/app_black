@@ -229,6 +229,25 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   minimum={1000}
                 />
 
+                {/* Actuator Activation Duration */}
+                <div>
+                  <SimpleTimePeriodInput
+                    // '0ms' rather than '' so the unit starts at ms — typing 200 must
+                    // not save 200 seconds of relay time on every movement.
+                    value={data.actuator_activation_duration || '0ms'}
+                    onChange={(value: string) => updateField('actuator_activation_duration', value)}
+                    label={t('covers.actuator_duration')}
+                    required={false}
+                    minimum={0}
+                    maximum={5000}
+                  />
+                  <label className="label">
+                    <span className="label-text-alt text-info">
+                      {t('covers.actuator_duration_hint')}
+                    </span>
+                  </label>
+                </div>
+
                 {/* Tilt Duration - only for venetian */}
                 {showTiltDuration && (
                   <>

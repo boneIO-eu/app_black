@@ -106,7 +106,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
+            "description": "Time from switching the relay on until the motor starts moving, added to every movement. Example 200ms for Somfy J4 WT, which ignores shorter orders. Default 0ms.",
             "title": "Actuator activation duration"
           },
           "tilt_restore_after_close": {

@@ -1640,7 +1640,10 @@ cover:
           - positive_time_period
         required: False
         meta:
-          label: Time to activate actuator cover. Example 30s. Minimum is 0ms.
+          label: >-
+            Time from switching the relay on until the motor starts moving,
+            added to every movement. Example 200ms for Somfy J4 WT, which
+            ignores shorter orders. Default 0ms.
       tilt_restore_after_close:
         type: boolean
         required: False
