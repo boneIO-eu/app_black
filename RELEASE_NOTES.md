@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev19` exists so that we can test the new system-migration chain on a
+`1.6.0.dev20` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,58 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev20 — internal test build
+
+## Since dev19
+
+Two things change for anyone who has already updated a controller.
+
+The kernel check stopped telling owners of an early, never-upgraded image
+(kernel `6.18.2-bone12`) that something was critical and to call support
+without restarting. That controller keeps its boneIO overlay only under
+`/boot/dtbs/$uname_r/overlays/` and loads it from there by full path, the
+way the old UPGRADE.md set it up — a layout the check did not know about. It
+now follows the same `uboot_overlay_addrN` entries U-Boot itself reads, so a
+copy in the boot kernel's own directory counts, and a missing file is no
+longer reported as critical when this boot is provably the same one that
+just started. Clearing the false alarm needs migration 1.6.26 to have run,
+not just the updated code. Checked read-only on the dev controller
+(192.168.50.220, kernel `6.18.53-bone55`, overlay entered by bare name,
+overlay active): status `ok`, and the "next boot is this boot" guard
+returned `True`. Not checked on an actual `6.18.2-bone12` image.
+
+The screen no longer looks like it has hung during an update. System
+migrations run at startup, after the display has taken over and before the
+web server answers, and can take minutes on a controller several releases
+behind. Until now the OLED (or the early boot screen, on boards without one)
+just sat on the host and version, unresponsive, exactly when someone worried
+about a stuck controller would be tempted to pull the plug. It now shows
+"Updating, do not power off", the share done and which migration is running,
+and comes down once migrations finish — including this update's own 1.6.26
+and 1.6.27. Not checked on hardware.
+
+Alongside those, the startup check that restores a missing boot overlay
+works again — it has silently done nothing since 1.6.6, because the helper
+it piped a plan to was removed that release, and only logged "boneio-migrate
+helper not installed" (migration 1.6.27). Not checked on hardware. And
+covers get five fixes: a
+stopped cover no longer loses the last poll's worth of travel, reversing
+direction waits for the motor to stop first
+(`direction_change_wait_time`, default 500ms, changes every existing
+cover on upgrade), a full open or close now runs into the endstop to correct
+time-based drift (`endstop_overrun`, default 10%, also changes every
+existing cover on upgrade), a venetian blind at 0% with the slats open now
+responds to Close, and `actuator_activation_duration` is applied instead of
+silently ignored. None of the cover changes have been tried on hardware yet.
+
+Two new system migrations, 1.6.26 and 1.6.27, both reinstall
+`boneio-system`; because it changed twice, plans 1.6.5, 1.6.8, 1.6.9,
+1.6.17, 1.6.18 and 1.6.22 — everything else that also installs it — are
+re-signed alongside it, and the manifest is re-signed as it is for every
+release, since it names the release.
 
 ---
 

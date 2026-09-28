@@ -6,6 +6,92 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev20 (2026-09-28) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🛟 The kernel check no longer cries "critical" on an early image
+
+- **The check now reads the overlay path U-Boot actually reads.** A
+  controller on an early image (kernel `6.18.2-bone12`, never upgraded) was
+  told "Critical: do not restart, call support" after updating to dev19, on
+  nothing worse than the layout the old UPGRADE.md itself produced — overlay
+  under `/boot/dtbs/$uname_r/overlays/`, loaded from there by full path. The
+  check now follows every `uboot_overlay_addrN` key, the path as written or
+  the bare name in the boot kernel's directory, and repair can copy from the
+  boot kernel's own directory when that is the controller's only copy.
+- Clearing the false alarm needs migration 1.6.26 applied, not just the new
+  code — it reinstalls `boneio-system`.
+- Checked read-only on the dev controller (192.168.50.220, kernel
+  `6.18.53-bone55`, overlay entered by bare name, overlay active): status
+  `ok`, and the "next boot is this boot" guard returned `True`. Not checked
+  on an actual `6.18.2-bone12` image.
+
+### 📟 The screen says "Updating, do not power off" instead of looking frozen
+
+- **A startup migration that runs for minutes no longer looks like a hang.**
+  System migrations apply after the display has taken over and before the
+  web server starts; on a controller several releases behind, an `apt
+  install` step can take minutes with the host/version screen frozen and the
+  panel not answering — exactly when someone unplugs it. The OLED, or the
+  early boot screen on boards without one, now shows the share done and
+  which migration is running, and the notice comes down once migrations
+  finish.
+- Not checked on hardware.
+
+### 🛟 The startup overlay check can repair again
+
+- **The safety net that restores a missing boot overlay at every start was
+  dead since 1.6.6** and only logged "boneio-migrate helper not installed."
+  `boneio-system` gains an `overlay-repair` verb the check now calls
+  instead: it copies a boneIO overlay into `/boot/dtbs/$uname_r/` from
+  `VALID_OVERLAYS`, under `/boot/dtbs` only, and also fills the boot
+  kernel's `overlays/` so the check is not asked again on every boot. It
+  never touches `uEnv.txt` — nobody is watching at startup.
+- Migration 1.6.27 reinstalls `boneio-system`.
+- Plans 1.6.5, 1.6.8, 1.6.9, 1.6.17, 1.6.18 and 1.6.22 are re-signed because
+  they also install `boneio-system`, which changed twice this release.
+- Not checked on hardware.
+
+### 🪟 Covers move, stop and reverse closer to where they should
+
+- **A stopped cover no longer loses the last poll's worth of travel.** Both
+  the time-based and actuator platforms now share one movement loop
+  (`BaseCover._drive_relay`): the position is recomputed once more after the
+  relay turns off, the final wait is cut short so the relay drops at the
+  target instead of on the next 50ms poll, and `stop()` interrupts the wait
+  at once. Up to 5% of a short tilt was lost this way on every stop. Not yet
+  tried on hardware.
+- **Reversing direction now waits for the motor to stop first**
+  (`direction_change_wait_time`, default 500ms) instead of switching the
+  opposite relay on right after the other one turns off. Continuing the same
+  direction is unaffected, and a stop during the wait leaves the relay off.
+  This changes every existing cover on upgrade — set it to `0` to disable.
+- **A full open or close now runs into the endstop** (`endstop_overrun`,
+  default 10% of `open_time`/`close_time` — about 3s on a 30s cover) instead
+  of stopping on the timer alone, correcting time-based position drift on
+  every full travel. A cover already closed is not driven again. This
+  changes every existing cover on upgrade — `0` disables it, for a motor
+  without endstops.
+- **A venetian blind at 0% with the slats open now responds to Close.** Only
+  the position used to be checked, so Close did nothing; it now shuts the
+  slats, without the endstop overrun, and the panel's Close button stays
+  active until they are shut. Home Assistant's own card still disables
+  Close at 0% since it looks at position — Close tilt works there.
+- **`actuator_activation_duration` is applied**, not just stored. It was in
+  the schema and the cover table but ignored, so a drive that ignores short
+  pulses (Somfy J4 WT) never moved on a small tilt step. The relay is now
+  held for the activation time plus the movement, added to the movement
+  rather than subtracted from it. Default `0ms`; applied on config reload.
+
+### 🧹 Minor
+
+- **`scripts/build_local_wheel.sh`** builds a wheel from the working tree —
+  schemas, frontend and package, uncommitted changes included — into
+  `dist-local/`, so a change can be tried on a controller
+  (`--boneio-wheel` / `BONEIO_WHEEL`) without cutting a dev release for each
+  attempt.
+
 ## v1.6.0.dev19 (2026-09-28) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
