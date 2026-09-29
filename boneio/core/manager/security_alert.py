@@ -164,7 +164,35 @@ class SecurityAlertPublisher:
             # Still publish: the entity may already exist from a previous run,
             # and a stale retained state is worse than a corrected one.
 
+        try:
+            from boneio.integration.homeassistant import ha_security_event_message
+
+            self._manager.publish_ha_discovery(
+                id="security_event",
+                ha_type="event",
+                payload=ha_security_event_message(
+                    config_helper=self._manager._config_helper
+                ),
+            )
+        except Exception as err:  # noqa: BLE001 - discovery must not stop startup
+            _LOGGER.warning("Could not register the security events entity: %s", err)
+
         await self.publish_state()
+
+    def publish_event(self, payload: dict) -> None:
+        """Fire the Security events entity.
+
+        Not retained: an event is something that happened, and a retained one
+        would fire again every time Home Assistant reconnects.
+
+        Args:
+            payload: ``{"event_type": ..., ...}`` from boneio.webui.security_events.
+        """
+        self._manager.send_message(
+            topic=f"{self._manager._topic_prefix}/security/event",
+            payload=json.dumps(payload),
+            retain=False,
+        )
 
     async def publish_state(self) -> None:
         """Publish the current posture.

@@ -274,7 +274,9 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
 
     store = _store()
     try:
-        check = await check_password_throttled(request, username, payload.current_password)
+        check = await check_password_throttled(
+            request, username, payload.current_password, where="password_change"
+        )
     except SessionLocked:
         return signed_out_response()
     user = check.user

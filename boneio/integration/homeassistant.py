@@ -1506,6 +1506,40 @@ def ha_security_alert_availability_message(
     return msg
 
 
+def ha_security_event_message(
+    config_helper: ConfigHelper,
+    **kwargs,
+) -> HomeAssistantDiscoveryMessage:
+    """Create the Security events entity (diagnostic) for HA.
+
+    An ``event`` entity, like a button's: it fires when somebody guesses a
+    password, so an automation can turn that into a notification. The types
+    are the ones boneio.webui.security_events sends, and HA refuses any other.
+
+    Args:
+        config_helper: ConfigHelper instance.
+        **kwargs: Additional fields forwarded to ``ha_availabilty_message``.
+
+    Returns:
+        HA discovery message dict for the event entity.
+    """
+    from boneio.webui.security_events import EVENT_TYPES
+
+    msg = ha_availabilty_message(
+        id="security_event",
+        name="Security events",
+        entity_type="event",
+        config_helper=config_helper,
+        device_type="update",
+        **kwargs,
+    )
+    msg["state_topic"] = f"{config_helper.topic_prefix}/security/event"
+    msg["event_types"] = list(EVENT_TYPES)
+    msg["icon"] = "mdi:shield-key"
+    msg["entity_category"] = "diagnostic"
+    return msg
+
+
 def ha_climate_availability_message(
     id: str,
     name: str,

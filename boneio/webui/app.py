@@ -47,6 +47,7 @@ from boneio.models.state import ModbusDeviceState
 from boneio.version import __version__
 from boneio.webui.middleware.csrf import CSRFMiddleware
 from boneio.webui.middleware.proxy import TrustedProxyMiddleware
+from boneio.webui import security_events
 from boneio.webui.security_headers import apply_security_headers
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
@@ -866,6 +867,12 @@ def init_app(
 
     # Set app state
     app.state.manager = manager
+    # Password guessing and the sessions signed out for it go to Home
+    # Assistant through the manager's MQTT link.
+    security_alert = getattr(manager, "security_alert", None)
+    security_events.set_publisher(
+        security_alert.publish_event if security_alert is not None else None
+    )
     app.state.auth_config = auth_config
     app.state.yaml_config_file = yaml_config_file
     app.state.web_server = web_server

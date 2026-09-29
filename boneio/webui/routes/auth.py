@@ -18,6 +18,7 @@ from boneio.webui.middleware.auth import (
     is_auth_required,
     issue_token,
 )
+from boneio.webui import security_events
 from boneio.webui.rate_limit import ip_key, login_rate_limiter, user_key
 
 if TYPE_CHECKING:
@@ -98,7 +99,7 @@ async def login(
         # scrypt is deliberately expensive, so keep it off the event loop.
         user = await asyncio.to_thread(store.verify_credentials, username, password)
         if user is None:
-            login_rate_limiter.record_failures(*keys)
+            record_wrong_password(keys, username, client, "login")
             _LOGGER.warning("Failed login attempt for user: %s from %s", username, client)
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -136,7 +137,7 @@ async def login(
         token = create_token({"sub": username, "role": "admin"})
         return {"token": token, "role": "admin", "username": username}
 
-    login_rate_limiter.record_failures(*keys)
+    record_wrong_password(keys, username, client, "login")
     _LOGGER.warning("Failed login attempt for user: %s from %s", username, client)
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -180,8 +181,28 @@ def signed_out_response() -> JSONResponse:
     )
 
 
+def record_wrong_password(keys: tuple[str, ...], username: str, client: str, where: str) -> None:
+    """Count a wrong password against the login buckets.
+
+    When this one fills a bucket, Home Assistant is told somebody is guessing —
+    once per filling, not once per refused attempt after it, which would turn
+    a guessing script into a notification storm.
+
+    Args:
+        keys: The bucket keys (the caller's address and the account).
+        username: The account, or what was typed as one.
+        client: The caller's address.
+        where: Which form the password was typed into.
+    """
+    login_rate_limiter.record_failures(*keys)
+    if not login_rate_limiter.check_all(*keys):
+        security_events.emit(
+            "password_guessing", username=username, client=client, where=where
+        )
+
+
 async def check_password_throttled(
-    request: Request, username: str, password: str
+    request: Request, username: str, password: str, where: str = "confirm"
 ) -> PasswordCheck:
     """Check a signed-in account's password, on the login's attempt budget.
 
@@ -201,6 +222,7 @@ async def check_password_throttled(
         request: Incoming request, as annotated by the auth middleware.
         username: The account the token belongs to.
         password: What the caller typed.
+        where: Which form it was typed into, for the security event.
 
     Returns:
         The account if the password is right, and how many tries are left.
@@ -237,7 +259,7 @@ async def check_password_throttled(
 
     user = await asyncio.to_thread(store.verify_credentials, username, password)
     if user is None:
-        login_rate_limiter.record_failures(*keys)
+        record_wrong_password(keys, username, client, where)
         _LOGGER.warning("Wrong password confirming '%s' from %s", username, client)
         left = min(login_rate_limiter.remaining_attempts(key) for key in keys)
         if session_id:
@@ -251,6 +273,9 @@ async def check_password_throttled(
                     username,
                     client,
                     count,
+                )
+                security_events.emit(
+                    "session_signed_out", username=username, client=client, where=where
                 )
                 raise SessionLocked
             left = min(left, SESSION_MAX_WRONG_PASSWORDS - count)
