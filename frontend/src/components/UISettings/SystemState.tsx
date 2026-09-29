@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import {
   FaRedo,
   FaDownload,
@@ -30,6 +30,18 @@ import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useNodeRedAvailability } from '@/hooks/useNodeRedAvailability';
 import axios from '@/api/axios';
+import { useAppInit } from '@/contexts/AppInitContext';
+import {
+  clearUpdateMark,
+  normalizeVersion,
+  updateArrived,
+  writeUpdateMark,
+  type UpdateMark,
+} from '@/utils/updateGuard';
+
+/** How often, and for how long, to ask which version answers after an update. */
+const NEW_VERSION_POLL_MS = 3000;
+const NEW_VERSION_DEADLINE_MS = 60 * 60 * 1000;
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -93,6 +105,11 @@ const SystemState: React.FC = () => {
     null
   );
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const { data: initData } = useAppInit();
+  const newVersionPoll = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => {
+    if (newVersionPoll.current) clearInterval(newVersionPoll.current);
+  }, []);
 
   // Restart state
   const [restartRequired, setRestartRequired] = useState(false);
@@ -173,15 +190,55 @@ const SystemState: React.FC = () => {
     }
   }, []);
 
+  /**
+   * Reload once the new version answers, not a fixed time after "success".
+   *
+   * The old process reports success and then takes a while to stop; the new
+   * one runs its migrations before it serves anything. A reload in between
+   * either lands on the old panel again or on no server at all. While the
+   * controller is down the panel's guard shows the update screen instead.
+   */
+  const reloadWhenUpdated = useCallback((mark: UpdateMark) => {
+    if (newVersionPoll.current) clearInterval(newVersionPoll.current);
+    newVersionPoll.current = setInterval(async () => {
+      if (Date.now() - mark.startedAt > NEW_VERSION_DEADLINE_MS) {
+        if (newVersionPoll.current) clearInterval(newVersionPoll.current);
+        setIsUpdating(false);
+        setError(t('software_update.update_failed'));
+        return;
+      }
+      try {
+        const { data } = await axios.get('/api/version');
+        if (updateArrived(mark, data?.version)) {
+          if (newVersionPoll.current) clearInterval(newVersionPoll.current);
+          window.location.reload();
+        }
+      } catch {
+        // Restarting or running migrations: ask again.
+      }
+    }, NEW_VERSION_POLL_MS);
+  }, [t]);
+
   // Start update with specific version
   const startUpdate = async (version?: string) => {
     setIsUpdating(true);
     setError(null);
 
+    const basePath = window.__BONEIO_BASE_PATH__;
+    const mark: UpdateMark = {
+      startedAt: Date.now(),
+      fromVersion: initData?.version ?? updateInfo?.current_version ?? '',
+      toVersion: normalizeVersion(version || selectedVersion),
+    };
+    // Left for the panel's guard, which then says "update in progress" rather
+    // than "not responding" while the controller restarts.
+    writeUpdateMark(window.localStorage, basePath, mark);
+
     try {
       const { data } = await axios.post('/api/update', { version: version || selectedVersion });
 
       if (data.status === 'error') {
+        clearUpdateMark(window.localStorage, basePath);
         setError(data.message);
         setIsUpdating(false);
         return;
@@ -191,28 +248,19 @@ const SystemState: React.FC = () => {
       const pollInterval = setInterval(async () => {
         const status = await pollUpdateStatus();
 
-        if (!status) {
-          // Server is restarting, wait and reload
+        if (!status || status.status === 'success') {
+          // Installed, or already restarting: wait for the new version.
           clearInterval(pollInterval);
-          setTimeout(() => {
-            window.location.reload();
-          }, 5000);
-          return;
-        }
-
-        if (status.status === 'success') {
-          clearInterval(pollInterval);
-          // Server will restart, wait and reload
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
+          reloadWhenUpdated(mark);
         } else if (status.status === 'error') {
           clearInterval(pollInterval);
+          clearUpdateMark(window.localStorage, basePath);
           setIsUpdating(false);
           setError(status.error || t('software_update.update_failed'));
         }
       }, 1000);
     } catch (err) {
+      clearUpdateMark(window.localStorage, basePath);
       setError(t('software_update.failed_to_start_update'));
       setIsUpdating(false);
     }

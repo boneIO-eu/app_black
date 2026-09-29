@@ -2496,5 +2496,24 @@
     "success": "Overlay changed! System will restart...",
     "change_failed": "Failed to change overlay. Please update /boot/uEnv.txt manually.",
     "not_available": "The required overlay file ({{overlay}}) is not installed on this system. Update the system image or install the overlay package before changing the version."
+  },
+  "panel_guard": {
+    "updating_title": "Update in progress",
+    "updating_to": "The controller is installing version {{version}}.",
+    "updating_body": "Do not power it off. The panel comes back by itself once the new version has started — jumping several versions can take over ten minutes.",
+    "updating_elapsed": "Started {{minutes}} min ago",
+    "probably_title": "The controller is not responding",
+    "probably_body": "It is probably starting up or installing an update. The panel checks every few seconds and comes back by itself.",
+    "stale_title": "Loading the new version of the panel",
+    "stale_body": "The controller already runs version {{server}}, and the browser showed the panel it had kept, {{panel}}.",
+    "stale_manual_title": "The browser keeps an old version of the panel",
+    "stale_manual_body": "The controller runs version {{server}}, and this panel is from {{panel}}. Try a refresh that skips the cache: Ctrl+Shift+R (Cmd+Shift+R on a Mac).",
+    "reload": "Refresh",
+    "continue_anyway": "Continue anyway",
+    "check_now": "Check now",
+    "checking": "Checking…",
+    "failed_title": "The update failed",
+    "failed_body": "The controller restarted but still runs version {{version}}. The logs have the details.",
+    "dismiss": "Close"
   }
 }

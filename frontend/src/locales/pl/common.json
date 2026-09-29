@@ -2495,5 +2495,24 @@
     "success": "Overlay zmieniony! System zostanie zrestartowany...",
     "change_failed": "Nie udało się zmienić overlay. Zaktualizuj /boot/uEnv.txt ręcznie.",
     "not_available": "Wymagany plik overlay ({{overlay}}) nie jest zainstalowany w tym systemie. Zaktualizuj obraz systemu lub zainstaluj paczkę z overlayem przed zmianą wersji."
+  },
+  "panel_guard": {
+    "updating_title": "Trwa aktualizacja",
+    "updating_to": "Sterownik instaluje wersję {{version}}.",
+    "updating_body": "Nie odłączaj zasilania. Panel wróci sam, gdy nowa wersja wystartuje — przy przejściu o kilka wersji może to potrwać kilkanaście minut.",
+    "updating_elapsed": "Od rozpoczęcia: {{minutes}} min",
+    "probably_title": "Sterownik nie odpowiada",
+    "probably_body": "Prawdopodobnie się uruchamia albo trwa aktualizacja. Panel sprawdza co kilka sekund i wróci sam.",
+    "stale_title": "Wczytywanie nowej wersji panelu",
+    "stale_body": "Sterownik działa już w wersji {{server}}, a przeglądarka pokazała zapamiętany panel {{panel}}.",
+    "stale_manual_title": "Przeglądarka trzyma starą wersję panelu",
+    "stale_manual_body": "Sterownik działa w wersji {{server}}, a ten panel jest z wersji {{panel}}. Spróbuj odświeżyć bez pamięci podręcznej: Ctrl+Shift+R (na Macu Cmd+Shift+R).",
+    "reload": "Odśwież",
+    "continue_anyway": "Kontynuuj mimo to",
+    "check_now": "Sprawdź teraz",
+    "checking": "Sprawdzanie…",
+    "failed_title": "Aktualizacja nie powiodła się",
+    "failed_body": "Sterownik uruchomił się ponownie, ale nadal działa w wersji {{version}}. Szczegóły znajdziesz w logach.",
+    "dismiss": "Zamknij"
   }
 }

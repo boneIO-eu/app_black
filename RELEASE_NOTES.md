@@ -1,3 +1,27 @@
+# v1.5.6
+
+Prepares 1.5 controllers for the update to 1.6. Nothing else changes.
+
+## 🧭 No more old panel after an update
+
+After an update the browser could keep showing the previous panel for several
+refreshes — its service worker serves a stored copy until it has downloaded
+the new one. The panel now knows which version it was built for: when the
+controller runs another one, it reloads itself once from the controller, and
+if that is not enough it says so and suggests Ctrl+Shift+R.
+
+While an update started from this browser is installing, a controller that
+does not answer shows "update in progress — do not power off" instead of "API
+unavailable". A controller that comes back on its old version is reported as
+a failed update. The update page now waits for the new version to answer
+before it reloads, and a page caught between two builds reloads itself instead
+of staying blank.
+
+Update to 1.5.6 before going to 1.6: the old panel cannot be fixed from the
+new version, only from its own code.
+
+---
+
 # v1.5.5
 
 Hotfix on top of `v1.5.4`, for the same field report: clicking an input logged

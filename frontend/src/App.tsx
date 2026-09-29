@@ -68,6 +68,7 @@ import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, Senso
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import NotAvailable from './components/NotAvailable';
+import UpdateFailedNotice from './components/UpdateFailedNotice';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 import { appendModbusHistoryPointToStorage, clearModbusHistoryStorage } from './hooks/useModbusHistory';
@@ -91,10 +92,12 @@ export const WebSocketContext = createContext<{
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, isAuthRequired } = useAuth();
-  const { isApiAvailable, isLoading: initLoading } = useAppInit();
+  const { isApiAvailable, isLoading: initLoading, panelState } = useAppInit();
 
   // API confirmed unavailable after retries — show error screen
-  if (!isApiAvailable && !initLoading) {
+  // API confirmed unavailable after retries, or a panel the service worker
+  // kept from before an update: say so instead of rendering it
+  if ((!isApiAvailable && !initLoading) || panelState === 'stale_panel') {
     return <NotAvailable />
   }
 
@@ -124,7 +127,7 @@ function AppContent() {
   const [covers, setCovers] = useState<CoverEvent[]>([]);
   const [groups, setGroups] = useState<GroupEvent[]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
-  const { isApiAvailable } = useAppInit();
+  const { isApiAvailable, panelState } = useAppInit();
   const { error, addMessageListener, addConnectionStateListener } = useWebSocket();
 
   // Select all text in number inputs on focus for better mobile UX.
@@ -339,7 +342,7 @@ function AppContent() {
     };
   }, [addMessageListener]);
 
-  if (!isApiAvailable){
+  if (!isApiAvailable || panelState === 'stale_panel'){
     return <NotAvailable />
   }
 
@@ -452,6 +455,7 @@ function AppContent() {
         } />
       </Routes>
       </Suspense>
+      <UpdateFailedNotice />
     </WebSocketContext.Provider>
   );
 }
