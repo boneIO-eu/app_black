@@ -54,6 +54,12 @@ interface OsUpdateState {
 const POLL_MS = 3000;
 
 /**
+ * How long the panel keeps saying "starting" after the helper accepted a run
+ * without the state showing it yet. Past this the state is trusted again.
+ */
+const START_GRACE_MS = 20_000;
+
+/**
  * Every call here runs the Python system helper through sudo on a BeagleBone:
  * 2-3 s idle and over the axios default of 5 s while an upgrade or a first boot
  * has the CPU. Timing out then showed an error for a request that succeeded.
@@ -102,16 +108,28 @@ export const OsUpdateCard: React.FC = () => {
   const [state, setState] = useState<OsUpdateState | null>(null);
   const [log, setLog] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [starting, setStarting] = useState(false);
+  // The run the operator just asked for, from the click until the state shows
+  // it. Starting one takes the helper several seconds on a BeagleBone — longer
+  // with apt already busy — and without this the card sat unchanged meanwhile.
+  const [pendingMode, setPendingMode] = useState<'check' | 'upgrade' | null>(null);
+  // ``last.started`` when the button was clicked: the device's own clock, so a
+  // new run is told apart without comparing it to the browser's.
+  const pendingSince = useRef<number | null>(null);
+  const [pollToken, setPollToken] = useState(0);
   const [showPackages, setShowPackages] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The unit is started with --no-block, so the first reads after a start can
   // still see it inactive. Keep polling for a moment instead of stopping there.
   const watchUntil = useRef(0);
+  // Reads overlap on a slow device; only the newest may set the state, or a
+  // read from before the start lands late and shows the card idle again.
+  const readSeq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++readSeq.current;
     try {
       const { data } = await axios.get<OsUpdateState>('/api/os-update/state', HELPER_TIMEOUT);
+      if (seq !== readSeq.current) return data;
       setState(data);
       if (data.running || data.last?.result === 'running') {
         const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log', HELPER_TIMEOUT);
@@ -142,7 +160,15 @@ export const OsUpdateCard: React.FC = () => {
       cancelled = true;
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [refresh, starting]);
+  }, [refresh, pollToken]);
+
+  // The state has caught up with the click: the run shows, or already finished.
+  useEffect(() => {
+    if (!pendingMode || !state) return;
+    if (state.running || (state.last?.started ?? null) !== pendingSince.current) {
+      setPendingMode(null);
+    }
+  }, [state, pendingMode]);
 
   const [switching, setSwitching] = useState(false);
   const setAutoUpdate = async (enabled: boolean) => {
@@ -171,15 +197,17 @@ export const OsUpdateCard: React.FC = () => {
       if (!confirm(`${message}\n\n${t('os_update.interruptions')}\n\n${t('os_update.confirm_backup')}`)) return;
     }
     setError(null);
-    setStarting(true);
+    pendingSince.current = state?.last?.started ?? null;
+    setPendingMode(mode);
     try {
       await axios.post(`/api/os-update/${mode}`, null, HELPER_TIMEOUT);
       watchUntil.current = Date.now() + 15000;
+      // Re-arms the polling effect for the run just started.
+      setPollToken(n => n + 1);
+      setTimeout(() => setPendingMode(current => (current === mode ? null : current)), START_GRACE_MS);
     } catch (err) {
+      setPendingMode(null);
       setError(apiDetail(err) || t('os_update.start_failed'));
-    } finally {
-      // Toggling re-arms the polling effect for the run just started.
-      setStarting(false);
     }
   };
 
@@ -193,6 +221,11 @@ export const OsUpdateCard: React.FC = () => {
 
   const running = Boolean(state?.running);
   const last = state?.last ?? null;
+  const busy = running || pendingMode !== null;
+  const activeMode = pendingMode ?? (running ? last?.mode ?? null : null);
+  // A disabled daisyUI button fades to near nothing; the one doing the work
+  // stays readable, so the card looks busy rather than broken.
+  const activeButton = 'disabled:text-base-content/70 disabled:border-base-content/20';
   const packages = last?.packages ?? [];
   const kernelProblem = state?.kernel?.status === 'problem';
   const lowSpace =
@@ -208,10 +241,10 @@ export const OsUpdateCard: React.FC = () => {
       title={t('os_update.title')}
       description={t('os_update.description')}
       action={
-        running ? (
+        busy ? (
           <span className="badge badge-info badge-sm gap-1">
             <FaSpinner className="animate-spin" />
-            {t('os_update.running')}
+            {pendingMode && !running ? t('os_update.starting') : t('os_update.running')}
           </span>
         ) : packages.length > 0 && last?.mode === 'check' ? (
           <span className="badge badge-success badge-sm font-semibold">
@@ -222,20 +255,20 @@ export const OsUpdateCard: React.FC = () => {
       footer={
         <FormActions>
           <button
-            className="btn btn-ghost btn-sm gap-2"
+            className={`btn btn-outline btn-sm gap-2 ${activeMode === 'check' ? activeButton : ''}`}
             onClick={() => start('check')}
-            disabled={running || starting || !state}
+            disabled={busy || !state}
           >
-            <FaSearch className="text-xs" />
-            {t('os_update.check')}
+            {activeMode === 'check' ? <FaSpinner className="text-xs animate-spin" /> : <FaSearch className="text-xs" />}
+            {activeMode === 'check' ? t('os_update.checking') : t('os_update.check')}
           </button>
           <button
-            className="btn btn-primary btn-sm gap-2"
+            className={`btn btn-primary btn-sm gap-2 ${activeMode === 'upgrade' ? activeButton : ''}`}
             onClick={() => start('upgrade')}
-            disabled={running || starting || !state || lowSpace}
+            disabled={busy || !state || lowSpace}
           >
-            <FaSync className="text-xs" />
-            {t('os_update.upgrade')}
+            {activeMode === 'upgrade' ? <FaSpinner className="text-xs animate-spin" /> : <FaSync className="text-xs" />}
+            {activeMode === 'upgrade' ? t('os_update.upgrading') : t('os_update.upgrade')}
           </button>
         </FormActions>
       }
