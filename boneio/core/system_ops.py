@@ -265,14 +265,39 @@ def helper_supports(verb: str) -> bool:
     Returns:
         True when the helper is installed and lists it.
     """
+    return verb in _helper_verbs()
+
+
+#: The helper's verbs, keyed by the file they came from. Starting the helper
+#: costs 1-2 s of Python start-up on a BeagleBone, and the panel asks before
+#: every call it makes — twice per poll of the OS update card. The list changes
+#: only when a migration replaces the helper, which changes this key.
+_verbs_cache: tuple[tuple[int, int, int], frozenset[str]] | None = None
+
+
+def _helper_verbs() -> frozenset[str]:
+    global _verbs_cache
+    try:
+        st = os.stat(HELPER_PATH)
+    except OSError:
+        return frozenset()
+    key = (st.st_ino, st.st_mtime_ns, st.st_size)
+    if _verbs_cache is not None and _verbs_cache[0] == key:
+        return _verbs_cache[1]
     try:
         completed = subprocess.run(
             [HELPER_PATH, "--list-verbs"], capture_output=True, text=True, timeout=15
         )
         verbs = json.loads(completed.stdout.strip() or "[]")
     except (OSError, subprocess.SubprocessError, ValueError):
-        return False
-    return isinstance(verbs, list) and verb in verbs
+        return frozenset()
+    if not isinstance(verbs, list):
+        return frozenset()
+    found = frozenset(v for v in verbs if isinstance(v, str))
+    # A helper that failed to start prints nothing; do not remember that.
+    if completed.returncode == 0 and found:
+        _verbs_cache = (key, found)
+    return found
 
 
 def os_update_state(timeout: int = 30) -> Result:
