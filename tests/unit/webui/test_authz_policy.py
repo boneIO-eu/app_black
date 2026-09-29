@@ -131,6 +131,7 @@ def test_viewer_may_not_read_diagnostics(path):
         "/api/remote-devices/esp1/output/relay/action",
         "/api/remote-devices/esp1/cover/blind/action",
         "/api/modbus/get",
+        "/api/sensors/ina/refresh",
     ],
 )
 def test_viewer_may_operate_the_device(path):

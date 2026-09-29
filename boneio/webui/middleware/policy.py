@@ -101,6 +101,9 @@ _VIEWER_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("POST", r"^/api/remote-devices/[^/]+/(output|cover)/[^/]+/action$"),
         # Reads the Modbus UI performs over POST because they carry a body.
         ("POST", r"^/api/modbus/get$"),
+        # An on-demand read of the on-board power monitor: a POST only because
+        # it touches the bus and publishes, it changes nothing.
+        ("POST", r"^/api/sensors/ina/refresh$"),
         # Self-service only: changing your OWN password, which asks for the
         # current one. Managing other accounts lives under /api/accounts
         # (plural) and stays admin-only.

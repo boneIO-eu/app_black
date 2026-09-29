@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from fastapi import APIRouter, Depends
 
@@ -105,25 +106,8 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
                         "device_group": coordinator.name,
                     })
     
-    # INA219 sensors
-    for ina_device in manager.sensors.get_ina219_sensors():
-        for sensor in ina_device.sensors.values():
-            result["ina219"].append({
-                "id": sensor.id,
-                "name": sensor.name,
-                "state": sensor.state,
-                "unit": sensor.unit_of_measurement,
-            })
-
-    # INA226 sensors (v1.0 boards — same format as INA219 for frontend)
-    for ina_device in manager.sensors.get_ina226_sensors():
-        for sensor in ina_device.sensors.values():
-            result["ina219"].append({
-                "id": sensor.id,
-                "name": sensor.name,
-                "state": sensor.state,
-                "unit": sensor.unit_of_measurement,
-            })
+    # INA219 / INA226 (v1.0 boards — same format as INA219 for frontend)
+    result["ina219"] = _power_monitor_entries(manager)
     
     # ADC sensors
     for sensor in manager.sensors.get_adc_sensors():
@@ -160,6 +144,51 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
         result["sun"].append(entry)
 
     return result
+
+
+def _power_monitor_devices(manager: Manager) -> list:
+    """The on-board power monitors, whichever chip the board carries."""
+    return [
+        *manager.sensors.get_ina219_sensors(),
+        *manager.sensors.get_ina226_sensors(),
+    ]
+
+
+def _power_monitor_entries(manager: Manager) -> list[dict]:
+    """Current, voltage and power of the power monitors, as last read."""
+    return [
+        {
+            "id": sensor.id,
+            "name": sensor.name,
+            "state": sensor.state,
+            "unit": sensor.unit_of_measurement,
+        }
+        for ina_device in _power_monitor_devices(manager)
+        for sensor in ina_device.sensors.values()
+    ]
+
+
+@router.post("/sensors/ina/refresh")
+async def refresh_power_monitor(manager: Manager = Depends(get_manager)):
+    """Read the power monitor now instead of waiting for its update interval.
+
+    ``/sensors/loaded`` returns what the monitor reported at its last poll,
+    which is ``update_interval`` old — 60 s by default. The factory tester
+    switches a bank of relays and has to see the coil current within a second
+    or two; against a cached value it saw a delta of exactly zero and failed
+    good boards. This reads the chip on the spot, updates the sensors the same
+    way a scheduled poll does (MQTT, event bus), and returns the fresh values.
+
+    A POST because it drives the I2C bus and publishes; the payload has the
+    same shape as the ``ina219`` list in ``/sensors/loaded``.
+
+    Returns:
+        ``{"ina219": [...], "timestamp": <unix time of the read>}``.
+    """
+    timestamp = time.time()
+    for ina_device in _power_monitor_devices(manager):
+        await ina_device.async_update(timestamp=timestamp)
+    return {"ina219": _power_monitor_entries(manager), "timestamp": timestamp}
 
 
 @router.get("/sensors/screen_available")
