@@ -2,6 +2,28 @@
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // A service worker that took over mid-load can leave this page asking
+      // for scripts of a build that is gone: the server answers with
+      // index.html, the module fails its MIME check, and the page stays
+      // blank. Drop the service worker and reload once, at most every 30 s:
+      // the reload then fetches one consistent build from the controller.
+      addEventListener('error', function (e) {
+        var t = e.target;
+        if (!t || t.tagName !== 'SCRIPT' || !/\/assets\//.test(t.src || '')) return;
+        try {
+          var last = Number(sessionStorage.getItem('boneio-asset-reload') || 0);
+          if (Date.now() - last < 30000) return;
+          sessionStorage.setItem('boneio-asset-reload', String(Date.now()));
+        } catch (_) {
+          return;
+        }
+        var reload = function () { location.reload(); };
+        var sw = navigator.serviceWorker;
+        if (!sw) return reload();
+        sw.getRegistration().then(function (r) { return r && r.unregister(); }).then(reload, reload);
+      }, true);
+    </script>
     <link rel="icon" type="image/svg+xml" href="/boneio_fav.svg" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

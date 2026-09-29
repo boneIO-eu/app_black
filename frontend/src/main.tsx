@@ -30,6 +30,29 @@ const sw = registerSW({
 })
 _updateSW = sw;
 
+// The lazy-loaded views have the same problem as the entry script (see the
+// handler in index.html): a chunk of a build the service worker has just
+// replaced is gone. Drop the service worker and reload once, at most every
+// 30 s, instead of failing.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    const last = Number(sessionStorage.getItem('boneio-asset-reload') || 0);
+    if (Date.now() - last < 30_000) return;
+    sessionStorage.setItem('boneio-asset-reload', String(Date.now()));
+  } catch {
+    return;
+  }
+  event.preventDefault();
+  const reload = () => window.location.reload();
+  if (!navigator.serviceWorker) {
+    reload();
+    return;
+  }
+  navigator.serviceWorker.getRegistration()
+    .then(registration => registration?.unregister())
+    .then(reload, reload);
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
       <App />
