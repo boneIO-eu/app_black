@@ -42,6 +42,13 @@ DEFAULT_INTERFACE = "socketcan"
 DEFAULT_CHANNEL = "can0"
 DEFAULT_BITRATE = 125000  # 125kbps - compatible with esphome-canopen
 
+# Manufacturer-specific SDO objects of the local node (see _create_object_dictionary)
+SDO_NODE_ID_INDEX = 0x2000
+SDO_CONFIG_PAYLOAD_INDEX = 0x2001
+SDO_CONFIG_TRIGGER_INDEX = 0x2002
+# CiA 301 abort code: data cannot be transferred or stored to the application
+SDO_ABORT_CANNOT_STORE = 0x08000020
+
 
 class CANopenClient:
     """Async CANopen client for boneIO.
@@ -370,32 +377,35 @@ class CANopenClient:
         return od
 
     def _setup_sdo_callbacks(self) -> None:
-        """Setup callbacks on the LocalNode SDO server."""
+        """Hook SDO writes to the LocalNode's object dictionary.
+
+        canopen has no per-index SDO callback: ``LocalNode`` calls every write
+        callback for every download, before the value is stored, and turns an
+        ``SdoAbortedError`` raised there into an SDO abort for the sender.
+
+        Configuration push (0x2001 payload, 0x2002 trigger) is refused. Any node
+        on the bus could otherwise replace this controller's configuration, and
+        nothing authenticates the sender yet — see
+        .ai-plans/PLAN_can_config_signing.md. ``_sdo_config_callback`` stays
+        registered for when signed payloads land.
+        """
         if not self._local_node:
             return
 
-        def _on_node_id_write(index, subindex, data):
-            if data and self._sdo_node_id_callback:
-                new_id = int.from_bytes(data, byteorder="little")
-                _LOGGER.info("SDO Write to Node ID: %d", new_id)
-                self._sdo_node_id_callback(new_id)
+        def _on_sdo_write(index: int, subindex: int, od, data: bytes) -> None:
+            if index == SDO_NODE_ID_INDEX:
+                if data and self._sdo_node_id_callback:
+                    new_id = int.from_bytes(data, byteorder="little")
+                    _LOGGER.info("SDO Write to Node ID: %d", new_id)
+                    self._sdo_node_id_callback(new_id)
+            elif index in (SDO_CONFIG_PAYLOAD_INDEX, SDO_CONFIG_TRIGGER_INDEX):
+                _LOGGER.warning(
+                    "Refused configuration push over CAN (SDO 0x%04X): unsigned configuration is not accepted",
+                    index,
+                )
+                raise canopen.SdoAbortedError(SDO_ABORT_CANNOT_STORE)
 
-        def _on_trigger_write(index, subindex, data):
-            trigger_val = int.from_bytes(data, byteorder="little")
-            if trigger_val == 1 and self._sdo_config_callback:
-                _LOGGER.info("SDO Write to Trigger Config Update")
-                # Read the payload from 0x2001
-                payload_data = self._local_node.sdo[0x2001].data
-                try:
-                    config_str = payload_data.decode("utf-8")
-                    self._sdo_config_callback(config_str)
-                except Exception as e:
-                    _LOGGER.error("Failed to decode config payload: %s", e)
-
-        # Register callbacks via LocalNode's SDO server
-
-        self._local_node.sdo.add_callback(0x2000, _on_node_id_write)
-        self._local_node.sdo.add_callback(0x2002, _on_trigger_write)
+        self._local_node.add_write_callback(_on_sdo_write)
 
     async def send_sdo_download(
         self, target_node_id: int, index: int, data: bytes
