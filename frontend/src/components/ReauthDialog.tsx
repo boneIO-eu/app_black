@@ -14,7 +14,10 @@ import {
   DialogTitle,
 } from './ui/dialog';
 
-type ConfirmError = AxiosError<{ code?: string }>;
+type ConfirmError = AxiosError<{ code?: string; attempts_left?: number }>;
+
+/** From how many tries left the prompt starts counting them down. */
+const WARN_FROM = 3;
 
 /**
  * The password prompt for requests that want it typed recently.
@@ -82,7 +85,12 @@ export default function ReauthDialog() {
     } catch (err: unknown) {
       const response = (err as ConfirmError).response;
       if (response?.status === 403 && response.data?.code === 'reauth_failed') {
-        setError(t('reauth.wrong'));
+        const left = response.data.attempts_left;
+        setError(
+          typeof left === 'number' && left <= WARN_FROM
+            ? `${t('reauth.wrong')} ${t('reauth.attempts_left', { count: left })}`
+            : t('reauth.wrong'),
+        );
       } else if (response?.status === 429) {
         setError(t('reauth.throttled'));
       } else if (response?.status !== 401) {

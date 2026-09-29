@@ -10,7 +10,7 @@ from jwt import PyJWTError as JWTError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
 from boneio.models.events import Event
-from boneio.webui.middleware.auth import resolve_session
+from boneio.webui.middleware.auth import resolve_session, session_id_of
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ class WebSocketManager:
                 # The same account check the HTTP API makes. Without it a
                 # socket kept accepting a token for an account that had been
                 # deleted, or whose password had changed since it was issued.
-                role, refusal = resolve_session(payload)
+                role, refusal = resolve_session(payload, session_id_of(payload, token))
                 if role is None:
                     _LOGGER.info(
                         "Refused a WebSocket for '%s': %s",

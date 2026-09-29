@@ -2904,7 +2904,10 @@
     "username": "Nazwa użytkownika",
     "password": "Hasło",
     "submit": "Zaloguj",
-    "invalid": "Nieprawidłowa nazwa użytkownika lub hasło."
+    "invalid": "Nieprawidłowa nazwa użytkownika lub hasło.",
+    "signout_session_locked": "Wylogowano tę sesję po zbyt wielu błędnych hasłach. Zaloguj się ponownie.",
+    "signout_session_revoked": "Hasło tego konta zostało zmienione, więc ta sesja wygasła. Zaloguj się nowym hasłem.",
+    "signout_account_gone": "To konto zostało usunięte."
   },
   "reauth": {
     "title": "Potwierdź hasło",
@@ -2915,7 +2918,8 @@
     "wrong": "Nieprawidłowe hasło.",
     "throttled": "Zbyt wiele prób. Spróbuj ponownie za kilka minut.",
     "failed": "Nie udało się sprawdzić hasła. Spróbuj ponownie.",
-    "cancelled": "Anulowano — ta operacja wymaga potwierdzenia hasłem."
+    "cancelled": "Anulowano — ta operacja wymaga potwierdzenia hasłem.",
+    "attempts_left": "Pozostałe próby przed wylogowaniem: {{count}}."
   },
   "diagnostics": {
     "title": "Dane diagnostyczne dla wsparcia",

@@ -24,7 +24,11 @@ from pydantic import BaseModel, Field
 from boneio.core.auth.models import Role
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.webui.middleware.auth import get_user_store, issue_token
-from boneio.webui.routes.auth import check_password_throttled
+from boneio.webui.routes.auth import (
+    SessionLocked,
+    check_password_throttled,
+    signed_out_response,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -217,7 +221,7 @@ async def reset_password(username: str, payload: PasswordReset, request: Request
     _LOGGER.info("Password reset for account '%s' by an administrator", user.username)
     response: dict = {"account": user.to_public_dict()}
     if user.username == _caller(request):
-        response["token"] = issue_token(user)
+        response["token"] = issue_token(user, getattr(request.state, "session_id", None))
     return response
 
 
@@ -269,7 +273,11 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
         raise HTTPException(status_code=401, detail="Not signed in")
 
     store = _store()
-    user = await check_password_throttled(request, username, payload.current_password)
+    try:
+        check = await check_password_throttled(request, username, payload.current_password)
+    except SessionLocked:
+        return signed_out_response()
+    user = check.user
     if user is None:
         _LOGGER.warning("Rejected password change for '%s': wrong current password", username)
         raise HTTPException(status_code=401, detail="Current password is incorrect")
@@ -279,4 +287,7 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
     except UserStoreError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    return {"changed": True, "token": issue_token(user)}
+    return {
+        "changed": True,
+        "token": issue_token(user, getattr(request.state, "session_id", None)),
+    }

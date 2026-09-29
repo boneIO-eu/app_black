@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { getBasePath } from './basePath';
 import { isReauthRequired, retryAfterReauth } from './reauth';
+import { rememberSignoutReason } from './signoutReason';
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -72,6 +73,7 @@ axiosInstance.interceptors.response.use(
       //
       // An event rather than an import: useAuth imports axios, so calling into
       // it from here would be circular.
+      rememberSignoutReason(error.response.data?.code);
       localStorage.removeItem('token');
       window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
     }

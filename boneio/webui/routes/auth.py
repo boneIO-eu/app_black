@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -12,10 +13,10 @@ from fastapi.responses import JSONResponse
 
 from boneio.webui.middleware.auth import (
     create_token,
-    issue_token,
     get_auth_config,
     get_user_store,
     is_auth_required,
+    issue_token,
 )
 from boneio.webui.rate_limit import ip_key, login_rate_limiter, user_key
 
@@ -140,7 +141,48 @@ async def login(
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
-async def check_password_throttled(request: Request, username: str, password: str) -> User | None:
+# Wrong passwords one signed-in session may type — in the password prompt or
+# the own-password form — before it is signed out. Below the login's per-account
+# budget, so the session goes before the owner's login is locked too.
+SESSION_MAX_WRONG_PASSWORDS = 5
+
+
+class SessionLocked(Exception):
+    """The calling session typed one wrong password too many and is signed out."""
+
+
+@dataclass(slots=True)
+class PasswordCheck:
+    """What check_password_throttled() found.
+
+    Attributes:
+        user: The account, when the password was right.
+        attempts_left: Wrong passwords this caller may still type before being
+            throttled or signed out, whichever comes first.
+    """
+
+    user: User | None
+    attempts_left: int = 0
+
+
+def signed_out_response() -> JSONResponse:
+    """The answer to the wrong password that signs a session out.
+
+    Returns:
+        401 with ``session_locked``, which the panel treats as a sign-out.
+    """
+    return JSONResponse(
+        status_code=401,
+        content={
+            "detail": "Too many wrong passwords. This session has been signed out.",
+            "code": "session_locked",
+        },
+    )
+
+
+async def check_password_throttled(
+    request: Request, username: str, password: str
+) -> PasswordCheck:
     """Check a signed-in account's password, on the login's attempt budget.
 
     For the routes that ask a caller who already holds a token to type the
@@ -149,17 +191,24 @@ async def check_password_throttled(request: Request, username: str, password: st
     with a borrowed session could guess the owner's password at leisure, and
     confirming would double the budget of the login screen.
 
+    On top of that the session itself keeps count. The buckets are sliding
+    windows, and a guesser who stays under them — a few tries every five
+    minutes — is never stopped by them; the session's count is cumulative
+    and survives a restart, and at SESSION_MAX_WRONG_PASSWORDS the session is
+    signed out. The account's other sessions carry on.
+
     Args:
-        request: Incoming request, for the caller's address.
+        request: Incoming request, as annotated by the auth middleware.
         username: The account the token belongs to.
         password: What the caller typed.
 
     Returns:
-        The account if the password is right, None if it is not.
+        The account if the password is right, and how many tries are left.
 
     Raises:
         HTTPException: 429 while either bucket is full, 409 on a device with
             no accounts to check against.
+        SessionLocked: When this wrong password was the session's last.
     """
     store = get_user_store()
     if store is None or not store.is_provisioned():
@@ -183,14 +232,34 @@ async def check_password_throttled(request: Request, username: str, password: st
             headers={"Retry-After": str(retry_after)},
         )
 
+    session_id = getattr(request.state, "session_id", None)
+    token_exp = getattr(request.state, "token_exp", 0)
+
     user = await asyncio.to_thread(store.verify_credentials, username, password)
     if user is None:
         login_rate_limiter.record_failures(*keys)
         _LOGGER.warning("Wrong password confirming '%s' from %s", username, client)
-        return None
+        left = min(login_rate_limiter.remaining_attempts(key) for key in keys)
+        if session_id:
+            count = await asyncio.to_thread(
+                store.record_session_failure, username, session_id, token_exp
+            )
+            if count >= SESSION_MAX_WRONG_PASSWORDS:
+                await asyncio.to_thread(store.revoke_session, username, session_id, token_exp)
+                _LOGGER.warning(
+                    "Signed out a session of '%s' from %s after %d wrong passwords",
+                    username,
+                    client,
+                    count,
+                )
+                raise SessionLocked
+            left = min(left, SESSION_MAX_WRONG_PASSWORDS - count)
+        return PasswordCheck(user=None, attempts_left=left)
 
     login_rate_limiter.reset(*keys)
-    return user
+    if session_id:
+        await asyncio.to_thread(store.clear_session_failures, username, session_id)
+    return PasswordCheck(user=user)
 
 
 @router.post("/auth/confirm")
@@ -205,6 +274,8 @@ async def confirm_password(request: Request, password: str = Body(..., embed=Tru
 
     A wrong password is 403 ``reauth_failed``, not 401: the caller's session is
     still good, and 401 is what the panel takes as "you have been signed out".
+    It carries ``attempts_left``. The wrong password that uses the last of
+    them is 401 ``session_locked``, and this session is signed out.
 
     Args:
         request: Incoming request, annotated by the auth middleware.
@@ -217,12 +288,19 @@ async def confirm_password(request: Request, password: str = Body(..., embed=Tru
     if not username:
         raise HTTPException(status_code=401, detail="Not signed in")
 
-    user = await check_password_throttled(request, username, password)
-    if user is None:
+    try:
+        check = await check_password_throttled(request, username, password)
+    except SessionLocked:
+        return signed_out_response()
+    if check.user is None:
         return JSONResponse(
             status_code=403,
-            content={"detail": "The password is not correct.", "code": "reauth_failed"},
+            content={
+                "detail": "The password is not correct.",
+                "code": "reauth_failed",
+                "attempts_left": check.attempts_left,
+            },
         )
 
-    _LOGGER.info("Password confirmed for '%s'", user.username)
-    return {"token": issue_token(user)}
+    _LOGGER.info("Password confirmed for '%s'", check.user.username)
+    return {"token": issue_token(check.user, getattr(request.state, "session_id", None))}

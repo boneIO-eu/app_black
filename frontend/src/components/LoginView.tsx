@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
@@ -7,6 +7,7 @@ import { useAppInit } from '../contexts/AppInitContext';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import Logo from './Logo';
+import { clearSignoutReason, readSignoutReason } from '@/api/signoutReason';
 
 /** A keyboard that pops up on its own covers half a phone screen; a mouse user loses nothing. */
 const hasFinePointer = () =>
@@ -18,6 +19,11 @@ export default function LoginView() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Why the panel came back here, when it was not the user's own doing: the
+  // screen they were on has gone, and a login form with no explanation reads
+  // as a glitch.
+  const [signoutReason] = useState(readSignoutReason);
+  useEffect(() => clearSignoutReason(), []);
   const { login } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -68,6 +74,12 @@ export default function LoginView() {
         </div>
 
         <form className="mt-8 flex flex-col gap-5" onSubmit={handleSubmit}>
+          {signoutReason && !error && (
+            <div role="status" className="alert alert-warning alert-soft text-sm">
+              {t(`login.signout_${signoutReason}`)}
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
             <label htmlFor="username" className="text-sm font-medium">
               {t('login.username')}

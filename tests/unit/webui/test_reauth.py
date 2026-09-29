@@ -37,6 +37,7 @@ from boneio.webui.rate_limit import LOGIN_MAX_ATTEMPTS, login_rate_limiter
 from boneio.webui.routes.accounts import router as accounts_router
 from boneio.webui.routes.auth import router as auth_router
 
+from .real_app import real_app_client
 from .route_paths import all_routes
 
 SECRET = "test-secret-for-reauth-tests-----------"
@@ -280,10 +281,16 @@ def test_confirming_only_checks_the_callers_own_password(client):
     assert response.json()["code"] == "reauth_failed"
 
 
+def _fail_logins(client, username: str, times: int) -> None:
+    for _ in range(times):
+        client.post("/api/login", json={"username": username, "password": "zle"})
+
+
 def test_confirming_shares_the_login_attempt_budget(client):
+    """Wrong logins and wrong confirmations fill the same buckets."""
     token = _stale("pawel")
-    for _ in range(LOGIN_MAX_ATTEMPTS):
-        client.post("/api/auth/confirm", headers=_bearer(token), json={"password": "zle"})
+    _fail_logins(client, "pawel", LOGIN_MAX_ATTEMPTS - 1)
+    client.post("/api/auth/confirm", headers=_bearer(token), json={"password": "zle"})
 
     throttled = client.post(
         "/api/auth/confirm", headers=_bearer(token), json={"password": "haslo-admina"}
@@ -294,12 +301,7 @@ def test_confirming_shares_the_login_attempt_budget(client):
 def test_the_own_password_route_is_throttled_too(client, store):
     """With a borrowed token it would otherwise be an unlimited password oracle."""
     token = issue_token(store.get_user("gosc"))
-    for _ in range(LOGIN_MAX_ATTEMPTS):
-        client.put(
-            "/api/account/password",
-            headers=_bearer(token),
-            json={"current_password": "zle", "new_password": "zupelnie-nowe"},
-        )
+    _fail_logins(client, "gosc", LOGIN_MAX_ATTEMPTS)
     throttled = client.put(
         "/api/account/password",
         headers=_bearer(token),
@@ -334,39 +336,26 @@ def test_the_prompt_round_trip_works_through_the_real_app(tmp_path):
     POST /api/auth/confirm would show up here instead of as a prompt that can
     never succeed.
     """
-    config = tmp_path / "config.yaml"
-    config.write_text("web:\n  port: 8090\n", encoding="utf-8")
-    seeded = UserStore(tmp_path / USERS_FILENAME)
-    seeded.load()
-    seeded.add_user("pawel", "haslo-admina", Role.ADMIN)
+    with real_app_client(tmp_path, SECRET, {"pawel": "haslo-admina"}) as client:
+        origin = {"Origin": "http://testserver"}
 
-    app = init_app(
-        manager=MagicMock(),
-        yaml_config_file=str(config),
-        config_helper=MagicMock(),
-        auth_config={},
-        jwt_secret=SECRET,
-    )
-    client = TestClient(app)
-    origin = {"Origin": "http://testserver"}
+        stale = _stale("pawel")
+        refused = client.post(
+            "/api/accounts", headers={**_bearer(stale), **origin}, json=NEW_VIEWER
+        )
+        assert refused.status_code == 403
+        assert refused.json()["code"] == "reauth_required"
 
-    stale = _stale("pawel")
-    refused = client.post(
-        "/api/accounts", headers={**_bearer(stale), **origin}, json=NEW_VIEWER
-    )
-    assert refused.status_code == 403
-    assert refused.json()["code"] == "reauth_required"
+        confirmed = client.post(
+            "/api/auth/confirm",
+            headers={**_bearer(stale), **origin},
+            json={"password": "haslo-admina"},
+        )
+        assert confirmed.status_code == 200
 
-    confirmed = client.post(
-        "/api/auth/confirm",
-        headers={**_bearer(stale), **origin},
-        json={"password": "haslo-admina"},
-    )
-    assert confirmed.status_code == 200
-
-    retried = client.post(
-        "/api/accounts",
-        headers={**_bearer(confirmed.json()["token"]), **origin},
-        json=NEW_VIEWER,
-    )
-    assert retried.status_code == 201
+        retried = client.post(
+            "/api/accounts",
+            headers={**_bearer(confirmed.json()["token"]), **origin},
+            json=NEW_VIEWER,
+        )
+        assert retried.status_code == 201

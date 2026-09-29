@@ -2905,7 +2905,10 @@
     "username": "Username",
     "password": "Password",
     "submit": "Sign in",
-    "invalid": "Invalid username or password."
+    "invalid": "Invalid username or password.",
+    "signout_session_locked": "This session was signed out after too many wrong passwords. Sign in again.",
+    "signout_session_revoked": "The password of this account was changed, so this session ended. Sign in with the new one.",
+    "signout_account_gone": "This account has been deleted."
   },
   "reauth": {
     "title": "Confirm your password",
@@ -2916,7 +2919,8 @@
     "wrong": "That password is not correct.",
     "throttled": "Too many attempts. Try again in a few minutes.",
     "failed": "Could not check the password. Try again.",
-    "cancelled": "Cancelled — this needs your password confirmed."
+    "cancelled": "Cancelled — this needs your password confirmed.",
+    "attempts_left": "Tries left before you are signed out: {{count}}."
   },
   "diagnostics": {
     "title": "Diagnostics for support",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import secrets
@@ -190,7 +191,7 @@ def create_token(data: dict) -> str:
     return encoded_jwt
 
 
-def issue_token(user: User) -> str:
+def issue_token(user: User, sid: str | None = None) -> str:
     """Sign a login token for an account in the store.
 
     Every route that signs somebody in comes through here, so the claims the
@@ -200,21 +201,49 @@ def issue_token(user: User) -> str:
     against the clock, and on a controller whose clock jumps that would
     invalidate every token.
 
+    ``sid`` names the browser session, so one can be signed out without the
+    account's others. A login starts a new one; a route that re-issues the
+    token of a session already signed in (confirming the password, changing
+    it) passes the caller's own, since it is still the same session.
+
     Args:
         user: The account, as the store holds it now.
+        sid: The session to keep, or None to start a new one.
 
     Returns:
-        Encoded JWT carrying the username, the role, the session version and
-        when the password was last typed.
+        Encoded JWT carrying the username, the role, the session version, the
+        session id and when the password was last typed.
     """
     return create_token(
         {
             "sub": user.username,
             "role": str(user.role),
             "ver": user.session_version,
+            "sid": sid or secrets.token_hex(16),
             "auth_time": int(datetime.now(UTC).timestamp()),
         }
     )
+
+
+def session_id_of(payload: dict, token: str) -> str:
+    """Name the browser session a token belongs to.
+
+    Tokens carry a ``sid`` since the session could be signed out on its own.
+    One issued before that has none, and every token alive when this shipped
+    is such a token — stolen ones included — so it is named by a hash of the
+    token itself: exactly that token, and none of the account's others.
+
+    Args:
+        payload: Verified JWT payload.
+        token: The encoded token the payload came from.
+
+    Returns:
+        The session id.
+    """
+    sid = payload.get("sid")
+    if isinstance(sid, str) and sid:
+        return sid
+    return "t:" + hashlib.sha256(token.encode()).hexdigest()[:32]
 
 
 def recently_authenticated(payload: dict) -> bool:
@@ -366,16 +395,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Invalid authorization header format"}
             )
 
-        role, refusal = resolve_session(payload)
+        session_id = session_id_of(payload, token)
+        role, refusal = resolve_session(payload, session_id)
         if role is None:
-            # Tokens live for weeks, so without this a deleted account, or one
-            # whose password has since changed, keeps its access until expiry.
+            # Tokens live for weeks, so without this a deleted account, one
+            # whose password has since changed, or a session cut off for
+            # guessing, keeps its access until expiry.
             _LOGGER.warning(
-                "Rejected a token for '%s': %s",
-                payload.get("sub", "?"),
-                "the account no longer exists"
-                if refusal == "account_gone"
-                else "its password has changed since it was issued",
+                "Rejected a token for '%s': %s", payload.get("sub", "?"), refusal
             )
             return JSONResponse(
                 status_code=401,
@@ -421,6 +448,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Downstream handlers can read who is calling without decoding again.
         request.state.user = payload.get("sub")
         request.state.role = role
+        request.state.session_id = session_id
+        request.state.token_exp = int(payload.get("exp", 0))
 
         return await call_next(request)
 
@@ -458,7 +487,7 @@ def _attach_identity_if_present(request: Request) -> None:
         payload = verify_token(token.strip())
         if payload is None:
             return
-        role, _ = resolve_session(payload)
+        role, _ = resolve_session(payload, session_id_of(payload, token.strip()))
         if role is None:
             return
         request.state.user = payload.get("sub")
@@ -471,10 +500,13 @@ def _attach_identity_if_present(request: Request) -> None:
 _REFUSAL_DETAIL = {
     "account_gone": "This account no longer exists.",
     "session_revoked": "The password has changed since you signed in. Sign in again.",
+    "session_locked": "This session was signed out after too many wrong passwords.",
 }
 
 
-def resolve_session(payload: dict) -> tuple[Role | None, str | None]:
+def resolve_session(
+    payload: dict, session_id: str | None = None
+) -> tuple[Role | None, str | None]:
     """The caller's *current* role, looked up rather than taken on trust.
 
     The token carries a role claim, but it is only a claim: tokens are valid
@@ -493,12 +525,17 @@ def resolve_session(payload: dict) -> tuple[Role | None, str | None]:
     where the caller authenticated against a legacy web.auth pair that was
     never in users.json.
 
+    A single session can also be cut off on its own, after too many wrong
+    passwords typed in it; ``session_id`` is checked against those.
+
     Args:
         payload: Verified JWT payload.
+        session_id: The token's session (see session_id_of), when known.
 
     Returns:
         ``(role, None)`` when the token is good, or ``(None, code)`` when the
-        request should be rejected — ``account_gone`` or ``session_revoked``.
+        request should be rejected — ``account_gone``, ``session_revoked`` or
+        ``session_locked``.
     """
     store = _user_store
     if store is not None:
@@ -509,6 +546,8 @@ def resolve_session(payload: dict) -> tuple[Role | None, str | None]:
                     return None, "account_gone"
                 if _token_version(payload) != user.session_version:
                     return None, "session_revoked"
+                if session_id is not None and session_id in user.revoked_sessions:
+                    return None, "session_locked"
                 return user.role, None
         except Exception as err:  # noqa: BLE001 - never fail open on a read error
             _LOGGER.error("Cannot read the account store: %s", err)

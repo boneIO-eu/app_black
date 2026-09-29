@@ -18,6 +18,7 @@ import logging
 import os
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 from boneio.core.auth.hashing import hash_password, verify_password
@@ -425,6 +426,71 @@ class UserStore:
         _LOGGER.info("Password changed for account '%s'", user.username)
         return user
 
+    def record_session_failure(self, username: str, session_id: str, until: int) -> int:
+        """Count a wrong password typed by one signed-in session.
+
+        Cumulative for the life of the session, not a sliding window: a window
+        lets a patient guesser stay under it forever, a few tries at a time.
+        The count goes when the password is typed right or the token expires.
+
+        Args:
+            username: Account the session belongs to.
+            session_id: The session (see middleware.auth.session_id_of).
+            until: Unix time the session's token expires.
+
+        Returns:
+            The session's count after this one, or 0 if the account is gone.
+        """
+        self._ensure_loaded()
+        key = normalize_username(username)
+        with self._lock:
+            user = self._users.get(key)
+            if user is None:
+                return 0
+            _prune(user)
+            entry = user.session_failures.get(session_id, {"count": 0, "until": until})
+            entry = {"count": entry["count"] + 1, "until": max(entry["until"], until)}
+            user.session_failures[session_id] = entry
+            self._save()
+            return entry["count"]
+
+    def clear_session_failures(self, username: str, session_id: str) -> None:
+        """Forget a session's wrong passwords once it has typed the right one.
+
+        Args:
+            username: Account the session belongs to.
+            session_id: The session.
+        """
+        self._ensure_loaded()
+        key = normalize_username(username)
+        with self._lock:
+            user = self._users.get(key)
+            if user is None or session_id not in user.session_failures:
+                return
+            del user.session_failures[session_id]
+            self._save()
+
+    def revoke_session(self, username: str, session_id: str, until: int) -> None:
+        """Sign one session out, leaving the account's other sessions alone.
+
+        Args:
+            username: Account the session belongs to.
+            session_id: The session to refuse from now on.
+            until: Unix time its token expires; the entry is useless after.
+        """
+        self._ensure_loaded()
+        key = normalize_username(username)
+        with self._lock:
+            user = self._users.get(key)
+            if user is None:
+                return
+            _prune(user)
+            user.revoked_sessions[session_id] = until
+            user.session_failures.pop(session_id, None)
+            self._save()
+
+        _LOGGER.warning("Signed out one session of '%s'", user.username)
+
     def set_role(self, username: str, role: Role) -> User:
         """Change an account's role.
 
@@ -527,3 +593,16 @@ def dummy_hash() -> str:
         if _DUMMY_HASH is None:
             _DUMMY_HASH = hash_password("boneio-nonexistent-account-placeholder")
         return _DUMMY_HASH
+
+
+def _prune(user: User) -> None:
+    """Drop session entries whose tokens have expired anyway.
+
+    Args:
+        user: Account to tidy, modified in place.
+    """
+    now = int(time.time())
+    user.revoked_sessions = {k: v for k, v in user.revoked_sessions.items() if v > now}
+    user.session_failures = {
+        k: v for k, v in user.session_failures.items() if v["until"] > now
+    }
