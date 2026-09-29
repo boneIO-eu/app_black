@@ -337,6 +337,50 @@ chk "viewer MAY change their own password" "200" \
 chk "admin may restart" "200" \
   "$(code -X POST "$BASE/api/restart" -H "Authorization: Bearer $tok")"
 
+# --- a password change signs the other sessions out --------------------
+# The viewer changed their password just above, so the token it signed in
+# with is dead now, on the device's real store and middleware.
+chk "the viewer's old token is revoked by that change" "401" "$(code -H "$VH" "$BASE/api/harness/protected")"
+chk "  ...with a session_revoked code" "session_revoked" \
+  "$(curl -s --max-time 15 -H "$VH" "$BASE/api/harness/protected" | field code)"
+vtok2=$(curl -fsS --max-time 30 -X POST "$BASE/api/login" -H 'Content-Type: application/json' \
+  -d '{"username":"gosc","password":"nowe-haslo-123"}' | field token)
+chk "the new password signs in" "200" "$(code -H "Authorization: Bearer $vtok2" "$BASE/api/harness/protected")"
+
+# --- the dangerous requests want the password again --------------------
+# A token for the same admin, but as if the password had been typed 15
+# minutes ago — minted with the harness's own secret, since waiting out
+# REAUTH_WINDOW is not an option.
+stale=$("$VENV/bin/python" -c '
+import time
+from boneio.webui.middleware.auth import create_token, set_jwt_secret
+set_jwt_secret("harness-jwt-secret")
+print(create_token({"sub": "pawel", "role": "admin", "ver": 0, "auth_time": int(time.time()) - 900}))')
+SH="Authorization: Bearer $stale"
+NEWV='{"username":"trzeci","password":"ZielonyKot-777","role":"viewer"}'
+chk "a stale token may still read" "200" "$(code -H "$SH" "$BASE/api/accounts")"
+chk "a stale token is asked for the password to add an account" "403" \
+  "$(code -X POST "$BASE/api/accounts" -H "$SH" -H 'Content-Type: application/json' -d "$NEWV")"
+chk "  ...with a reauth_required code" "reauth_required" \
+  "$(curl -s --max-time 15 -X POST "$BASE/api/accounts" -H "$SH" -H 'Content-Type: application/json' -d "$NEWV" | field code)"
+wrong=$(curl -s --max-time 30 -w '\n%{http_code}' -X POST "$BASE/api/auth/confirm" -H "$SH" \
+  -H 'Content-Type: application/json' -d '{"password":"zle"}')
+chk "a wrong password is refused, not a sign-out" "403" "$(printf '%s' "$wrong" | tail -1)"
+chk "  ...with a reauth_failed code" "reauth_failed" "$(printf '%s' "$wrong" | sed '$d' | field code)"
+t0=$(date +%s.%N)
+fresh=$(curl -fsS --max-time 30 -X POST "$BASE/api/auth/confirm" -H "$SH" \
+  -H 'Content-Type: application/json' -d '{"password":"dobre-haslo-123"}' | field token)
+t1=$(date +%s.%N)
+[ -n "$fresh" ] && emit PASS "the right password returns a fresh token" || emit FAIL "confirm returned no token"
+emit INFO "password confirmation on this controller: $(awk "BEGIN{printf \"%.0f ms\",($t1-$t0)*1000}")"
+chk "the fresh token adds the account" "201" \
+  "$(code -X POST "$BASE/api/accounts" -H "Authorization: Bearer $fresh" -H 'Content-Type: application/json' -d "$NEWV")"
+chk "an admin reset signs that account out" "200" \
+  "$(code -X PUT "$BASE/api/accounts/gosc/password" -H "Authorization: Bearer $fresh" \
+     -H 'Content-Type: application/json' -d '{"password":"od-admina-456"}')"
+chk "  ...so the viewer's latest token is dead too" "401" \
+  "$(code -H "Authorization: Bearer $vtok2" "$BASE/api/harness/protected")"
+
 # users.json on the device's own filesystem
 chk "users.json is 0600" "600" "$(stat -c %a "$DIR/users.json" 2>/dev/null)"
 # grep -c always prints a count for an existing file (0 when no match) and
@@ -376,7 +420,7 @@ REMOTE_DEPS
   }
   # The auth/authz suites. Listed by directory glob rather than by file so a
   # new test in these areas is picked up without editing this script.
-  local target="tests/unit/core/test_auth_*.py tests/unit/core/test_setup_required_notice.py tests/unit/webui/test_auth*.py tests/unit/webui/test_account*.py tests/unit/webui/test_onboarding_*.py"
+  local target="tests/unit/core/test_auth_*.py tests/unit/core/test_setup_required_notice.py tests/unit/webui/test_auth*.py tests/unit/webui/test_account*.py tests/unit/webui/test_onboarding_*.py tests/unit/webui/test_reauth.py tests/unit/webui/test_session_revocation.py"
   if [ "${FULL:-0}" = "1" ]; then target="tests"; info "running the FULL suite (slow on a BBB)"; fi
   local out
   out=$("${SSH[@]}" "$REMOTE" "cd $REMOTE_APP && $VENV/bin/python -m pytest $target -q 2>&1" )
