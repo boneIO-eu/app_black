@@ -65,6 +65,7 @@ import { useTranslation } from './hooks/useTranslation';
 import { NoticeCallout, SettingsPage } from './components/UISettings/ui';
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import NotAvailable from './components/NotAvailable';
+import UpdateFailedNotice from './components/UpdateFailedNotice';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { WebSocketContext } from './contexts/WebSocketContext';
 import { TranslationProvider } from './contexts/TranslationContext';
@@ -95,7 +96,7 @@ function ProtectedRoute({
   adminOnly?: boolean;
 }) {
   const { isAuthenticated, isLoading: authLoading, isAuthRequired, isAdmin, role } = useAuth();
-  const { isApiAvailable, isLoading: initLoading, needsOnboarding } = useAppInit();
+  const { isApiAvailable, isLoading: initLoading, needsOnboarding, panelState } = useAppInit();
 
   // Read once per mount: the value cannot change while this render tree lives,
   // and touching localStorage on every render would be pure waste.
@@ -103,8 +104,9 @@ function ProtectedRoute({
     readProvisioningHint(window.localStorage, window.__BONEIO_BASE_PATH__),
   );
 
-  // API confirmed unavailable after retries — show error screen
-  if (!isApiAvailable && !initLoading) {
+  // API confirmed unavailable after retries, or a panel the service worker
+  // kept from before an update: say so instead of rendering it
+  if ((!isApiAvailable && !initLoading) || panelState === 'stale_panel') {
     return <NotAvailable />
   }
 
@@ -196,7 +198,7 @@ function AppContent() {
   const [covers, setCovers] = useState<CoverEvent[]>([]);
   const [groups, setGroups] = useState<GroupEvent[]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
-  const { isApiAvailable } = useAppInit();
+  const { isApiAvailable, panelState } = useAppInit();
   const { error, addMessageListener, addConnectionStateListener } = useWebSocket();
 
   // Select all text in number inputs on focus for better mobile UX.
@@ -445,7 +447,7 @@ function AppContent() {
     };
   }, [addMessageListener]);
 
-  if (!isApiAvailable){
+  if (!isApiAvailable || panelState === 'stale_panel'){
     return <NotAvailable />
   }
 
@@ -559,6 +561,7 @@ function AppContent() {
       {/* Renders nothing unless an admin is signed in and something is
           outstanding, so it stays inert on the login and wizard screens. */}
       <SecurityUpdatePrompt />
+      <UpdateFailedNotice />
     </WebSocketContext.Provider>
   );
 }

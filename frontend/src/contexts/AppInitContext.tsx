@@ -11,6 +11,14 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import axios from '@/api/axios';
 import { prefetchConfig } from '@/api/configCache';
 import { writeProvisioningHint } from '@/utils/provisioning';
+import {
+  clearUpdateMark,
+  panelState as computePanelState,
+  readUpdateMark,
+  updateArrived,
+  writeUpdateMark,
+  type PanelState,
+} from '@/utils/updateGuard';
 
 interface CloudStatus {
   enabled: boolean;
@@ -67,6 +75,13 @@ interface AppInitContextType {
    * page, which is what clears this.
    */
   needsOnboarding: boolean;
+  /**
+   * What the panel has to say before anything else: a stale build, an update
+   * in progress, a failed one. See utils/updateGuard.ts.
+   */
+  panelState: PanelState;
+  /** Go on despite `stale_panel`, or acknowledge `update_failed`. */
+  dismissPanelState: () => void;
   /** Re-fetch init data (e.g. after visibility change) */
   refetch: () => Promise<void>;
 }
@@ -76,6 +91,8 @@ const AppInitContext = createContext<AppInitContextType>({
   isLoading: true,
   isApiAvailable: true,
   needsOnboarding: false,
+  panelState: 'ok',
+  dismissPanelState: () => {},
   refetch: async () => {},
 });
 
@@ -109,6 +126,21 @@ export function latchNeedsOnboarding(
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000;
 const CHECK_INTERVAL = 30000;
+/** While the panel is blocked on a controller that is coming back. */
+const BLOCKED_CHECK_INTERVAL = 5000;
+/** Remembers, for this tab, a server version the user chose to go on with. */
+const STALE_BYPASS_KEY = 'boneio-stale-bypass';
+
+/** The version this build was made for; null on the dev server, which has none. */
+const PANEL_VERSION: string | null = import.meta.env.DEV ? null : (__APP_VERSION__ || null);
+
+function sessionGet(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Provider that fetches /api/init once on mount and periodically checks availability.
@@ -118,6 +150,38 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isApiAvailable, setIsApiAvailable] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [panelState, setPanelState] = useState<PanelState>('ok');
+
+  const updatePanelState = useCallback((reachable: boolean, serverVersion: string | null) => {
+    const basePath = window.__BONEIO_BASE_PATH__;
+    let mark = readUpdateMark(window.localStorage, basePath, Date.now());
+    if (mark && !reachable && !mark.wentDown) {
+      mark = { ...mark, wentDown: true };
+      writeUpdateMark(window.localStorage, basePath, mark);
+    }
+    if (mark && reachable && updateArrived(mark, serverVersion)) {
+      clearUpdateMark(window.localStorage, basePath);
+      mark = null;
+    }
+    let state = computePanelState({ reachable, serverVersion, panelVersion: PANEL_VERSION, mark });
+    if (state === 'stale_panel' && serverVersion && sessionGet(STALE_BYPASS_KEY) === serverVersion) {
+      state = 'ok';
+    }
+    setPanelState(state);
+  }, []);
+
+  const dismissPanelState = useCallback(() => {
+    clearUpdateMark(window.localStorage, window.__BONEIO_BASE_PATH__);
+    const serverVersion = data?.version;
+    if (panelState === 'stale_panel' && serverVersion) {
+      try {
+        window.sessionStorage.setItem(STALE_BYPASS_KEY, serverVersion);
+      } catch {
+        // Without sessionStorage the bypass lasts until the next poll.
+      }
+    }
+    setPanelState('ok');
+  }, [data?.version, panelState]);
 
   const fetchInit = useCallback(async () => {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -136,6 +200,7 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
           window.__BONEIO_BASE_PATH__,
           Boolean(initData?.needs_onboarding),
         );
+        updatePanelState(true, initData?.version ?? null);
         setIsApiAvailable(true);
         setIsLoading(false);
         // Warm /api/config cache in background so UISettings loads instantly
@@ -148,20 +213,22 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
       }
     }
     // All retries exhausted
+    updatePanelState(false, null);
     setIsApiAvailable(false);
     setIsLoading(false);
-  }, []);
+  }, [updatePanelState]);
 
   // Initial fetch
   useEffect(() => {
     fetchInit();
   }, [fetchInit]);
 
-  // Periodic re-check
+  // Periodic re-check, more often while the panel waits for the controller
+  const blocked = !isApiAvailable || panelState === 'stale_panel';
   useEffect(() => {
-    const interval = setInterval(fetchInit, CHECK_INTERVAL);
+    const interval = setInterval(fetchInit, blocked ? BLOCKED_CHECK_INTERVAL : CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchInit]);
+  }, [fetchInit, blocked]);
 
   // Re-check when page becomes visible (PWA returning from background)
   useEffect(() => {
@@ -175,7 +242,9 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
   }, [fetchInit]);
 
   return (
-    <AppInitContext.Provider value={{ data, isLoading, isApiAvailable, needsOnboarding, refetch: fetchInit }}>
+    <AppInitContext.Provider
+      value={{ data, isLoading, isApiAvailable, needsOnboarding, panelState, dismissPanelState, refetch: fetchInit }}
+    >
       {children}
     </AppInitContext.Provider>
   );

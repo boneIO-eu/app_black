@@ -4,11 +4,29 @@ import react from '@vitejs/plugin-react'
 
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { readFileSync } from 'fs'
 import tailwindcss from "@tailwindcss/vite";
+
+/**
+ * The application version this panel is built for, from boneio/version.py.
+ * The panel compares it with what the server reports to tell that the service
+ * worker handed it a stale build (see src/utils/updateGuard.ts).
+ */
+function appVersion(): string {
+  try {
+    const source = readFileSync(path.resolve(import.meta.dirname, '../boneio/version.py'), 'utf8')
+    return source.match(/__version__\s*=\s*["']([^"']+)["']/)?.[1] ?? ''
+  } catch {
+    return ''
+  }
+}
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion()),
+    },
     plugins: [
       react(),
       tailwindcss(),
