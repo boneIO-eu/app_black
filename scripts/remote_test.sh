@@ -381,6 +381,26 @@ chk "an admin reset signs that account out" "200" \
 chk "  ...so the viewer's latest token is dead too" "401" \
   "$(code -H "Authorization: Bearer $vtok2" "$BASE/api/harness/protected")"
 
+# --- a session that keeps guessing is signed out, and only that one ----
+tokA=$(curl -fsS --max-time 30 -X POST "$BASE/api/login" -H 'Content-Type: application/json' \
+  -d '{"username":"pawel","password":"dobre-haslo-123"}' | field token)
+tokB=$(curl -fsS --max-time 30 -X POST "$BASE/api/login" -H 'Content-Type: application/json' \
+  -d '{"username":"pawel","password":"dobre-haslo-123"}' | field token)
+left=""
+for _ in 1 2 3 4; do
+  left=$(curl -s --max-time 30 -X POST "$BASE/api/auth/confirm" -H "Authorization: Bearer $tokA" \
+    -H 'Content-Type: application/json' -d '{"password":"zle"}' | field attempts_left)
+done
+chk "four wrong passwords leave one try" "1" "$left"
+last=$(curl -s --max-time 30 -w '\n%{http_code}' -X POST "$BASE/api/auth/confirm" -H "Authorization: Bearer $tokA" \
+  -H 'Content-Type: application/json' -d '{"password":"zle"}')
+chk "the fifth signs the session out" "401" "$(printf '%s' "$last" | tail -1)"
+chk "  ...with a session_locked code" "session_locked" "$(printf '%s' "$last" | sed '$d' | field code)"
+chk "that session stays signed out" "401" "$(code -H "Authorization: Bearer $tokA" "$BASE/api/harness/protected")"
+chk "the account's other session carries on" "200" "$(code -H "Authorization: Bearer $tokB" "$BASE/api/harness/protected")"
+chk "the sign-out is in users.json" "1" \
+  "$(python3 -c "import json;print(sum(len(u.get('revoked_sessions',{})) for u in json.load(open('$DIR/users.json'))['users']))")"
+
 # users.json on the device's own filesystem
 chk "users.json is 0600" "600" "$(stat -c %a "$DIR/users.json" 2>/dev/null)"
 # grep -c always prints a count for an existing file (0 when no match) and
@@ -420,7 +440,7 @@ REMOTE_DEPS
   }
   # The auth/authz suites. Listed by directory glob rather than by file so a
   # new test in these areas is picked up without editing this script.
-  local target="tests/unit/core/test_auth_*.py tests/unit/core/test_setup_required_notice.py tests/unit/webui/test_auth*.py tests/unit/webui/test_account*.py tests/unit/webui/test_onboarding_*.py tests/unit/webui/test_reauth.py tests/unit/webui/test_session_revocation.py"
+  local target="tests/unit/core/test_auth_*.py tests/unit/core/test_setup_required_notice.py tests/unit/webui/test_auth*.py tests/unit/webui/test_account*.py tests/unit/webui/test_onboarding_*.py tests/unit/webui/test_reauth.py tests/unit/webui/test_session_revocation.py tests/unit/webui/test_session_lockout.py tests/unit/webui/test_security_events.py tests/unit/webui/test_trusted_proxy.py"
   if [ "${FULL:-0}" = "1" ]; then target="tests"; info "running the FULL suite (slow on a BBB)"; fi
   local out
   out=$("${SSH[@]}" "$REMOTE" "cd $REMOTE_APP && $VENV/bin/python -m pytest $target -q 2>&1" )
