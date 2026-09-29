@@ -139,7 +139,7 @@ export const SYSTEM_SECTIONS: SectionDefinition[] = [
   { name: 'update', icon: '⬆️', translationKey: 'sections.update', group: 'maintenance' },
   { name: 'backup', icon: '💾', translationKey: 'sections.backup', group: 'maintenance' },
   { name: 'migrations', icon: '🧬', translationKey: 'sections.migrations', group: 'maintenance' },
-  { name: 'power', icon: '⏻', translationKey: 'sections.power', group: 'maintenance' },
+  { name: 'power', icon: '🔄', translationKey: 'sections.power', group: 'maintenance' },
   { name: 'device_tools', icon: '🔬', translationKey: 'sections.device_tools', group: 'maintenance' },
   { name: 'hardware_errors', icon: '⚠️', translationKey: 'sections.hardware_errors', group: 'maintenance' },
   { name: 'factory_reset', icon: '♻️', translationKey: 'sections.factory_reset', group: 'maintenance' },

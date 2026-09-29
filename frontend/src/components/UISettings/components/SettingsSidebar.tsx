@@ -67,7 +67,10 @@ function SectionButton({
       }`}
     >
       <div className="flex items-start gap-3 min-w-0 flex-1">
-        <span className="text-lg leading-6 shrink-0">{sectionConfig?.icon || '⚙️'}</span>
+        {/* A fixed, centred slot: glyphs differ in width (an emoji is wider
+            than a text symbol like ⏻), and without it each label started at
+            a different place. */}
+        <span className="w-6 text-center text-lg leading-6 shrink-0">{sectionConfig?.icon || '⚙️'}</span>
         <div className="min-w-0 flex-1">
           {/* Wrapped, not truncated. These names used to end in an ellipsis —
               "Czujniki sterowni…", "Aktualizacja oprogramo…" — which tells you
