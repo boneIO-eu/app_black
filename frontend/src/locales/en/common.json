@@ -3206,6 +3206,7 @@
     "installed_packages": "Updated packages: {{count}}",
     "new_package": "(new)",
     "log": "Log",
+    "last_log": "Last run log",
     "confirm_upgrade_known": "Install {{count}} system updates? Estimated time: about {{min}}–{{max}} min. Do not cut the power. It will not restart by itself.",
     "confirm_upgrade_unknown": "Install the system updates? It has not been checked how many there are — on a controller that has not been updated for a long time this can take up to an hour. Do not cut the power. It will not restart by itself.",
     "confirm_backup": "Have you downloaded a configuration backup?",

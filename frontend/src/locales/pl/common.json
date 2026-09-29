@@ -3205,6 +3205,7 @@
     "installed_packages": "Zaktualizowane pakiety: {{count}}",
     "new_package": "(nowy)",
     "log": "Log",
+    "last_log": "Log ostatniego uruchomienia",
     "confirm_upgrade_known": "Zainstalować {{count}} aktualizacji systemu? Szacowany czas: ok. {{min}}–{{max}} min. Nie wyłączaj zasilania. Restart nie nastąpi automatycznie.",
     "confirm_upgrade_unknown": "Zainstalować aktualizacje systemu? Nie sprawdzono jeszcze, ile ich jest — na sterowniku, który długo nie był aktualizowany, może to potrwać nawet godzinę. Nie wyłączaj zasilania. Restart nie nastąpi automatycznie.",
     "confirm_backup": "Czy pobrałeś backup konfiguracji?",

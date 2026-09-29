@@ -122,6 +122,9 @@ export const OsUpdateCard: React.FC = () => {
   const pendingSince = useRef<number | null>(null);
   const [pollToken, setPollToken] = useState(0);
   const [showPackages, setShowPackages] = useState(false);
+  // null follows the run: open while it goes or when it went wrong, folded
+  // once it succeeded. The operator's own click wins until the next start.
+  const [showLog, setShowLog] = useState<boolean | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The unit is started with --no-block, so the first reads after a start can
   // still see it inactive. Keep polling for a moment instead of stopping there.
@@ -233,6 +236,7 @@ export const OsUpdateCard: React.FC = () => {
       watchUntil.current = Date.now() + 15000;
       // A new run: an older record's grace period does not carry over to it.
       missingSince.current = null;
+      setShowLog(null);
       // Re-arms the polling effect for the run just started.
       setPollToken(n => n + 1);
       setTimeout(() => setPendingMode(current => (current === mode ? null : current)), START_GRACE_MS);
@@ -268,6 +272,16 @@ export const OsUpdateCard: React.FC = () => {
   const pending = pendingPackages(state);
   const [estimateLow, estimateHigh] = estimateMinutes(pending?.length ?? 0);
   const kernelPending = Boolean(pending?.some(p => p.name.startsWith('linux-image')));
+  // A successful run's log is kept for after the restart, when something may
+  // turn out wrong, but folded: its last line still names the kernel from
+  // before it, next to a tile that shows the new one.
+  const logWorthShowing =
+    running ||
+    interrupted ||
+    last?.result === 'failed' ||
+    last?.result === 'problem' ||
+    last?.kernel?.status === 'problem';
+  const logOpen = showLog ?? logWorthShowing;
 
   return (
     <SettingsCard
@@ -481,9 +495,17 @@ export const OsUpdateCard: React.FC = () => {
         )}
 
         {log && (running || last) && (
-          <CodeBlock label={running && last?.step ? `${t('os_update.log')} — ${last.step}` : t('os_update.log')} maxHeight="14rem">
-            {log}
-          </CodeBlock>
+          <div>
+            <button type="button" className="btn btn-ghost btn-xs" onClick={() => setShowLog(!logOpen)}>
+              {logOpen ? '▾' : '▸'}{' '}
+              {running && last?.step ? `${t('os_update.log')} — ${last.step}` : t('os_update.last_log')}
+            </button>
+            {logOpen && (
+              <CodeBlock className="mt-2" maxHeight="14rem">
+                {log}
+              </CodeBlock>
+            )}
+          </div>
         )}
       </div>
     </SettingsCard>
