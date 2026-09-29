@@ -4,6 +4,7 @@ import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useDevicePower } from '../hooks/useDevicePower';
 import { SettingsCard, FormActions, NoticeCallout, CodeBlock, StatGrid, ToggleRow } from '../ui';
+import { assessRun, nextPollDelay, type RunPhase } from './osUpdateProgress';
 
 interface OsPackage {
   name: string;
@@ -50,8 +51,6 @@ interface OsUpdateState {
   free_mb?: number;
   min_free_mb?: number;
 }
-
-const POLL_MS = 3000;
 
 /**
  * How long the panel keeps saying "starting" after the helper accepted a run
@@ -108,6 +107,12 @@ export const OsUpdateCard: React.FC = () => {
   const [state, setState] = useState<OsUpdateState | null>(null);
   const [log, setLog] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // A failed state read, apart from ``error``: the next good read clears it.
+  const [readError, setReadError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<RunPhase>('idle');
+  // When reads first saw the run's record without its unit; see osUpdateProgress.
+  const missingSince = useRef<number | null>(null);
+  const failedReads = useRef(0);
   // The run the operator just asked for, from the click until the state shows
   // it. Starting one takes the helper several seconds on a BeagleBone — longer
   // with apt already busy — and without this the card sat unchanged meanwhile.
@@ -125,34 +130,58 @@ export const OsUpdateCard: React.FC = () => {
   // read from before the start lands late and shows the card idle again.
   const readSeq = useRef(0);
 
+  const phaseRef = useRef<RunPhase>('idle');
+
+  // The log is extra: failing to read it must not count as a failed state read.
+  const readLog = useCallback(async () => {
+    try {
+      const { data } = await axios.get<{ log: string }>('/api/os-update/log', HELPER_TIMEOUT);
+      setLog(data.log);
+    } catch {
+      // Keep the log already shown; the next poll tries again.
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     const seq = ++readSeq.current;
     try {
       const { data } = await axios.get<OsUpdateState>('/api/os-update/state', HELPER_TIMEOUT);
       if (seq !== readSeq.current) return data;
       setState(data);
-      if (data.running || data.last?.result === 'running') {
-        const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log', HELPER_TIMEOUT);
-        setLog(logData.log);
-      }
+      setReadError(null);
+      if (data.running || data.last?.result === 'running') await readLog();
       return data;
     } catch (err) {
-      setError(apiDetail(err) || t('os_update.state_failed'));
+      setReadError(apiDetail(err) || t('os_update.state_failed'));
       return null;
     }
-  }, [t]);
+  }, [t, readLog]);
 
-  // Poll while a run is in progress; stop as soon as it is not.
+  // Poll while a run may be in progress, which includes a record saying it is
+  // when the unit briefly does not show, and failed reads mid-run.
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       const data = await refresh();
-      if (!cancelled && (data?.running || Date.now() < watchUntil.current)) {
-        timer.current = setTimeout(tick, POLL_MS);
-      } else if (!cancelled && data?.last) {
+      if (cancelled) return;
+      const now = Date.now();
+      let current = phaseRef.current;
+      if (data) {
+        failedReads.current = 0;
+        const assessed = assessRun(data, now, missingSince.current);
+        missingSince.current = assessed.missingSince;
+        current = assessed.phase;
+        phaseRef.current = current;
+        setPhase(current);
+      } else {
+        failedReads.current += 1;
+      }
+      const delay = nextPollDelay(current, now < watchUntil.current, failedReads.current);
+      if (delay !== null) {
+        timer.current = setTimeout(tick, delay);
+      } else if (data?.last) {
         // One last read, so the finished run's log is on screen.
-        const { data: logData } = await axios.get<{ log: string }>('/api/os-update/log', HELPER_TIMEOUT);
-        if (!cancelled) setLog(logData.log);
+        await readLog();
       }
     };
     tick();
@@ -160,7 +189,7 @@ export const OsUpdateCard: React.FC = () => {
       cancelled = true;
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [refresh, pollToken]);
+  }, [refresh, readLog, pollToken]);
 
   // The state has caught up with the click: the run shows, or already finished.
   useEffect(() => {
@@ -202,6 +231,8 @@ export const OsUpdateCard: React.FC = () => {
     try {
       await axios.post(`/api/os-update/${mode}`, null, HELPER_TIMEOUT);
       watchUntil.current = Date.now() + 15000;
+      // A new run: an older record's grace period does not carry over to it.
+      missingSince.current = null;
       // Re-arms the polling effect for the run just started.
       setPollToken(n => n + 1);
       setTimeout(() => setPendingMode(current => (current === mode ? null : current)), START_GRACE_MS);
@@ -219,7 +250,10 @@ export const OsUpdateCard: React.FC = () => {
     );
   }
 
-  const running = Boolean(state?.running);
+  // "Unconfirmed" still counts as running: the record says so and the unit only
+  // failed to show, which happens while dpkg replaces systemd.
+  const running = phase === 'running' || phase === 'unconfirmed';
+  const interrupted = phase === 'interrupted';
   const last = state?.last ?? null;
   const busy = running || pendingMode !== null;
   const activeMode = pendingMode ?? (running ? last?.mode ?? null : null);
@@ -246,6 +280,8 @@ export const OsUpdateCard: React.FC = () => {
             <FaSpinner className="animate-spin" />
             {pendingMode && !running ? t('os_update.starting') : t('os_update.running')}
           </span>
+        ) : interrupted ? (
+          <span className="badge badge-error badge-sm font-semibold">{t('os_update.interrupted_badge')}</span>
         ) : packages.length > 0 && last?.mode === 'check' ? (
           <span className="badge badge-success badge-sm font-semibold">
             {t('os_update.available', { count: packages.length })}
@@ -257,7 +293,9 @@ export const OsUpdateCard: React.FC = () => {
           <button
             className={`btn btn-outline btn-sm gap-2 ${activeMode === 'check' ? activeButton : ''}`}
             onClick={() => start('check')}
-            disabled={busy || !state}
+            // A check would overwrite the interrupted run's record and log;
+            // only an upgrade finishes what it left half-installed.
+            disabled={busy || !state || interrupted}
           >
             {activeMode === 'check' ? <FaSpinner className="text-xs animate-spin" /> : <FaSearch className="text-xs" />}
             {activeMode === 'check' ? t('os_update.checking') : t('os_update.check')}
@@ -274,7 +312,20 @@ export const OsUpdateCard: React.FC = () => {
       }
     >
       <div className="space-y-4">
-        {error && <NoticeCallout variant="error" message={error} />}
+        {(error || readError) && <NoticeCallout variant="error" message={error || readError || ''} />}
+
+        {interrupted && (
+          <NoticeCallout
+            variant="error"
+            title={t('os_update.interrupted_title')}
+            message={
+              <>
+                <p>{t('os_update.interrupted', { step: last?.step ?? '—' })}</p>
+                <p className="mt-1">{t('os_update.interrupted_hint')}</p>
+              </>
+            }
+          />
+        )}
 
         {kernelProblem && (
           <NoticeCallout
@@ -301,7 +352,7 @@ export const OsUpdateCard: React.FC = () => {
               <button
                 className="btn btn-warning btn-sm gap-2"
                 onClick={rebootDevice}
-                disabled={isRebooting || running}
+                disabled={isRebooting || running || interrupted}
               >
                 {isRebooting ? <FaSpinner className="animate-spin" /> : <FaPowerOff />}
                 {t('os_update.reboot_now')}
@@ -376,7 +427,11 @@ export const OsUpdateCard: React.FC = () => {
           items={[
             {
               label: t('os_update.last_run'),
-              value: last ? `${t(`os_update.mode_${last.mode}`)} · ${formatTime(last.finished ?? last.started)}` : '—',
+              value: !last
+                ? '—'
+                : last.finished
+                  ? `${t(`os_update.mode_${last.mode}`)} · ${formatTime(last.finished)}`
+                  : `${t(`os_update.mode_${last.mode}`)} · ${t('os_update.started_at', { when: formatTime(last.started) })}`,
             },
             {
               label: t('os_update.kernel'),
