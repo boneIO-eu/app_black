@@ -10,6 +10,7 @@ import {
   stepsFor,
   previousStepFor,
   stepAfterImport,
+  stepAfterDevices,
   stepAfterAccount,
 } from '@/utils/onboardingSteps';
 import { checkImportFile, interpretRestoreResponse } from '@/utils/onboardingImport';
@@ -105,7 +106,10 @@ export default function OnboardingWizard() {
   const activeStepRef = useRef<HTMLLIElement>(null);
 
   const configuredBefore = initData?.configured_before ?? false;
-  const steps = stepsFor(configuredBefore);
+  // Latched as the wizard opens. /api/init is polled, and enabling cloud on
+  // the cloud step would otherwise make that step vanish from under the user.
+  const [cloudEnabled] = useState(() => initData?.cloud?.enabled ?? false);
+  const steps = stepsFor(configuredBefore, cloudEnabled);
   const stepIndex = steps.indexOf(step);
 
   // Shown under the password field once there is something to judge. The
@@ -144,7 +148,7 @@ export default function OnboardingWizard() {
     activeStepRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [step]);
 
-  const previousStep = previousStepFor(step, importDone, configuredBefore);
+  const previousStep = previousStepFor(step, importDone, configuredBefore, cloudEnabled);
 
   // On a phone the step's primary buttons already fill the row, so the back
   // button drops onto its own line underneath rather than squeezing them into
@@ -205,7 +209,7 @@ export default function OnboardingWizard() {
       setPassword('');
       setConfirmPassword('');
       // On an upgraded device there is nothing to import and nothing to wire.
-      goTo(stepAfterAccount(configuredBefore));
+      goTo(stepAfterAccount(configuredBefore, cloudEnabled));
     } catch (err: unknown) {
       if ((err as ApiError)?.response?.status === 409) {
         // Somebody else finished the wizard between page load and submit.
@@ -718,7 +722,7 @@ export default function OnboardingWizard() {
                 {isApplyingDevices && <span className="loading loading-spinner loading-sm" />}
                 {t('onboarding.devices_apply')}
               </button>
-              <button className="btn btn-outline flex-1" onClick={() => goTo('cloud')}>
+              <button className="btn btn-outline flex-1" onClick={() => goTo(stepAfterDevices(cloudEnabled))}>
                 {devicesDone ? t('onboarding.next') : t('onboarding.devices_skip')}
               </button>
             </div>
