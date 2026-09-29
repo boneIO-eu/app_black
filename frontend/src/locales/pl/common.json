@@ -2906,6 +2906,17 @@
     "submit": "Zaloguj",
     "invalid": "Nieprawidłowa nazwa użytkownika lub hasło."
   },
+  "reauth": {
+    "title": "Potwierdź hasło",
+    "intro": "Ta operacja jest nieodwracalna, więc sama sesja nie wystarczy. Wpisz hasło, żeby potwierdzić, że to Ty. Przez 10 minut nie zapytamy ponownie.",
+    "password": "Hasło",
+    "password_for": "Hasło konta {{username}}",
+    "confirm": "Potwierdź",
+    "wrong": "Nieprawidłowe hasło.",
+    "throttled": "Zbyt wiele prób. Spróbuj ponownie za kilka minut.",
+    "failed": "Nie udało się sprawdzić hasła. Spróbuj ponownie.",
+    "cancelled": "Anulowano — ta operacja wymaga potwierdzenia hasłem."
+  },
   "diagnostics": {
     "title": "Dane diagnostyczne dla wsparcia",
     "intro": "Zbiera w jeden plik to, o co wsparcie i tak zapyta. Możesz go wysłać mailem — nie musisz nikomu dawać dostępu do sterownika.",

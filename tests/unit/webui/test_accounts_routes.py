@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -42,7 +44,10 @@ def client(store):
 
 
 def _as(user: str, role: str) -> dict:
-    return {"Authorization": f"Bearer {create_token({'sub': user, 'role': role})}"}
+    # As right after a login: the management routes want the password typed
+    # within the last few minutes, which test_reauth.py covers.
+    token = create_token({"sub": user, "role": role, "auth_time": int(time.time())})
+    return {"Authorization": f"Bearer {token}"}
 
 
 ADMIN = ("pawel", "admin")

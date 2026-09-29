@@ -108,6 +108,57 @@ _VIEWER_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         # current one. Managing other accounts lives under /api/accounts
         # (plural) and stays admin-only.
         ("PUT", r"^/api/account/password$"),
+        # Confirming your own password for a request that asks for it. Any
+        # role, since it grants nothing the account does not already have.
+        ("POST", r"^/api/auth/confirm$"),
+    )
+)
+
+# Requests that want the password again, not just a valid token.
+#
+# A login token lives for weeks, on whatever device it was left on. That is
+# the right trade for looking at the device and operating it, and the wrong one
+# for what cannot be walked back: who has an account, what configuration the
+# device runs, which software it runs, and what certificate vouches for it. For
+# these the middleware wants a token issued within REAUTH_WINDOW of the owner
+# typing the password, and asks for it with 403 ``reauth_required`` otherwise.
+#
+# Deliberately absent: restart and reboot (they undo themselves), the file
+# editor and the section saves (everyday configuration work, and asking for a
+# password on every save would train people to type it without reading), and
+# checking for updates, which changes nothing.
+#
+# Every entry is matched against the application's real routes in
+# test_reauth.py, so a typo here fails a test instead of quietly guarding
+# nothing.
+_REAUTH_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (method, re.compile(pattern))
+    for method, pattern in (
+        # Accounts: creating one is how a borrowed session makes itself
+        # permanent, since a second admin survives a password change.
+        ("POST", r"^/api/accounts$"),
+        ("DELETE", r"^/api/accounts/[^/]+$"),
+        ("PUT", r"^/api/accounts/[^/]+/role$"),
+        ("PUT", r"^/api/accounts/[^/]+/password$"),
+        # Replacing the whole configuration.
+        ("POST", r"^/api/config/restore$"),
+        ("POST", r"^/api/config/restore_backup$"),
+        ("POST", r"^/api/factory_reset$"),
+        ("POST", r"^/api/factory_reset/partial$"),
+        ("POST", r"^/api/factory_reset/restore_backup$"),
+        # Node-RED flows are code, so restoring them is installing software.
+        ("POST", r"^/api/nodered/backup/restore$"),
+        ("POST", r"^/api/nodered/backup/upload_restore$"),
+        # Changing the software: an application update can also be a
+        # downgrade to a release with holes this one closed.
+        ("POST", r"^/api/update$"),
+        ("POST", r"^/api/update/rollback$"),
+        ("POST", r"^/api/os-update/upgrade$"),
+        ("POST", r"^/api/os-update/autoupdate$"),
+        ("POST", r"^/api/os-update/caddy/apply$"),
+        # The certificate the panel is served with.
+        ("POST", r"^/api/security/certificate$"),
+        ("DELETE", r"^/api/security/certificate$"),
     )
 )
 
@@ -175,3 +226,20 @@ def role_allows(role: Role, method: str, path: str) -> bool:
     if role is Role.ADMIN:
         return True
     return required_role(method, path) is Role.VIEWER
+
+
+def requires_recent_auth(method: str, path: str) -> bool:
+    """Whether this request wants the password confirmed, not just a token.
+
+    Args:
+        method: HTTP method.
+        path: Request path, without the query string.
+
+    Returns:
+        True if the caller must have typed the password recently.
+    """
+    method = method.upper()
+    return any(
+        method == wanted_method and pattern.match(path)
+        for wanted_method, pattern in _REAUTH_WRITES
+    )

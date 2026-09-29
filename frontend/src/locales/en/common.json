@@ -2907,6 +2907,17 @@
     "submit": "Sign in",
     "invalid": "Invalid username or password."
   },
+  "reauth": {
+    "title": "Confirm your password",
+    "intro": "This can’t be undone, so being signed in isn’t enough. Type your password to confirm it’s you. You won’t be asked again for 10 minutes.",
+    "password": "Password",
+    "password_for": "Password for {{username}}",
+    "confirm": "Confirm",
+    "wrong": "That password is not correct.",
+    "throttled": "Too many attempts. Try again in a few minutes.",
+    "failed": "Could not check the password. Try again.",
+    "cancelled": "Cancelled — this needs your password confirmed."
+  },
   "diagnostics": {
     "title": "Diagnostics for support",
     "intro": "Collects what support will ask for into one file. You can email it — nobody needs access to the controller.",

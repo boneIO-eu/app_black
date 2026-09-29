@@ -35,8 +35,22 @@ _JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
 # A long-lived token is only tolerable because it can be cut short. Each token
 # carries the account's session version (`ver`), and changing the password
 # bumps it, so every token issued before the change stops working at once —
-# a leaked one included.
+# a leaked one included. What a token cannot do on its own is the dangerous
+# part of the API: that wants the password again (see REAUTH_WINDOW).
 TOKEN_TTL_DAYS = 30
+
+# How long after typing the password a token still counts as the owner being
+# at the keyboard, for the requests policy.requires_recent_auth() names. Long
+# enough that a maintenance session — restore, then update, then a new account
+# — asks once; short enough that a token left on a shared laptop overnight
+# does not qualify.
+REAUTH_WINDOW = timedelta(minutes=10)
+
+# The controller has no real-time clock, and until NTP answers after a boot it
+# can be minutes or years out. A password confirmed before the clock stepped
+# back would then carry an auth_time in the future and count as fresh for as
+# long as the gap lasts, so a timestamp further ahead than this is refused.
+_AUTH_TIME_SKEW = timedelta(seconds=60)
 
 # Auth configuration - will be set by init_app
 _auth_config: dict = {}
@@ -180,17 +194,49 @@ def issue_token(user: User) -> str:
     """Sign a login token for an account in the store.
 
     Every route that signs somebody in comes through here, so the claims the
-    middleware relies on are always present.
+    middleware relies on are always present. It is only ever called right
+    after the password was checked, which is what ``auth_time`` records.
+    That is a claim of its own rather than ``iat``: PyJWT validates ``iat``
+    against the clock, and on a controller whose clock jumps that would
+    invalidate every token.
 
     Args:
         user: The account, as the store holds it now.
 
     Returns:
-        Encoded JWT carrying the username, the role and the session version.
+        Encoded JWT carrying the username, the role, the session version and
+        when the password was last typed.
     """
     return create_token(
-        {"sub": user.username, "role": str(user.role), "ver": user.session_version}
+        {
+            "sub": user.username,
+            "role": str(user.role),
+            "ver": user.session_version,
+            "auth_time": int(datetime.now(UTC).timestamp()),
+        }
     )
+
+
+def recently_authenticated(payload: dict) -> bool:
+    """Whether the password behind this token was typed within REAUTH_WINDOW.
+
+    Args:
+        payload: Verified JWT payload.
+
+    Returns:
+        True if the token is fresh enough for a request that asks for it.
+    """
+    raw = payload.get("auth_time")
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        # Tokens from before this claim existed never qualify: they were
+        # issued at some unknown point in the last 30 days.
+        return False
+    now = datetime.now(UTC)
+    try:
+        issued = datetime.fromtimestamp(raw, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return False
+    return now - REAUTH_WINDOW <= issued <= now + _AUTH_TIME_SKEW
 
 
 def verify_token(token: str) -> dict | None:
@@ -216,7 +262,7 @@ def verify_token(token: str) -> dict | None:
 class AuthMiddleware(BaseHTTPMiddleware):
     """Authenticates API requests and enforces the role policy.
 
-    Three gates, in order:
+    Four gates, in order:
 
     1. **Exempt routes** pass straight through: the SPA and its assets, plus
        ``/api/login``, ``/api/init``, ``/api/version``, ``/api/auth/required``
@@ -231,6 +277,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
        whether the owner came from 1.5, skipped 1.6, or flashed the image
        fresh.
     3. **The token's role decides**, per :mod:`boneio.webui.middleware.policy`.
+    4. **Some requests want the password again.** The policy names the ones
+       that cannot be walked back; for those the token has to have been issued
+       within REAUTH_WINDOW, or the answer is 403 ``reauth_required`` and the
+       panel asks, through POST /api/auth/confirm.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -352,11 +402,46 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 },
             )
 
+        if policy.requires_recent_auth(request.method, path) and _step_up_applies():
+            if not recently_authenticated(payload):
+                _LOGGER.info(
+                    "Asked '%s' to confirm the password for %s %s",
+                    payload.get("sub", "?"),
+                    request.method,
+                    path,
+                )
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": "Confirm your password to continue.",
+                        "code": "reauth_required",
+                    },
+                )
+
         # Downstream handlers can read who is calling without decoding again.
         request.state.user = payload.get("sub")
         request.state.role = role
 
         return await call_next(request)
+
+
+def _step_up_applies() -> bool:
+    """Whether there are accounts to confirm a password against.
+
+    Only a provisioned device has them. A legacy web.auth pair that could not
+    be migrated has no store entry for POST /api/auth/confirm to check, so
+    asking there would lock the owner out of the very routes that fix it.
+
+    Returns:
+        True if the device keeps its accounts in users.json.
+    """
+    store = _user_store
+    if store is None:
+        return False
+    try:
+        return store.is_provisioned()
+    except Exception:  # noqa: BLE001 - never fail open on a read error
+        return True
 
 
 def _attach_identity_if_present(request: Request) -> None:

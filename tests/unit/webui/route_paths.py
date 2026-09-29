@@ -35,7 +35,32 @@ def all_paths(app_or_router: Any) -> set[str]:
             which means the framework has changed and this walker is now
             looking at less than it thinks.
     """
-    found: set[str] = set()
+    return {path for path, _ in _routes(app_or_router)}
+
+
+def all_routes(app_or_router: Any) -> set[tuple[str, str]]:
+    """Collect every (method, path) pair served, however deeply nested.
+
+    Args:
+        app_or_router: An application or a router.
+
+    Returns:
+        One pair per method each route answers. Routes without methods (the
+        WebSocket, mounts) are left out, having no HTTP verb to pair with.
+
+    Raises:
+        UnknownRouteShape: As for all_paths().
+    """
+    return {
+        (method, path)
+        for path, methods in _routes(app_or_router)
+        for method in methods
+    }
+
+
+def _routes(app_or_router: Any) -> list[tuple[str, frozenset[str]]]:
+    """Walk the route tree, returning each route's path and methods."""
+    found: list[tuple[str, frozenset[str]]] = []
     seen: set[int] = set()
     unknown: list[str] = []
 
@@ -58,7 +83,7 @@ def all_paths(app_or_router: Any) -> set[str]:
         path = getattr(node, "path", None)
         kids = children(node)
         if isinstance(path, str):
-            found.add(path)
+            found.append((path, frozenset(getattr(node, "methods", None) or ())))
         elif not kids:
             unknown.append(type(node).__name__)
 

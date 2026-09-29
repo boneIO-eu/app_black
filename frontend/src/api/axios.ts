@@ -1,5 +1,13 @@
 import axios from 'axios';
 import { getBasePath } from './basePath';
+import { isReauthRequired, retryAfterReauth } from './reauth';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** Set on the one repeat after a password prompt, so it cannot loop. */
+    _reauthRetried?: boolean;
+  }
+}
 
 const baseURL = getBasePath();
 
@@ -47,6 +55,14 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
+    // A request that wants the password typed recently: ask, then send it
+    // again. The request interceptor above picks up the fresh token, and a
+    // FormData body (a config archive) goes out a second time unchanged.
+    if (isReauthRequired(error) && error.config && !error.config._reauthRetried) {
+      return retryAfterReauth(error, () =>
+        axiosInstance({ ...error.config, _reauthRetried: true }),
+      );
+    }
     if (error.response?.status === 401) {
       // Drop the dead token AND tell the auth layer, which owns the React
       // state. Clearing storage alone left the app believing it was signed in:

@@ -66,6 +66,7 @@ import { NoticeCallout, SettingsPage } from './components/UISettings/ui';
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import NotAvailable from './components/NotAvailable';
 import UpdateFailedNotice from './components/UpdateFailedNotice';
+import ReauthDialog from './components/ReauthDialog';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { WebSocketContext } from './contexts/WebSocketContext';
 import { TranslationProvider } from './contexts/TranslationContext';
@@ -574,6 +575,9 @@ export default function App() {
           <ConfigProvider>
             <TranslationProvider>
               <AppContent />
+              {/* Outside AppContent so it also answers during the first-run
+                  wizard, which AppContent renders instead of the app. */}
+              <ReauthDialog />
             </TranslationProvider>
           </ConfigProvider>
         </AuthProvider>

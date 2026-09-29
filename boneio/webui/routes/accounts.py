@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from boneio.core.auth.models import Role
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.webui.middleware.auth import get_user_store, issue_token
+from boneio.webui.routes.auth import check_password_throttled
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -268,9 +269,7 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
         raise HTTPException(status_code=401, detail="Not signed in")
 
     store = _store()
-    user = await asyncio.to_thread(
-        store.verify_credentials, username, payload.current_password
-    )
+    user = await check_password_throttled(request, username, payload.current_password)
     if user is None:
         _LOGGER.warning("Rejected password change for '%s': wrong current password", username)
         raise HTTPException(status_code=401, detail="Current password is incorrect")

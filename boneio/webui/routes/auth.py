@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import hmac
 import logging
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from boneio.webui.middleware.auth import (
     create_token,
@@ -16,6 +18,9 @@ from boneio.webui.middleware.auth import (
     is_auth_required,
 )
 from boneio.webui.rate_limit import ip_key, login_rate_limiter, user_key
+
+if TYPE_CHECKING:
+    from boneio.core.auth.models import User
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -133,3 +138,91 @@ async def login(
     login_rate_limiter.record_failures(*keys)
     _LOGGER.warning("Failed login attempt for user: %s", username)
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+async def check_password_throttled(request: Request, username: str, password: str) -> User | None:
+    """Check a signed-in account's password, on the login's attempt budget.
+
+    For the routes that ask a caller who already holds a token to type the
+    password again. They are password guesses like any other, so they draw on
+    the same per-IP and per-account buckets as /api/login: otherwise somebody
+    with a borrowed session could guess the owner's password at leisure, and
+    confirming would double the budget of the login screen.
+
+    Args:
+        request: Incoming request, for the caller's address.
+        username: The account the token belongs to.
+        password: What the caller typed.
+
+    Returns:
+        The account if the password is right, None if it is not.
+
+    Raises:
+        HTTPException: 429 while either bucket is full, 409 on a device with
+            no accounts to check against.
+    """
+    store = get_user_store()
+    if store is None or not store.is_provisioned():
+        raise HTTPException(
+            status_code=409, detail="This device has no accounts to confirm against."
+        )
+
+    client = request.client.host if request.client else "unknown"
+    keys = (ip_key(client), user_key(username))
+    if not login_rate_limiter.check_all(*keys):
+        retry_after = login_rate_limiter.retry_after(*keys)
+        _LOGGER.warning(
+            "Throttled a password confirmation for '%s' from %s; %ds remaining",
+            username,
+            client,
+            retry_after,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attempts. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    user = await asyncio.to_thread(store.verify_credentials, username, password)
+    if user is None:
+        login_rate_limiter.record_failures(*keys)
+        _LOGGER.warning("Wrong password confirming '%s' from %s", username, client)
+        return None
+
+    login_rate_limiter.reset(*keys)
+    return user
+
+
+@router.post("/auth/confirm")
+async def confirm_password(request: Request, password: str = Body(..., embed=True)):
+    """Confirm the signed-in account's password for a request that wants it.
+
+    The requests policy.requires_recent_auth() names answer 403
+    ``reauth_required`` to a token issued more than REAUTH_WINDOW ago. The
+    panel then asks for the password, sends it here, and repeats the request
+    with the token this returns — the same account and session, with a fresh
+    ``auth_time``.
+
+    A wrong password is 403 ``reauth_failed``, not 401: the caller's session is
+    still good, and 401 is what the panel takes as "you have been signed out".
+
+    Args:
+        request: Incoming request, annotated by the auth middleware.
+        password: The account's password.
+
+    Returns:
+        Dictionary with the replacement token.
+    """
+    username = getattr(request.state, "user", "") or ""
+    if not username:
+        raise HTTPException(status_code=401, detail="Not signed in")
+
+    user = await check_password_throttled(request, username, password)
+    if user is None:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "The password is not correct.", "code": "reauth_failed"},
+        )
+
+    _LOGGER.info("Password confirmed for '%s'", user.username)
+    return {"token": issue_token(user)}
