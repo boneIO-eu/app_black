@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev21` exists so that we can test the new system-migration chain on a
+`1.6.0.dev22` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,31 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev22 — internal test build
+
+## Since dev21
+
+The first-run wizard now uses the same shell as the login screen it hands
+over to: edge to edge on a phone, a card on the app's tinted field from `sm`
+up, theme and language pickers top right, the device name under the
+heading. A segmented progress bar replaces the numbered daisyUI steps,
+fitting a 320px phone at any step count, and each step opens with a heading
+and intro the way a settings card does; solid alerts become the settings
+notices, at the same severities. The card floor is re-measured for the new
+steps — 36rem from `sm` up, less on a short screen so a 768px laptop still
+shows the buttons — and on a phone the buttons sit at the bottom; the theme
+and language pickers scroll with the page, since several steps run taller
+than a phone. The welcome step now lists what's ahead, import is a drop
+zone that names the chosen file, input modes are radio cards,
+restore-state is a toggle row, and the finish step leads with "the
+controller has an owner". Purely visual: the onboarding logic and the API
+it drives are unchanged.
+
+No new system migration this release, and no migration plan's content
+changed. Only the manifest is re-signed, since it names the release.
 
 ---
 

@@ -6,6 +6,36 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev22 (2026-09-29) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🧙 The first-run wizard matches the login screen
+
+- **Same shell as the login it hands over to.** Edge to edge on a phone, a
+  card on the app's tinted field from `sm` up, theme and language pickers top
+  right, the device name under the heading.
+- **A segmented progress bar instead of numbered daisyUI steps**, fitting a
+  320px phone at any step count, with each step opening with an icon chip, a
+  heading and its intro, the way a settings card does. Solid alerts become
+  the settings notices, at the same severities.
+- **The card floor is re-measured for the new steps:** 36rem from `sm` up,
+  less on a short screen so a 768px laptop still shows the buttons; on a
+  phone the buttons sit at the bottom. The theme and language pickers scroll
+  with the page, since several steps run taller than a phone.
+- **The welcome step lists what's ahead**; account fields match login's;
+  import is a drop zone that names the chosen file instead of the browser's
+  own file input; input modes are radio cards; restore-state is a toggle
+  row; the finish step leads with "the controller has an owner".
+- Purely visual — onboarding logic and the API it drives are unchanged.
+
+### 🧹 Minor
+
+- **Four unused section translations are gone** (`binary_sensor`, `event`,
+  `lox_udp` descriptions and label): those sections were folded into "Local
+  inputs" and the MQTT/Lox UDP tab, so nothing rendered them, and the
+  translation check warned about them on every commit.
+
 ## v1.6.0.dev21 (2026-09-29) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
