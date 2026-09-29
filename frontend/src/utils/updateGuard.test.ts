@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  RESTART_MIN_DOWN_MS,
   UPDATE_MARK_TTL_MS,
   alreadyReloadedFor,
   clearUpdateMark,
   noteReloadFor,
   normalizeVersion,
+  noteReachability,
   panelState,
   readUpdateMark,
   scopedKey,
@@ -124,6 +126,43 @@ describe('updateArrived', () => {
   it('takes any other version when the latest was asked for', () => {
     expect(updateArrived(mark({ toVersion: null }), '1.6.0.dev22')).toBe(true);
     expect(updateArrived(mark({ toVersion: null }), '1.6.0.dev20')).toBe(false);
+  });
+});
+
+describe('noteReachability', () => {
+  const state = (m: UpdateMark) => panelState({
+    reachable: true, serverVersion: '1.6.0.dev20', panelVersion: '1.6.0.dev20', mark: m,
+  });
+
+  it('does not take a short gap for the restart', () => {
+    // A laptop waking before its Wi-Fi, mid-install: the old server answers again.
+    let m = noteReachability(mark(), false, NOW);
+    m = noteReachability(m, false, NOW + 5_000);
+    m = noteReachability(m, true, NOW + 6_000);
+    expect(m.wentDown).toBeFalsy();
+    expect(m.downSince).toBeUndefined();
+    expect(state(m)).toBe('ok');
+  });
+
+  it('takes a long one for the restart, and a return on the old version for a failure', () => {
+    let m = noteReachability(mark(), false, NOW);
+    m = noteReachability(m, false, NOW + 60_000);
+    m = noteReachability(m, true, NOW + 61_000);
+    expect(m.wentDown).toBe(true);
+    expect(state(m)).toBe('update_failed');
+  });
+
+  it('counts only an unbroken gap', () => {
+    let m = noteReachability(mark(), false, NOW);
+    m = noteReachability(m, true, NOW + 10_000);
+    m = noteReachability(m, false, NOW + 20_000);
+    m = noteReachability(m, false, NOW + 20_000 + RESTART_MIN_DOWN_MS - 1);
+    expect(m.wentDown).toBeFalsy();
+  });
+
+  it('returns the same object when nothing changes', () => {
+    const m = mark();
+    expect(noteReachability(m, true, NOW)).toBe(m);
   });
 });
 

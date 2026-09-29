@@ -13,6 +13,7 @@ import { prefetchConfig } from '@/api/configCache';
 import { writeProvisioningHint } from '@/utils/provisioning';
 import {
   clearUpdateMark,
+  noteReachability,
   panelState as computePanelState,
   readUpdateMark,
   updateArrived,
@@ -154,10 +155,12 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
 
   const updatePanelState = useCallback((reachable: boolean, serverVersion: string | null) => {
     const basePath = window.__BONEIO_BASE_PATH__;
-    let mark = readUpdateMark(window.localStorage, basePath, Date.now());
-    if (mark && !reachable && !mark.wentDown) {
-      mark = { ...mark, wentDown: true };
-      writeUpdateMark(window.localStorage, basePath, mark);
+    const now = Date.now();
+    let mark = readUpdateMark(window.localStorage, basePath, now);
+    if (mark) {
+      const next = noteReachability(mark, reachable, now);
+      if (next !== mark) writeUpdateMark(window.localStorage, basePath, next);
+      mark = next;
     }
     if (mark && reachable && updateArrived(mark, serverVersion)) {
       clearUpdateMark(window.localStorage, basePath);

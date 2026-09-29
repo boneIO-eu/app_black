@@ -27,6 +27,17 @@ const RELOAD_KEY = 'boneio-stale-reload';
 /** How long after starting an update a silent controller is taken to be installing it. */
 export const UPDATE_MARK_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * Unreachable for this long without a break counts as the restart.
+ *
+ * A restart of boneIO on a BeagleBone takes about 40 s with no migrations
+ * (measured on the test controller). A laptop waking before its Wi-Fi, or a
+ * controller slow to answer while pip compiles, is much shorter — and taken
+ * for a restart it would turn the old version answering mid-install into a
+ * false "update failed".
+ */
+export const RESTART_MIN_DOWN_MS = 15_000;
+
 /** What the browser remembers about an update it started. */
 export interface UpdateMark {
   /** Unix milliseconds. */
@@ -35,7 +46,9 @@ export interface UpdateMark {
   fromVersion: string;
   /** The version asked for; null when the server was left to pick the latest. */
   toVersion: string | null;
-  /** Set once the controller was seen not answering, i.e. it restarted. */
+  /** When the controller stopped answering, while it has not answered since. */
+  downSince?: number;
+  /** Set once it was unreachable for RESTART_MIN_DOWN_MS: it restarted. */
   wentDown?: boolean;
 }
 
@@ -122,6 +135,22 @@ export function clearUpdateMark(storage: MarkStorage | undefined, basePath: stri
   } catch {
     // Nothing to do.
   }
+}
+
+/**
+ * Fold one poll's outcome into the mark.
+ *
+ * @returns The same object when nothing changed, so the caller writes only
+ *   when there is something to write.
+ */
+export function noteReachability(mark: UpdateMark, reachable: boolean, now: number): UpdateMark {
+  if (reachable) {
+    return mark.wentDown || mark.downSince === undefined ? mark : { ...mark, downSince: undefined };
+  }
+  const downSince = mark.downSince ?? now;
+  const wentDown = Boolean(mark.wentDown) || now - downSince >= RESTART_MIN_DOWN_MS;
+  if (downSince === mark.downSince && wentDown === Boolean(mark.wentDown)) return mark;
+  return { ...mark, downSince, wentDown };
 }
 
 /**
