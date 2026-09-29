@@ -163,6 +163,9 @@ class MigrationRunner:
         self._applied: set[str] = set()
         self._v2_available: bool | None = None
         self.hardening_pending: bool = False
+        # A skipped migration never gets its applied flag, so every status
+        # request finds it again; say so once per process, not on each poll.
+        self._skips_logged: set[str] = set()
 
     # ------------------------------------------------------------------
     # Public API
@@ -691,11 +694,13 @@ class MigrationRunner:
             if successor and successor in known and (
                 successor in pending_versions or successor in self._applied
             ):
-                _LOGGER.info(
-                    "Skipping %s: %s does everything it does.",
-                    migration.version,
-                    successor,
-                )
+                if migration.version not in self._skips_logged:
+                    self._skips_logged.add(migration.version)
+                    _LOGGER.info(
+                        "Skipping %s: %s does everything it does.",
+                        migration.version,
+                        successor,
+                    )
                 continue
             kept.append(migration)
         return kept

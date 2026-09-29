@@ -432,6 +432,17 @@ def test_it_is_skipped_when_its_successor_is_already_applied(runner):
     assert runner._get_pending() == []
 
 
+def test_a_skip_is_logged_once_not_on_every_status_request(runner, caplog):
+    """The skipped one never gets an applied flag, and the panel polls the
+    status: the same line every few seconds filled the journal."""
+    runner._all_migrations = [_superseded("1.6.13", "1.6.14"), _info("1.6.14")]
+    runner._applied = {"1.6.14"}
+    with caplog.at_level("INFO", logger="boneio.migrations.runner"):
+        for _ in range(3):
+            assert runner._get_pending() == []
+    assert sum("Skipping 1.6.13" in r.getMessage() for r in caplog.records) == 1
+
+
 def test_it_still_runs_when_the_successor_is_not_in_this_release(runner):
     """Otherwise the work is dropped rather than deferred — a device on an
     older package would simply never get it."""
