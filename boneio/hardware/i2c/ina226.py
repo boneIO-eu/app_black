@@ -223,6 +223,26 @@ class INA226(AsyncUpdater):
         """
         return self._sensors
 
+    def _read_values(self, keys: list[str]) -> dict[str, float]:
+        """Read the requested measurements from the chip.
+
+        Runs in a worker thread; every access here is a blocking I2C transfer.
+
+        Args:
+            keys: Driver attribute names to read (``current``, ``voltage``, ``power``).
+
+        Returns:
+            The values that could be read. A key is absent when its read failed,
+            so one bad measurement does not cost the others.
+        """
+        out: dict[str, float] = {}
+        for k in keys:
+            try:
+                out[k] = getattr(self._ina, k)
+            except Exception as err:
+                _LOGGER.error("Error reading INA226 %s: %s", k, err)
+        return out
+
     async def async_update(self, timestamp: datetime) -> None:
         """Read sensor values and update all managed sensors.
 
@@ -233,9 +253,23 @@ class INA226(AsyncUpdater):
         Args:
             timestamp: Current timestamp
         """
+        # Off the event loop, as for the INA219: each read is a blocking I2C
+        # transfer behind the bus lock, and a relay write holding that lock
+        # would otherwise stall every timer and the GPIO reader with it.
+        keys = list(self._sensors)
+        try:
+            values = await asyncio.get_running_loop().run_in_executor(
+                None, self._read_values, keys
+            )
+        except Exception as err:
+            _LOGGER.error("Error reading INA226: %s", err)
+            return
+
         for k, sensor in self._sensors.items():
             try:
-                value = getattr(self._ina, k)
+                value = values.get(k)
+                if value is None:
+                    continue
                 _LOGGER.debug(
                     "Fetched INA226 value: %s = %s %s",
                     k, value, sensor.unit_of_measurement,
