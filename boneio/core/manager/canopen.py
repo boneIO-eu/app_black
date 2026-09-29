@@ -36,6 +36,12 @@ HEARTBEAT_INTERVAL = 1.0
 # Node timeout in seconds (consider offline if no heartbeat)
 NODE_TIMEOUT = 5.0
 
+# A bus nobody acknowledges (no other node, no termination) goes bus-off again
+# seconds after every restart. Restarts back off from 2s up to this, and the
+# count resets once the bus has stayed out of bus-off this long after one.
+BUS_OFF_RESTART_MAX_DELAY = 300.0
+BUS_OFF_HEALTHY_RESET = 60.0
+
 
 def _store_sdo_config(config_path: str, config_str: str) -> bool:
     """Replace config.yaml with a payload pushed over CAN, if it would load.
@@ -129,6 +135,9 @@ class CANopenManager:
         self._mode = self._config.get("mode", "master")
         self._auto_setup = self._config.get("auto_setup", True)
         self._restart_on_error = self._config.get("restart_on_error", True)
+        self._bus_off_restarts = 0
+        self._last_bus_off_restart = 0.0
+        self._next_bus_off_restart = 0.0
 
         self._client: CANopenClient | None = None
         self._nodes: dict[int, BoneIOCANNode] = {}
@@ -267,6 +276,39 @@ class CANopenManager:
             _LOGGER.error("Failed to start CANopen manager: %s", e)
             self._running = False
             return False
+
+    async def _handle_bus_state(self, can_state: str, now: float) -> None:
+        """Restart a bus-off interface, backing off while it keeps failing.
+
+        Args:
+            can_state: State reported by the interface (e.g. ``BUS-OFF``).
+            now: Monotonic time of the check.
+        """
+        if can_state != "BUS-OFF":
+            if self._bus_off_restarts and now - self._last_bus_off_restart >= BUS_OFF_HEALTHY_RESET:
+                _LOGGER.info("CAN bus on %s is healthy again", self._channel)
+                self._bus_off_restarts = 0
+            return
+        if now < self._next_bus_off_restart:
+            return
+
+        self._bus_off_restarts += 1
+        delay = min(2.0**self._bus_off_restarts, BUS_OFF_RESTART_MAX_DELAY)
+        self._last_bus_off_restart = now
+        self._next_bus_off_restart = now + delay
+        _LOGGER.warning(
+            "CAN bus-off detected on %s (%d in a row), restarting interface; next restart no sooner than in %.0fs. "
+            "Repeated bus-off usually means no other node acknowledges: check wiring and termination.",
+            self._channel,
+            self._bus_off_restarts,
+            delay,
+        )
+        from boneio.hardware.can.interface import restart_can_interface
+
+        if await restart_can_interface(self._channel, self._bitrate):
+            _LOGGER.info("CAN interface %s restarted successfully", self._channel)
+        else:
+            _LOGGER.error("Failed to restart CAN interface %s", self._channel)
 
     async def _check_node_id_collision(self, listen_seconds: float = 3.0) -> bool:
         """Check if another node on the bus uses the same node_id.
@@ -501,17 +543,7 @@ class CANopenManager:
                     from boneio.hardware.can.interface import get_can_state
 
                     can_state = await get_can_state(self._channel)
-                    if can_state == "BUS-OFF":
-                        _LOGGER.warning(
-                            "CAN bus-off detected on %s, restarting interface",
-                            self._channel,
-                        )
-                        from boneio.hardware.can.interface import restart_can_interface
-
-                        if await restart_can_interface(self._channel, self._bitrate):
-                            _LOGGER.info("CAN interface %s restarted successfully", self._channel)
-                        else:
-                            _LOGGER.error("Failed to restart CAN interface %s", self._channel)
+                    await self._handle_bus_state(can_state, time.monotonic())
 
                 await asyncio.sleep(1.0)
             except asyncio.CancelledError:
