@@ -37,6 +37,10 @@ class User:
     role: Role = Role.ADMIN
     created_at: str = ""
     updated_at: str = ""
+    # Bumped whenever the password changes. Login tokens carry the value they
+    # were issued under, and one that no longer matches is refused, which is
+    # how a password change signs every other session out.
+    session_version: int = 0
 
     def to_dict(self) -> dict:
         """Serialise for ``users.json``.
@@ -50,6 +54,7 @@ class User:
             "role": str(self.role),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "session_version": self.session_version,
         }
 
     @classmethod
@@ -79,12 +84,20 @@ class User:
         except ValueError:
             role = Role.VIEWER
 
+        # Absent in every users.json written before 1.6.0.dev23, and those
+        # accounts' tokens carry no version either: both read as 0.
+        try:
+            session_version = int(raw.get("session_version", 0))
+        except (TypeError, ValueError):
+            session_version = 0
+
         return cls(
             username=username,
             password_hash=password_hash,
             role=role,
             created_at=str(raw.get("created_at", "")),
             updated_at=str(raw.get("updated_at", "")),
+            session_version=session_version,
         )
 
     def to_public_dict(self) -> dict:

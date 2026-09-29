@@ -390,7 +390,11 @@ class UserStore:
         return user
 
     def set_password(self, username: str, password: str) -> User:
-        """Replace an account's password.
+        """Replace an account's password and revoke its sessions.
+
+        Every token issued before the change stops being honoured; the caller
+        that made the change has to be handed a fresh one if it is to stay
+        signed in.
 
         Args:
             username: Account to change.
@@ -413,6 +417,9 @@ class UserStore:
                 raise UserStoreError(f"No such account: {username}")
             user.password_hash = hash_password(password)
             user.updated_at = utc_now()
+            # Signs out every session opened with the old password, the
+            # stolen one being the point.
+            user.session_version += 1
             self._save()
 
         _LOGGER.info("Password changed for account '%s'", user.username)

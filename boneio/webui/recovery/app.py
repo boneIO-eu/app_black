@@ -34,7 +34,7 @@ from boneio.core.recovery import RecoveryReason, describe_config_error
 from boneio.version import __version__
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
-    create_token,
+    issue_token,
     set_allow_anonymous,
     set_jwt_secret,
     set_user_store,
@@ -307,7 +307,7 @@ def build_app(
             raise HTTPException(status_code=401, detail="Invalid credentials")
         login_rate_limiter.reset(*keys)
         state.touch()
-        token = create_token({"sub": user.username, "role": str(user.role)})
+        token = issue_token(user)
         return {"token": token, "role": str(user.role), "username": user.username}
 
     @app.get("/api/auth/required")

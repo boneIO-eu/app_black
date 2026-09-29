@@ -10,6 +10,7 @@ from jwt import PyJWTError as JWTError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
 from boneio.models.events import Event
+from boneio.webui.middleware.auth import resolve_session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -104,6 +105,18 @@ class WebSocketManager:
                 exp = payload.get("exp")
                 if not exp or datetime.fromtimestamp(exp, tz=UTC) < datetime.now(UTC):
                     _LOGGER.debug("Token has expired")
+                    return False
+
+                # The same account check the HTTP API makes. Without it a
+                # socket kept accepting a token for an account that had been
+                # deleted, or whose password had changed since it was issued.
+                role, refusal = resolve_session(payload)
+                if role is None:
+                    _LOGGER.info(
+                        "Refused a WebSocket for '%s': %s",
+                        payload.get("sub", "?"),
+                        refusal,
+                    )
                     return False
 
                 _LOGGER.debug("WebSocket token verified successfully")

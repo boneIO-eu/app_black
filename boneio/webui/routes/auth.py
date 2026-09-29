@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, HTTPException, Request
 
 from boneio.webui.middleware.auth import (
     create_token,
+    issue_token,
     get_auth_config,
     get_user_store,
     is_auth_required,
@@ -98,7 +99,7 @@ async def login(
         # Someone who mistyped twice and then got it right should not carry
         # those failures around for the rest of the window.
         login_rate_limiter.reset(*keys)
-        token = create_token({"sub": user.username, "role": str(user.role)})
+        token = issue_token(user)
         return {"token": token, "role": str(user.role), "username": user.username}
 
     auth_config = get_auth_config()

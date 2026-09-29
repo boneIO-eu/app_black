@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from boneio.core.auth.models import Role
 from boneio.core.auth.store import UserStore, UserStoreError
-from boneio.webui.middleware.auth import get_user_store
+from boneio.webui.middleware.auth import get_user_store, issue_token
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -188,15 +188,20 @@ async def change_role(username: str, payload: RoleChange, request: Request):
 
 
 @router.put("/accounts/{username}/password")
-async def reset_password(username: str, payload: PasswordReset):
+async def reset_password(username: str, payload: PasswordReset, request: Request):
     """Set another account's password, without knowing the old one.
+
+    The change signs that account out everywhere. An administrator resetting
+    their own password this way is signed out too, except for this session,
+    which gets a fresh token back.
 
     Args:
         username: Account to change.
         payload: New password.
+        request: Incoming request, used to identify the caller.
 
     Returns:
-        The updated account.
+        The updated account, plus ``token`` when the caller reset their own.
 
     Raises:
         HTTPException: 400 if the store refuses.
@@ -209,7 +214,10 @@ async def reset_password(username: str, payload: PasswordReset):
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     _LOGGER.info("Password reset for account '%s' by an administrator", user.username)
-    return {"account": user.to_public_dict()}
+    response: dict = {"account": user.to_public_dict()}
+    if user.username == _caller(request):
+        response["token"] = issue_token(user)
+    return response
 
 
 # ------------------------------------------------------------ self-service
@@ -245,8 +253,11 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
         payload: Current and new password.
         request: Incoming request, used to identify the caller.
 
+    The change signs the account out everywhere else; this session carries on
+    with the token in the response.
+
     Returns:
-        Confirmation dictionary.
+        Confirmation dictionary with the replacement token.
 
     Raises:
         HTTPException: 401 if the current password is wrong, 400 if the new one
@@ -265,8 +276,8 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
         raise HTTPException(status_code=401, detail="Current password is incorrect")
 
     try:
-        await asyncio.to_thread(store.set_password, username, payload.new_password)
+        user = await asyncio.to_thread(store.set_password, username, payload.new_password)
     except UserStoreError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    return {"changed": True}
+    return {"changed": True, "token": issue_token(user)}

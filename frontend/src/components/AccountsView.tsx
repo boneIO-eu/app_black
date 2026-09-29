@@ -147,9 +147,15 @@ export default function AccountsView() {
       return;
     }
     try {
-      await axios.put(`/api/accounts/${encodeURIComponent(account.username)}/password`, {
-        password,
-      });
+      const { data } = await axios.put(
+        `/api/accounts/${encodeURIComponent(account.username)}/password`,
+        { password },
+      );
+      // A new password signs the account out everywhere. When it is your own,
+      // that includes this session, unless it adopts the token sent back.
+      if (typeof data?.token === 'string') {
+        localStorage.setItem('token', data.token);
+      }
       setNotice(t('accounts.password_reset', { username: account.username }));
     } catch (err: unknown) {
       setError(errorMessage(err, t('accounts.password_failed')));

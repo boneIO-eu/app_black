@@ -24,7 +24,7 @@ from boneio.core.auth.models import Role
 from boneio.core import system_ops
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.version import __version__
-from boneio.webui.middleware.auth import create_token
+from boneio.webui.middleware.auth import issue_token
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ async def create_first_admin(payload: FirstAdminRequest):
 
     ssh = await asyncio.to_thread(_set_service_password, payload.password)
 
-    token = create_token({"sub": user.username, "role": str(user.role)})
+    token = issue_token(user)
     return {"user": user.to_public_dict(), "token": token, "ssh": ssh}
 
 

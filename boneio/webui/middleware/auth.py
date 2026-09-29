@@ -18,6 +18,7 @@ from boneio.core.auth.models import Role
 from boneio.webui.middleware import policy
 
 if TYPE_CHECKING:
+    from boneio.core.auth.models import User
     from boneio.core.auth.store import UserStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,11 +30,12 @@ _JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
 # How long a login token stays valid. This is the interval at which a user has
 # to re-enter their password, so it is kept long: the password check is a
 # deliberately expensive scrypt hash (~0.9 s on a BeagleBone) and this is the
-# only thing that keeps that cost off the everyday path. The tradeoff is that a
-# leaked token stays usable until it expires — there is no per-token server-side
-# revocation, only logout (client-side) or rotating the JWT secret (logs
-# everyone out). For a LAN device with a handful of trusted users that is an
-# acceptable trade for not typing a password every week.
+# only thing that keeps that cost off the everyday path.
+#
+# A long-lived token is only tolerable because it can be cut short. Each token
+# carries the account's session version (`ver`), and changing the password
+# bumps it, so every token issued before the change stops working at once —
+# a leaked one included.
 TOKEN_TTL_DAYS = 30
 
 # Auth configuration - will be set by init_app
@@ -174,6 +176,23 @@ def create_token(data: dict) -> str:
     return encoded_jwt
 
 
+def issue_token(user: User) -> str:
+    """Sign a login token for an account in the store.
+
+    Every route that signs somebody in comes through here, so the claims the
+    middleware relies on are always present.
+
+    Args:
+        user: The account, as the store holds it now.
+
+    Returns:
+        Encoded JWT carrying the username, the role and the session version.
+    """
+    return create_token(
+        {"sub": user.username, "role": str(user.role), "ver": user.session_version}
+    )
+
+
 def verify_token(token: str) -> dict | None:
     """
     Verify a JWT token.
@@ -297,19 +316,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Invalid authorization header format"}
             )
 
-        role = _resolve_role(payload)
+        role, refusal = resolve_session(payload)
         if role is None:
-            # The account behind this token is gone. Tokens live for weeks, so
-            # without this a deleted account keeps its access until expiry.
+            # Tokens live for weeks, so without this a deleted account, or one
+            # whose password has since changed, keeps its access until expiry.
             _LOGGER.warning(
-                "Rejected a token for '%s': the account no longer exists",
+                "Rejected a token for '%s': %s",
                 payload.get("sub", "?"),
+                "the account no longer exists"
+                if refusal == "account_gone"
+                else "its password has changed since it was issued",
             )
             return JSONResponse(
                 status_code=401,
                 content={
-                    "detail": "This account no longer exists.",
-                    "code": "account_gone",
+                    "detail": _REFUSAL_DETAIL[refusal],
+                    "code": refusal,
                 },
             )
 
@@ -351,7 +373,7 @@ def _attach_identity_if_present(request: Request) -> None:
         payload = verify_token(token.strip())
         if payload is None:
             return
-        role = _resolve_role(payload)
+        role, _ = resolve_session(payload)
         if role is None:
             return
         request.state.user = payload.get("sub")
@@ -360,39 +382,70 @@ def _attach_identity_if_present(request: Request) -> None:
         return
 
 
-def _resolve_role(payload: dict) -> Role | None:
+# What the caller is told when resolve_session() refuses a token.
+_REFUSAL_DETAIL = {
+    "account_gone": "This account no longer exists.",
+    "session_revoked": "The password has changed since you signed in. Sign in again.",
+}
+
+
+def resolve_session(payload: dict) -> tuple[Role | None, str | None]:
     """The caller's *current* role, looked up rather than taken on trust.
 
     The token carries a role claim, but it is only a claim: tokens are valid
     for weeks, so an account deleted or demoted in the meantime would keep the
-    privilege it was issued with until expiry. There is no per-token
-    revocation, so the store is consulted on every request instead — an
-    in-memory dict lookup, and one the request already pays for via
-    is_auth_required(). The token proves who you are; the store decides what
-    that is currently worth.
+    privilege it was issued with until expiry. The store is consulted on every
+    request instead — an in-memory dict lookup, and one the request already
+    pays for via is_auth_required(). The token proves who you are; the store
+    decides what that is currently worth.
 
-    The claim is still the answer on a device that is not provisioned, where
-    the caller authenticated against a legacy web.auth pair that was never in
-    users.json.
+    The same lookup is where a token is revoked: its ``ver`` claim has to match
+    the account's session version, which a password change bumps. A token
+    without the claim predates it and counts as version 0, which every account
+    starts at, so upgrading does not sign anybody out.
+
+    The role claim is still the answer on a device that is not provisioned,
+    where the caller authenticated against a legacy web.auth pair that was
+    never in users.json.
 
     Args:
         payload: Verified JWT payload.
 
     Returns:
-        The role to enforce, or None if the account is gone and the request
-        should be rejected.
+        ``(role, None)`` when the token is good, or ``(None, code)`` when the
+        request should be rejected — ``account_gone`` or ``session_revoked``.
     """
     store = _user_store
     if store is not None:
         try:
             if store.is_provisioned():
                 user = store.get_user(str(payload.get("sub", "")))
-                return user.role if user is not None else None
+                if user is None:
+                    return None, "account_gone"
+                if _token_version(payload) != user.session_version:
+                    return None, "session_revoked"
+                return user.role, None
         except Exception as err:  # noqa: BLE001 - never fail open on a read error
             _LOGGER.error("Cannot read the account store: %s", err)
-            return None
+            return None, "account_gone"
 
-    return _role_from_payload(payload)
+    return _role_from_payload(payload), None
+
+
+def _token_version(payload: dict) -> int | None:
+    """The session version a token was issued under.
+
+    Args:
+        payload: Verified JWT payload.
+
+    Returns:
+        The version, 0 for a token issued before versions existed, or None for
+        a claim that is not a whole number — which then matches no account.
+    """
+    raw = payload.get("ver", 0)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw
 
 
 def _role_from_payload(payload: dict) -> Role:
