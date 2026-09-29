@@ -99,7 +99,7 @@ async def login(
         user = await asyncio.to_thread(store.verify_credentials, username, password)
         if user is None:
             login_rate_limiter.record_failures(*keys)
-            _LOGGER.warning("Failed login attempt for user: %s", username)
+            _LOGGER.warning("Failed login attempt for user: %s from %s", username, client)
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
         # Someone who mistyped twice and then got it right should not carry
@@ -137,7 +137,7 @@ async def login(
         return {"token": token, "role": "admin", "username": username}
 
     login_rate_limiter.record_failures(*keys)
-    _LOGGER.warning("Failed login attempt for user: %s", username)
+    _LOGGER.warning("Failed login attempt for user: %s from %s", username, client)
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 

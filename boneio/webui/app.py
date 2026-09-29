@@ -46,6 +46,7 @@ from boneio.models.events import (
 from boneio.models.state import ModbusDeviceState
 from boneio.version import __version__
 from boneio.webui.middleware.csrf import CSRFMiddleware
+from boneio.webui.middleware.proxy import TrustedProxyMiddleware
 from boneio.webui.security_headers import apply_security_headers
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
@@ -997,6 +998,10 @@ def init_app(
 
     # Add GZip compression
     app.add_middleware(GZipMiddleware, minimum_size=500)
+
+    # Last added runs first: the real client address has to be in place before
+    # anything reads it — the login throttle, the logs, the auth middleware.
+    app.add_middleware(TrustedProxyMiddleware)
 
     return app
 

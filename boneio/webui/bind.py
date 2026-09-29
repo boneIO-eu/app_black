@@ -18,6 +18,7 @@ belongs to Docker and an operator can change it in daemon.json.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import ssl
@@ -109,6 +110,30 @@ def _addresses_of(prefixes: tuple[str, ...]) -> list[str]:
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not enumerate network interfaces: %s", err)
     return sorted(set(addresses))
+
+
+def docker_bridge_networks() -> list[ipaddress.IPv4Network]:
+    """The IPv4 networks of the host's Docker bridges.
+
+    Containers talk to the host from inside these — the reverse proxy among
+    them — so a request arriving from one came from this controller, not from
+    the LAN.
+
+    Returns:
+        Networks, deduplicated, or an empty list when none can be found.
+    """
+    networks: set[ipaddress.IPv4Network] = set()
+    try:
+        for name, addrs in psutil.net_if_addrs().items():
+            if not name.startswith(_BRIDGE_PREFIXES):
+                continue
+            for addr in addrs:
+                if int(getattr(addr, "family", 0)) != 2 or not addr.address or not addr.netmask:
+                    continue
+                networks.add(ipaddress.IPv4Network(f"{addr.address}/{addr.netmask}", strict=False))
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning("Could not enumerate network interfaces: %s", err)
+    return sorted(networks)
 
 
 #: How long to wait for a Docker bridge to appear before giving up on it.
