@@ -1,5 +1,15 @@
-import { useState, useEffect, FormEvent, useRef } from 'react';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useState, useEffect, FormEvent, useRef, type DragEvent, type ReactNode } from 'react';
+import {
+  FaCheck,
+  FaCloud,
+  FaEye,
+  FaEyeSlash,
+  FaFileArchive,
+  FaFileImport,
+  FaRocket,
+  FaSlidersH,
+  FaUserShield,
+} from 'react-icons/fa';
 import type { AxiosError } from 'axios';
 import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
@@ -22,6 +32,10 @@ import {
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import Logo from './Logo';
+// Straight from the files, not the UISettings/ui barrel: the wizard is in the
+// entry chunk, and the barrel would drag the whole settings kit in with it.
+import { NoticeCallout } from './UISettings/ui/NoticeCallout';
+import { ToggleRow } from './UISettings/ui/ToggleRow';
 
 /** Shape of the error bodies the onboarding and restore routes return. */
 type ApiError = AxiosError<{ detail?: string }>;
@@ -46,6 +60,22 @@ interface BindingTargets {
   outputs: number;
   covers: number;
   available_modes: InputMode[];
+}
+
+/** The chip each step's header carries. `done` draws its own checkmark. */
+const STEP_ICONS: Record<Exclude<Step, 'done'>, ReactNode> = {
+  welcome: <FaRocket />,
+  account: <FaUserShield />,
+  import: <FaFileImport />,
+  devices: <FaSlidersH />,
+  cloud: <FaCloud />,
+};
+
+/** "12.4 kB" — enough to tell a config archive from the wrong file at a glance. */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /**
@@ -102,8 +132,9 @@ export default function OnboardingWizard() {
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [cloudDone, setCloudDone] = useState<'live' | 'deferred' | false>(false);
   const [isEnablingCloud, setIsEnablingCloud] = useState(false);
+  // Set while a file is dragged over the drop zone, so it can light up.
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const activeStepRef = useRef<HTMLLIElement>(null);
 
   const configuredBefore = initData?.configured_before ?? false;
   // Latched as the wizard opens. /api/init is polled, and enabling cloud on
@@ -141,12 +172,6 @@ export default function OnboardingWizard() {
       : null;
 
   const accountIncomplete = !username || !password || !confirmPassword;
-
-  // Keep the current step on screen when the row is too wide to fit.
-  // `nearest` so a step that is already visible does not jump.
-  useEffect(() => {
-    activeStepRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [step]);
 
   const previousStep = previousStepFor(step, importDone, configuredBefore, cloudEnabled);
 
@@ -249,6 +274,14 @@ export default function OnboardingWizard() {
     }
 
     setImportFile(file);
+  };
+
+  // A dropped file goes through the same checks as a picked one.
+  const handleDrop = (e: DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (isImporting) return;
+    handleSelectImportFile(e.dataTransfer.files?.[0] ?? null);
   };
 
   const handleImport = async () => {
@@ -363,88 +396,155 @@ export default function OnboardingWizard() {
     window.location.reload();
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-base-100 p-3 sm:p-4">
-      <div className="max-w-xl w-full space-y-6 p-6 sm:p-8 bg-base-100 rounded-lg shadow-lg animate-in fade-in zoom-in-95 duration-500 ease-out">
-        {/* The wizard is the first screen a new owner sees, so the language and
-            theme pickers have to live here — the header that normally carries
-            them only exists once onboarding is done. */}
-        <div className="flex justify-end items-center gap-1 -mb-4">
-          <ThemeChanger />
-          <LanguageSelector />
-        </div>
+  // Every step opens the same way as a settings card: its chip, what it is
+  // called, and one line on what it is for.
+  const stepHeader = (name: Exclude<Step, 'done'>, intro: string) => (
+    <div className="flex items-start gap-3.5">
+      <div className="stg-chip w-11 h-11 rounded-xl flex items-center justify-center text-lg shrink-0">
+        {STEP_ICONS[name]}
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold leading-tight">{t(`onboarding.heading_${name}`)}</h2>
+        <p className="mt-1 text-sm text-base-content/70 leading-relaxed">{intro}</p>
+      </div>
+    </div>
+  );
 
-        <div className="flex flex-col items-center">
+  const stepCounter = t('onboarding.step_counter', {
+    current: stepIndex + 1,
+    total: steps.length,
+  });
+
+  return (
+    // Same shell as the login screen, which is what the owner sees next: on a
+    // phone the wizard is the page, edge to edge, with its buttons pinned to
+    // the bottom; from sm up it is a card on the app's tinted field.
+    <div className="min-h-dvh flex flex-col sm:items-center sm:justify-center stg-backdrop sm:p-6">
+      {/* The wizard is the first screen a new owner sees, so the language and
+          theme pickers have to live here — the header that normally carries
+          them only exists once onboarding is done. Absolute, not fixed as
+          on the login: several steps run taller than a phone screen, and
+          fixed icons would sit over the text scrolling under them. */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+        <ThemeChanger />
+        <LanguageSelector />
+      </div>
+
+      <main className="flex-1 sm:flex-none flex flex-col w-full sm:max-w-xl bg-base-100 px-5 pt-16 pb-6 sm:p-8 sm:rounded-2xl sm:border sm:border-base-content/10 sm:shadow-xl animate-in fade-in sm:zoom-in-95 duration-500 ease-out">
+        <div className="flex flex-col items-center text-center">
           {/* Slightly behind the card, so the mark settles into a frame that is
               already there rather than racing it. */}
-          <div className="w-28 animate-in fade-in slide-in-from-top-2 duration-700 delay-150 fill-mode-backwards">
+          <div className="w-24 sm:w-28 animate-in fade-in slide-in-from-top-2 duration-700 delay-150 fill-mode-backwards">
             <Logo />
           </div>
           {/* Brand name, not copy — deliberately not translated. */}
           <span className="mt-1 text-xs font-semibold tracking-[0.35em] uppercase opacity-60">
             Black
           </span>
-          <h1 className="mt-4 text-center text-2xl font-extrabold">
-            {t('onboarding.title')}
-          </h1>
+          <h1 className="mt-5 text-xl sm:text-2xl font-bold">{t('onboarding.title')}</h1>
+          {/* With several fresh controllers on one network, this says which
+              one is about to get an owner. */}
+          {initData?.name && (
+            <p className="mt-1 text-sm text-base-content/60 break-words">{initData.name}</p>
+          )}
         </div>
 
-        {/* Six labelled steps want ~360px and a 375px phone leaves 295px
-            inside the card, so the labels are dropped there and the current
-            one is spelled out underneath instead. Numbers alone still show
-            how far along the wizard is, and nothing gets clipped. */}
-        <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
-          <ul className="steps wizard-steps text-xs w-full">
+        {/* One segment per step: it fits a 320px phone at any step count,
+            which the numbered daisyUI row did not. The names come in from sm
+            up; on a phone the current one is spelled out beside the counter. */}
+        <div className="mt-6">
+          <div className="flex items-baseline justify-between gap-3 mb-2 text-xs">
+            <span className="font-semibold uppercase tracking-[0.08em] text-base-content/50">
+              {stepCounter}
+            </span>
+            <span className="sm:hidden font-medium text-base-content/70 truncate">
+              {t(`onboarding.step_${step}`)}
+            </span>
+          </div>
+          <ol className="flex gap-1.5" aria-label={stepCounter}>
             {steps.map((name, index) => (
               <li
                 key={name}
-                ref={index === stepIndex ? activeStepRef : undefined}
-                className={`step ${index <= stepIndex ? 'step-primary' : ''}`}
+                className="flex-1 min-w-0"
+                aria-current={index === stepIndex ? 'step' : undefined}
               >
-                <span className="hidden sm:inline">{t(`onboarding.step_${name}`)}</span>
+                <div
+                  className={`h-1.5 rounded-full transition-colors duration-500 ${
+                    index <= stepIndex ? 'bg-primary' : 'bg-base-content/10'
+                  }`}
+                />
+                <span
+                  className={`hidden sm:block mt-1.5 text-[11px] truncate transition-colors ${
+                    index === stepIndex
+                      ? 'font-semibold text-base-content'
+                      : index < stepIndex
+                        ? 'text-base-content/60'
+                        : 'text-base-content/40'
+                  }`}
+                >
+                  {t(`onboarding.step_${name}`)}
+                </span>
               </li>
             ))}
-          </ul>
-        </div>
-
-        <div className="sm:hidden text-center text-xs opacity-70 -mt-3">
-          {t('onboarding.step_counter', {
-            current: stepIndex + 1,
-            total: steps.length,
-          })}{' '}
-          · {t(`onboarding.step_${step}`)}
+          </ol>
         </div>
 
         {/* Reserve the tallest step's height so the card does not resize from
-            step to step. Measured across both languages at 375px and at the
-            576px the card maxes out at; the worst case is the devices step on
-            a cover_mix board in Polish, where every mode is on offer at once
-            (481px on a phone, 375px on a desktop). Both values leave a little
-            room for an inline error growing a step by a line.
+            step to step. Only from sm up: on a phone the page itself is the
+            card, the step fills whatever is left of the screen and the
+            buttons sit at the bottom of it either way.
+            Measured in Polish at the 576px the card maxes out at. Tallest is
+            the account step once the server has refused it (574px with a
+            one-line error), then its inline hints (545px), the devices step
+            on a cover_mix board where every mode is on offer at once (532px)
+            and the welcome step (525px). An error running to a second line
+            still grows the card a little.
+            On a short screen the floor gives way: header, progress bar and
+            paddings take about 19rem, and a 768px laptop would otherwise
+            push even the shortest step's buttons below the fold.
             A floor, not a cap: a step that somehow runs taller still grows.
-            Re-measure when a step gains content — the reserved area's own
-            height is what keeps the card still. */}
-        <div className="min-h-[32rem] sm:min-h-[24rem] flex">
+            Re-measure when a step gains content. */}
+        <div className="mt-6 flex-1 flex sm:min-h-[min(36rem,calc(100dvh_-_19rem))]">
         {step === 'welcome' && (
-          <div className={`space-y-4 flex-1 flex flex-col ${stepEnter}`}>
-            <p className="text-sm opacity-80">
-              {/* An upgraded device keeps its configuration; saying otherwise
-                  reads as though the update threw it away. */}
-              {t(configuredBefore ? 'onboarding.welcome_intro_upgraded' : 'onboarding.welcome_intro')}
-            </p>
+          <div className={`flex-1 flex flex-col gap-4 ${stepEnter}`}>
+            {/* An upgraded device keeps its configuration; saying otherwise
+                reads as though the update threw it away. */}
+            {stepHeader(
+              'welcome',
+              t(configuredBefore ? 'onboarding.welcome_intro_upgraded' : 'onboarding.welcome_intro'),
+            )}
 
-            <div className="alert alert-warning text-sm">
-              <span>{t('onboarding.welcome_why')}</span>
+            <NoticeCallout variant="warning" message={t('onboarding.welcome_why')} />
+
+            {/* What the rest of the wizard holds, so "Start" does not lead
+                into the unknown. The closing step is not a task, so it is
+                left off. */}
+            <div className="stg-inset p-3.5 sm:p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-base-content/50 mb-3">
+                {t('onboarding.welcome_plan')}
+              </div>
+              <ol className="space-y-2.5">
+                {steps
+                  .filter((name): name is Exclude<Step, 'welcome' | 'done'> =>
+                    name !== 'welcome' && name !== 'done',
+                  )
+                  .map((name) => (
+                    <li key={name} className="flex items-center gap-3 text-sm">
+                      <span className="stg-chip-neutral w-8 h-8 rounded-lg flex items-center justify-center text-[13px] shrink-0">
+                        {STEP_ICONS[name]}
+                      </span>
+                      <span>{t(`onboarding.heading_${name}`)}</span>
+                    </li>
+                  ))}
+              </ol>
             </div>
 
             {/* Pinned as a pair, and pinned on the wrapper rather than on the
                 caption: /api/init can be slow or absent, and the button must
                 not drift up the card just because the version line is late. */}
-            <div className="mt-auto space-y-4">
+            <div className="mt-auto space-y-3">
               {initData && (
-                <div className="text-xs opacity-60 text-center">
-                  {initData.name} · v{initData.version}
-                </div>
+                <div className="text-xs text-base-content/50 text-center">v{initData.version}</div>
               )}
 
               <button className="btn btn-primary w-full" onClick={() => goTo('account')}>
@@ -455,105 +555,122 @@ export default function OnboardingWizard() {
         )}
 
         {step === 'account' && (
-          <form className={`space-y-4 flex-1 flex flex-col ${stepEnter}`} onSubmit={handleCreateAccount}>
-            <p className="text-sm opacity-80">{t('onboarding.account_intro')}</p>
+          <form className={`flex-1 flex flex-col gap-4 ${stepEnter}`} onSubmit={handleCreateAccount}>
+            {stepHeader('account', t('onboarding.account_intro'))}
 
-            <div className="w-full">
-              <label htmlFor="onboarding-username" className="block text-sm mb-1">
-                {t('onboarding.username')}
-              </label>
-              <input
-                id="onboarding-username"
-                type="text"
-                className="input w-full"
-                autoComplete="username"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-
-            <div className="w-full">
-              <label htmlFor="onboarding-password" className="block text-sm mb-1">
-                {t('onboarding.password')}
-              </label>
-              <div className="relative">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="onboarding-username" className="text-sm font-medium">
+                  {t('onboarding.username')}
+                </label>
                 <input
-                  id="onboarding-password"
+                  id="onboarding-username"
+                  type="text"
+                  className="input input-lg w-full text-base"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="onboarding-password" className="text-sm font-medium">
+                  {t('onboarding.password')}
+                </label>
+                {/* daisyUI styles a wrapper holding an input as the input
+                    itself, focus ring included, which leaves room for the eye
+                    button — the same field as on the login screen. The error
+                    colour goes on the wrapper, since that is what draws the
+                    border; the ARIA state stays on the input it describes. */}
+                <div className={`input input-lg w-full pr-1 ${usernameInPassword ? 'input-error' : ''}`}>
+                  <input
+                    id="onboarding-password"
+                    type={showPassword ? 'text' : 'password'}
+                    className="grow text-base"
+                    autoComplete="new-password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    aria-invalid={usernameInPassword ? true : undefined}
+                    aria-describedby={usernameInPassword ? 'onboarding-password-error' : undefined}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  {/* One toggle for both fields: they must end up identical, so
+                      revealing them separately would only hide the mismatch. */}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-square btn-sm h-10 w-10"
+                    aria-label={
+                      showPassword ? t('onboarding.hide_password') : t('onboarding.show_password')
+                    }
+                    aria-pressed={showPassword}
+                    title={showPassword ? t('onboarding.hide_password') : t('onboarding.show_password')}
+                    // Out of the tab order on purpose: Tab goes from the password
+                    // straight to its confirmation, which is what somebody typing
+                    // a password they just invented is about to do. The button is
+                    // still clickable and still announced, since aria-label and
+                    // aria-pressed do not depend on tab order.
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <FaEyeSlash className="h-5 w-5 opacity-70" />
+                    ) : (
+                      <FaEye className="h-5 w-5 opacity-70" />
+                    )}
+                  </button>
+                </div>
+                {usernameInPassword ? (
+                  <p id="onboarding-password-error" className="text-error text-xs">
+                    {usernameInPassword}
+                  </p>
+                ) : (
+                  <p className="text-xs text-base-content/55">
+                    {t('onboarding.password_hint', { min: MIN_PASSWORD_LENGTH })}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="onboarding-confirm" className="text-sm font-medium">
+                  {t('onboarding.confirm_password')}
+                </label>
+                <input
+                  id="onboarding-confirm"
                   type={showPassword ? 'text' : 'password'}
-                  className={`input w-full pr-12 ${usernameInPassword ? 'input-error' : ''}`}
+                  className={`input input-lg w-full text-base ${confirmProblem ? 'input-error' : ''}`}
                   autoComplete="new-password"
                   required
-                  minLength={MIN_PASSWORD_LENGTH}
-                  aria-invalid={usernameInPassword ? true : undefined}
-                  aria-describedby={usernameInPassword ? 'onboarding-password-error' : undefined}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  aria-invalid={confirmProblem ? true : undefined}
+                  aria-describedby={confirmProblem ? 'onboarding-confirm-error' : undefined}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setConfirmTouched(true);
+                  }}
                 />
-                {/* One toggle for both fields: they must end up identical, so
-                    revealing them separately would only hide the mismatch. */}
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm absolute right-1 top-1/2 -translate-y-1/2"
-                  aria-label={
-                    showPassword ? t('onboarding.hide_password') : t('onboarding.show_password')
-                  }
-                  aria-pressed={showPassword}
-                  // Out of the tab order on purpose: Tab goes from the password
-                  // straight to its confirmation, which is what somebody typing
-                  // a password they just invented is about to do. The button is
-                  // still clickable and still announced, since aria-label and
-                  // aria-pressed do not depend on tab order.
-                  tabIndex={-1}
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FaEyeSlash className="w-4 h-4" /> : <FaEye className="w-4 h-4" />}
-                </button>
+                {confirmProblem && (
+                  <p id="onboarding-confirm-error" className="text-error text-xs">
+                    {confirmProblem}
+                  </p>
+                )}
               </div>
-              {usernameInPassword ? (
-                <p id="onboarding-password-error" className="text-error text-xs mt-1">
-                  {usernameInPassword}
-                </p>
-              ) : (
-                <p className="text-xs opacity-60 mt-1">
-                  {t('onboarding.password_hint', { min: MIN_PASSWORD_LENGTH })}
-                </p>
-              )}
-            </div>
-
-            <div className="w-full">
-              <label htmlFor="onboarding-confirm" className="block text-sm mb-1">
-                {t('onboarding.confirm_password')}
-              </label>
-              <input
-                id="onboarding-confirm"
-                type={showPassword ? 'text' : 'password'}
-                className={`input w-full ${confirmProblem ? 'input-error' : ''}`}
-                autoComplete="new-password"
-                required
-                aria-invalid={confirmProblem ? true : undefined}
-                aria-describedby={confirmProblem ? 'onboarding-confirm-error' : undefined}
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setConfirmTouched(true);
-                }}
-              />
-              {confirmProblem && (
-                <p id="onboarding-confirm-error" className="text-error text-xs mt-1">
-                  {confirmProblem}
-                </p>
-              )}
             </div>
 
             {/* Said before the password is sent, not after. It becomes the
                 root-capable SSH login as well, and somebody choosing a
                 password deserves to know what it will open. */}
-            <div className="alert alert-info text-xs">
-              <span>{t('onboarding.ssh_password_notice')}</span>
-            </div>
+            <NoticeCallout variant="info" message={t('onboarding.ssh_password_notice')} />
 
-            {error && <div className="text-error text-sm text-center">{error}</div>}
+            {error && (
+              <div role="alert">
+                <NoticeCallout variant="error" message={error} />
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2 mt-auto">
               {previousStep && (
@@ -576,34 +693,82 @@ export default function OnboardingWizard() {
         )}
 
         {step === 'import' && (
-          <div className={`space-y-4 flex-1 flex flex-col ${stepEnter}`}>
-            <p className="text-sm opacity-80">{t('onboarding.import_intro')}</p>
+          <div className={`flex-1 flex flex-col gap-4 ${stepEnter}`}>
+            {stepHeader('import', t('onboarding.import_intro'))}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".tar.gz,.tgz,application/gzip"
-              className="file-input file-input-bordered w-full"
-              onChange={(e) => handleSelectImportFile(e.target.files?.[0] ?? null)}
-            />
+            {/* A drop zone around the native input rather than daisyUI's
+                file-input, whose "Choose file / No file chosen" comes from the
+                browser in the browser's language, not the panel's. The input
+                is visually hidden but not removed, so Tab still reaches it and
+                Enter still opens the picker; the ring follows it. Children
+                ignore the pointer so dragging across them does not fire
+                dragleave on the zone and make it flicker. */}
+            <label
+              htmlFor="onboarding-import-file"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={`flex flex-col items-center justify-center gap-2 text-center rounded-xl border-2 border-dashed px-4 py-7 cursor-pointer transition-colors *:pointer-events-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${
+                isDragging
+                  ? 'border-primary bg-primary/5'
+                  : importFile
+                    ? 'border-primary/40 bg-primary/[0.03]'
+                    : 'border-base-content/15 hover:border-primary/40 hover:bg-primary/[0.03]'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                id="onboarding-import-file"
+                type="file"
+                accept=".tar.gz,.tgz,application/gzip"
+                className="sr-only"
+                disabled={isImporting}
+                onChange={(e) => handleSelectImportFile(e.target.files?.[0] ?? null)}
+              />
+              <span
+                className={`${importFile ? 'stg-chip' : 'stg-chip-neutral'} w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-1`}
+              >
+                <FaFileArchive />
+              </span>
+              {importFile ? (
+                <>
+                  <span className="text-sm font-medium break-all">{importFile.name}</span>
+                  <span className="text-xs text-base-content/55">
+                    {formatSize(importFile.size)} · {t('onboarding.import_change')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm font-medium">{t('onboarding.import_choose')}</span>
+                  <span className="text-xs text-base-content/55">{t('onboarding.import_formats')}</span>
+                </>
+              )}
+            </label>
 
-            {importError && <div className="text-error text-sm">{importError}</div>}
+            {importError && <NoticeCallout variant="error" message={importError} />}
 
             {importDone && (
-              <div className="alert alert-success text-sm animate-in fade-in zoom-in-95 duration-200">
-                <span>{t('onboarding.import_done')}</span>
-              </div>
+              <NoticeCallout
+                variant="success"
+                message={t('onboarding.import_done')}
+                className="animate-in fade-in zoom-in-95 duration-200"
+              />
             )}
 
             {importWarning && (
-              <div className="alert alert-warning text-sm animate-in fade-in zoom-in-95 duration-200">
-                <span>{importWarning}</span>
-              </div>
+              <NoticeCallout
+                variant="warning"
+                message={importWarning}
+                className="animate-in fade-in zoom-in-95 duration-200"
+              />
             )}
 
             {/* Say it here rather than letting "Next" quietly jump two steps. */}
             {importDone && (
-              <p className="text-xs opacity-70">{t('onboarding.import_skips_rest')}</p>
+              <p className="text-xs text-base-content/60">{t('onboarding.import_skips_rest')}</p>
             )}
 
             <div className="flex gap-2 mt-auto">
@@ -628,10 +793,10 @@ export default function OnboardingWizard() {
         )}
 
         {step === 'devices' && (
-          <div className={`space-y-4 flex-1 flex flex-col ${stepEnter}`}>
-            <p className="text-sm opacity-80">{t('onboarding.devices_intro')}</p>
+          <div className={`flex-1 flex flex-col gap-4 ${stepEnter}`}>
+            {stepHeader('devices', t('onboarding.devices_intro'))}
 
-            {targetsError && <div className="text-error text-sm">{targetsError}</div>}
+            {targetsError && <NoticeCallout variant="error" message={targetsError} />}
 
             {!targets && !targetsError && (
               <div className="flex justify-center py-6">
@@ -641,29 +806,32 @@ export default function OnboardingWizard() {
 
             {targets && (
               <>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-primary mt-0.5"
-                    checked={restoreState}
-                    onChange={(e) => {
-                      setRestoreState(e.target.checked);
-                      setDevicesDone(false);
-                    }}
-                  />
-                  <span className="text-sm">{t('onboarding.devices_restore_state')}</span>
-                </label>
+                <ToggleRow
+                  checked={restoreState}
+                  onChange={(checked) => {
+                    setRestoreState(checked);
+                    setDevicesDone(false);
+                  }}
+                  label={t('onboarding.devices_restore_state')}
+                  className="p-3 sm:p-3.5"
+                />
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {/* Only the modes this board can honour: a cover board has no
                       plain relays, a relay board no covers until two are
-                      paired, so the backend decides what is on offer. */}
+                      paired, so the backend decides what is on offer.
+                      Native radios inside the cards, so arrow keys move
+                      between them and the card lights up from the input's own
+                      state rather than from a click handler. */}
                   {targets.available_modes.map((mode) => (
-                    <label key={mode} className="flex items-start gap-3 cursor-pointer">
+                    <label
+                      key={mode}
+                      className="flex items-center gap-3 px-3.5 py-3 rounded-xl border border-base-content/10 bg-base-100 cursor-pointer select-none transition-colors hover:border-base-content/20 has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5 has-[:checked]:ring-1 has-[:checked]:ring-primary/20 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40"
+                    >
                       <input
                         type="radio"
                         name="onboarding-input-mode"
-                        className="radio radio-primary mt-0.5"
+                        className="radio radio-primary radio-sm shrink-0"
                         checked={inputMode === mode}
                         onChange={() => {
                           setInputMode(mode);
@@ -680,7 +848,7 @@ export default function OnboardingWizard() {
                   ))}
                 </div>
 
-                <div className="text-xs opacity-60">
+                <div className="text-xs text-base-content/55">
                   {t('onboarding.devices_summary', {
                     device: targets.device_type ?? '—',
                     inputs: targets.free_inputs,
@@ -693,19 +861,19 @@ export default function OnboardingWizard() {
                     already happened is noise, and it makes room for the
                     confirmation without the card growing much. */}
                 {inputMode !== 'none' && !devicesDone && (
-                  <div className="alert alert-warning text-sm">
-                    <span>{t('onboarding.devices_replace_warning')}</span>
-                  </div>
+                  <NoticeCallout variant="warning" message={t('onboarding.devices_replace_warning')} />
                 )}
               </>
             )}
 
-            {devicesError && <div className="text-error text-sm">{devicesError}</div>}
+            {devicesError && <NoticeCallout variant="error" message={devicesError} />}
 
             {devicesDone && (
-              <div className="alert alert-success text-sm animate-in fade-in zoom-in-95 duration-200">
-                <span>{t('onboarding.devices_done')}</span>
-              </div>
+              <NoticeCallout
+                variant="success"
+                message={t('onboarding.devices_done')}
+                className="animate-in fade-in zoom-in-95 duration-200"
+              />
             )}
 
             <div className="flex flex-wrap gap-2 mt-auto">
@@ -730,28 +898,30 @@ export default function OnboardingWizard() {
         )}
 
         {step === 'cloud' && (
-          <div className={`space-y-4 flex-1 flex flex-col ${stepEnter}`}>
-            <p className="text-sm opacity-80">{t('onboarding.cloud_intro')}</p>
+          <div className={`flex-1 flex flex-col gap-4 ${stepEnter}`}>
+            {stepHeader('cloud', t('onboarding.cloud_intro'))}
 
-            <ul className="text-sm opacity-80 list-disc list-inside space-y-1">
-              <li>{t('onboarding.cloud_benefit_ssl')}</li>
-              <li>{t('onboarding.cloud_benefit_pwa')}</li>
+            <ul className="stg-inset p-3.5 sm:p-4 space-y-2.5">
+              {[t('onboarding.cloud_benefit_ssl'), t('onboarding.cloud_benefit_pwa')].map((benefit) => (
+                <li key={benefit} className="flex items-start gap-2.5 text-sm">
+                  <FaCheck className="text-success text-xs mt-1 shrink-0" aria-hidden="true" />
+                  <span>{benefit}</span>
+                </li>
+              ))}
             </ul>
 
-            <div className="alert alert-warning text-sm">
-              <span>{t('onboarding.cloud_caveat')}</span>
-            </div>
+            <NoticeCallout variant="warning" message={t('onboarding.cloud_caveat')} />
 
-            {cloudError && <div className="text-error text-sm">{cloudError}</div>}
+            {cloudError && <NoticeCallout variant="error" message={cloudError} />}
 
             {cloudDone && (
-              <div className="alert alert-success text-sm animate-in fade-in zoom-in-95 duration-200">
-                <span>
-                  {t(cloudDone === 'deferred'
-                    ? 'onboarding.cloud_done_deferred'
-                    : 'onboarding.cloud_done')}
-                </span>
-              </div>
+              <NoticeCallout
+                variant="success"
+                message={t(cloudDone === 'deferred'
+                  ? 'onboarding.cloud_done_deferred'
+                  : 'onboarding.cloud_done')}
+                className="animate-in fade-in zoom-in-95 duration-200"
+              />
             )}
 
             <div className="flex flex-wrap gap-2 mt-auto">
@@ -776,17 +946,24 @@ export default function OnboardingWizard() {
         )}
 
         {step === 'done' && (
-          <div className={`space-y-4 flex-1 flex flex-col ${stepEnter}`}>
-            {/* The one flourish in the wizard, and the only place it is
-                earned: the device now has an owner. Drawn with stroke offsets
-                rather than a spinner so it reads as a finished gesture. */}
-            <div className="flex justify-center py-2">
+          <div className={`flex-1 flex flex-col gap-4 ${stepEnter}`}>
+            <div className="flex flex-col items-center text-center pt-2 pb-1">
+              {/* The one flourish in the wizard, and the only place it is
+                  earned: the device now has an owner. Drawn with stroke offsets
+                  rather than a spinner so it reads as a finished gesture. */}
               <svg
                 viewBox="0 0 52 52"
-                className="w-16 h-16 text-success"
+                className="w-20 h-20 text-success"
                 aria-hidden="true"
                 focusable="false"
               >
+                <circle
+                  cx="26"
+                  cy="26"
+                  r="24"
+                  className="fill-success/10"
+                  stroke="none"
+                />
                 <circle
                   className="wizard-check-ring"
                   cx="26"
@@ -806,32 +983,24 @@ export default function OnboardingWizard() {
                   strokeLinejoin="round"
                 />
               </svg>
-            </div>
-
-            <div className="alert alert-success text-sm animate-in fade-in zoom-in-95 duration-200 delay-300 fill-mode-backwards">
-              <span>{t('onboarding.done_summary', { username })}</span>
+              <h2 className="mt-4 text-xl font-semibold">{t('onboarding.heading_done')}</h2>
+              <p className="mt-1.5 max-w-md text-sm text-base-content/70 leading-relaxed animate-in fade-in duration-300 delay-300 fill-mode-backwards">
+                {t('onboarding.done_summary', { username })}
+              </p>
             </div>
 
             {importDone && (
-              <div className="alert alert-info text-sm">
-                <span>{t('onboarding.done_import_skipped')}</span>
-              </div>
+              <NoticeCallout variant="info" message={t('onboarding.done_import_skipped')} />
             )}
 
             {sshOutcome === 'set' && (
-              <div className="alert alert-info text-sm">
-                <span>{t('onboarding.ssh_set', { username: 'boneio' })}</span>
-              </div>
+              <NoticeCallout variant="info" message={t('onboarding.ssh_set', { username: 'boneio' })} />
             )}
             {sshOutcome === 'kept' && (
-              <div className="alert alert-info text-sm">
-                <span>{t('onboarding.ssh_kept')}</span>
-              </div>
+              <NoticeCallout variant="info" message={t('onboarding.ssh_kept')} />
             )}
             {sshOutcome === 'failed' && (
-              <div className="alert alert-warning text-sm">
-                <span>{t('onboarding.ssh_failed')}</span>
-              </div>
+              <NoticeCallout variant="warning" message={t('onboarding.ssh_failed')} />
             )}
 
             <div className="flex flex-wrap gap-2 mt-auto">
@@ -847,7 +1016,7 @@ export default function OnboardingWizard() {
           </div>
         )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
