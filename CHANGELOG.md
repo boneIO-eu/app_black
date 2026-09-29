@@ -6,6 +6,107 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev21 (2026-09-29) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### ⚡ The power monitor no longer stalls the controller, and reads on demand
+
+- **INA226 reads move off the event loop.** Each measurement is a blocking
+  I2C transfer behind the bus lock; `async_update` did it inline, so a relay
+  write holding the lock stalled every timer, the GPIO reader and the event
+  bus until it let go. The INA219 already read in a worker thread; the
+  INA226 — every v1.x board — now does the same, and one failed measurement
+  no longer costs the others.
+- **An INA219 wired as `ina226:` is refused instead of read as 40 V.** The
+  driver now checks the manufacturer ID (register 0xFE, expects 0x5449
+  "TI") before writing anything. A board before v1.0 carries an INA219 at
+  the address `ina226:` expects; misconfigured, it showed 40 V on a 24 V
+  supply, because the INA226 config word put the INA219 in its 16 V range
+  and scaled what it saturated at by the INA226 LSB. The error now lands in
+  hardware errors and tells the user to switch to `ina219:` and power-cycle
+  the board.
+- **New `POST /api/sensors/ina/refresh`** reads the on-board INA219/INA226
+  on the spot and returns fresh values in the same list `/api/sensors/loaded`
+  uses, instead of whatever the last scheduled poll saw — up to
+  `update_interval` (60 s by default) old. The factory tester switches a
+  bank of relays and needs the coil current within a second or two; without
+  this, good boards failed with a delta of exactly 0.0 mA.
+- Not checked on hardware.
+
+### 🚌 CAN starts again
+
+- **CAN never came up at all since the SDO feature landed.** `connect()`
+  registered its SDO handlers with a method canopen-asyncio has never had
+  (`sdo.add_callback()`), so it raised on every start — no heartbeat, no
+  discovery, no CAN-MQTT bridge. The handlers now go through
+  `LocalNode.add_write_callback`, and a Node ID write over SDO works.
+  Tested on 192.168.50.220: "CANopen manager started".
+- **A configuration pushed over CAN is now refused outright**, not validated
+  and applied as before: nothing authenticates the sender yet, so any node
+  on the bus could have replaced `config.yaml`. The push (0x2001 payload,
+  0x2002 trigger) is refused with SDO abort `0x08000020` and a warning; it
+  stays refused until signed payloads land (the Ed25519 plan).
+- **Bus-off restarts back off instead of looping forever.** A bus with
+  nothing else on it, or no termination, goes bus-off seconds after every
+  restart; the monitor restarted it every time — a warning and an `ip link`
+  call about every 4 s, forever, measured on 192.168.50.220 (nothing on
+  `can0`). Restarts now back off from 2 s up to 5 min, the count resets once
+  the bus has stayed out of bus-off for a minute, and the warning points at
+  wiring and termination.
+
+### 🔄 The panel says an update is running instead of showing a stale build
+
+- **The panel now knows when a newer build is running.** Going from 1.5 to
+  1.6, F5 used to show the old settings pages several times before the
+  first-run wizard appeared: the service worker answered every navigation
+  from its precache, so the old panel kept loading while the new service
+  worker downloaded the whole build, and its API calls meanwhile succeeded
+  against the new server. The build now carries the version from
+  `boneio/version.py`; when the server reports another one, the panel drops
+  its own service worker registration and caches and reloads once. Starting
+  an update leaves a mark in the browser, so a controller that does not
+  answer within the hour reads "update in progress, do not power off" rather
+  than "API unavailable", and one that restarts back on the old version is
+  reported as a failed update.
+- **A short gap mid-update is not taken for a failed update.** One missed
+  poll used to mark the update as "the controller restarted", so the old
+  version answering again afterwards read as a failed update — exactly the
+  moment the panel tells people not to power off. The restart window is now
+  15 s without an answer; a restart with no migrations takes about 40 s on
+  the test controller, so missing a faster one only loses the failure notice.
+- **A build replaced mid-load reloads instead of leaving a blank page.**
+  Found while checking the guard above in a browser: F5 right after an
+  update can let the new service worker take the page over while the old
+  `index.html` is still loading; its entry script then belongs to a build
+  that is gone, the module fails its MIME check, and the page stays white.
+  A handler ahead of the entry script, and one for `vite:preloadError`, drop
+  this page's service worker and reload once, at most every 30 s.
+
+### 🧙 The first-run wizard no longer offers cloud to a device that already has it
+
+- **The wizard now reads the device's actual cloud state instead of always
+  asking.** A controller upgraded from 1.5.x with cloud registration already
+  on was still asked, on the wizard's cloud step, whether to turn it
+  on — while the wizard itself was being served from its `boneio.app`
+  subdomain. It read as if the upgrade had lost the setting. The wizard now
+  takes `cloud.enabled` from `/api/init`, latched when the wizard opens, and
+  drops the cloud step when it is already on; the back button follows the
+  steps actually shown.
+
+### 🖱️ The OS update card answers a click at once
+
+- **The button no longer sits unchanged for seconds after a click.** Starting
+  a system-update check left the card looking the same until the next state
+  read caught up — several seconds on a BeagleBone, up to half a minute with
+  `apt` busy. It now shows "Starting…" and a spinner right away, until the
+  state shows the run or its result, and only the newest state read can flip
+  the card.
+- **The helper is asked for its supported verbs once per install**, not on
+  every OS-update request — cached, keyed by the helper file's inode, mtime
+  and size, so a migration that replaces the helper is asked again. Saves
+  1-2 s of Python start-up per poll on a BeagleBone.
+
 ## v1.6.0.dev20 (2026-09-28) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

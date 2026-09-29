@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev20` exists so that we can test the new system-migration chain on a
+`1.6.0.dev21` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,60 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev21 — internal test build
+
+## Since dev20
+
+The on-board power monitor stalled the whole controller during a poll and
+could misreport a board's voltage. Reading the INA226 is a blocking I2C
+transfer behind the bus lock; `async_update` did it inline, so a relay write
+holding the lock stalled every timer, the GPIO reader and the event bus until
+it let go. The INA219 already read in a worker thread; the INA226 — every
+v1.x board — now does the same. Separately, an INA219 wired at the address an
+`ina226:` config expects showed 40 V on a 24 V supply instead of failing: the
+driver now reads the manufacturer ID before writing anything and refuses the
+mismatch, telling the user to switch to `ina219:` and power-cycle the board.
+And a new `POST /api/sensors/ina/refresh` reads the sensor on the spot, for
+the factory tester, which needs the coil current within a second or two and
+was instead seeing whatever the last scheduled poll saw — up to
+`update_interval` (60 s by default) old, a delta of exactly 0.0 mA on a good
+board. Not checked on hardware.
+
+CAN comes up for the first time since the SDO feature landed. `connect()`
+called a canopen-asyncio method that library has never had, so every start
+raised and CAN never came up at all — no heartbeat, no discovery, no
+CAN-MQTT bridge. Tested on 192.168.50.220: "CANopen manager started". A
+configuration pushed over CAN, which an earlier release validated and
+applied, is now refused outright (SDO abort `0x08000020`): nothing
+authenticates the sender yet, so any node on the bus could replace
+`config.yaml`, and it stays refused until signed payloads land. And a bus
+with nothing else on it, or no termination, no longer restarts every 4
+seconds forever: restarts now back off from 2 s up to 5 min, measured on the
+same controller.
+
+The panel is better at telling "an update is running" from "something
+broke". Going from 1.5 to 1.6 used to show old settings pages several times
+before the wizard appeared, because the service worker answered every
+navigation from its precache while the new build downloaded; the build now
+carries its own version, and the panel drops its service worker registration
+and reloads once when the server reports a different one, marking an update
+as running rather than showing "API unavailable". A short missed poll
+mid-update no longer reads as a failed update (the restart window is now
+15 s), and a build replaced mid-load reloads once instead of leaving a blank
+page.
+
+Two smaller fixes: the first-run wizard no longer offers to turn cloud
+registration on for a device that already has it (it now reads
+`cloud.enabled` from `/api/init` instead of asking), and the "Check for
+system updates" button now shows "Starting…" immediately instead of sitting
+unchanged for several seconds, while the OS-update helper's supported verbs
+are cached per install instead of being re-asked on every request.
+
+No new system migration this release, and no migration plan's content
+changed. Only the manifest is re-signed, since it names the release.
 
 ---
 
