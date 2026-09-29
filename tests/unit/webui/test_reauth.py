@@ -320,3 +320,53 @@ def test_a_device_on_a_legacy_login_is_not_asked(tmp_path):
     token = create_token({"sub": "stary", "role": "admin"})
     response = client.post("/api/accounts", headers=_bearer(token), json=NEW_VIEWER)
     assert response.json().get("code") != "reauth_required"
+
+
+# ------------------------------------------------------- the whole application
+
+
+def test_the_prompt_round_trip_works_through_the_real_app(tmp_path):
+    """Refused, confirmed, retried — through init_app's full middleware stack.
+
+    The tests above build a bare app with only AuthMiddleware. This one goes
+    through everything a real request meets (CSRF, CORS, the security headers),
+    with the Origin a browser on the panel sends, so a middleware that refused
+    POST /api/auth/confirm would show up here instead of as a prompt that can
+    never succeed.
+    """
+    config = tmp_path / "config.yaml"
+    config.write_text("web:\n  port: 8090\n", encoding="utf-8")
+    seeded = UserStore(tmp_path / USERS_FILENAME)
+    seeded.load()
+    seeded.add_user("pawel", "haslo-admina", Role.ADMIN)
+
+    app = init_app(
+        manager=MagicMock(),
+        yaml_config_file=str(config),
+        config_helper=MagicMock(),
+        auth_config={},
+        jwt_secret=SECRET,
+    )
+    client = TestClient(app)
+    origin = {"Origin": "http://testserver"}
+
+    stale = _stale("pawel")
+    refused = client.post(
+        "/api/accounts", headers={**_bearer(stale), **origin}, json=NEW_VIEWER
+    )
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "reauth_required"
+
+    confirmed = client.post(
+        "/api/auth/confirm",
+        headers={**_bearer(stale), **origin},
+        json={"password": "haslo-admina"},
+    )
+    assert confirmed.status_code == 200
+
+    retried = client.post(
+        "/api/accounts",
+        headers={**_bearer(confirmed.json()["token"]), **origin},
+        json=NEW_VIEWER,
+    )
+    assert retried.status_code == 201
