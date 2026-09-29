@@ -20,6 +20,8 @@ import logging
 
 import smbus2
 
+from boneio.exceptions import I2CError
+
 _LOGGER = logging.getLogger(__name__)
 
 # INA226 Manufacturer ID (register 0xFE) — always 0x5449 ("TI")
@@ -118,10 +120,29 @@ class INA226_I2C:
             _bus: I2C bus number (default: 2)
             r_shunt: Shunt resistor in Ohms (default: 0.05 for boneIO v1.0)
             max_current: Maximum expected current in A (default: 1.5)
+
+        Raises:
+            I2CError: If the chip at ``address`` is not an INA226.
+            OSError: If the chip does not answer on the bus.
         """
         self._address = address
         self.bus = smbus2.SMBus(_bus)
         self._r_shunt = r_shunt
+
+        # Check the chip before writing anything: an INA219 answers at the
+        # same address, and our config word would put it in its 16 V range
+        # until the next power cycle. It has no ID register, so it returns
+        # something other than "TI" here.
+        manufacturer_id = self.read_word(self.REG_MANUFACTURER_ID)
+        if manufacturer_id != INA226_MANUFACTURER_ID:
+            self.bus.close()
+            raise I2CError(
+                f"chip at address 0x{address:02X} is not an INA226 "
+                f"(manufacturer ID 0x{manufacturer_id:04X}, expected "
+                f"0x{INA226_MANUFACTURER_ID:04X}). boneIO Black boards "
+                f"before v1.0 carry an INA219: use 'ina219:' instead of "
+                f"'ina226:' in config.yaml and power-cycle the board"
+            )
 
         # Calculate Current_LSB (A/bit)
         # Minimum: max_current / 2^15
