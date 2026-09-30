@@ -203,6 +203,7 @@ class RemoteCoverOutput:
             current_operation=self._current_operation,
             position=self._position,
             tilt=self._tilt,
+            area=self.area,
         )
         self._event_bus.trigger_event(CoverEvent(entity_id=self._id, state=event))
 

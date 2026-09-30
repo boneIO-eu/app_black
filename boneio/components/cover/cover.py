@@ -532,6 +532,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             kind=self.kind,
             timestamp=self._last_timestamp,
             current_operation=self._current_operation,
+            area=getattr(self, "area", None),
             **json_position,
         )
         self._event_bus.trigger_event(CoverEvent(entity_id=self.id, state=event))

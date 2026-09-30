@@ -492,6 +492,7 @@ async def send_initial_states(
                     state=group.state,
                     type=group.output_type,
                     timestamp=getattr(group, "last_timestamp", None),
+                    area=getattr(group, "area", None),
                 )
                 update = GroupEvent(entity_id=group.id, state=group_state)
                 if not await send_state_update(update):
@@ -510,6 +511,7 @@ async def send_initial_states(
                     kind=cover.kind,
                     timestamp=cover.last_timestamp,
                     current_operation=cover.current_operation,
+                    area=getattr(cover, "area", None),
                 )
                 if getattr(cover, "kind", None) == "venetian":
                     cover_state.tilt = getattr(cover, "tilt", 0)

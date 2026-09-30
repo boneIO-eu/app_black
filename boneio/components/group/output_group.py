@@ -141,6 +141,7 @@ class OutputGroup(BasicOutput):
             state=self._state,
             type=self._output_type,
             timestamp=self._last_timestamp,
+            area=getattr(self, "area", None),
         )
         group_event = GroupEvent(
             entity_id=self.id,

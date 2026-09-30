@@ -60,6 +60,7 @@ class CoverState(BaseModel):
     timestamp: float | None = None
     tilt: int = 0  # Tilt position (0-100)
     kind: str
+    area: str | None = None
 
 
 class SensorState(BaseModel):
@@ -102,6 +103,7 @@ class GroupState(BaseModel):
     state: str
     type: str
     timestamp: float | None = None
+    area: str | None = None
 
 
 class ScheduleRunState(BaseModel):
