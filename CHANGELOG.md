@@ -6,6 +6,81 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev24 (2026-09-30) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🔐 The SSH login password can be changed from the panel
+
+- **Accounts gets an "SSH login password" card.** It shows how the `boneio`
+  login stands, and a button opens a dialog for the current SSH password and
+  the new one twice, checked as you type — the same shape as the panel's own
+  password dialogs. Where the panel cannot help it says why instead of
+  offering a form: a locked login is the wizard's to set once and then the
+  flasher card's (`BONEIO_RESET_ACCOUNTS=1`), an empty one is `passwd` over
+  SSH since there is nothing to check against, and a controller that hasn't
+  applied migration 1.6.29 yet is told to.
+- **`boneio-system` gains `service-password-change`.** It is `passwd` run as
+  root and no more: the current password is checked against `/etc/shadow`
+  before anything changes, a locked or empty account is refused, and five
+  wrong tries in fifteen minutes — counted globally, two seconds' penalty
+  each — lock out even the right password until the oldest try ages out.
+  Migration 1.6.29 reinstalls `boneio-system`.
+- **Admin only, and behind the 10-minute step-up** like the rest of
+  `/api/accounts`: the SSH password is the root password through sudo.
+- **A wrong current password counts like a wrong panel one.** It answers 403
+  `current_password_wrong` with `attempts_left`; only the wrong password
+  that uses up the session's last try signs it out instead (401
+  `session_locked`), the same as a wrong panel password would. A throttle
+  window filling reaches Home Assistant as one `password_guessing` event
+  (`where: ssh_password`), not one per refused try.
+- The security check for a shipped SSH password now points here instead of
+  only at `passwd`; a login with no password at all still says `passwd`,
+  since the panel has nothing of its own to check.
+
+### 👤 Accounts page
+
+- **Password and delete use dialogs, not browser prompts.** The password
+  dialog asks for the new password twice, checks the policy as you type,
+  and — for your own account — the current password inline instead of a
+  sign-out on a typo.
+- **A wrong current password no longer signs you out.** It's 403
+  `current_password_wrong` with `attempts_left`; only the wrong password
+  that uses the session's last try still signs it out (401
+  `session_locked`).
+- **The account list fits a phone.** Each row wraps instead of scrolling
+  sideways, name and role on one line, the actions under them.
+
+### 🔑 The SSH login screen shows the real system
+
+- **An SSH login no longer shows the base image's build date as if it were
+  the system's age.** Migration 1.6.28 replaces the base image's banner with
+  boneIO's own text before the password prompt, and adds a dynamic MOTD
+  after login: boneIO's version and state, the panel's address, the Debian
+  point release and kernel, when dpkg last changed anything, and the base
+  image, clearly labelled as such. The base images shipped `update-motd.d`
+  without execute bits, so this was blank on every controller before.
+
+### 📡 MQTT binary sensors are retained
+
+- **A GPIO binary sensor's state now survives a Home Assistant restart.**
+  `pressed`/`released` publish retained, and every MQTT connect re-reads and
+  republishes each sensor's pin once the GPIO manager is up, so HA no longer
+  sits on `unknown` until the input next moves. Click events stay
+  unretained.
+- **A remote MQTT input now recognises a retained replay on reconnect.** It
+  takes the state in binary-sensor mode without running actions, and ignores
+  it in event mode, so an input mirroring a retained source such as ESPHome
+  no longer replays a phantom press on every reconnect. Reported in #70.
+- Known leftover: deleting an input or switching it to event mode leaves its
+  last retained state on the broker; peers ignore it in event mode, and so
+  does Home Assistant's event entity.
+
+### 🧹 Minor
+
+- **The update list checks 100 GitHub releases, not the default 30**, so a
+  stable release doesn't drop off the page behind a run of dev builds.
+
 ## v1.6.0.dev23 (2026-09-29) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

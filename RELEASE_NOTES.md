@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev23` exists so that we can test the new system-migration chain on a
+`1.6.0.dev24` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,68 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev24 — internal test build
+
+## Since dev23
+
+Since 1.6.17 the first-run wizard has copied the owner's first panel password
+onto the `boneio` SSH login, once. After that the two passwords were
+separate, and the only way to change the SSH one was `passwd` over SSH. The
+Accounts page now gets an "SSH login password" card that can do it from the
+panel: `boneio-system` gains a `service-password-change` verb — the current
+password checked against `/etc/shadow`, nothing changes without it — and
+migration 1.6.29 installs it. A locked or empty login is refused: those are
+`service-password-init`'s states to set from, once, and here they would be a
+way to set a password without knowing one; a lost password is still
+recovered with the flasher card (`BONEIO_RESET_ACCOUNTS=1`). Wrong tries are
+counted globally, five in fifteen minutes with two seconds' penalty each,
+and a wrong current password from the panel behaves like a wrong panel
+password: 403 `current_password_wrong` with tries left, counted against the
+same session budget, and — only when a throttle window fills, not on every
+refused try — reported to Home Assistant as one `password_guessing` event.
+The card explains itself instead of offering a broken form when it can't help —
+locked, empty, or a controller that hasn't applied 1.6.29 yet — and the
+security check for a shipped SSH password now sends you here instead of
+only to `passwd`.
+
+The rest of the Accounts page moved off `window.prompt`/`window.confirm`
+onto proper dialogs, with the password checked as you type and, for your
+own account, a wrong current password now an inline error instead of a
+sign-out; and the account list wraps into rows that fit a phone instead of
+scrolling sideways.
+
+An SSH login has been showing BeagleBoard's base-image banner and its build
+date — months stale on a controller that has since taken every point
+release and security update — before the password prompt and on every
+non-interactive `ssh` command. Migration 1.6.28 replaces it with boneIO's
+own two-line banner before login, and, after login, a dynamic MOTD showing
+boneIO's version and state, the panel's address, the Debian point release
+and kernel, when dpkg last changed anything, and the base image, labelled as
+what it is rather than as the system's age. The base images shipped
+`update-motd.d` without execute bits, so nothing dynamic had ever shown
+there before this.
+
+Outside the security work: GPIO binary sensor states now publish retained,
+so a tank float switch or any other input that can sit still for weeks
+reads correctly in Home Assistant right after an HA restart instead of
+`unknown` until it next moves; every MQTT connect re-reads and republishes
+each sensor's pin once the GPIO manager is up. A remote MQTT input now
+recognises a retained replay on reconnect and no longer runs a phantom
+action from it, which also fixes inputs mirroring a retained source such as
+ESPHome. Click events are deliberately left unretained. One known leftover:
+deleting an input or switching it to event mode leaves its last retained
+state on the broker, though peers and HA's event entity ignore it. Reported
+in #70. And the update list now asks GitHub for 100 releases instead of the
+default 30, so a stable release doesn't fall off the page behind a run of
+dev builds.
+
+Migrations 1.6.28 and 1.6.29 are new this release. `boneio-system`'s hash is
+part of every plan that installs it, so 1.6.5, 1.6.8, 1.6.9, 1.6.17, 1.6.18,
+1.6.22, 1.6.26 and 1.6.27 are re-signed alongside 1.6.29. The manifest is
+re-signed too, since it names the release.
 
 ---
 
