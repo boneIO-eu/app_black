@@ -785,7 +785,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
       {!hasConditions ? (
         <button
           type="button"
-          className="btn btn-ghost btn-sm text-primary w-full"
+          className="btn btn-outline btn-sm w-full"
           onClick={addCondition}
         >
           <FaPlus className="w-3 h-3 mr-1" />
@@ -820,7 +820,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
           {/* Add another condition button */}
           <button
             type="button"
-            className="btn btn-ghost btn-xs text-primary"
+            className="btn btn-outline btn-xs"
             onClick={addCondition}
           >
             <FaPlus className="w-3 h-3 mr-1" />

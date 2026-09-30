@@ -350,7 +350,7 @@ export default function NodeRedManagement() {
 
             {backups.length > 0 && (
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-sm"
                 onClick={() => setShowBackupsList(!showBackupsList)}
               >
                 {showBackupsList

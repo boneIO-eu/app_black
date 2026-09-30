@@ -89,7 +89,7 @@ export default function CANNetwork() {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">CAN Network Management</h2>
         <button
-          className={`btn btn-sm btn-ghost gap-2 ${loading ? 'loading' : ''}`}
+          className={`btn btn-sm btn-outline gap-2 ${loading ? 'loading' : ''}`}
           onClick={fetchNodes}
           disabled={loading}
         >

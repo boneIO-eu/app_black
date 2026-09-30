@@ -108,7 +108,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange,
           ))}
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-outline btn-sm"
             onClick={addFilter}
           >
             <FaPlus className="mr-1" /> {t('modbus.filters.add')}

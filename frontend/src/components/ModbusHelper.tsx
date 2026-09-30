@@ -1192,7 +1192,7 @@ export default function ModbusHelper() {
                         <FaImage /> {t('modbus_helper.simulation_visual')}
                       </button>
                       <button
-                        className="btn btn-sm btn-ghost text-error sm:ml-auto"
+                        className="btn btn-sm btn-outline btn-error sm:ml-auto"
                         onClick={() => handleRemoveFakeDevice(dev.device_id)}
                         disabled={loading}
                       >

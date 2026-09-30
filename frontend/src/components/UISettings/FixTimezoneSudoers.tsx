@@ -69,7 +69,7 @@ export default function FixTimezoneSudoers() {
           {t('timezone_sudoers.status_ok')}
         </span>
         <button
-          className="btn btn-ghost btn-xs gap-1.5 shrink-0"
+          className="btn btn-xs gap-1.5 shrink-0"
           onClick={checkSudoers}
           disabled={loading}
         >
@@ -87,7 +87,7 @@ export default function FixTimezoneSudoers() {
       description={t('timezone_sudoers.description')}
       action={
         <button
-          className="btn btn-ghost btn-sm gap-2"
+          className="btn btn-sm gap-2"
           onClick={checkSudoers}
           disabled={loading}
         >

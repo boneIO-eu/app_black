@@ -158,7 +158,7 @@ const ActionRowList: React.FC<ActionRowListProps> = ({
         );
       })}
 
-      <button type="button" className="btn btn-ghost btn-sm text-primary gap-1" onClick={add}>
+      <button type="button" className="btn btn-outline btn-sm gap-1" onClick={add}>
         <FaPlus className="w-2.5 h-2.5" />
         {t('inputs.add_action')}
       </button>

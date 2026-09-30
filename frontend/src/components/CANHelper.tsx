@@ -244,7 +244,7 @@ export default function CANHelper() {
             </div>
 
             <button
-              className={`btn btn-sm btn-ghost gap-1 ${statusLoading ? 'loading' : ''}`}
+              className={`btn btn-sm gap-1 ${statusLoading ? 'loading' : ''}`}
               onClick={checkStatus}
               disabled={statusLoading}
             >

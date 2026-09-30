@@ -305,7 +305,7 @@ export default function LocationSection() {
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button className="btn btn-ghost btn-sm gap-2" onClick={fillFromTimezone}>
+            <button className="btn btn-sm gap-2" onClick={fillFromTimezone}>
               <FaGlobeEurope />
               {t('location.fill_from_timezone')}
             </button>

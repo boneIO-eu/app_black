@@ -153,7 +153,7 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange, onValidationChange })
 
         <button
           type="button"
-          className="btn btn-outline btn-sm btn-ghost"
+          className="btn btn-outline btn-sm"
           onClick={handleViewCommands}
         >
           📋 {t('lox_config.view_commands')}

@@ -282,7 +282,7 @@ const ADCForm: React.FC<ADCFormProps> = ({
               })}
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="btn btn-outline btn-sm"
                 onClick={() => {
                   const newFilters = [...(data.filters || []), { round: 2 }];
                   handleChange('filters', newFilters);

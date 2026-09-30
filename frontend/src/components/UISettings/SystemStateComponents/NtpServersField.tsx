@@ -197,7 +197,7 @@ export default function NtpServersField({ onChanged }: NtpServersFieldProps) {
             {servers.length < maxServers && (
               <button
                 type="button"
-                className="btn btn-ghost btn-xs gap-1"
+                className="btn btn-outline btn-xs gap-1"
                 onClick={() => setServers((current) => [...current, ''])}
               >
                 <FaPlus className="w-2.5 h-2.5" />

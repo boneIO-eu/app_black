@@ -685,7 +685,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                       </div>
 
                       <button
-                        className="btn btn-ghost btn-xs gap-1.5 text-base-content/40 hover:text-base-content/80 mt-2"
+                        className="btn btn-xs gap-1.5 mt-2"
                         onClick={() => { setDetectedInput(null); setSaveStatus('idle'); setLeftCollapsed(false); }}
                       >
                         <FaUndo className="w-3 h-3" />
@@ -769,7 +769,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                             </div>
                           ))}
                           <button
-                            className="btn btn-ghost btn-xs text-error/60 w-full mt-1"
+                            className="btn btn-outline btn-error btn-xs w-full mt-1"
                             onClick={() => { setIgnoredIds(new Set()); persistIgnored(new Set()); }}
                           >
                             {t('teach_mode.clear_ignored')}
@@ -909,7 +909,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                         clickType: t(`quick_action.click_types.${editing.clickType}`),
                       })}
                     </span>
-                    <button className="btn btn-ghost btn-xs" onClick={handleCancelEdit}>
+                    <button className="btn btn-xs" onClick={handleCancelEdit}>
                       {t('common.cancel')}
                     </button>
                   </div>

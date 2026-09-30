@@ -159,7 +159,7 @@ const MigrationsSection: React.FC = () => {
         action={
           nothingToDo && status.applied.length > 0 ? (
             <button
-              className="btn btn-ghost btn-sm gap-2"
+              className="btn btn-sm gap-2"
               onClick={() => setShowApplied(!showApplied)}
             >
               {showApplied ? <FaChevronDown /> : <FaChevronRight />}

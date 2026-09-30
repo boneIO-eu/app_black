@@ -188,7 +188,7 @@ export function I2CSection() {
                 <div className="flex items-center justify-between">
                   <h2 className="font-semibold text-[15px] tracking-tight">{t('tools.i2c_raw_output')}</h2>
                   <button
-                    className="btn btn-sm btn-ghost gap-1"
+                    className="btn btn-sm gap-1"
                     onClick={handleCopyRaw}
                   >
                     <FaCopy className="w-3 h-3" />

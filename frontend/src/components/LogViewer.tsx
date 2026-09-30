@@ -583,7 +583,7 @@ export default function LogViewer() {
         </label>
 
         <button
-            className={`btn btn-sm ${autoScroll ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn btn-sm ${autoScroll ? 'btn-primary btn-soft' : ''}`}
             onClick={() => setAutoScroll(!autoScroll)}
           >
             {autoScroll ? t('log_viewer.auto_scroll_on') : t('log_viewer.auto_scroll_off')}
@@ -598,7 +598,7 @@ export default function LogViewer() {
               <button
                 key={level.value}
                 onClick={() => toggleLevel(level.value)}
-                className={`btn btn-xs font-mono ${isActive ? '' : 'btn-ghost opacity-50'}`}
+                className={`btn btn-xs font-mono ${isActive ? '' : 'opacity-60'}`}
                 style={isActive ? {
                   color: level.color,
                   borderColor: level.color,
@@ -620,7 +620,7 @@ export default function LogViewer() {
         <div className="relative" ref={dateFilterRef}>
           <button
             onClick={() => setDateFilterOpen(!dateFilterOpen)}
-            className={`btn btn-sm gap-1 ${dateFrom || dateTo ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn btn-sm gap-1 ${dateFrom || dateTo ? 'btn-primary btn-soft' : ''}`}
             title={t('log_viewer.date_range')}
           >
             <FaCalendarAlt className="w-3 h-3" />
@@ -663,7 +663,7 @@ export default function LogViewer() {
         <div className="relative" ref={moduleDropdownRef}>
           <button
             onClick={() => setModuleDropdownOpen(!moduleDropdownOpen)}
-            className={`btn btn-sm gap-1 ${selectedModules.size > 0 ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn btn-sm gap-1 ${selectedModules.size > 0 ? 'btn-primary btn-soft' : ''}`}
           >
             <FaFilter className="w-3 h-3" />
             {selectedModules.size > 0 ? t(selectedModules.size === 1 ? 'log_viewer.modules_count_one' : 'log_viewer.modules_count_other', { count: selectedModules.size }) : t('log_viewer.modules')}
@@ -710,7 +710,7 @@ export default function LogViewer() {
         <div className="relative" ref={excludeDropdownRef}>
           <button
             onClick={() => setExcludeDropdownOpen(!excludeDropdownOpen)}
-            className={`btn btn-sm gap-1 ${excludedModules.size > 0 ? 'btn-error btn-outline' : 'btn-ghost'}`}
+            className={`btn btn-sm gap-1 ${excludedModules.size > 0 ? 'btn-error btn-soft' : ''}`}
           >
             <FaEyeSlash className="w-3 h-3" />
             {excludedModules.size > 0 ? t(excludedModules.size === 1 ? 'log_viewer.excluded_count_one' : 'log_viewer.excluded_count_other', { count: excludedModules.size }) : t('log_viewer.exclude_modules')}
@@ -752,7 +752,7 @@ export default function LogViewer() {
           <button
             onClick={toggleDebug}
             disabled={debugLoading}
-            className={`btn btn-sm gap-1 ${debugActive ? 'btn-warning' : 'btn-ghost'}`}
+            className={`btn btn-sm gap-1 ${debugActive ? 'btn-warning btn-soft' : ''}`}
             title={debugActive ? t('log_viewer.debug_disable') : t('log_viewer.debug_enable')}
           >
             <FaBug className={`w-3 h-3 ${debugLoading ? 'animate-pulse' : ''}`} />
@@ -772,7 +772,7 @@ export default function LogViewer() {
         <button
           onClick={fetchLogs}
           disabled={isLoading}
-          className="btn btn-sm btn-ghost"
+          className="btn btn-sm btn-square"
         >
           <FaSync className={`${isLoading ? 'animate-spin' : ''}`} />
         </button>
@@ -802,7 +802,7 @@ export default function LogViewer() {
           <div className="flex justify-center py-2">
             <button
               onClick={fetchOlderLogs}
-              className="btn btn-ghost btn-xs text-base-content/50"
+              className="btn btn-sm"
             >
               {t('log_viewer.load_more')}
             </button>

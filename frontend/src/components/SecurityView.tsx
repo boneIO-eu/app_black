@@ -187,7 +187,7 @@ export default function SecurityView() {
         </div>
 
         <button
-          className="btn btn-sm btn-ghost gap-2 text-base-content/70 hover:text-base-content ml-auto"
+          className="btn btn-sm gap-2 ml-auto"
           onClick={() => void refresh()}
         >
           <FaRedo className="text-xs" />

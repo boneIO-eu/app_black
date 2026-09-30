@@ -19,7 +19,7 @@ const UpdateFailedNotice = () => {
         title={t('panel_guard.failed_title')}
         message={t('panel_guard.failed_body', { version: data?.version ?? '' })}
         action={
-          <button onClick={dismissPanelState} className="btn btn-sm btn-ghost">
+          <button onClick={dismissPanelState} className="btn btn-sm">
             {t('panel_guard.dismiss')}
           </button>
         }

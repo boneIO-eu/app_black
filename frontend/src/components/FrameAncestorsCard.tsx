@@ -184,7 +184,7 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
               ))}
               <button
                 type="button"
-                className="btn btn-ghost btn-xs text-primary gap-1"
+                className="btn btn-outline btn-xs gap-1"
                 onClick={() => setOrigins(prev => [...prev, ''])}
               >
                 + {t('security.framing.add_origin')}

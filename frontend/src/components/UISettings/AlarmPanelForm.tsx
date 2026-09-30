@@ -574,7 +574,7 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps<AlarmPanelData>> = ({
                                       className={`btn btn-xs ${
                                         zi.on_disconnect === 'trigger'
                                           ? 'btn-error'
-                                          : 'btn-ghost border-base-content/20'
+                                          : ''
                                       }`}
                                       onClick={() => toggleOnDisconnect(zIdx, zi.id)}
                                       title={

@@ -114,7 +114,7 @@ export default function SetBaseSection({
                         </button>
                       </div>
                     ))}
-                    <button className="btn btn-ghost btn-xs" onClick={addBaudrateMapping}>
+                    <button className="btn btn-outline btn-xs" onClick={addBaudrateMapping}>
                       <FaPlus size={10} /> Add
                     </button>
                   </div>
