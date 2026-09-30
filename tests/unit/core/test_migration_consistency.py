@@ -287,6 +287,124 @@ class TestJournalOnSerialConsole:
         }
 
 
+class TestSshLoginScreen:
+    """The SSH banner and the login status added by 1.6.28."""
+
+    @staticmethod
+    def _asset(path: str) -> str:
+        from boneio.migrations.runner import ASSETS_DIR
+
+        return (ASSETS_DIR / path).read_text()
+
+    @staticmethod
+    def _actions() -> list[dict]:
+        from boneio.migrations.versions import v1_6_28_ssh_login_screen as migration
+
+        return [a.to_dict() for a in migration.plan()]
+
+    def test_the_banner_carries_no_date_version_or_password(self):
+        """It is frozen into a signed plan and shown before authentication: a
+        date is stale after the next unattended upgrade, and units upgraded
+        from 1.5 may still have the shipped password or one of their own."""
+        banner = self._asset("sshd/boneio-banner")
+        assert not re.search(r"\d{4}-\d{2}-\d{2}|\d+\.\d+\.\d+", banner)
+        assert "password" not in banner.lower()
+        assert "boneio" in banner
+
+    def test_the_banner_is_short_plain_ascii(self):
+        """Every scp and `ssh host command` prints it too, on stderr."""
+        banner = self._asset("sshd/boneio-banner")
+        banner.encode("ascii")
+        assert banner.endswith("\n")
+        assert len(banner.splitlines()) <= 3
+
+    def test_the_drop_in_points_at_the_installed_banner(self):
+        settings = [
+            line.split(None, 1)
+            for line in self._asset("sshd/20-boneio-banner.conf").splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+        banner_dst = next(a["dst"] for a in self._actions() if a["src"] == "sshd/boneio-banner")
+        assert settings == [["Banner", banner_dst]]
+
+    def test_the_drop_in_goes_last_validated_and_reloads_ssh(self):
+        """sshd -t is the only step that can refuse; ordered last, it cannot
+        leave the banner file or the script behind uninstalled."""
+        actions = self._actions()
+        last = actions[-1]
+        assert last["dst"] == "/etc/ssh/sshd_config.d/20-boneio-banner.conf"
+        assert last["validate"] == "sshd"
+        assert last["on_change"] == {"action": "systemctl_reload", "unit": "ssh"}
+        assert all("validate" not in a for a in actions[:-1])
+
+    def test_the_banner_is_a_drop_in_not_a_base_files_edit(self):
+        dsts = {a["dst"] for a in self._actions()}
+        assert not dsts & {"/etc/issue", "/etc/issue.net", "/etc/motd", "/etc/ssh/sshd_config"}
+        # setup_boneio.sh writes this one as well.
+        assert "/etc/ssh/sshd_config.d/10-boneio-hardening.conf" not in dsts
+
+    def test_run_parts_will_run_the_motd_script(self):
+        """run-parts skips a name with a dot and a file without an execute bit."""
+        motd = next(a for a in self._actions() if a["src"] == "motd/20-boneio")
+        assert motd["dst"].startswith("/etc/update-motd.d/")
+        assert re.fullmatch(r"[A-Za-z0-9_-]+", motd["dst"].rsplit("/", 1)[1])
+        assert motd["mode"] == 0o755
+
+    def test_the_motd_script_executes_nothing_from_the_venv(self):
+        """It runs as root; the venv, the app and the config are the boneio
+        account's to write. Reading is fine, sourcing or running is root."""
+        script = self._asset("motd/20-boneio")
+        code = "\n".join(line for line in script.splitlines() if not line.lstrip().startswith("#"))
+        # A path through lib/python3*/ is fine; python as a command is not.
+        assert not re.search(r"\bpython[0-9.]*(\s|$)", code)
+        assert "/bin/" not in code.replace("PATH=/usr/sbin:/usr/bin:/sbin:/bin", "").replace(
+            "${exe%/bin/*}", ""
+        )
+        assert not re.search(r"(^|[;&|]\s*)(\.|source|eval|exec)\s", code, re.M)
+
+    def test_the_motd_offers_the_proxy_port_the_app_offers(self):
+        """The same fallback as _preferred_url, so the login screen and the
+        panel hand out the same address."""
+        from boneio.const import DEFAULT_PROXY_PORT
+
+        script = self._asset("motd/20-boneio")
+        assert f"proxy_port=${{proxy_port:-{DEFAULT_PROXY_PORT}}}" in script
+        assert 'https://$name:$proxy_port' in script
+
+    def test_the_motd_script_is_posix_sh(self):
+        import shutil
+        import subprocess
+
+        sh = shutil.which("sh")
+        if sh is None:
+            pytest.skip("no sh")
+        from boneio.migrations.runner import ASSETS_DIR
+
+        result = subprocess.run([sh, "-n", str(ASSETS_DIR / "motd" / "20-boneio")], capture_output=True)
+        assert result.returncode == 0, result.stderr
+
+    def test_the_motd_script_stays_quiet_where_nothing_is_there(self):
+        """A missing service, dogtag or debian_version must not put errors on
+        somebody's login, nor fail it. The CI runner has none of them."""
+        import shutil
+        import subprocess
+
+        sh = shutil.which("sh")
+        if sh is None:
+            pytest.skip("no sh")
+        from boneio.migrations.runner import ASSETS_DIR
+
+        result = subprocess.run(
+            [sh, str(ASSETS_DIR / "motd" / "20-boneio")],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 0
+        assert result.stderr == ""
+        assert "System" in result.stdout
+
+
 class TestCertificateLifetime:
     """The device's own certificate lasts long enough to be worth trusting.
 

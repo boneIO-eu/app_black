@@ -1,0 +1,158 @@
+#!/bin/sh
+# boneIO: what this controller is and how fresh it is, shown after an SSH login.
+# Installed by boneIO migration 1.6.28 - edit at your own risk.
+#
+# pam_motd runs this as root on every SSH session, scp and `ssh host command`
+# included, before the shell starts. So it has to be quick - a fork costs about
+# 25 ms on this board, hence the shell builtins - it has to stay quiet when
+# something is missing, and it must never execute or source anything the
+# boneio account can write: the venv and the app belong to that account. Such
+# files are only read, only when they are regular files (a symlink could point
+# anywhere, a FIFO would hang the login), only their first few KiB, and only
+# characters a version string has are taken from them.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+# __version__ from a version.py the boneio account owns.
+read_version() {
+    [ -f "$1" ] && [ ! -L "$1" ] || return 0
+    head -c 4096 "$1" \
+        | sed -n "s/^__version__ *= *[\"']\([A-Za-z0-9.+-]\{1,40\}\)[\"'].*/\1/p;T;q"
+}
+
+# One call to systemd for all of it. The venv and the config come from the unit
+# rather than a guess: images put the venv in ~/boneio/venv, older hand-made
+# installs in ~/venv.
+state=
+exe=
+pid=
+cfg=
+while IFS='=' read -r key value; do
+    case "$key" in
+        ActiveState) state=$value ;;
+        MainPID) pid=$value ;;
+        ExecStart)
+            exe=${value#*path=}
+            exe=${exe%% *}
+            [ "$exe" = "$value" ] && exe=
+            cfg=${value#* -c }
+            cfg=${cfg%% *}
+            [ "$cfg" = "$value" ] && cfg=
+            ;;
+    esac
+done <<EOF
+$(timeout 2 systemctl show -p ActiveState -p MainPID -p ExecStart boneio.service 2>/dev/null)
+EOF
+
+version=
+venv=${exe%/bin/*}
+if [ -n "$exe" ] && [ "$venv" != "$exe" ]; then
+    for site in "$venv"/lib/python3*/site-packages; do
+        [ -d "$site" ] || continue
+        version=$(read_version "$site/boneio/version.py")
+        if [ -z "$version" ]; then
+            # An editable install (development units): the finder names the
+            # source tree. Only a path is taken from it, and only read from.
+            for finder in "$site"/__editable___boneio_*_finder.py; do
+                [ -f "$finder" ] && [ ! -L "$finder" ] || continue
+                src=$(head -c 65536 "$finder" \
+                    | sed -n "s/^MAPPING[^=]*= *{'boneio': '\([^']*\)'}.*/\1/p;T;q")
+                [ -n "$src" ] && version=$(read_version "$src/version.py")
+                break
+            done
+        fi
+        break
+    done
+fi
+
+# Which address to hand a person, by the rule the panel and Home Assistant use
+# (_preferred_url in webui/routes/security.py): the proxy's https on the
+# hostname, which does not move with a DHCP lease and which Caddy's certificate
+# names. Its port is web.proxy_port, 8443 by default - read the way recovery
+# reads a config that may not parse (_web_from_text in core/recovery.py): any
+# indented "proxy_port:" inside the top-level web block. Only digits come out.
+proxy_port=
+if [ -n "$cfg" ] && [ -f "$cfg" ] && [ ! -L "$cfg" ]; then
+    proxy_port=$(head -c 262144 "$cfg" | awk '
+        /^[A-Za-z_][A-Za-z0-9_-]*[ \t]*:/ { in_web = ($0 ~ /^web[ \t]*:/); next }
+        in_web && match($0, /^[ \t]+proxy_port[ \t]*:[ \t]*["'\'']?[0-9]+/) {
+            v = substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", v); p = v
+        }
+        END { if (p != "") print p }')
+fi
+proxy_port=${proxy_port:-8443}
+
+# Then what is really listening, from the kernel's socket table: the proxy's
+# port by anyone (the table is world-readable; Caddy sits behind docker-proxy),
+# the panel's own port by the service's sockets - web.port is the operator's
+# to change, and with web.expose: proxy the panel listens on loopback only.
+# Loopback listeners are left out: nobody at a laptop can open those.
+# The fd listing always has at least its "total" line - put there by hand when
+# the service is not running - so the first input is never empty and NR == FNR
+# only ever means the fd listing, never /proc/net/tcp. Plain awk: this is mawk on Debian,
+# which has no strtonum.
+fds=
+case "$pid" in
+    ""|0|*[!0-9]*) ;;
+    *) fds=/proc/$pid/fd ;;
+esac
+set -- $({ [ -n "$fds" ] && ls -l "$fds" 2>/dev/null || echo "total 0"; } | awk -v want="$proxy_port" '
+    function hex(s,    i, n) {
+        n = 0
+        for (i = 1; i <= length(s); i++)
+            n = n * 16 + index("0123456789ABCDEF", substr(s, i, 1)) - 1
+        return n
+    }
+    NR == FNR { if (match($0, /socket:\[[0-9]+\]/)) own[substr($0, RSTART + 8, RLENGTH - 9)] = 1; next }
+    $4 == "0A" {
+        split($2, local, ":")
+        if (local[1] ~ /^(0100007F|0000000000000000FFFF00000100007F|00000000000000000000000001000000)$/) next
+        n = hex(local[2])
+        if (n == want) proxy = 1
+        if (app == "" && ($10 in own)) app = n
+    }
+    END { print (app == "" ? "-" : app), (proxy ? "yes" : "no") }' - /proc/net/tcp /proc/net/tcp6 2>/dev/null)
+port=${1:--}
+[ "$port" = "-" ] && port=
+proxied=${2:-no}
+
+read -r host </proc/sys/kernel/hostname
+read -r kernel </proc/sys/kernel/osrelease
+debian=
+[ -r /etc/debian_version ] && read -r debian </etc/debian_version
+image=
+[ -r /etc/dogtag ] && read -r image </etc/dogtag
+addr=$(ip -4 -o addr show dev eth0 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')
+# The last time dpkg changed anything: an upgrade from the panel, an unattended
+# security update, or the image build itself. apt's history is on log2ram and
+# rotated away; dpkg's status file is not.
+packages=$(date -r /var/lib/dpkg/status +%Y-%m-%d 2>/dev/null)
+
+case "$state" in
+    active) running="running" ;;
+    "") running= ;;
+    *) running="service $state - journalctl -u boneio" ;;
+esac
+
+echo
+printf '  %-12s %s\n' "boneIO Black" "${host:+$host.local}"
+[ -n "$version$running" ] && printf '  %-12s %s\n' "boneIO" "${version:-unknown}${running:+ ($running)}"
+name=${host:-$addr}${host:+.local}
+label="Panel"
+if [ "$proxied" = yes ] && [ -n "$name" ]; then
+    printf '  %-12s %s\n' "$label" "https://$name:$proxy_port${addr:+  ($addr)}"
+    label=
+    addr=
+fi
+if [ -n "$port" ] && [ -n "$name" ]; then
+    printf '  %-12s %s\n' "$label" "http://$name:$port${addr:+  ($addr)}"
+    label=
+    addr=
+fi
+[ -n "$addr" ] && printf '  %-12s %s\n' "eth0" "$addr"
+printf '  %-12s %s\n' "System" "Debian ${debian:-?}, kernel $kernel"
+[ -n "$packages" ] && printf '  %-12s %s\n' "Packages" "last changed $packages"
+[ -n "$image" ] && printf '  %-12s %s\n' "Base image" "$image"
+echo
+exit 0
