@@ -255,36 +255,61 @@ async def check_password_throttled(
         )
 
     session_id = getattr(request.state, "session_id", None)
-    token_exp = getattr(request.state, "token_exp", 0)
 
     user = await asyncio.to_thread(store.verify_credentials, username, password)
     if user is None:
         record_wrong_password(keys, username, client, where)
         _LOGGER.warning("Wrong password confirming '%s' from %s", username, client)
         left = min(login_rate_limiter.remaining_attempts(key) for key in keys)
-        if session_id:
-            count = await asyncio.to_thread(
-                store.record_session_failure, username, session_id, token_exp
-            )
-            if count >= SESSION_MAX_WRONG_PASSWORDS:
-                await asyncio.to_thread(store.revoke_session, username, session_id, token_exp)
-                _LOGGER.warning(
-                    "Signed out a session of '%s' from %s after %d wrong passwords",
-                    username,
-                    client,
-                    count,
-                )
-                security_events.emit(
-                    "session_signed_out", username=username, client=client, where=where
-                )
-                raise SessionLocked
-            left = min(left, SESSION_MAX_WRONG_PASSWORDS - count)
+        session_left = await count_session_wrong_password(request, username, where)
+        if session_left is not None:
+            left = min(left, session_left)
         return PasswordCheck(user=None, attempts_left=left)
 
     login_rate_limiter.reset(*keys)
     if session_id:
         await asyncio.to_thread(store.clear_session_failures, username, session_id)
     return PasswordCheck(user=user)
+
+
+async def count_session_wrong_password(request: Request, username: str, where: str) -> int | None:
+    """Count one wrong password against the calling session, and sign it out at the limit.
+
+    Shared by every form that makes a signed-in caller type a password —
+    the panel's own, or the SSH one — since they are all the same borrowed
+    session guessing.
+
+    Args:
+        request: Incoming request, as annotated by the auth middleware.
+        username: The account the token belongs to.
+        where: Which form it was typed into, for the security event.
+
+    Returns:
+        Wrong passwords the session may still type, or None when the token
+        carries no session to count against.
+
+    Raises:
+        SessionLocked: When this one was the session's last.
+    """
+    store = get_user_store()
+    session_id = getattr(request.state, "session_id", None)
+    if store is None or not session_id:
+        return None
+    token_exp = getattr(request.state, "token_exp", 0)
+    client = request.client.host if request.client else "unknown"
+
+    count = await asyncio.to_thread(store.record_session_failure, username, session_id, token_exp)
+    if count >= SESSION_MAX_WRONG_PASSWORDS:
+        await asyncio.to_thread(store.revoke_session, username, session_id, token_exp)
+        _LOGGER.warning(
+            "Signed out a session of '%s' from %s after %d wrong passwords",
+            username,
+            client,
+            count,
+        )
+        security_events.emit("session_signed_out", username=username, client=client, where=where)
+        raise SessionLocked
+    return SESSION_MAX_WRONG_PASSWORDS - count
 
 
 @router.post("/auth/confirm")

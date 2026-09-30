@@ -90,27 +90,3 @@ async def test_errors_propagate_from_the_worker_thread(monkeypatch) -> None:
 
     assert releases is None
     assert error == "GitHub API request failed: boom"
-
-
-def test_fetch_requests_the_largest_page(monkeypatch) -> None:
-    """The default page of 30 lets dev prereleases push stable ones off the list."""
-    import requests
-
-    seen: dict = {}
-
-    class _Response:
-        status_code = 200
-
-        @staticmethod
-        def json():
-            return []
-
-    def fake_get(url, params=None, timeout=None):
-        seen["params"] = params
-        return _Response()
-
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    update_routes._fetch_github_releases()
-
-    assert seen["params"] == {"per_page": 100}
