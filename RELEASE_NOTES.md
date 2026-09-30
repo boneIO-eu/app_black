@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev24` exists so that we can test the new system-migration chain on a
+`1.6.0.dev25` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,43 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev25 — internal test build
+
+## Since dev24
+
+Brings 1.5.6's Home Assistant fix onto this line. Field report on 1.5.5/1.5.6:
+HA first created a room device such as "Black - Salon" with the room's
+entities in it, then moved them to the main "Black" device, and a cover set
+to `shutter` in boneIO ended up as a plain window. A dump from .220 on dev23
+showed the same fault on 1.6: an output group called "Gabinetowe" with no
+room.
+
+Setup publishes the right discovery payload. Right after it, the startup
+resend rebuilds every payload straight from the entity objects and replaces
+the cached copy that is replayed whenever Home Assistant comes back online.
+The entity objects did not keep everything setup had read from the
+config: covers lost their area and `device_class`; output groups, Dallas
+and ADC sensors lost their area; and inputs, Dallas and ADC sensors with `show_in_ha: false`, plus
+remote outputs (`show_in_ha` defaults to false there), were published to HA
+regardless. Area and `show_in_ha` now live on the entity itself, set at
+creation and kept on reload, and the resend honours both.
+
+`unique_id` does not depend on the area, so the restart after the update
+should put entities back under their room device without HA creating
+duplicate entities. Checked on a controller on 1.5.6 (config from
+1.6, both device naming modes), reading the retained discovery payloads
+after startup: without the fix a cover with `area: living_room` and
+`device_class: shutter` ended under the main device with no class; with it,
+under the room device as a shutter — the same for a venetian cover, an
+output group and an ADC sensor. The only other difference was two entities
+no longer published: the internal OLED button and a remote output without
+`show_in_ha`. Not tried against a real HA instance yet on this line.
+
+No new migrations this release, and no plan changed since dev24. Only the
+manifest is re-signed, since it names the release.
 
 ---
 

@@ -6,6 +6,35 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev25 (2026-09-30) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🏠 Entities stay in their room in Home Assistant
+
+Brought over from 1.5.6: a controller on this line showed the same fault —
+a dump from .220 on dev23 had a "Gabinetowe" output group with no room.
+Setup published the right discovery payload for a cover, an output group, a
+Dallas or ADC sensor, or an input; right after it, the startup resend that
+replays discovery whenever HA comes back online rebuilt every payload from
+the entity objects, and those did not keep everything setup had read from
+the config.
+
+- **Covers** keep their area, `device_class` (shutter, blind, curtain…) and
+  `show_in_ha` through the resend. A shutter no longer becomes a plain
+  window in HA, and a cover with `show_in_ha: false` is no longer published
+  by the resend.
+- **Output groups, Dallas and ADC sensors** keep their area, so HA stops
+  moving them out of their room device.
+- **`show_in_ha: false` is honoured by the resend** for inputs, Dallas and
+  ADC sensors too, and for remote outputs, where it is the default — all of
+  these were published to HA anyway once the resend ran.
+- `unique_id` does not depend on the area, so the restart after the update
+  puts entities back under their room device without creating duplicates in
+  HA. Not tried against a real HA instance.
+- No new migrations. Only the manifest is re-signed, since it names the
+  release.
+
 ## v1.6.0.dev24 (2026-09-30) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
