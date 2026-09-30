@@ -2216,6 +2216,8 @@
     "type_mqtt": "MQTT",
     "type_output_over_mqtt": "Wyjście przez MQTT",
     "type_cover_over_mqtt": "Roleta przez MQTT",
+    "type_virtual_switch": "Przełącznik wirtualny",
+    "type_none_defined": "brak zdefiniowanych",
     "short_toggle": "PRZ",
     "short_on": "WŁ",
     "short_off": "WYŁ",

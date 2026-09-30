@@ -191,7 +191,15 @@ function resolveActionTarget(
  * Renders the expanded action details panel for a binary_sensor/event item.
  */
 const ActionDetails: React.FC<ActionDetailsProps> = ({ item, allAreas, allOutputs, allCovers, allRemoteDevices }) => {
+  const { t } = useTranslation();
   const getLabel = useActionLabels();
+  // Same wording as the action type picker in the form.
+  const typeLabel = (type: string | undefined) => {
+    if (!type) return '';
+    const key = `actions.type_${type}`;
+    const translated = t(key);
+    return translated !== key ? translated : type;
+  };
 
   if (!item.actions) return null;
 
@@ -214,7 +222,7 @@ const ActionDetails: React.FC<ActionDetailsProps> = ({ item, allAreas, allOutput
                 const { target, verb, areaName } = resolveActionTarget(action, allOutputs, allCovers, allAreas, allRemoteDevices);
                 return (
                   <div key={idx} className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                    <span className="badge badge-primary badge-xs shrink-0">{action.action}</span>
+                    <span className="badge badge-primary badge-xs shrink-0">{typeLabel(action.action)}</span>
                     {target && (
                       <span className="text-base-content/80 break-all">{target}</span>
                     )}

@@ -2217,6 +2217,8 @@
     "type_mqtt": "MQTT",
     "type_output_over_mqtt": "Output over MQTT",
     "type_cover_over_mqtt": "Cover over MQTT",
+    "type_virtual_switch": "Virtual switch",
+    "type_none_defined": "none defined",
     "short_toggle": "TGL",
     "short_on": "ON",
     "short_off": "OFF",

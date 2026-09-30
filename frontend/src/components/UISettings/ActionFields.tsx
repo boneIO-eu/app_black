@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FaTrash, FaPlay, FaLightbulb, FaCloud, FaWifi, FaSort } from 'react-icons/fa';
+import { FaTrash, FaPlay, FaLightbulb, FaCloud, FaWifi, FaSort, FaToggleOn } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
@@ -52,6 +52,8 @@ const getActionTypeIcon = (type: string) => {
           <FaSort className="text-blue-500 text-[10px]" />
         </div>
       );
+    case 'virtual_switch':
+      return <FaToggleOn className="text-secondary shrink-0 text-sm" />;
     default:
       return null;
   }
@@ -266,11 +268,19 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               const label = translated !== typeKey
                 ? translated
                 : opt.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+              // Nothing to point a virtual switch action at yet: say so here
+              // rather than let the pick lead to an empty list.
+              const unavailable = opt === 'virtual_switch'
+                && allVirtualSwitches.length === 0
+                && actionType !== opt;
               return (
-                <SelectItem key={opt} value={opt}>
+                <SelectItem key={opt} value={opt} disabled={unavailable}>
                   <span className="flex items-center gap-2">
                     {getActionTypeIcon(opt)}
                     {label}
+                    {unavailable && (
+                      <span className="text-xs text-base-content/60">— {t('actions.type_none_defined')}</span>
+                    )}
                   </span>
                 </SelectItem>
               );
