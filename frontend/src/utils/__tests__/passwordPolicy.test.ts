@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MIN_PASSWORD_LENGTH, checkPassword } from '../passwordPolicy';
+import { MIN_PASSWORD_LENGTH, checkNewPassword, checkPassword } from '../passwordPolicy';
 
 describe('checkPassword', () => {
   it('rejects a password below the shared minimum', () => {
@@ -41,5 +41,25 @@ describe('checkPassword', () => {
 
   it('reports length before similarity, like the backend', () => {
     expect(checkPassword('bone', 'boneio')).toBe('too_short');
+  });
+});
+
+describe('checkNewPassword', () => {
+  it('accepts two equal copies of an acceptable password', () => {
+    expect(checkNewPassword('correct horse', 'correct horse', 'pawel')).toBeNull();
+  });
+
+  it('reports copies that differ', () => {
+    expect(checkNewPassword('correct horse', 'correct hose', 'pawel')).toBe('mismatch');
+  });
+
+  it('reports the policy before the mismatch', () => {
+    // Otherwise the form sends somebody to fix the second field first.
+    expect(checkNewPassword('short', '', 'pawel')).toBe('too_short');
+    expect(checkNewPassword('boneio-panel', 'x', 'boneio')).toBe('contains_username');
+  });
+
+  it('treats spaces as part of the password', () => {
+    expect(checkNewPassword('correct horse', 'correct horse ', 'pawel')).toBe('mismatch');
   });
 });

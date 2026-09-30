@@ -9,6 +9,8 @@ import {
   checkPassword,
 } from '@/utils/passwordPolicy';
 import { FaUsers, FaUserPlus } from 'react-icons/fa';
+import AccountPasswordDialog from './AccountPasswordDialog';
+import AccountDeleteDialog from './AccountDeleteDialog';
 import {
   SettingsPage,
   SettingsCard,
@@ -58,6 +60,10 @@ export default function AccountsView() {
   const [newRole, setNewRole] = useState<Role>('viewer');
   const [isCreating, setIsCreating] = useState(false);
 
+  // Which account a dialog is open for; null when none is.
+  const [passwordFor, setPasswordFor] = useState<string | null>(null);
+  const [deleteFor, setDeleteFor] = useState<string | null>(null);
+
   // The backend applies the same rules, so this only means the admin hears
   // about a doomed password before submitting rather than after.
   const newPasswordIssue = newPassword ? checkPassword(newPassword, newUsername) : null;
@@ -106,16 +112,17 @@ export default function AccountsView() {
     }
   };
 
-  const handleDelete = async (account: Account) => {
-    if (!window.confirm(t('accounts.confirm_delete', { username: account.username }))) return;
+  const handleDelete = async (username: string) => {
     setError(null);
     setNotice(null);
     try {
-      await axios.delete(`/api/accounts/${encodeURIComponent(account.username)}`);
-      setNotice(t('accounts.deleted', { username: account.username }));
+      await axios.delete(`/api/accounts/${encodeURIComponent(username)}`);
+      setNotice(t('accounts.deleted', { username }));
       await load();
     } catch (err: unknown) {
       setError(errorMessage(err, t('accounts.delete_failed')));
+    } finally {
+      setDeleteFor(null);
     }
   };
 
@@ -131,36 +138,13 @@ export default function AccountsView() {
     }
   };
 
-  const handleReset = async (account: Account) => {
-    const password = window.prompt(
-      t('accounts.prompt_new_password', { username: account.username }),
-    );
-    if (!password) return;
+  const handlePasswordChanged = (username: string) => {
+    setPasswordFor(null);
     setError(null);
-    setNotice(null);
-
-    // A prompt has nowhere to put inline feedback, so the policy is checked
-    // here; otherwise the only answer is the backend's untranslated detail.
-    const problem = checkPassword(password, account.username);
-    if (problem) {
-      setError(t(PASSWORD_PROBLEM_KEYS[problem], { min: MIN_PASSWORD_LENGTH }));
-      return;
-    }
-    try {
-      const { data } = await axios.put(
-        `/api/accounts/${encodeURIComponent(account.username)}/password`,
-        { password },
-      );
-      // A new password signs the account out everywhere. When it is your own,
-      // that includes this session, unless it adopts the token sent back.
-      if (typeof data?.token === 'string') {
-        localStorage.setItem('token', data.token);
-      }
-      setNotice(t('accounts.password_reset', { username: account.username }));
-    } catch (err: unknown) {
-      setError(errorMessage(err, t('accounts.password_failed')));
-    }
+    setNotice(t('accounts.password_reset', { username }));
   };
+
+  const isSelf = (username: string) => username.toLowerCase() === (me ?? '').toLowerCase();
 
   if (!isAdmin) {
     return (
@@ -193,7 +177,7 @@ export default function AccountsView() {
               </thead>
               <tbody>
                 {accounts.map((account) => {
-                  const isMe = account.username.toLowerCase() === (me ?? '').toLowerCase();
+                  const isMe = isSelf(account.username);
                   return (
                     <tr key={account.username}>
                       <td>
@@ -218,14 +202,17 @@ export default function AccountsView() {
                       <td className="text-right whitespace-nowrap">
                         <button
                           className="btn btn-ghost btn-xs"
-                          onClick={() => handleReset(account)}
+                          onClick={() => {
+                            setNotice(null);
+                            setPasswordFor(account.username);
+                          }}
                         >
                           {t('accounts.reset_password')}
                         </button>
                         <button
                           className="btn btn-ghost btn-xs text-error ml-1"
                           disabled={isMe}
-                          onClick={() => handleDelete(account)}
+                          onClick={() => setDeleteFor(account.username)}
                         >
                           {t('accounts.delete')}
                         </button>
@@ -302,6 +289,20 @@ export default function AccountsView() {
           </div>
         </SettingsCard>
       </form>
+
+      {/* Keyed by account: a fresh form, nothing typed for the last one. */}
+      <AccountPasswordDialog
+        key={passwordFor ?? ''}
+        username={passwordFor}
+        isSelf={passwordFor !== null && isSelf(passwordFor)}
+        onClose={() => setPasswordFor(null)}
+        onChanged={handlePasswordChanged}
+      />
+      <AccountDeleteDialog
+        username={deleteFor}
+        onClose={() => setDeleteFor(null)}
+        onConfirm={handleDelete}
+      />
     </SettingsPage>
   );
 }

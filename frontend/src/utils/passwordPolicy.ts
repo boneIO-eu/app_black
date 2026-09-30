@@ -55,3 +55,22 @@ export const PASSWORD_PROBLEM_KEYS: Record<PasswordProblem, string> = {
   too_short: 'password_policy.too_short',
   contains_username: 'password_policy.contains_username',
 };
+
+/**
+ * Check a new password and its repetition, for the forms that ask twice.
+ *
+ * The policy comes first: telling somebody their two copies differ while the
+ * first is still too short sends them to fix the wrong field.
+ *
+ * @param password - The new password.
+ * @param repeat - The same password typed again.
+ * @param username - Account it is for, as for {@link checkPassword}.
+ * @returns The problem, or null when both are acceptable and equal.
+ */
+export function checkNewPassword(
+  password: string,
+  repeat: string,
+  username: string,
+): PasswordProblem | 'mismatch' | null {
+  return checkPassword(password, username) ?? (password === repeat ? null : 'mismatch');
+}
