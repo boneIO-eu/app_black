@@ -437,6 +437,31 @@ class TestServicePasswordChange:
         assert verbs and '"service-password-change"' in verbs.group(1)
 
 
+class TestOsUpdateAptCache:
+    """1.6.30 reinstalls boneio-system, which clears apt's cache when short."""
+
+    @staticmethod
+    def _actions() -> list[dict]:
+        from boneio.migrations.versions import v1_6_30_os_update_apt_cache as migration
+
+        return [a.to_dict() for a in migration.plan()]
+
+    def test_the_pristine_copy_goes_first(self):
+        assert [a["dst"] for a in self._actions()] == [
+            "/usr/lib/boneio/trusted/boneio-system",
+            "/usr/sbin/boneio-system",
+        ]
+
+    def test_both_copies_are_root_owned_and_compiled_first(self):
+        for action in self._actions():
+            assert action["src"] == "helpers/boneio-system"
+            assert (action["owner"], action["group"], action["mode"]) == ("root", "root", 0o755)
+            assert action["validate"] == "python"
+
+    def test_the_helper_it_installs_reports_the_cache(self):
+        assert '"apt_cache_mb"' in (ASSETS_DIR / "helpers/boneio-system").read_text()
+
+
 class TestCertificateLifetime:
     """The device's own certificate lasts long enough to be worth trusting.
 

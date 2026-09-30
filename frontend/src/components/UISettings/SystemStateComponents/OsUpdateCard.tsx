@@ -50,6 +50,8 @@ interface OsUpdateState {
   kernel?: KernelReport;
   free_mb?: number;
   min_free_mb?: number;
+  /** What ``apt-get clean`` would free; the helper clears it when short. */
+  apt_cache_mb?: number;
 }
 
 /**
@@ -266,8 +268,13 @@ export const OsUpdateCard: React.FC = () => {
   const activeButton = 'disabled:text-base-content/70 disabled:border-base-content/20';
   const packages = last?.packages ?? [];
   const kernelProblem = state?.kernel?.status === 'problem';
-  const lowSpace =
-    state?.free_mb !== undefined && state.min_free_mb !== undefined && state.free_mb < state.min_free_mb;
+  // The threshold is for starting a run; during one apt uses the space itself.
+  const shortOfSpace =
+    !busy && state?.free_mb !== undefined && state.min_free_mb !== undefined && state.free_mb < state.min_free_mb;
+  const aptCache = state?.apt_cache_mb ?? 0;
+  const lowSpace = shortOfSpace && (state?.free_mb ?? 0) + aptCache < (state?.min_free_mb ?? 0);
+  const clearsCache = shortOfSpace && !lowSpace;
+  const upgradeDone = !busy && last?.mode === 'upgrade' && last.result === 'success';
   const formatTime = (ts?: number | null) => (ts ? new Date(ts * 1000).toLocaleString() : '—');
   const pending = pendingPackages(state);
   const [estimateLow, estimateHigh] = estimateMinutes(pending?.length ?? 0);
@@ -349,7 +356,21 @@ export const OsUpdateCard: React.FC = () => {
           />
         )}
 
-        {state?.reboot_required && !kernelProblem && (
+        {upgradeDone && (
+          <NoticeCallout
+            variant="success"
+            message={
+              <>
+                <p>{t('os_update.upgrade_done', { when: formatTime(last?.finished), count: packages.length })}</p>
+                {state?.reboot_required && <p className="mt-1">{t('os_update.upgrade_done_reboot')}</p>}
+              </>
+            }
+          />
+        )}
+
+        {/* Mid-run the reasons are half-known: the kernel check comes last and
+            may still say not to restart. */}
+        {state?.reboot_required && !kernelProblem && !running && (
           <NoticeCallout
             variant="warning"
             title={t('os_update.reboot_required')}
@@ -400,6 +421,17 @@ export const OsUpdateCard: React.FC = () => {
           <NoticeCallout
             variant="warning"
             message={t('os_update.low_space', { free: state?.free_mb ?? 0, needed: state?.min_free_mb ?? 0 })}
+          />
+        )}
+
+        {clearsCache && (
+          <NoticeCallout
+            variant="info"
+            message={t('os_update.low_space_cache', {
+              free: state?.free_mb ?? 0,
+              needed: state?.min_free_mb ?? 0,
+              cache: aptCache,
+            })}
           />
         )}
 

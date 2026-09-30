@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -644,6 +645,8 @@ def os_update(helper, monkeypatch, tmp_path):
     monkeypatch.setattr(helper, "_in_update_unit", lambda: True)
     monkeypatch.setattr(helper, "OS_UPDATE_STATE", tmp_path / "state.json")
     monkeypatch.setattr(helper, "OS_UPDATE_LOG", tmp_path / "update.log")
+    # Never the build machine's own apt cache.
+    monkeypatch.setattr(helper, "APT_ARCHIVES", tmp_path / "no-archives")
     monkeypatch.setattr(
         helper, "_kernel_check",
         lambda repair=False: {"status": "ok", "kernel": "k", "running": "k", "message": None},
@@ -696,6 +699,53 @@ def test_an_upgrade_is_refused_without_room(helper, os_update, monkeypatch, tmp_
     state = json.loads((tmp_path / "state.json").read_text())
     assert state["result"] == "failed"
     assert "MB free" in state["message"]
+
+
+def _disk(free_mb: int):
+    mb = 1024 * 1024
+    return lambda path: shutil._ntuple_diskusage(10**10, 10**10 - free_mb * mb, free_mb * mb)
+
+
+def test_short_of_room_the_apt_cache_is_cleared_first(helper, os_update, monkeypatch, tmp_path):
+    archives = tmp_path / "archives"
+    archives.mkdir()
+    (archives / "linux-image.deb").write_bytes(b"x" * 1024 * 1024 * 3)
+    monkeypatch.setattr(helper, "APT_ARCHIVES", archives)
+    free = {"mb": 277}
+    monkeypatch.setattr(helper.shutil, "disk_usage", lambda path: _disk(free["mb"])(path))
+    streamed = helper._stream
+
+    def _clean_frees(argv, log, timeout):
+        if argv == ["apt-get", "clean"] and free["mb"] == 277:
+            free["mb"] = 421
+        return streamed(argv, log, timeout)
+
+    monkeypatch.setattr(helper, "_stream", _clean_frees)
+    assert helper.main(["os-update-run", "upgrade"]) == 0
+    assert os_update[0] == ["apt-get", "clean"]
+    assert ["dpkg", "--configure", "-a"] in os_update
+
+
+def test_still_short_after_clearing_the_cache_is_refused(helper, os_update, monkeypatch, tmp_path):
+    archives = tmp_path / "archives"
+    archives.mkdir()
+    (archives / "old.deb").write_bytes(b"x" * 1024 * 1024)
+    monkeypatch.setattr(helper, "APT_ARCHIVES", archives)
+    monkeypatch.setattr(helper.shutil, "disk_usage", _disk(100))
+    assert helper.main(["os-update-run", "upgrade"]) == 1
+    assert os_update == [["apt-get", "clean"]]
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert "after clearing the apt cache" in state["message"]
+
+
+def test_the_state_reports_what_clearing_the_cache_would_free(helper, monkeypatch, tmp_path, capsys):
+    archives = tmp_path / "archives"
+    (archives / "partial").mkdir(parents=True)
+    (archives / "a.deb").write_bytes(b"x" * 1024 * 1024 * 2)
+    (archives / "partial" / "b.deb").write_bytes(b"x" * 1024 * 1024)
+    (archives / "lock").write_bytes(b"x" * 1024 * 1024 * 5)
+    monkeypatch.setattr(helper, "APT_ARCHIVES", archives)
+    assert helper._apt_cache_mb() == 3
 
 
 def test_a_failed_step_is_recorded(helper, os_update, monkeypatch, tmp_path):

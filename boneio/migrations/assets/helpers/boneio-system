@@ -180,6 +180,10 @@ OS_UPDATE_LOG_TAIL = 400
 #: one; the eMMC rootfs has little to spare. Below this, refuse up front rather
 #: than let dpkg run out of space halfway through.
 OS_UPDATE_MIN_FREE_MB = 300
+#: Packages apt downloaded earlier, unattended-upgrades included. It clears
+#: them only after a successful upgrade, so on a small eMMC they can be what
+#: keeps the next one from starting. apt downloads again whatever it needs.
+APT_ARCHIVES = Path("/var/cache/apt/archives")
 #: Debian writes these only when a package asks; the kernel check below is what
 #: actually tells a BeagleBone it needs a reboot.
 REBOOT_REQUIRED = Path("/run/reboot-required")
@@ -1445,6 +1449,18 @@ def _next_boot_is_this_one(kernel: str, running: str) -> bool:
     return any(entry.startswith("BONEIO-BLACK-PINS") for entry in entries)
 
 
+def _apt_cache_mb() -> int:
+    """How much ``apt-get clean`` would free, in MB."""
+    total = 0
+    for pattern in ("*.deb", "partial/*"):
+        for path in APT_ARCHIVES.glob(pattern):
+            try:
+                total += path.stat().st_size
+            except OSError:
+                pass
+    return total // (1024 * 1024)
+
+
 def _os_update_state_verb() -> int:
     """Print what the panel needs to show. Changes nothing.
 
@@ -1473,6 +1489,7 @@ def _os_update_state_verb() -> int:
         "kernel": kernel,
         "free_mb": usage.free // (1024 * 1024),
         "min_free_mb": OS_UPDATE_MIN_FREE_MB,
+        "apt_cache_mb": _apt_cache_mb(),
         "autoupdate": _autoupdate_state(),
     }))
     return 0
@@ -1609,9 +1626,15 @@ def _os_update_run(mode: str | None) -> int:
         try:
             if mode == "upgrade":
                 free_mb = shutil.disk_usage("/").free // (1024 * 1024)
+                cleared = ""
+                if free_mb < OS_UPDATE_MIN_FREE_MB and _apt_cache_mb():
+                    step("clean-cache", ["apt-get", "clean"], 300)
+                    free_mb = shutil.disk_usage("/").free // (1024 * 1024)
+                    cleared = " after clearing the apt cache"
                 if free_mb < OS_UPDATE_MIN_FREE_MB:
                     raise Refused(
-                        f"only {free_mb} MB free on /, {OS_UPDATE_MIN_FREE_MB} MB needed"
+                        f"only {free_mb} MB free on /{cleared}, "
+                        f"{OS_UPDATE_MIN_FREE_MB} MB needed"
                     )
                 # An upgrade cut short by a power loss leaves dpkg half-done, and
                 # apt refuses to do anything until this has run.
