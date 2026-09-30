@@ -565,13 +565,11 @@ async def test_compose_permissions():
     return info
 
 
-# POST /cloud/fix-permissions is gone. It took the operator's sudo password and
-# ran `chown <user>:<user>` on docker-compose.yaml — which is now root-owned on
-# purpose, because that file is what `docker compose up` executes: whoever can
-# write it can start a container as root with the host filesystem mounted. An
-# endpoint that hands the file back on request would undo migration 1.6.5 and
-# reopen F-04, so there is nothing here to keep. The read-only diagnostic above
-# still reports the file's owner and mode.
+# There is deliberately no endpoint that chowns docker-compose.yaml back to the
+# application (the old POST /cloud/fix-permissions). The file is root-owned
+# because `docker compose up` executes it: whoever can write it can start a
+# container as root with the host filesystem mounted. The read-only diagnostic
+# above still reports the file's owner and mode.
 
 
 @router.post("/cloud/disable")

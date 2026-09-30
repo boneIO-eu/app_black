@@ -1,7 +1,6 @@
-"""Response security headers (F-13).
+"""Response security headers.
 
-Before 1.6 the app sent only ``X-Content-Type-Options`` and ``Referrer-Policy``.
-This adds the rest, with two deliberate departures from the obvious answer.
+Two of them depart from the obvious answer on purpose.
 
 **No X-Frame-Options.** The panel has to be embeddable in a Home Assistant
 ingress iframe, and X-Frame-Options cannot express "this one other origin".

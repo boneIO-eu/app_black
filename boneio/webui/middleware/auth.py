@@ -298,13 +298,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
        and the first-run wizard. The wizard is open because a device with no
        account has nothing to authenticate against; it guards itself by
        refusing to create a second administrator.
-    2. **A device with no credentials is refused, not waved through.** Before
-       1.6 an unprovisioned device served its whole API to anyone on the
-       network (F-02). It now answers 403 ``setup_required`` until the wizard
-       has run, unless ``web.auth.allow_anonymous`` is set in config.yaml.
-       The rule keys off device state, not version, so it behaves the same
-       whether the owner came from 1.5, skipped 1.6, or flashed the image
-       fresh.
+    2. **A device with no credentials is refused, not waved through.** It
+       answers 403 ``setup_required`` until the wizard has run, unless
+       ``web.auth.allow_anonymous`` is set in config.yaml. The rule keys off
+       device state, not version, so it behaves the same on an upgraded
+       device as on a freshly flashed one.
     3. **The token's role decides**, per :mod:`boneio.webui.middleware.policy`.
     4. **Some requests want the password again.** The policy names the ones
        that cannot be walked back; for those the token has to have been issued

@@ -216,9 +216,9 @@ async def discover_esphome(request: ESPHomeDiscoverRequest):
     )
 
     if "error" in result:
-        # Logged, never returned: the native-API handshake error carried the
-        # first byte of whatever answered, which is how "Invalid preamble 0x53"
-        # spelled out the S of an SSH banner in the report.
+        # Logged, never returned: the native-API handshake error carries the
+        # first byte of whatever answered, so "Invalid preamble 0x53" would
+        # spell out the S of an SSH banner.
         _LOGGER.warning(
             "ESPHome discovery failed for %s:%d: %s",
             request.host,
@@ -315,9 +315,9 @@ async def discover_wled(request: WLEDDiscoverRequest):
     )
 
     if "error" in result:
-        # The upstream error is logged, never returned. Handing it back is how
-        # an HTTP probe became a banner grabber: the report reads an SSH
-        # version string out of "Bad status line".
+        # The upstream error is logged, never returned. Handing it back would
+        # make an HTTP probe a banner grabber: when SSH answers, "Bad status
+        # line" carries its version string.
         _LOGGER.warning(
             "WLED discovery failed for %s:%d: %s",
             request.host,

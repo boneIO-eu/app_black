@@ -1,7 +1,7 @@
-"""Keep configured secrets out of API responses (F-03).
+"""Keep configured secrets out of API responses.
 
-``GET /api/config`` returned the MQTT password, and any other password in the
-configuration, in clear text. Masking it is only half the job: the settings
+Unmasked, ``GET /api/config`` would return the MQTT password, and any other
+password in the configuration, in clear text. Masking it is only half the job: the settings
 forms are populated from that same response and post the whole section back, so
 a mask that is written straight through would overwrite the real password with
 its own placeholder the first time anyone saved an unrelated field.

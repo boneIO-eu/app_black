@@ -1,8 +1,7 @@
 """Sliding-window rate limiting for credential endpoints.
 
-Generalised out of the sudo limiter, which the 1.5.0 pentest noted was wired to
-the sudo routes and nowhere else — ``/api/login`` accepted unlimited guesses
-(F-06).
+Used by ``/api/login`` and the recovery console, so a password is never open to
+unlimited guessing; the sudo routes have their own limiter.
 
 Two deliberate properties:
 

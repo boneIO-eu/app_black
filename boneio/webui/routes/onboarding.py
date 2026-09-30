@@ -5,7 +5,7 @@ reachable without a token — there is nobody to authenticate as yet. The whole
 security of the wizard rests on one rule, enforced in :func:`create_first_admin`:
 **once an admin exists, account creation here is closed for good.** Without that
 rule the endpoint would be a permanent unauthenticated way to take over a
-device, which is the class of problem F-14 describes.
+device.
 
 Importing an old configuration reuses the existing backup/restore routes rather
 than duplicating them; the wizard only needs to know whether the device has a

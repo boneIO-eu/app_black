@@ -983,7 +983,7 @@ def init_app(
         allow_headers=["*"],
     )
 
-    # Security headers middleware (F-13).
+    # Security headers middleware.
     # NOTE: still no X-Frame-Options — boneIO must be embeddable in an HA
     # ingress iframe, and that header cannot name an allowed origin. Framing is
     # expressed through CSP frame-ancestors instead. Unset means the secure

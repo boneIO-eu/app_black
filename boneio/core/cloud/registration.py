@@ -524,10 +524,10 @@ class CloudRegistration:
     def _check_compose_ownership(self) -> bool:
         """Check the compose file is managed by the privileged helper.
 
-        This used to check the opposite — that the file was *writable* — and its
-        error message told the operator to ``sudo chown $USER`` it. That advice
-        reopens F-04: ``docker compose up`` executes this file, so whoever can
-        write it can start a container as root with the host filesystem mounted.
+        The file must *not* be writable by the application, and no error here
+        should tell the operator to ``chown`` it: ``docker compose up`` executes
+        this file, so whoever can write it can start a container as root with
+        the host filesystem mounted.
 
         Returns:
             True when the cloud switch can proceed.

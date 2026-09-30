@@ -402,7 +402,7 @@ async def restore_backup(backup_path: str) -> dict[str, str]:
             """Perform one container operation, raising on failure.
 
             Goes through boneio-containers when it is installed, so no argument
-            from this process reaches Docker (F-04).
+            from this process reaches Docker.
             """
             result = containers.run(verb, timeout=timeout)
             if not result.ok:

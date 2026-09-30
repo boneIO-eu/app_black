@@ -1,15 +1,14 @@
-"""Refuse state-changing requests that come from another site (F-07).
+"""Refuse state-changing requests that come from another site.
 
-The report's proof is a cross-origin form post: a page on another site submits
-to ``/api/reboot`` and the browser sends it. Since 1.6 most of that is already
-gone, because the session token travels in an ``Authorization`` header rather
+The attack is a cross-origin form post: a page on another site submits to
+``/api/reboot`` and the browser sends it. Authentication already stops most of
+that, because the session token travels in an ``Authorization`` header rather
 than a cookie — a form cannot set that header, and the browser will not attach
 it on its own, so the request arrives unauthenticated and is refused.
 
 What is left is the device that needs no authentication: one running with
 ``web.auth.allow_anonymous``, or a development board with ``BONEIO_DEV``. There
-the form post still works, and the reboot in the report still happens. This
-closes that.
+the form post would still go through. This closes that.
 
 The rule is deliberately narrow. Only a request that *says* where it came from
 is judged: browsers attach ``Origin`` to exactly the cross-site requests this

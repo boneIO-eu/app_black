@@ -1,17 +1,16 @@
 """Container operations, through the privileged helper when it is there.
 
-The application talks to Docker today because the ``boneio`` account is in the
-``docker`` group — which is root-equivalent, since a container can bind-mount
-the host root and write to it. Taking the account out of that group is the fix
-(F-04), and this module is what makes it possible: every container operation
-goes through ``boneio-containers``, which accepts a fixed verb and passes
-nothing from the caller to Docker.
+The ``boneio`` account is kept out of the ``docker`` group, because that group
+is root-equivalent: a container can bind-mount the host root and write to it.
+Every container operation goes through ``boneio-containers`` instead, which
+accepts a fixed verb and passes nothing from the caller to Docker. Nothing else
+in the application should call ``docker``; it comes through here.
 
 Direct ``docker`` invocation stays as a fallback while the helper is not
-installed. That is not a loophole, it is the transition: a device that has not
-applied the trust-transition migration yet is in exactly the state it is in
-today, and refusing to manage its containers would break Node-RED and the TLS
-panel for no gain. Once the helper is present it is always preferred, and once
+installed. That is not a loophole: a device that has not applied the
+trust-transition migration yet still has the account in the ``docker`` group,
+and refusing to manage its containers would break Node-RED and the TLS panel
+for no gain. Once the helper is present it is always preferred, and once
 the account leaves the ``docker`` group the fallback stops working on its own.
 
 Nothing here is a security boundary. The boundary is the helper, which refuses
@@ -466,9 +465,9 @@ def set_project_env(name: str, value: str) -> bool:
     the compose file, which is how the panel's own port reaches Caddy. The
     application may write this file: the directory belongs to it. It may not
     write the compose file beside it, which is root-owned because
-    ``docker compose up`` executes it — that distinction is F-04, and it holds
-    here because interpolation substitutes into scalar values after the YAML is
-    parsed, so nothing passed this way can introduce a volume or an entrypoint.
+    ``docker compose up`` executes it. Writing ``.env`` does not undo that:
+    interpolation substitutes into scalar values after the YAML is parsed, so
+    nothing passed this way can introduce a volume or an entrypoint.
 
     Read-modify-write rather than truncate: an operator may have put their own
     variables here, and a port change is no reason to lose them. Comments and

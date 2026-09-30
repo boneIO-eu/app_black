@@ -1,11 +1,10 @@
-"""Bound where device discovery is allowed to connect (F-15).
+"""Bound where device discovery is allowed to connect.
 
-``discover-wled`` and ``discover-esphome`` took a host and a port and connected
-to them. That made the controller three things it should not be: a port scanner
-for its own loopback interface, a way to reach anything on the network from the
-controller's address, and — because the upstream error was handed back verbatim
-— a banner grabber. The report's proof reads an SSH version string out of an
-HTTP error.
+``discover-wled`` and ``discover-esphome`` take a host and a port and connect to
+them. Unbounded, that makes the controller three things it should not be: a
+port scanner for its own loopback interface, a way to reach anything on the
+network from the controller's address, and — if the upstream error is handed
+back verbatim — a banner grabber.
 
 The guard is shaped by what the feature is actually for. A WLED or ESPHome node
 lives on the local network, so private addresses stay allowed; blocking them
@@ -13,8 +12,8 @@ would leave nothing to discover. Everything with no legitimate reason to be a
 discovery target is refused:
 
 ``loopback``
-    The controller's own services. This is the port-scanning oracle from the
-    report, and the only thing it can find is boneIO itself.
+    The controller's own services. Discovery here would only be a port scan
+    of boneIO itself.
 ``link-local``
     Includes 169.254.169.254, the cloud metadata address — an SSRF target
     worth closing even on hardware that will never run in a cloud.

@@ -1504,11 +1504,11 @@ async def change_mqtt_password(
         }
     
     try:
-        # Through the helper, which reads the password from stdin. The rule
-        # this replaces was `mosquitto_passwd -b <file> <user> *`, so the new
-        # password sat in the process table — readable by every local account —
-        # for as long as the command ran. The helper also puts the file back to
-        # root:mosquitto 0640 afterwards, which mosquitto_passwd does not (F-11).
+        # Through the helper, which reads the password from stdin: passed as an
+        # argument (`mosquitto_passwd -b`) it would sit in the process table,
+        # readable by every local account, for as long as the command ran. The
+        # helper also puts the file back to root:mosquitto 0640 afterwards,
+        # which mosquitto_passwd does not.
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None, system_ops.mqtt_password, request.username, request.new_password
