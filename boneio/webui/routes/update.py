@@ -42,6 +42,11 @@ _GITHUB_RELEASES_CACHE: dict = {
     "fetched_at": 0.0,
 }
 _GITHUB_RELEASES_TTL = 900  # 15 minutes in seconds
+# GitHub returns 30 releases per page by default, newest *created* first. Dev
+# prereleases outnumber stable ones, so a page that small eventually drops the
+# latest stable release and stable devices are never offered an update. 100 is
+# the API maximum.
+_GITHUB_RELEASES_PER_PAGE = 100
 
 
 def _get_cached_releases() -> list | None:
@@ -76,7 +81,9 @@ def _fetch_github_releases(repo: str = "boneIO-eu/app_black") -> tuple[list | No
 
     api_url = f"https://api.github.com/repos/{repo}/releases"
     try:
-        response = requests.get(api_url, timeout=10)
+        response = requests.get(
+            api_url, params={"per_page": _GITHUB_RELEASES_PER_PAGE}, timeout=10
+        )
     except Exception as exc:
         return None, f"GitHub API request failed: {exc}"
 
