@@ -39,7 +39,7 @@ from boneio.webui.routes.auth import (
     count_session_wrong_password,
     signed_out_response,
 )
-from boneio.webui.routes.security import forget_service_password_state
+from boneio.webui.routes.security import forget_service_password_state, service_password_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -351,7 +351,7 @@ async def ssh_password_state():
         migration that ships the change (1.6.29) has been applied.
     """
     supported = await asyncio.to_thread(system_ops.helper_supports, _SSH_CHANGE_VERB)
-    state = await asyncio.to_thread(system_ops.service_password_state)
+    state = await asyncio.to_thread(service_password_state)
     return {"state": state, "supported": supported}
 
 

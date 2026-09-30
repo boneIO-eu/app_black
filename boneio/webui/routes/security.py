@@ -13,7 +13,10 @@ import os
 import re
 import shutil
 import socket
+import threading
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
@@ -167,6 +170,8 @@ def current_posture() -> Posture:
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not read cloud state for the security check: %s", err)
 
+    service_password, os_update = _system_states()
+
     store = get_user_store()
     try:
         provisioned = bool(store and store.is_provisioned())
@@ -182,68 +187,129 @@ def current_posture() -> Posture:
         proxy_serving=_proxy_serving(config),
         custom_certificate=certs.installed() is not None,
         cloud_error=cloud_error,
-        service_password=_service_password_state(),
-        os_update=_os_update_state(),
+        service_password=service_password,
+        os_update=os_update,
     )
 
 
-_OS_UPDATE_TTL = 60.0
-_os_update_cache: tuple[float, dict | None] | None = None
+class _Refreshing:
+    """A slow system read, kept warm.
+
+    Each of these is a sudo call into boneio-system: 1.8 s for the OS update
+    state and 2.3 s for the SSH login state on a BeagleBone, the latter mostly
+    a deliberately slow yescrypt check against the shipped password. Asked on
+    every page load that is the whole wait.
+
+    So within ``ttl`` the last answer is simply returned. Past it, the last
+    answer is still returned and a refresh starts in the background, one at a
+    time, so a page open never waits on a value it already had. Only the very
+    first read waits, and :func:`warm_system_state` does that one at startup.
+    """
+
+    def __init__(self, name: str, read: Callable[[], object], ttl: float) -> None:
+        self._name = name
+        self._read = read
+        self._ttl = ttl
+        self._lock = threading.Lock()
+        self._value: object = None
+        self._at: float | None = None
+        self._refreshing = False
+
+    def get(self) -> object:
+        with self._lock:
+            at, value = self._at, self._value
+        if at is None:
+            return self._refresh()
+        if time.monotonic() - at >= self._ttl:
+            self.refresh_in_background()
+        return value
+
+    def refresh_in_background(self) -> None:
+        with self._lock:
+            if self._refreshing:
+                return
+            self._refreshing = True
+        threading.Thread(target=self._refresh, name=f"refresh-{self._name}", daemon=True).start()
+
+    def forget(self) -> None:
+        """Drop the answer, so the next read asks again and waits for it."""
+        with self._lock:
+            self._at = None
+            self._value = None
+
+    @property
+    def known(self) -> bool:
+        with self._lock:
+            return self._at is not None
+
+    def _refresh(self) -> object:
+        try:
+            value = self._read()
+        except Exception as err:  # noqa: BLE001 — the posture must never raise
+            _LOGGER.warning("Could not read %s: %s", self._name, err)
+            value = None
+        with self._lock:
+            self._value = value
+            self._at = time.monotonic()
+            self._refreshing = False
+        return value
+
+
+def _read_os_update_state() -> dict | None:
+    """boneio-system's update report, or None on a helper that predates it."""
+    if not system_ops.helper_supports("os-update-state"):
+        return None
+    result = system_ops.os_update_state()
+    return result.json() if result.ok else None
+
+
+#: A minute: someone who has just run passwd over SSH sees the check turn on
+#: the refresh after next; a change made from the panel is seen at once.
+_os_update = _Refreshing("the operating system update state", _read_os_update_state, 60.0)
+_service_password = _Refreshing(
+    "the SSH login state", lambda: system_ops.service_password_state(), 60.0
+)
 
 
 def _os_update_state() -> dict | None:
-    """boneio-system's update report, asked at most once a minute, like the SSH state.
+    """The OS update report, from the warm cache."""
+    return _os_update.get()  # type: ignore[return-value]
 
-    Returns:
-        The report, or None on a helper that predates it.
+
+def service_password_state() -> str | None:
+    """How the boneio SSH login stands, from the warm cache.
+
+    Shared by the posture and the SSH login card in Accounts, which used to
+    ask the helper for it on every open.
     """
-    global _os_update_cache
-    now = time.monotonic()
-    if _os_update_cache and now - _os_update_cache[0] < _OS_UPDATE_TTL:
-        return _os_update_cache[1]
-    state: dict | None = None
-    try:
-        if system_ops.helper_supports("os-update-state"):
-            result = system_ops.os_update_state()
-            state = result.json() if result.ok else None
-    except Exception as err:  # noqa: BLE001 — the posture must never raise
-        _LOGGER.warning("Could not read the operating system update state: %s", err)
-    _os_update_cache = (now, state)
-    return state
-
-
-_SERVICE_PASSWORD_TTL = 60.0
-_service_password_cache: tuple[float, str | None] | None = None
-
-
-def _service_password_state() -> str | None:
-    """How the boneio SSH login stands, asked of boneio-system at most once a minute.
-
-    The posture is read by the panel, the post-update prompt and the Home
-    Assistant sensor; each read would otherwise be a sudo call. A minute is
-    short enough that someone who has just run passwd sees the check turn
-    green on the next refresh.
-
-    Returns:
-        The state, or None when the helper is not there.
-    """
-    global _service_password_cache
-    now = time.monotonic()
-    if _service_password_cache and now - _service_password_cache[0] < _SERVICE_PASSWORD_TTL:
-        return _service_password_cache[1]
-    try:
-        state = system_ops.service_password_state()
-    except Exception as err:  # noqa: BLE001 — the posture must never raise
-        _LOGGER.warning("Could not read the SSH login state: %s", err)
-        state = None
-    _service_password_cache = (now, state)
-    return state
+    return _service_password.get()  # type: ignore[return-value]
 
 
 def forget_service_password_state() -> None:
     """Drop the cached SSH login state, after the panel has just changed it."""
-    global _service_password_cache
-    _service_password_cache = None
+    _service_password.forget()
+
+
+def _system_states() -> tuple[str | None, dict | None]:
+    """Both slow reads, side by side when both have to be waited for."""
+    if _service_password.known or _os_update.known:
+        return service_password_state(), _os_update_state()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        ssh = pool.submit(service_password_state)
+        os_update = pool.submit(_os_update_state)
+        return ssh.result(), os_update.result()
+
+
+def warm_system_state() -> None:
+    """Fill both caches in the background, so the first page open does not wait.
+
+    Only on a controller: where the helper is not installed (a development
+    machine, the tests) there is nothing to ask.
+    """
+    if not os.path.exists(system_ops.HELPER_PATH):
+        return
+    _service_password.refresh_in_background()
+    _os_update.refresh_in_background()
 
 
 @router.get("/posture")

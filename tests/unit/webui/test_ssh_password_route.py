@@ -138,9 +138,10 @@ def test_the_right_current_password_changes_it(client, store, helper):
 
 def test_the_security_section_hears_about_it_at_once(client, store, helper, monkeypatch):
     # Otherwise it goes on saying "critical: shipped password" for a minute.
-    monkeypatch.setattr(security_module, "_service_password_cache", (time.monotonic(), "shipped"))
+    monkeypatch.setattr(security_module._service_password, "_at", time.monotonic())
+    monkeypatch.setattr(security_module._service_password, "_value", "shipped")
     _change(client, _admin(store))
-    assert security_module._service_password_cache is None
+    assert not security_module._service_password.known
 
 
 def test_a_wrong_current_password_is_not_a_sign_out(client, store, helper):
@@ -264,5 +265,19 @@ def test_a_stale_login_is_asked_for_the_panel_password_first(client, store, help
 
 def test_the_card_learns_the_state_and_whether_it_can_change_it(client, store, helper):
     assert client.get(URL, headers=_admin(store)).json() == {"state": "set", "supported": True}
+    # The state is cached (a sudo call and a yescrypt check each time); what
+    # the card shows follows once the cache lets go of the old answer.
     helper.supported, helper.state = False, "shipped"
+    security_module.forget_service_password_state()
     assert client.get(URL, headers=_admin(store)).json() == {"state": "shipped", "supported": False}
+
+
+def test_the_card_does_not_ask_the_helper_again_on_every_open(client, store, helper, monkeypatch):
+    calls = []
+    real = helper.current_state
+    monkeypatch.setattr(
+        security_module.system_ops, "service_password_state", lambda: calls.append(1) or real()
+    )
+    for _ in range(3):
+        client.get(URL, headers=_admin(store))
+    assert len(calls) == 1

@@ -895,6 +895,7 @@ def init_app(
     config_module.set_state_broadcaster(broadcast_initial_states)
     system_module.set_app_state(app.state)
     security_module.set_app_state(app.state)
+    security_module.warm_system_state()
     diagnostics_module.set_app_state(app.state)
 
     # Pre-populate config cache if initial_config provided
