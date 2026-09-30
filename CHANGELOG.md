@@ -28,8 +28,18 @@ first one, and also the cached copy replayed every time HA restarts.
 
 The restart after the update publishes the corrected payloads, which should
 put the entities back under their room devices without removing anything in
-HA. Not tried against a real HA yet; covered by tests that compare the
-payload published at setup with the one the resend builds.
+HA: `unique_id` does not depend on the area, so HA keeps the same entities.
+Retained discovery topics of hidden entities left by 1.5.5 are cleared at
+startup, since they are no longer in the cache.
+
+Checked on a controller (config from 1.6, both device naming modes), reading
+the retained discovery payloads after startup. Without the fix a cover with
+`area: living_room` and `device_class: shutter` ended under "boneIO Black
+32x10A" with no class; with it, under "boneIO Black 32x10A - Living Room" as
+a shutter — the same for a venetian cover, an output group and an ADC sensor.
+`unique_id` was identical in both runs, and the only other difference was
+two entities no longer published: the internal OLED button and a remote
+output without `show_in_ha`. Not tried against a real HA instance.
 
 ### 🧭 The panel says an update is running instead of showing a stale build
 
