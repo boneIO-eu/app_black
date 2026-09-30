@@ -405,6 +405,38 @@ class TestSshLoginScreen:
         assert "System" in result.stdout
 
 
+class TestServicePasswordChange:
+    """1.6.29 reinstalls boneio-system with service-password-change."""
+
+    @staticmethod
+    def _actions() -> list[dict]:
+        from boneio.migrations.versions import v1_6_29_service_password_change as migration
+
+        return [a.to_dict() for a in migration.plan()]
+
+    def test_the_pristine_copy_goes_first(self):
+        """boneio-helpers-heal.service restores /usr/sbin from it at boot, so a
+        stale pristine copy would put the old helper back."""
+        assert [a["dst"] for a in self._actions()] == [
+            "/usr/lib/boneio/trusted/boneio-system",
+            "/usr/sbin/boneio-system",
+        ]
+
+    def test_both_copies_are_root_owned_and_compiled_first(self):
+        """A helper that does not compile takes every privileged operation down."""
+        for action in self._actions():
+            assert action["src"] == "helpers/boneio-system"
+            assert (action["owner"], action["group"], action["mode"]) == ("root", "root", 0o755)
+            assert action["validate"] == "python"
+
+    def test_the_helper_it_installs_has_the_verb(self):
+        verbs = re.search(
+            r"^VERBS = \((.*?)^\)", (ASSETS_DIR / "helpers/boneio-system").read_text(),
+            re.MULTILINE | re.DOTALL,
+        )
+        assert verbs and '"service-password-change"' in verbs.group(1)
+
+
 class TestCertificateLifetime:
     """The device's own certificate lasts long enough to be worth trusting.
 
