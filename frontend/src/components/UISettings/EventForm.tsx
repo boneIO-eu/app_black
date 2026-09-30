@@ -7,6 +7,7 @@ import AiConfigAssistant from './AiConfigAssistant';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
+import PinAvailabilityHint from './widgets/PinAvailabilityHint';
 import { TabsBox } from '@/components/ui/tabs-box';
 import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import {
@@ -107,7 +108,7 @@ const EventForm: React.FC<EventFormProps> = ({
   
   // Filter out already used inputs from both binary_sensor and event (except current one)
   // Case-insensitive comparison — see inputFilterUtils.ts for details
-  const { usedInputs, availableInputs } = getInputAvailability(
+  const { availableInputs } = getInputAvailability(
     allBoneioInputs, allBinarySensors, allEvents, editingIndex, 'event',
   );
   const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
@@ -307,14 +308,14 @@ const EventForm: React.FC<EventFormProps> = ({
 
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">boneIO Input</span>
+                  <span className="label-text font-medium">{t('inputs.boneio_input')}</span>
                 </label>
                 <Select
                   value={data.boneio_input || ''}
                   onValueChange={(value) => updateField('boneio_input', value)}
                 >
-                  <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
-                    <SelectValue placeholder="Select input..." />
+                  <SelectTrigger className={`w-full uppercase ${!data.boneio_input && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                    <SelectValue placeholder={t('inputs.select_input')} />
                   </SelectTrigger>
                   <SelectContent>
                     {boneioInputOptions.map((input: string) => (
@@ -324,30 +325,18 @@ const EventForm: React.FC<EventFormProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
-                {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
-                  <label className="label max-w-full">
-                    <span className="label-text-alt text-warning whitespace-normal break-all">
-                      {t('inputs.all_inputs_used')}
-                    </span>
-                  </label>
-                )}
-                {usedInputs.length > 0 && (
-                  <label className="label max-w-full">
-                    <span className="label-text-alt text-info whitespace-normal break-all">
-                      {t('inputs.used_inputs')}: {usedInputs.length > 5 
-                        ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
-                        : usedInputs.join(', ')
-                      }
-                    </span>
-                  </label>
-                )}
+                <PinAvailabilityHint
+                  available={availableInputs}
+                  total={allBoneioInputs.length}
+                  current={data.boneio_input}
+                  allUsedMessage={t('inputs.all_inputs_used')}
+                />
               </div>
 
               <AreaSelect
                 value={data.area}
                 onChange={(areaId) => updateField('area', areaId)}
                 areas={allAreas}
-                className="md:col-span-2"
               />
 
             </div>
@@ -672,7 +661,7 @@ const EventForm: React.FC<EventFormProps> = ({
                   value={data.sequence_mode || 'exclusive'}
                   onValueChange={(value) => updateField('sequence_mode', value)}  
                 >
-                  <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                  <SelectTrigger className="w-full uppercase">
                     <SelectValue placeholder="Select sequence mode..." />
                   </SelectTrigger>
                   <SelectContent>

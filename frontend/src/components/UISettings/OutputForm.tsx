@@ -2,6 +2,7 @@ import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
+import PinAvailabilityHint from './widgets/PinAvailabilityHint';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -157,8 +158,6 @@ const OutputForm: React.FC<OutputFormProps> = ({
     ? [...new Set([currentOutput, ...availableOutputs])].sort()
     : availableOutputs;
 
-  console.log("boneio output options", boneioOutputOptions);
-  
   const outputTypeOptions = (schema?.items?.properties?.output_type?.enum as string[] | undefined) || [];
 
   const updateField = (field: string, value: unknown) => {
@@ -244,7 +243,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onValueChange={(value) => updateField('boneio_output', value)}
                 disabled={isUsedInCover}
               >
-                <SelectTrigger className={`w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'border-warning' : ''} ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <SelectTrigger className={`w-full uppercase ${!data.boneio_output && boneioOutputOptions.length === 0 ? 'border-warning' : ''} ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <SelectValue placeholder={t('outputs.select_output')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -345,7 +344,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                         onValueChange={(value) => updateField('boneio_output', value)}
                         disabled={isUsedInCover}
                       >
-                        <SelectTrigger className={`w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'border-warning' : ''} ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <SelectTrigger className={`w-full uppercase ${!data.boneio_output && boneioOutputOptions.length === 0 ? 'border-warning' : ''} ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}>
                           <SelectValue placeholder={t('outputs.select_output')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -359,31 +358,12 @@ const OutputForm: React.FC<OutputFormProps> = ({
                       <label className="label">
                         <span className="label-text-alt whitespace-normal wrap-break-word">{getFieldDescription('boneio_output')}</span>
                       </label>
-                      {usedOutputs.length > 0 && boneioOutputOptions.length === 1 && (
-                        <label className="label max-w-full">
-                          <span 
-                            className="label-text-alt text-warning" 
-                            style={{ 
-                              wordWrap: 'break-word', 
-                              wordBreak: 'break-all', 
-                              whiteSpace: 'normal',
-                              maxWidth: '100%'
-                            }}
-                          >
-                            {t('outputs.all_outputs_used')}
-                          </span>
-                        </label>
-                      )}
-                      {usedOutputs.length > 0 && (
-                        <label className="label max-w-full">
-                          <span className="label-text-alt text-info whitespace-normal break-all">
-                            {t('outputs.used_outputs')}: {usedOutputs.length > 5 
-                              ? `${usedOutputs.slice(0, 3).join(', ')}, ... (+${usedOutputs.length - 3} more)`
-                              : usedOutputs.join(', ')
-                            }
-                          </span>
-                        </label>
-                      )}
+                      <PinAvailabilityHint
+                        available={availableOutputs}
+                        total={allBoneioOutputs.length}
+                        current={data.boneio_output}
+                        allUsedMessage={t('outputs.all_outputs_used')}
+                      />
                     </div>
 
                     {/* Output Type */}

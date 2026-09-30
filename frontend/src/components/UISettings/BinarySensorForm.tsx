@@ -9,6 +9,7 @@ import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import AreaSelect from './widgets/AreaSelect';
+import PinAvailabilityHint from './widgets/PinAvailabilityHint';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
@@ -133,7 +134,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   
   // Filter out already used inputs from both binary_sensor and event (except current one)
   // Case-insensitive comparison — see inputFilterUtils.ts for details
-  const { usedInputs, availableInputs } = getInputAvailability(
+  const { availableInputs } = getInputAvailability(
     allBoneioInputs, allBinarySensors, allEvents, editingIndex, 'binary_sensor',
   );
   const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
@@ -341,7 +342,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                       value={data.boneio_input || ''}
                       onValueChange={(value) => updateField('boneio_input', value)}
                     >
-                      <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                      <SelectTrigger className={`w-full uppercase ${!data.boneio_input && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
                         <SelectValue placeholder={t('inputs.select_input')} />
                       </SelectTrigger>
                       <SelectContent>
@@ -352,30 +353,13 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                         ))}
                       </SelectContent>
                     </Select>
-                    {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
-                      <label className="label max-w-full">
-                        <span className="label-text-alt text-warning whitespace-normal break-all">
-                          {t('inputs.all_inputs_used')}
-                        </span>
-                      </label>
-                    )}
-                    {usedInputs.length > 0 && (
-                      <label className="label max-w-full">
-                        <span className="label-text-alt text-info whitespace-normal break-all">
-                          {t('inputs.used_inputs')}: {usedInputs.length > 5 
-                            ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
-                            : usedInputs.join(', ')
-                          }
-                        </span>
-                      </label>
-                    )}
+                    <PinAvailabilityHint
+                      available={availableInputs}
+                      total={allBoneioInputs.length}
+                      current={data.boneio_input}
+                      allUsedMessage={t('inputs.all_inputs_used')}
+                    />
                   </div>
-
-                  <AreaSelect
-                    value={data.area}
-                    onChange={(v) => updateField('area', v)}
-                    areas={allAreas}
-                  />
 
                   <div className="form-control">
                     <label className="label">
@@ -414,6 +398,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <AreaSelect
+                    value={data.area}
+                    onChange={(v) => updateField('area', v)}
+                    areas={allAreas}
+                  />
                 </div>
 
                 <div className="divider">{t('settings.options')}</div>
