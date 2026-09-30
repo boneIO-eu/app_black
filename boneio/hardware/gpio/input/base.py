@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 
-from boneio.const import PRESSED, RELEASED, ClickTypes
+from boneio.const import BOUNCE_TIME_MAX_MS, PRESSED, RELEASED, ClickTypes
 from boneio.core.events import EventBus
 from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.models import InputState
@@ -22,6 +22,23 @@ _LOGGER = logging.getLogger(__name__)
 # schema defaults (120ms binary_sensor, 30ms event) normally win long before
 # this, via Cerberus at startup or the update_* methods on reload.
 DEFAULT_BOUNCE_TIME_MS = 50
+
+
+def warn_if_bounce_too_long(seconds: float, name: str | None, pin: str | None) -> None:
+    """Log a debounce past what the panel accepts.
+
+    The panel refuses such a value on save, but one already in a config (or
+    written by hand) still loads — refusing it would stop the controller.
+    """
+    if seconds * 1000 > BOUNCE_TIME_MAX_MS:
+        _LOGGER.warning(
+            "Input %s (%s): bounce_time %.0fms is over the %dms limit; "
+            "presses shorter than that are ignored",
+            name,
+            pin,
+            seconds * 1000,
+            BOUNCE_TIME_MAX_MS,
+        )
 
 
 class GpioBaseClass:
@@ -72,6 +89,7 @@ class GpioBaseClass:
         )
         self._loop = asyncio.get_running_loop()
         self._name = name
+        warn_if_bounce_too_long(self._bounce_time, name, pin)
         self._actions = actions
         self._input_type = input_type
         # Normalize boneio_input to lowercase for consistent ID matching

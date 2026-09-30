@@ -88,6 +88,9 @@ TRIPLE = "triple"
 LONG = "long"
 PRESSED = "pressed"
 RELEASED = "released"
+# Longest GPIO debounce the panel accepts. Past this a press feels lost; a
+# longer value already in a config still loads, with a warning in the log.
+BOUNCE_TIME_MAX_MS = 1000
 
 
 # MQTT CONST

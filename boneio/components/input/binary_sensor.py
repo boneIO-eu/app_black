@@ -10,6 +10,7 @@ from boneio.components.input.detectors import BinarySensorDetector
 from boneio.const import PRESSED, RELEASED, BinaryStateTypes, ClickTypes
 from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
+from boneio.hardware.gpio.input.base import warn_if_bounce_too_long
 from boneio.models import InputState
 from boneio.models.events import InputEvent
 
@@ -125,6 +126,7 @@ class GpioInputBinarySensor(GpioBaseClass):
             self._pin,
             seconds * 1000,
         )
+        warn_if_bounce_too_long(seconds, self._name, self._pin)
         return True
 
     def _send_initial_state(self) -> None:

@@ -9,6 +9,7 @@ from boneio.components.input.detectors import MultiClickDetector
 from boneio.const import ClickTypes
 from boneio.core.utils.timeperiod import parse_time_to_ms
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
+from boneio.hardware.gpio.input.base import warn_if_bounce_too_long
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -282,3 +283,4 @@ class GpioEventButton(GpioBaseClass):
                 self._pin,
                 seconds * 1000,
             )
+            warn_if_bounce_too_long(seconds, self._name, self._pin)

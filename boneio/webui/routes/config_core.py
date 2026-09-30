@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 from boneio.core import containers
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
-from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.core.config.yaml_util import (
     clear_config_cache,
     load_config_from_file,
@@ -30,6 +29,8 @@ from boneio.core.config.yaml_util import (
 )
 from boneio.core.manager import Manager
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
+from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
+from boneio.webui.input_validation import has_long_bounce_time, validate_bounce_times
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -648,6 +649,18 @@ async def _apply_cloud_toggle(app_state, previous: object, current: object) -> s
 _SECTION_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
+async def _stored_section(section: str) -> list | None:
+    """The section as the running app holds it, or None when it cannot say."""
+    try:
+        helper = _get_app_state().manager.config_helper
+        loop = asyncio.get_running_loop()
+        stored = await loop.run_in_executor(None, helper.get_section, section)
+    except Exception as err:  # noqa: BLE001 - a missing baseline only skips a check
+        _LOGGER.warning("Could not read stored %s to compare bounce times: %s", section, err)
+        return None
+    return stored if isinstance(stored, list) else []
+
+
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
@@ -674,6 +687,8 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         # time is the only point where it is visible.
         has_location = bool((_config_cache["data"] or {}).get("location"))
         errors = _validate_section_actions(section, data, has_location=has_location)
+        if has_long_bounce_time(data):
+            errors += validate_bounce_times(data, await _stored_section(section))
         if errors:
             raise HTTPException(
                 status_code=422,
