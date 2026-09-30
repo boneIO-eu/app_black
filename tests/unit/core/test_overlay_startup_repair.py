@@ -104,3 +104,63 @@ def test_a_refused_call_is_an_error(dtbs, helper, caplog):
     with caplog.at_level(logging.WARNING):
         _repair(dtbs)
     assert "Overlay repair failed (rc=1): REFUSED: something" in caplog.text
+
+
+STALE = "BONEIO-BLACK-PINS-v0.2-v0.3.dtbo"
+
+
+@pytest.fixture
+def stale(dtbs, tmp_path, monkeypatch) -> Path:
+    """A shipped overlay, an older copy of it for the kernel, nothing missing."""
+    shipped = tmp_path / "shipped"
+    shipped.mkdir()
+    (shipped / STALE).write_bytes(b"fixed")
+    monkeypatch.setattr(overlay_util, "SHIPPED_OVERLAYS_DIR", shipped)
+    for directory in (dtbs / KERNEL, dtbs / KERNEL / "overlays"):
+        (directory / STALE).write_bytes(b"old")
+    monkeypatch.setattr(overlay_util, "kernel_release", lambda: KERNEL)
+    monkeypatch.setattr(overlay_util, "is_boneio_overlay_applied", lambda: True)
+    return dtbs / KERNEL / STALE
+
+
+def _check() -> MigrationRunner:
+    runner = MigrationRunner.__new__(MigrationRunner)
+    runner.overlay_applied = True
+    runner.overlay_repair_needed = False
+    runner._check_overlay_in_current_kernel()
+    return runner
+
+
+def test_a_stale_copy_asks_for_a_repair(stale, helper, monkeypatch, caplog):
+    """Nothing missing, but a copy differs from the shipped overlay."""
+
+    def _replaced(timeout: int = 60) -> system_ops.Result:
+        helper["calls"].append("overlay-repair")
+        for copy in (stale, stale.parent / "overlays" / STALE):
+            copy.write_bytes(b"fixed")
+        return _report("repaired", f"{STALE} replaced with the version boneIO ships")
+
+    monkeypatch.setattr(system_ops, "overlay_repair", _replaced)
+    with caplog.at_level(logging.WARNING):
+        runner = _check()
+    assert helper["calls"] == ["overlay-repair"]
+    assert runner.overlay_repair_needed is True
+    assert "differ from the overlay boneIO ships" in caplog.text
+    assert "No boneIO overlays in" not in caplog.text
+    assert not [r for r in caplog.records if r.levelno == logging.ERROR]
+
+
+def test_a_helper_that_leaves_them_stale_is_an_error(stale, helper, caplog):
+    """A boneio-system from before 1.6.31 copies what is missing, nothing more."""
+    helper["result"] = _report("ok", None)
+    with caplog.at_level(logging.WARNING):
+        _check()
+    errors = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1 and "1.6.31" in errors[0]
+
+
+def test_matching_copies_ask_for_nothing(stale, helper):
+    for copy in (stale, stale.parent / "overlays" / STALE):
+        copy.write_bytes(b"fixed")
+    assert _check().overlay_repair_needed is False
+    assert helper["calls"] == []

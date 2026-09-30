@@ -82,6 +82,12 @@ VALID_OVERLAYS = (
     "BONEIO-BLACK-PINS.dtbo",
 )
 
+#: Overlays boneIO itself ships, installed here by migrations. The image put
+#: its overlays into /boot/dtbs once and nothing updates them after, so this
+#: is the only way a corrected overlay reaches a controller: a file here is
+#: the version every kernel's copy of that name must match.
+SHIPPED_OVERLAYS_DIR = Path("/usr/lib/boneio/overlays")
+
 UENV_PATHS = (Path("/boot/firmware/uEnv.txt"), Path("/boot/uEnv.txt"))
 
 #: An uncommented uboot_overlay_addr line naming a boneIO overlay, with or
@@ -1267,6 +1273,47 @@ def _overlay_to_bare_name(uenv: Path) -> int:
     return changed
 
 
+def _refresh_shipped_overlays() -> list[str]:
+    """Bring every kernel's copy of a shipped overlay up to date.
+
+    Every /boot/dtbs/<kernel>/ and its overlays/, not only the boot kernel's:
+    the kernel postinst hook copies overlays into a new kernel from the newest
+    old one, so a stale copy left anywhere would come back with the next
+    upgrade. Only names from VALID_OVERLAYS, and only copies that exist —
+    which kernel lacks the overlay uEnv.txt loads is the kernel check's
+    business. Each file is replaced whole, so a power cut leaves the old
+    overlay or the new one, never half of one.
+
+    Returns:
+        One note per overlay name that was replaced somewhere.
+    """
+    notes: list[str] = []
+    for name in VALID_OVERLAYS:
+        shipped = SHIPPED_OVERLAYS_DIR / name
+        if not shipped.is_file():
+            continue
+        content = shipped.read_bytes()
+        stale = [
+            copy
+            for pattern in (f"*/{name}", f"*/overlays/{name}")
+            for copy in sorted((BOOT_DIR / "dtbs").glob(pattern))
+            if copy.is_file() and copy.read_bytes() != content
+        ]
+        for copy in stale:
+            with tempfile.NamedTemporaryFile(
+                dir=copy.parent, delete=False, suffix=".tmp"
+            ) as tmp:
+                tmp.write(content)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+            os.chmod(tmp.name, 0o644)
+            os.replace(tmp.name, copy)
+            _LOGGER.warning("Replaced %s with the version boneIO ships", copy)
+        if stale:
+            notes.append(f"{name} replaced with the version boneIO ships in {len(stale)} place(s)")
+    return notes
+
+
 def _boot_kernel() -> str | None:
     """The kernel U-Boot will load: ``uname_r`` in uEnv.txt."""
     for path in UENV_PATHS:
@@ -1289,7 +1336,9 @@ def _kernel_check(repair: bool = False, unattended: bool = False) -> dict[str, s
     CAN and the buzzer are simply gone, and nothing in userspace says why. The
     kernel postinst hook (zz-boneio-overlay) is meant to copy it across; this
     checks that it did, and with *repair* does the copy itself — only for a file
-    from VALID_OVERLAYS, only from under /boot/dtbs.
+    from VALID_OVERLAYS, only from boneIO's shipped copy or from under
+    /boot/dtbs. A repair also replaces every kernel's copy of an overlay that
+    differs from the one boneIO ships.
 
     Args:
         repair: Copy a missing overlay into the boot kernel's directory.
@@ -1354,7 +1403,7 @@ def _kernel_check(repair: bool = False, unattended: bool = False) -> dict[str, s
             report["message"] = "; ".join(notes)
         return report
 
-    notes = []
+    notes = _refresh_shipped_overlays()
     running_dtbs = BOOT_DIR / "dtbs" / running
     for overlay, directory in configured:
         written = f"{directory}{overlay}" if directory else None
@@ -1369,7 +1418,8 @@ def _kernel_check(repair: bool = False, unattended: bool = False) -> dict[str, s
                 shutil.copy2(target, tooling)
                 notes.append(f"{overlay} was missing from /boot/dtbs/{kernel}/overlays/")
             continue
-        sources = [_on_boot(written)] if written else []
+        sources = [SHIPPED_OVERLAYS_DIR / overlay]
+        sources += [_on_boot(written)] if written else []
         sources += [running_dtbs / overlay, running_dtbs / "overlays" / overlay]
         sources += sorted((BOOT_DIR / "dtbs").glob(f"*/{overlay}"))
         sources += sorted((BOOT_DIR / "dtbs").glob(f"*/overlays/{overlay}"))
@@ -1417,7 +1467,8 @@ def _overlay_repair(argument: str | None, value: str | None) -> int:
     overlay. That used to be a plan piped to boneio-migrate, which 1.6.6
     retired, so the check had only been logging that it could not help. The
     caller chooses nothing: which overlay is uEnv.txt's, which files may be
-    copied is VALID_OVERLAYS, and where from is /boot/dtbs.
+    copied is VALID_OVERLAYS, and where from is SHIPPED_OVERLAYS_DIR or
+    /boot/dtbs. boneIO also asks when a copy differs from the shipped one.
 
     Returns:
         0 with the kernel check's report on stdout; 1 when it is a problem.

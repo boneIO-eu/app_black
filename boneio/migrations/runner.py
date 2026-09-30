@@ -952,6 +952,11 @@ class MigrationRunner:
         reported distinctly — it means uEnv.txt is wrong rather than the files
         being absent, and a reboot alone will not fix it.
 
+        A copy that differs from the overlay boneIO ships (see
+        :func:`overlay_util.stale_overlay_copies`) is repaired the same way:
+        that is how a corrected overlay installed by a migration reaches the
+        directories U-Boot reads.
+
         Sets :attr:`overlay_repair_needed` when files had to be copied and
         :attr:`overlay_applied` to the kernel-reported state.
         """
@@ -963,9 +968,10 @@ class MigrationRunner:
             self.overlay_applied = overlay_util.is_boneio_overlay_applied()
 
             missing = overlay_util.missing_overlay_dirs(kernel_version)
-            if missing:
+            stale = overlay_util.stale_overlay_copies()
+            if missing or stale:
                 self.overlay_repair_needed = True
-                self._repair_overlay_dirs(kernel_version, missing)
+                self._repair_overlay_dirs(kernel_version, missing, stale)
             else:
                 _LOGGER.debug(
                     "Overlay files present in both destinations for %s", kernel_version
@@ -1000,8 +1006,10 @@ class MigrationRunner:
         except Exception as exc:
             _LOGGER.warning("Overlay check failed: %s", exc)
 
-    def _repair_overlay_dirs(self, kernel_version: str, missing: list[Path]) -> None:
-        """Have boneio-system copy the missing overlays into place.
+    def _repair_overlay_dirs(
+        self, kernel_version: str, missing: list[Path], stale: list[Path] | None = None
+    ) -> None:
+        """Have boneio-system copy the missing or stale overlays into place.
 
         This used to pipe an ad-hoc plan to the legacy boneio-migrate, which
         1.6.6 removed, so on every 1.6.x controller it only logged that it
@@ -1013,11 +1021,20 @@ class MigrationRunner:
         Args:
             kernel_version: Running kernel release.
             missing: Destination directories lacking boneIO overlays.
+            stale: Copies that differ from the overlay boneIO ships.
         """
-        _LOGGER.warning(
-            "No boneIO overlays in %s — asking boneio-system to repair.",
-            ", ".join(str(d) for d in missing),
-        )
+        stale = stale or []
+        if missing:
+            _LOGGER.warning(
+                "No boneIO overlays in %s — asking boneio-system to repair.",
+                ", ".join(str(d) for d in missing),
+            )
+        if stale:
+            _LOGGER.warning(
+                "%s differ from the overlay boneIO ships — asking boneio-system to "
+                "replace them.",
+                ", ".join(str(c) for c in stale),
+            )
 
         if not system_ops.helper_supports("overlay-repair"):
             _LOGGER.error(
@@ -1047,7 +1064,18 @@ class MigrationRunner:
                 message,
             )
 
-        still_missing = overlay_util.missing_overlay_dirs(kernel_version)
+        still_stale = overlay_util.stale_overlay_copies() if stale else []
+        if still_stale and status != "problem":
+            # A boneio-system older than the refresh copies only what is
+            # missing and reports "ok" for the rest.
+            _LOGGER.error(
+                "%s still differ from the overlay boneIO ships; the installed "
+                "boneio-system does not replace them (migration 1.6.31 installs "
+                "one that does).",
+                ", ".join(str(c) for c in still_stale),
+            )
+
+        still_missing = overlay_util.missing_overlay_dirs(kernel_version) if missing else []
         if still_missing and status != "problem":
             # Not something boneio-system repairs: uEnv.txt names no boneIO
             # overlay, or it boots another kernel than the one running.

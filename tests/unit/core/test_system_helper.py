@@ -1075,6 +1075,79 @@ def test_overlay_repair_takes_no_arguments(helper, old_image, monkeypatch, capsy
     assert not (old_image / "dtbs" / OLD / LEGACY).exists()
 
 
+# A corrected overlay boneIO ships replaces every kernel's copy of that name.
+
+V02 = "BONEIO-BLACK-PINS-v0.2-v0.3.dtbo"
+
+
+@pytest.fixture
+def shipped(helper, boot, monkeypatch, tmp_path) -> Path:
+    """The v0.2-v0.3 overlay shipped, and an older copy in both kernels."""
+    directory = tmp_path / "shipped-overlays"
+    directory.mkdir()
+    (directory / V02).write_bytes(b"fixed")
+    monkeypatch.setattr(helper, "SHIPPED_OVERLAYS_DIR", directory)
+    for kernel in ("6.18.52-bone54", "6.18.60-bone56"):
+        for sub in ("", "overlays"):
+            (boot / "dtbs" / kernel / sub / V02).write_bytes(b"old")
+    return directory
+
+
+def test_a_shipped_overlay_replaces_every_kernels_copy(helper, boot, shipped):
+    report = helper._kernel_check(repair=True, unattended=True)
+    assert report["status"] == "repaired"
+    assert f"{V02} replaced with the version boneIO ships in 4 place(s)" in report["message"]
+    for kernel in ("6.18.52-bone54", "6.18.60-bone56"):
+        for sub in ("", "overlays"):
+            copy = boot / "dtbs" / kernel / sub / V02
+            assert copy.read_bytes() == b"fixed"
+            assert copy.stat().st_mode & 0o777 == 0o644
+    assert not list((boot / "dtbs").rglob("*.tmp"))
+
+
+def test_the_system_update_repair_replaces_them_too(helper, boot, shipped):
+    helper._kernel_check(repair=True)
+    assert (boot / "dtbs" / "6.18.60-bone56" / V02).read_bytes() == b"fixed"
+
+
+def test_a_matching_copy_is_left_alone(helper, boot, shipped):
+    helper._kernel_check(repair=True, unattended=True)
+    report = helper._kernel_check(repair=True, unattended=True)
+    assert "boneIO ships" not in (report["message"] or "")
+
+
+def test_the_check_alone_replaces_nothing(helper, boot, shipped):
+    helper._kernel_check(repair=False)
+    assert (boot / "dtbs" / "6.18.60-bone56" / V02).read_bytes() == b"old"
+
+
+def test_a_shipped_overlay_is_not_spread_where_there_was_no_copy(helper, boot, shipped):
+    """Which kernel lacks the overlay uEnv.txt loads is the kernel check's call."""
+    (boot / "dtbs" / "6.18.52-bone54" / "overlays" / V02).unlink()
+    helper._kernel_check(repair=True, unattended=True)
+    assert not (boot / "dtbs" / "6.18.52-bone54" / "overlays" / V02).exists()
+
+
+def test_a_shipped_file_outside_the_board_set_is_ignored(helper, boot, shipped):
+    (shipped / "BONEIO-BLACK-PINS-v9.dtbo").write_bytes(b"fixed")
+    (boot / "dtbs" / "6.18.52-bone54" / "BONEIO-BLACK-PINS-v9.dtbo").write_bytes(b"old")
+    helper._kernel_check(repair=True, unattended=True)
+    assert (boot / "dtbs" / "6.18.52-bone54" / "BONEIO-BLACK-PINS-v9.dtbo").read_bytes() == b"old"
+
+
+def test_the_shipped_overlay_is_the_source_for_a_missing_one(helper, boot, shipped):
+    """The overlay uEnv.txt loads, missing from the boot kernel: the shipped
+    version is copied in, not the stale one from the running kernel."""
+    uenv = boot / "uEnv.txt"
+    uenv.write_text(uenv.read_text().replace("v1.0.dtbo", "v0.2-v0.3.dtbo"))
+    for sub in ("", "overlays"):
+        (boot / "dtbs" / "6.18.60-bone56" / sub / V02).unlink()
+    report = helper._kernel_check(repair=True, unattended=True)
+    assert report["status"] == "repaired"
+    for sub in ("", "overlays"):
+        assert (boot / "dtbs" / "6.18.60-bone56" / sub / V02).read_bytes() == b"fixed"
+
+
 def test_apt_output_reaches_the_log_while_the_step_runs(helper, tmp_path):
     """Written only at the end, a 30-minute configure looked hung in the panel."""
     log_path = tmp_path / "update.log"

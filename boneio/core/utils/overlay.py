@@ -48,6 +48,11 @@ DT_CHOSEN_OVERLAYS = Path("/proc/device-tree/chosen/overlays")
 DTBS_ROOT = Path("/boot/dtbs")
 """Root of the per-kernel device tree blob directories."""
 
+SHIPPED_OVERLAYS_DIR = Path("/usr/lib/boneio/overlays")
+"""Overlays boneIO installs through migrations; every copy under
+:data:`DTBS_ROOT` of the same name must match. Kept in step with
+``SHIPPED_OVERLAYS_DIR`` in boneio-system, which does the copying."""
+
 
 def kernel_release() -> str:
     """Return the running kernel release, or an empty string if unavailable."""
@@ -94,6 +99,36 @@ def missing_overlay_dirs(kernel_version: str) -> list[Path]:
         if not any(directory.glob(OVERLAY_GLOB)):
             missing.append(directory)
     return missing
+
+
+def stale_overlay_copies() -> list[Path]:
+    """Return the copies under /boot/dtbs that differ from boneIO's shipped one.
+
+    The image copied overlays into every kernel's directory once and nothing
+    updated them after, so a corrected overlay installed into
+    :data:`SHIPPED_OVERLAYS_DIR` changes nothing until each copy is replaced.
+    Every kernel counts, not only the running one: the kernel postinst hook
+    seeds a new kernel from an old kernel's copies.
+
+    Returns:
+        Sorted list of stale copies, empty when every copy matches or nothing
+        is shipped.
+    """
+    stale: list[Path] = []
+    for shipped in sorted(SHIPPED_OVERLAYS_DIR.glob(OVERLAY_GLOB)):
+        try:
+            content = shipped.read_bytes()
+        except OSError as exc:
+            _LOGGER.debug("Cannot read %s: %s", shipped, exc)
+            continue
+        for pattern in (f"*/{shipped.name}", f"*/overlays/{shipped.name}"):
+            for copy in DTBS_ROOT.glob(pattern):
+                try:
+                    if copy.read_bytes() != content:
+                        stale.append(copy)
+                except OSError as exc:
+                    _LOGGER.debug("Cannot read %s: %s", copy, exc)
+    return sorted(stale)
 
 
 def applied_overlay_names() -> list[str]:
