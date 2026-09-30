@@ -19,6 +19,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from boneio.core.auth.models import Role
@@ -264,9 +265,14 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
     Returns:
         Confirmation dictionary with the replacement token.
 
+    A wrong current password is 403 ``current_password_wrong`` with
+    ``attempts_left``, not 401: the session is still good, and 401 is what the
+    panel takes as "you have been signed out" - a typo in the form would drop
+    the owner at the login screen. Same reasoning as ``/api/auth/confirm``;
+    the wrong password that uses the last try is 401 ``session_locked``.
+
     Raises:
-        HTTPException: 401 if the current password is wrong, 400 if the new one
-            is rejected.
+        HTTPException: 400 if the new password is rejected.
     """
     username = _caller(request)
     if not username:
@@ -282,7 +288,14 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
     user = check.user
     if user is None:
         _LOGGER.warning("Rejected password change for '%s': wrong current password", username)
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "Current password is incorrect",
+                "code": "current_password_wrong",
+                "attempts_left": check.attempts_left,
+            },
+        )
 
     try:
         user = await asyncio.to_thread(store.set_password, username, payload.new_password)

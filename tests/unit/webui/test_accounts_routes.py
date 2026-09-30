@@ -243,7 +243,10 @@ def test_own_password_change_needs_the_current_one(client, store):
         headers=_as(*VIEWER),
         json={"current_password": "zgadywane", "new_password": "nowe-haslo-123"},
     )
-    assert response.status_code == 401
+    # 403, not 401: the session is still good, and the panel signs out on 401.
+    assert response.status_code == 403
+    assert response.json()["code"] == "current_password_wrong"
+    assert isinstance(response.json()["attempts_left"], int)
     assert store.verify_credentials("gosc", "poufne-haslo") is not None
 
 
