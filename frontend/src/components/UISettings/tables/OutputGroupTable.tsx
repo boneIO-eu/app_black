@@ -24,6 +24,59 @@ export interface OutputGroupRow {
   all_on_behaviour?: boolean;
 }
 
+/** How many outputs a desktop row shows before folding the rest into "+N". */
+const VISIBLE_OUTPUTS = 4;
+
+/**
+ * The group's outputs as badges, in pin order. With a limit, the overflow
+ * folds into a "+N" badge that unfolds the row on click and lists the hidden
+ * pins on hover.
+ */
+const OutputBadges: React.FC<{
+  outputs: string[];
+  coverRelayIds: Set<string>;
+  size: 'xs' | 'sm';
+  limit?: number;
+}> = ({ outputs, coverRelayIds, size, limit }) => {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+
+  const sorted = useMemo(
+    () => [...outputs].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [outputs],
+  );
+  const folds = limit !== undefined && sorted.length > limit + 1;
+  const shown = folds && !expanded ? sorted.slice(0, limit) : sorted;
+  const hidden = folds ? sorted.slice(limit) : [];
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {shown.map((output) => {
+        const isCoverRelay = coverRelayIds.has(output.toUpperCase());
+        return (
+          <span
+            key={output}
+            className={`badge ${size === 'xs' ? 'badge-xs' : 'badge-sm'} uppercase ${isCoverRelay ? 'badge-warning line-through opacity-60' : 'badge-primary'}`}
+            title={isCoverRelay ? t('groups.output_used_as_cover') : undefined}
+          >
+            {output}{isCoverRelay ? ' ⚠' : ''}
+          </span>
+        );
+      })}
+      {folds && (
+        <button
+          type="button"
+          className={`badge ${size === 'xs' ? 'badge-xs' : 'badge-sm'} badge-ghost cursor-pointer hover:bg-base-300`}
+          onClick={() => setExpanded(!expanded)}
+          title={expanded ? undefined : hidden.join(', ')}
+        >
+          {expanded ? '−' : `+${hidden.length}`}
+        </button>
+      )}
+    </div>
+  );
+};
+
 interface OutputGroupTableProps {
   items: OutputGroupRow[];
   allAreas: Area[];
@@ -108,20 +161,7 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, al
               onDelete={() => onDelete(originalIndex)}
               fields={[
                 { label: t('outputs.title'), value: outputs.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {outputs.map((output: string, idx: number) => {
-                      const isCoverRelay = coverRelayIds.has(output.toUpperCase());
-                      return (
-                        <span 
-                          key={idx} 
-                          className={`badge badge-xs uppercase ${isCoverRelay ? 'badge-warning line-through opacity-60' : 'badge-primary'}`}
-                          title={isCoverRelay ? t('groups.output_used_as_cover') : undefined}
-                        >
-                          {output}{isCoverRelay ? ' ⚠' : ''}
-                        </span>
-                      );
-                    })}
-                  </div>
+                  <OutputBadges outputs={outputs} coverRelayIds={coverRelayIds} size="xs" />
                 ) : <span className="text-warning text-xs">{t('array_table_widget.no_outputs')}</span> },
                 { label: t('outputs.output_type'), value: <span className="badge badge-info badge-xs">{item.output_type || 'switch'}</span> },
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
@@ -163,24 +203,11 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, al
                   </div>
                 </Td>
                 <Td>
-                  <div className="flex flex-wrap gap-1">
-                    {outputs.length > 0 ? (
-                      outputs.map((output: string, idx: number) => {
-                        const isCoverRelay = coverRelayIds.has(output.toUpperCase());
-                        return (
-                          <span 
-                            key={idx} 
-                            className={`badge badge-sm uppercase ${isCoverRelay ? 'badge-warning line-through opacity-60' : 'badge-primary'}`}
-                            title={isCoverRelay ? t('groups.output_used_as_cover') : undefined}
-                          >
-                            {output}{isCoverRelay ? ' ⚠' : ''}
-                          </span>
-                        );
-                      })
-                    ) : (
-                      <span className="text-warning">{t('array_table_widget.no_outputs')}</span>
-                    )}
-                  </div>
+                  {outputs.length > 0 ? (
+                    <OutputBadges outputs={outputs} coverRelayIds={coverRelayIds} size="sm" limit={VISIBLE_OUTPUTS} />
+                  ) : (
+                    <span className="text-warning">{t('array_table_widget.no_outputs')}</span>
+                  )}
                 </Td>
                 <Td>
                   {item.output_type ? (
@@ -192,9 +219,9 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, al
                 <Td>{areaName}</Td>
                 <Td>
                   {item.all_on_behaviour ? (
-                    <span className="badge badge-success badge-sm">Yes</span>
+                    <span className="badge badge-success badge-sm">{t('common.yes')}</span>
                   ) : (
-                    <span className="badge badge-ghost badge-sm">No</span>
+                    <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
                   )}
                 </Td>
                 <Td>
