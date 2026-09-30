@@ -67,3 +67,16 @@ def test_other_sections_with_plain_values_are_left_alone(tmp_path):
     result = update_config_section(config_file, "web", {"port": 8090, "password": "not-mqtt"})
     assert result["status"] == "success"
     assert "not-mqtt" in (tmp_path / "config.yaml").read_text()
+
+
+def test_tls_settings_are_saved_beside_the_secret(tmp_path):
+    config_file = _device(tmp_path, "host: localhost\nusername: boneio\npassword: !secret mqtt_password\n")
+    tls = {"enabled": True, "ca_certs": "certs/mqtt-ca.pem", "insecure": False}
+    _save(config_file, port=8883, tls=tls)
+
+    text = (tmp_path / "mqtt.yaml").read_text()
+    assert "password: !secret mqtt_password" in text
+    assert "old-pass" not in text
+    saved = load_yaml_file(config_file)["mqtt"]
+    assert saved["tls"] == tls
+    assert saved["port"] == 8883

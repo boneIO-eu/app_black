@@ -45,7 +45,7 @@ async def test_the_saved_credentials_reach_the_client(manager, bus):
     await manager._reload_mqtt_credentials()
 
     bus.reload_credentials.assert_awaited_once_with(
-        host="localhost", port=1883, username="boneio", password="nowe-haslo"
+        host="localhost", port=1883, username="boneio", password="nowe-haslo", tls=None
     )
 
 
@@ -57,8 +57,21 @@ async def test_credentials_the_file_does_not_carry_are_kept(manager, bus):
     await manager._reload_mqtt_credentials()
 
     bus.reload_credentials.assert_awaited_once_with(
-        host="localhost", port=1883, username="boneio", password="boneio123"
+        host="localhost", port=1883, username="boneio", password="boneio123", tls=None
     )
+
+
+async def test_the_tls_section_reaches_the_client(manager, bus):
+    """Or turning TLS on in the panel would wait for a restart."""
+    tls = {"enabled": True, "ca_certs": "certs/mqtt-ca.pem"}
+    manager._config_helper.get_config.return_value = {
+        "mqtt": {"host": "broker.lan", "port": 8883, "tls": tls}
+    }
+
+    await manager._reload_mqtt_credentials()
+
+    assert bus.reload_credentials.await_args.kwargs["tls"] == tls
+    assert bus.reload_credentials.await_args.kwargs["port"] == 8883
 
 
 async def test_a_bus_that_is_not_mqtt_is_passed_over(manager):

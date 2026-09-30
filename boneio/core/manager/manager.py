@@ -1427,7 +1427,7 @@ class Manager:
     async def _reload_mqtt_credentials(self) -> None:
         """Adopt new broker credentials without a restart.
 
-        Host, port, username and password only. The rest of the mqtt section —
+        Host, port, username, password and TLS only. The rest of the mqtt section —
         the topic prefix, Home Assistant discovery, the update channel — is
         read into entity names and subscriptions all over the application while
         it starts, and still takes a restart.
@@ -1456,6 +1456,7 @@ class Manager:
                 port=int(mqtt.get(PORT) or bus.port),
                 username=mqtt.get(USERNAME, bus.client_options.get(USERNAME)),
                 password=mqtt.get(PASSWORD, bus.client_options.get(PASSWORD)),
+                tls=mqtt.get("tls"),
             )
 
     def _reload_logger(self) -> None:

@@ -189,6 +189,50 @@ mqtt:
           Which releases to show in Home Assistant Update entity:
           - stable: Only stable releases (recommended)
           - dev: Include development/pre-release versions
+    tls:
+      type: dict
+      required: False
+      meta:
+        label: Encrypt the connection to the broker (TLS)
+        description: |
+          Connect to the broker over TLS, usually on port 8883. Without ca_certs
+          the broker's certificate is checked against the system's trusted
+          authorities, which is right for a public one; for your own CA, point
+          ca_certs at its certificate. Relative paths are resolved from the
+          directory holding config.yaml. If TLS is on and cannot be set up,
+          boneIO does not connect at all rather than fall back to plain text.
+      schema:
+        enabled:
+          type: boolean
+          default: false
+          meta:
+            label: Use TLS
+        ca_certs:
+          type: string
+          required: False
+          meta:
+            label: CA certificate (PEM) that signed the broker's certificate
+        certfile:
+          type: string
+          required: False
+          dependencies: keyfile
+          meta:
+            label: Client certificate (PEM), for brokers that require one
+        keyfile:
+          type: string
+          required: False
+          dependencies: certfile
+          meta:
+            label: Private key of the client certificate (PEM, unencrypted)
+        insecure:
+          type: boolean
+          default: false
+          meta:
+            label: Skip checking the broker's certificate
+            description: |
+              Encrypts the connection without checking who is on the other end.
+              Anyone able to intercept it can pose as the broker and read the
+              password. Only for testing.
 
 web:
   type: dict

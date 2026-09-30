@@ -338,6 +338,8 @@ async def async_run(
                 username=mqtt_config.get(USERNAME, mqttusername),
                 password=mqtt_config.get(PASSWORD, mqttpassword),
                 port=mqtt_config.get(PORT, 1883),
+                tls=mqtt_config.get("tls"),
+                config_dir=os.path.dirname(os.path.abspath(config_file)),
                 config_helper=_config_helper,
             )
             message_bus.add_bus(mqtt_bus)

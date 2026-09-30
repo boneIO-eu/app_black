@@ -1160,6 +1160,77 @@
           ],
           "description": "Update channel",
           "title": "Update channel"
+        },
+        "tls": {
+          "type": [
+            "object",
+            "string"
+          ],
+          "properties": {
+            "enabled": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": false,
+              "description": "Use TLS",
+              "title": "Enabled"
+            },
+            "ca_certs": {
+              "type": "string",
+              "description": "CA certificate (PEM) that signed the broker's certificate",
+              "title": "Ca certs"
+            },
+            "certfile": {
+              "type": "string",
+              "description": "Client certificate (PEM), for brokers that require one",
+              "title": "Certfile",
+              "x-dependencies": "keyfile"
+            },
+            "keyfile": {
+              "type": "string",
+              "description": "Private key of the client certificate (PEM, unencrypted)",
+              "title": "Keyfile",
+              "x-dependencies": "certfile"
+            },
+            "insecure": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": false,
+              "description": "Skip checking the broker's certificate",
+              "title": "Insecure"
+            }
+          },
+          "description": "Encrypt the connection to the broker (TLS)",
+          "title": "Tls"
         }
       },
       "required": [

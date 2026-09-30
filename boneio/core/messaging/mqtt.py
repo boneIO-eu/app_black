@@ -9,8 +9,9 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AsyncExitStack
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, override
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ from paho.mqtt.subscribeoptions import SubscribeOptions
 from boneio.const import OFFLINE, PAHO, STATE
 from boneio.core.config import ConfigHelper
 from boneio.core.events.bus import GracefulExit
+from boneio.core.messaging import mqtt_tls
 from boneio.core.messaging.queue import UniqueQueue
 from boneio.models.mqtt import MQTTMessageSend
 
@@ -41,13 +43,30 @@ class MQTTClient(MessageBus):
         host: str,
         config_helper: ConfigHelper,
         port: int = 1883,
+        tls: Mapping[str, Any] | None = None,
+        config_dir: str | Path | None = None,
         **client_options: Any,
     ) -> None:
-        """Set up client."""
+        """Set up client.
+
+        Args:
+            host: Broker host.
+            config_helper: The device's configuration.
+            port: Broker port.
+            tls: The ``mqtt.tls`` section, or None for a plain connection.
+            config_dir: Where relative certificate paths in *tls* start from.
+            **client_options: Passed to the aiomqtt client.
+        """
         self._manager: Manager | None = None
         self.host = host
         self.port = port
         self._config_helper = config_helper
+        self._tls: dict[str, Any] = dict(tls) if isinstance(tls, Mapping) else {}
+        self._config_dir = Path(config_dir) if config_dir else Path.cwd()
+        self._tls_fingerprint = mqtt_tls.fingerprint(self._tls, self._config_dir)
+        #: Why the last client could not be given TLS. While set, no session
+        #: is opened at all — see :meth:`_subscribe_manager`.
+        self._tls_error: str | None = None
         client_options["identifier"] = str(uuid.uuid4())
         client_options["logger"] = logging.getLogger(PAHO)
         client_options["clean_session"] = True
@@ -82,8 +101,26 @@ class MQTTClient(MessageBus):
         self._reloading = False
 
     def create_client(self) -> AsyncioClient:
-        """Create the asyncio client."""
+        """Create the asyncio client.
+
+        Never raises for a TLS problem: this runs inside the reconnect loop's
+        own error handling, where an exception would end the loop for good.
+        The problem is kept in ``_tls_error`` instead, and the session refuses
+        to start while it is set — so a broken TLS setup means no connection,
+        never a plain one.
+        """
         _LOGGER.debug("Creating client %s:%s", self.host, self.port)
+        tls_options: dict[str, Any] = {}
+        self._tls_error = None
+        try:
+            context = mqtt_tls.build_context(self._tls, self._config_dir)
+        except mqtt_tls.MqttTlsError as err:
+            self._tls_error = str(err)
+            context = None
+        if context is not None:
+            tls_options["tls_context"] = context
+            if self._tls.get("insecure"):
+                tls_options["tls_insecure"] = True
         return AsyncioClient(
             self.host,
             self.port,
@@ -93,8 +130,14 @@ class MQTTClient(MessageBus):
                 qos=0,
                 retain=False,
             ),
+            **tls_options,
             **self.client_options,
         )
+
+    @property
+    def tls_error(self) -> str | None:
+        """Why TLS could not be set up, or None when it could (or is off)."""
+        return self._tls_error
 
     async def publish(  # pylint:disable=too-many-arguments
         self,
@@ -253,6 +296,7 @@ class MQTTClient(MessageBus):
         port: int,
         username: str | None,
         password: str | None,
+        tls: Mapping[str, Any] | None = None,
     ) -> bool:
         """Connect again with new broker credentials, without a restart.
 
@@ -267,15 +311,21 @@ class MQTTClient(MessageBus):
             port: Broker port.
             username: The account to connect with, or None for an open broker.
             password: Its password.
+            tls: The ``mqtt.tls`` section. Compared together with the files
+                it names, so a replaced CA or client certificate reconnects
+                even when the configuration reads the same.
 
         Returns:
             True when something changed and a reconnect was started.
         """
+        tls_section = dict(tls) if isinstance(tls, Mapping) else {}
+        tls_fingerprint = mqtt_tls.fingerprint(tls_section, self._config_dir)
         if (
             host == self.host
             and port == self.port
             and username == self.client_options.get("username")
             and password == self.client_options.get("password")
+            and tls_fingerprint == self._tls_fingerprint
         ):
             _LOGGER.debug("MQTT credentials unchanged; keeping the connection")
             return False
@@ -284,6 +334,8 @@ class MQTTClient(MessageBus):
         self.port = port
         self.client_options["username"] = username
         self.client_options["password"] = password
+        self._tls = tls_section
+        self._tls_fingerprint = tls_fingerprint
         # A fresh identifier: a broker drops the older of two connections
         # sharing one, and the session being replaced may still be on its
         # way down when the next one arrives.
@@ -293,7 +345,10 @@ class MQTTClient(MessageBus):
         session = self._session_task
         if session is None or session.done():
             # Between attempts: the loop builds its next client from the
-            # options above without being told anything.
+            # options above without being told anything. Built now as well,
+            # so a TLS problem is reported at once rather than after the
+            # backoff, which may be a minute away.
+            self.asyncio_client = self.create_client()
             _LOGGER.info("New MQTT credentials stored; no session to interrupt")
             return True
 
@@ -365,6 +420,12 @@ class MQTTClient(MessageBus):
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         tasks: set[asyncio.Task] = set()
+        if self._tls_error is not None:
+            # TLS is on and cannot be set up. Raised as an MqttError so the
+            # loop backs off and builds a new client, which picks up a fixed
+            # file. Never a connection without it: the password would go out
+            # in plain text to whoever answers.
+            raise MqttError(f"TLS is on but cannot be used: {self._tls_error}")
         try:
             async with AsyncExitStack() as stack:
                 _ = await stack.enter_async_context(self.asyncio_client)
