@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface NumericInputProps
@@ -11,7 +11,7 @@ export interface NumericInputProps
   decimal?: boolean;
   /** Minimum allowed value (validated on blur) */
   min?: number;
-  /** Maximum allowed value (validated on blur) */
+  /** Maximum allowed value (capped while typing and on blur) */
   max?: number;
   /** Step for increment/decrement (informational only) */
   step?: number;
@@ -49,10 +49,13 @@ export function NumericInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   /**
-   * Format the display value — show empty string for blank,
-   * otherwise show the number as-is.
+   * The text as typed, while the field has focus. Prefixes like "2,", "-" or
+   * "" parse to something that prints differently (or not at all), so showing
+   * String(value) would eat the separator or the sign mid-typing.
    */
-  const displayValue = value === '' ? '' : String(value);
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const displayValue = draft ?? (value === '' ? '' : String(value));
 
   /**
    * Filter and parse input characters.
@@ -61,12 +64,6 @@ export function NumericInput({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
-
-      // Allow empty input
-      if (raw === '' || raw === '-') {
-        onChange(raw === '-' ? ('' as const) : '');
-        return;
-      }
 
       // Normalize comma to dot for parsing
       const normalized = raw.replace(',', '.');
@@ -86,13 +83,25 @@ export function NumericInput({
         : parseInt(normalized, 10);
 
       if (Number.isNaN(parsed)) {
-        // Allow intermediate states like "1." or "-"
+        // Empty, or an intermediate state like "-" or ".": nothing to report
+        // but the field is blank.
+        setDraft(raw);
+        onChange('');
         return;
       }
 
+      // Past the maximum no further digit can bring a positive number back,
+      // so cap now: what the field shows is what a save would store.
+      if (max !== undefined && parsed > max && !normalized.startsWith('-')) {
+        setDraft(String(max));
+        onChange(max);
+        return;
+      }
+
+      setDraft(raw);
       onChange(parsed);
     },
-    [onChange, decimal]
+    [onChange, decimal, max]
   );
 
   /**
@@ -100,6 +109,7 @@ export function NumericInput({
    */
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
+      setDraft(null);
       if (value !== '' && typeof value === 'number') {
         let clamped = value;
         if (min !== undefined && clamped < min) clamped = min;
