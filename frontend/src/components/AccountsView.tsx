@@ -166,63 +166,56 @@ export default function AccountsView() {
             <span className="loading loading-spinner loading-md text-primary" />
           </div>
         ) : (
-          <div className="stg-inset overflow-x-auto">
-            <table className="table table-sm">
-              <thead>
-                <tr>
-                  <th>{t('accounts.username')}</th>
-                  <th>{t('accounts.role')}</th>
-                  <th className="text-right">{t('accounts.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map((account) => {
-                  const isMe = isSelf(account.username);
-                  return (
-                    <tr key={account.username}>
-                      <td>
-                        <span className="font-medium font-mono">{account.username}</span>
-                        {isMe && (
-                          <span className="ml-2 badge badge-ghost badge-xs">
-                            {t('accounts.you')}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <select
-                          className="select select-xs select-bordered"
-                          value={account.role}
-                          disabled={isMe}
-                          onChange={(e) => handleRoleChange(account, e.target.value as Role)}
-                        >
-                          <option value="admin">{t('accounts.role_admin')}</option>
-                          <option value="viewer">{t('accounts.role_viewer')}</option>
-                        </select>
-                      </td>
-                      <td className="text-right whitespace-nowrap">
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          onClick={() => {
-                            setNotice(null);
-                            setPasswordFor(account.username);
-                          }}
-                        >
-                          {t('accounts.reset_password')}
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-xs text-error ml-1"
-                          disabled={isMe}
-                          onClick={() => setDeleteFor(account.username)}
-                        >
-                          {t('accounts.delete')}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          // A list, not a table: three columns of controls do not fit a phone,
+          // and a table that scrolls sideways hides the delete button off-screen.
+          <ul className="stg-inset divide-y divide-base-content/10">
+            {accounts.map((account) => {
+              const isMe = isSelf(account.username);
+              return (
+                <li
+                  key={account.username}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="font-medium font-mono truncate">{account.username}</span>
+                    {isMe && (
+                      <span className="badge badge-ghost badge-xs shrink-0">
+                        {t('accounts.you')}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    className="select select-xs select-bordered w-auto"
+                    aria-label={t('accounts.role')}
+                    value={account.role}
+                    disabled={isMe}
+                    onChange={(e) => handleRoleChange(account, e.target.value as Role)}
+                  >
+                    <option value="admin">{t('accounts.role_admin')}</option>
+                    <option value="viewer">{t('accounts.role_viewer')}</option>
+                  </select>
+                  <div className="flex justify-end gap-1 w-full sm:w-auto">
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => {
+                        setNotice(null);
+                        setPasswordFor(account.username);
+                      }}
+                    >
+                      {t('accounts.reset_password')}
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-xs text-error"
+                      disabled={isMe}
+                      onClick={() => setDeleteFor(account.username)}
+                    >
+                      {t('accounts.delete')}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </SettingsCard>
 
