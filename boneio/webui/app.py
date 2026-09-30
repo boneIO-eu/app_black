@@ -27,6 +27,7 @@ from boneio.core.config import ConfigHelper
 from boneio.core.config.provenance import was_configured_before
 from boneio.core.events import GracefulExit
 from boneio.core.manager import Manager
+from boneio.webui.static_assets import HashedAssets
 from boneio.models import (
     CoverState,
     GroupState,
@@ -1024,7 +1025,7 @@ FRONTEND_DIR = APP_DIR / "frontend-dist"
 
 if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
     _LOGGER.info(f"Frontend found at {FRONTEND_DIR}, mounting static files")
-    app.mount("/assets", StaticFiles(directory=f"{FRONTEND_DIR}/assets"), name="assets")
+    app.mount("/assets", HashedAssets(directory=f"{FRONTEND_DIR}/assets"), name="assets")
     app.mount("/schema", StaticFiles(directory=f"{APP_DIR}/schema"), name="schema")
 
     @app.get("/manifest.webmanifest")
@@ -1094,18 +1095,12 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
     async def serve_react_app(filename: str):
         """Serve static files from frontend-dist, fallback to index.html for SPA routing.
 
-        Hashed assets (in /assets/) are immutable and cached long-term.
-        index.html (SPA fallback) is never cached to prevent stale versions
-        being served through Cloudflare Tunnel or other caching proxies.
+        Hashed assets never get here: the /assets mount (HashedAssets) serves
+        them. index.html (SPA fallback) is never cached to prevent stale
+        versions being served through Cloudflare Tunnel or other caching proxies.
         """
         file_path = (FRONTEND_DIR / filename).resolve()
         if filename and file_path.is_relative_to(FRONTEND_DIR.resolve()) and file_path.exists() and file_path.is_file():
-            # Hashed assets can be cached forever
-            if filename.startswith("assets/"):
-                return FileResponse(
-                    str(file_path),
-                    headers={"Cache-Control": "public, max-age=31536000, immutable"},
-                )
             return FileResponse(str(file_path))
         # SPA fallback — never cache index.html
         return FileResponse(

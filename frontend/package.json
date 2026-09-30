@@ -6,13 +6,14 @@
   "scripts": {
     "generate:modbus": "node scripts/generate-modbus-catalog.cjs",
     "dev": "npm run generate:modbus && vite",
-    "build": "npm run generate:modbus && tsc -b && vite build && npm run check-sanitizer",
+    "build": "npm run generate:modbus && tsc -b && vite build && npm run check-sanitizer && npm run precompress",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "check-i18n": "node scripts/check-translations.cjs",
-    "check-sanitizer": "node scripts/check-bundled-sanitizer.cjs"
+    "check-sanitizer": "node scripts/check-bundled-sanitizer.cjs",
+    "precompress": "node scripts/precompress-assets.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
