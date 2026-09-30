@@ -12,7 +12,9 @@ export default function GroupByAreaToggle({ active, onToggle }: GroupByAreaToggl
   return (
     <button
       type="button"
-      className={`btn btn-sm gap-1 ${active ? 'btn-active' : 'btn-ghost'}`}
+      // A plain button like its neighbours, not a ghost one: a ghost toggle
+      // reads as text when off and as a hover when on. On is the primary tint.
+      className={`btn btn-sm gap-1 ${active ? 'btn-primary btn-soft' : ''}`}
       onClick={() => onToggle(!active)}
       aria-pressed={active}
       title={t('common.group_by_area')}

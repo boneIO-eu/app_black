@@ -413,7 +413,7 @@ export default function InputsView() {
             <div className="flex items-center gap-2">
               {/* Sort dropdown */}
               <div className="dropdown dropdown-end">
-                <label tabIndex={0} className="btn btn-sm btn-ghost gap-1">
+                <label tabIndex={0} className="btn btn-sm gap-1">
                   {sortMode === 'recent' ? <FaClock /> : <FaSortAlphaDown />}
                   <span className="hidden sm:inline">{t(`inputs.sort_${sortMode}`)}</span>
                   <FaSortAmountDown className="w-3 h-3" />
