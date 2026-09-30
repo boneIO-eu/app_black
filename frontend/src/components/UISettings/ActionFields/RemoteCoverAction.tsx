@@ -10,7 +10,7 @@ import {
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
 import type { RemoteCoverActionProps, RemoteCoverEntity } from './types';
 import {
-  TILT_ACTIONS, coverDataForAction, coverSupportsTilt, filterCoverActionsByPosition, filterCoverActionsByTilt, formatActionLabel,
+  TILT_ACTIONS, coverDataForAction, coverSupportsTilt, filterCoverActionsByPosition, filterCoverActionsByTilt, formatActionLabel, getDeviceCovers,
 } from './helpers';
 
 /**
@@ -26,10 +26,7 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
   actionCoverOptions,
 }) => {
   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-  const isEspHome = selectedDevice?.protocol === 'esphome_api';
-  const covers: RemoteCoverEntity[] = isEspHome
-    ? (selectedDevice?.esphome_api?.covers || [])
-    : (selectedDevice?.mqtt?.covers || []);
+  const covers: RemoteCoverEntity[] = useMemo(() => getDeviceCovers(selectedDevice), [selectedDevice]);
   const selectedCover = covers.find((c) => c.id === action.cover_id);
 
 

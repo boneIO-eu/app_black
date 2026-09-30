@@ -13,6 +13,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
 import ActionConditions from './ActionFields/ActionConditions';
+import { getDeviceCovers, getDeviceEntities } from './ActionFields/helpers';
+import { normalizeCovers } from './helpers/coverUtils';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
 // Helper to render distinct theme icons for each action type
@@ -148,6 +150,15 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   // The forms hold actions as plain records; every field they put there is
   // one ActionDef declares, so this is where the editor starts reading it typed.
   const action = actionInput as ActionDef;
+
+  // Action types that need something configured to aim at; the rest
+  // (MQTT topics, outputs) always have a target.
+  const targetsExist: Record<string, boolean> = {
+    virtual_switch: allVirtualSwitches.length > 0,
+    cover: normalizeCovers(allCovers).length > 0,
+    remote_output: allRemoteDevices.some((d) => getDeviceEntities(d).length > 0),
+    remote_cover: allRemoteDevices.some((d) => getDeviceCovers(d).length > 0),
+  };
   const actionType = action.action || 'output';
   const isLongPress = clickType === 'long' || clickType === 'double_then_long' || clickType === 'single_then_long';
   const hasDurationThresholds = !!(action.min_duration || action.max_duration);
@@ -268,11 +279,9 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               const label = translated !== typeKey
                 ? translated
                 : opt.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-              // Nothing to point a virtual switch action at yet: say so here
-              // rather than let the pick lead to an empty list.
-              const unavailable = opt === 'virtual_switch'
-                && allVirtualSwitches.length === 0
-                && actionType !== opt;
+              // Nothing to point this action at yet: say so here rather than
+              // let the pick lead to an empty list.
+              const unavailable = targetsExist[opt] === false && actionType !== opt;
               return (
                 <SelectItem key={opt} value={opt} disabled={unavailable}>
                   <span className="flex items-center gap-2">

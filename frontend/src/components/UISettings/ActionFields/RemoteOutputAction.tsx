@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { rgbToHex, hexToRgb, formatActionLabel } from './helpers';
+import { rgbToHex, hexToRgb, formatActionLabel, getDeviceEntities } from './helpers';
 import SimpleTimePeriodInput from '../widgets/SimpleTimePeriodInput';
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
 import type { ESPHomeLightEntity } from '@/types/config';
@@ -17,34 +17,6 @@ const STEP_BRIGHTNESS_ACTIONS = ['BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS
 
 /** Entity kinds that take more than ON/OFF. Plain MQTT outputs have no `_type`. */
 const FULL_CONTROL_TYPES: ReadonlyArray<RemoteOutputEntity['_type']> = ['light', 'wled_main', 'wled_segment'];
-
-/**
- * Gets all entities (switches, lights, segments) from a remote device.
- */
-const getDeviceEntities = (device: RemoteDevice | undefined): RemoteOutputEntity[] => {
-  if (!device) return [];
-  
-  const isEspHome = device.protocol === 'esphome_api';
-  const isWled = device.protocol === 'wled';
-  
-  if (isEspHome) {
-    const switches = (device.esphome_api?.switches || []).map((s) => ({ ...s, _type: 'switch' as const }));
-    const lights = (device.esphome_api?.lights || []).map((l) => ({ ...l, _type: 'light' as const }));
-    return [...switches, ...lights];
-  } else if (isWled) {
-    return [
-      { id: 'main', name: 'All LEDs', _type: 'wled_main' as const },
-      ...(device.wled?.segments || []).map((s) => ({ 
-        ...s, 
-        id: String(s.id),
-        name: s.name || `Segment ${s.id}`,
-        _type: 'wled_segment' as const,
-      }))
-    ];
-  } else {
-    return device.mqtt?.outputs || [];
-  }
-};
 
 /**
  * Remote Output Action component - handles ESPHome, WLED, and MQTT remote outputs.

@@ -1,5 +1,5 @@
 import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
-import type { ActionCondition, ActionDef, ActionInput, CoverActionData } from './types';
+import type { ActionCondition, ActionDef, ActionInput, CoverActionData, RemoteCoverEntity, RemoteDevice, RemoteOutputEntity } from './types';
 
 /**
  * Fields allowed per action type. When switching action type,
@@ -362,4 +362,42 @@ export const applyActionUpdate = <T extends Record<string, unknown>>(
     else next[key] = entry;
   }
   return next as T;
+};
+
+/**
+ * Gets all entities (switches, lights, segments) from a remote device.
+ */
+export const getDeviceEntities = (device: RemoteDevice | undefined): RemoteOutputEntity[] => {
+  if (!device) return [];
+  
+  const isEspHome = device.protocol === 'esphome_api';
+  const isWled = device.protocol === 'wled';
+  
+  if (isEspHome) {
+    const switches = (device.esphome_api?.switches || []).map((s) => ({ ...s, _type: 'switch' as const }));
+    const lights = (device.esphome_api?.lights || []).map((l) => ({ ...l, _type: 'light' as const }));
+    return [...switches, ...lights];
+  } else if (isWled) {
+    return [
+      { id: 'main', name: 'All LEDs', _type: 'wled_main' as const },
+      ...(device.wled?.segments || []).map((s) => ({ 
+        ...s, 
+        id: String(s.id),
+        name: s.name || `Segment ${s.id}`,
+        _type: 'wled_segment' as const,
+      }))
+    ];
+  } else {
+    return device.mqtt?.outputs || [];
+  }
+};
+
+/**
+ * Gets the covers a remote device exposes.
+ */
+export const getDeviceCovers = (device: RemoteDevice | undefined): RemoteCoverEntity[] => {
+  if (!device) return [];
+  return device.protocol === 'esphome_api'
+    ? (device.esphome_api?.covers || [])
+    : (device.mqtt?.covers || []);
 };
