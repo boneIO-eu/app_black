@@ -222,6 +222,25 @@ def service_password_init(password: str, timeout: int = 60) -> Result:
     return run("service-password-init", timeout=timeout, stdin=f"{password}\n")
 
 
+def service_password_change(current: str, new: str, timeout: int = 60) -> Result:
+    """Change the boneio login password, given the current one.
+
+    ``passwd`` as root, for the fixed account: the helper checks *current*
+    against /etc/shadow and counts wrong ones where this process cannot reset
+    the count. Both go over stdin, one per line. The outcome is JSON on stdout
+    — see ``service-password-change`` in the helper.
+
+    Args:
+        current: The SSH password the account has now.
+        new: The one it should have.
+        timeout: Seconds to allow; a wrong password costs the helper two.
+
+    Returns:
+        The outcome.
+    """
+    return run("service-password-change", timeout=timeout, stdin=f"{current}\n{new}\n")
+
+
 def mqtt_reload(timeout: int = 30) -> Result:
     """Have the broker re-read its password file."""
     return run("mqtt-reload", timeout=timeout)

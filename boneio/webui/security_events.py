@@ -54,7 +54,7 @@ def emit(event_type: str, *, username: str, client: str | None = None, where: st
         client: The caller's address. Left out when it is the controller's own
             loopback, which says nothing about who it was.
         where: Which form the passwords were typed into: ``login``,
-            ``confirm`` or ``password_change``.
+            ``confirm``, ``password_change`` or ``ssh_password``.
     """
     if event_type not in EVENT_TYPES:
         _LOGGER.error("Not an event the security entity declares: %s", event_type)

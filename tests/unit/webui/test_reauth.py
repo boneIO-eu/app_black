@@ -93,6 +93,7 @@ def test_every_entry_guards_a_route_that_exists(app_routes):
         ("DELETE", "/api/accounts/gosc"),
         ("PUT", "/api/accounts/gosc/role"),
         ("PUT", "/api/accounts/gosc/password"),
+        ("PUT", "/api/accounts/ssh-password"),
         ("POST", "/api/config/restore"),
         ("POST", "/api/config/restore_backup"),
         ("POST", "/api/factory_reset"),

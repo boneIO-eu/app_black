@@ -140,6 +140,10 @@ _REAUTH_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("DELETE", r"^/api/accounts/[^/]+$"),
         ("PUT", r"^/api/accounts/[^/]+/role$"),
         ("PUT", r"^/api/accounts/[^/]+/password$"),
+        # The SSH login's password is the root password, through sudo. The
+        # form asks for the current one too, but that is the SSH password and
+        # this is the owner proving the session is theirs.
+        ("PUT", r"^/api/accounts/ssh-password$"),
         # Replacing the whole configuration.
         ("POST", r"^/api/config/restore$"),
         ("POST", r"^/api/config/restore_backup$"),

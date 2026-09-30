@@ -11,6 +11,12 @@ their own password. Any role may use it, because a read-only account whose
 password cannot be rotated is a read-only account nobody will rotate. It asks
 for the current password, so a borrowed session cannot silently take the
 account over.
+
+``/api/accounts/ssh-password`` is the device's SSH login, the Linux ``boneio``
+account — not a panel account at all. Admin only, like the rest of
+``/api/accounts``, and it asks for the current SSH password: boneio-system does
+the change as root, and without that it would be a way to set the password of
+an account that can sudo.
 """
 
 from __future__ import annotations
@@ -22,14 +28,18 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from boneio.core import system_ops
 from boneio.core.auth.models import Role
-from boneio.core.auth.store import UserStore, UserStoreError
+from boneio.core.auth.store import UserStore, UserStoreError, validate_password
+from boneio.webui import security_events
 from boneio.webui.middleware.auth import get_user_store, issue_token
 from boneio.webui.routes.auth import (
     SessionLocked,
     check_password_throttled,
+    count_session_wrong_password,
     signed_out_response,
 )
+from boneio.webui.routes.security import forget_service_password_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,6 +98,19 @@ class OwnPasswordChange(BaseModel):
 
     current_password: str = Field(..., min_length=1, max_length=1024)
     new_password: str = Field(..., min_length=8, max_length=1024)
+
+
+class SshPasswordChange(BaseModel):
+    """Payload for changing the boneio SSH password."""
+
+    current_password: str = Field(..., min_length=1, max_length=1024)
+    new_password: str = Field(..., min_length=8, max_length=1024)
+
+
+#: The Linux account boneio-system changes. Fixed there too; named here for
+#: the password policy's similarity rule and the security event.
+SSH_ACCOUNT = "boneio"
+_SSH_CHANGE_VERB = "service-password-change"
 
 
 # ------------------------------------------------------------- management
@@ -306,3 +329,138 @@ async def change_own_password(payload: OwnPasswordChange, request: Request):
         "changed": True,
         "token": issue_token(user, getattr(request.state, "session_id", None)),
     }
+
+
+# -------------------------------------------------------------- SSH login
+
+
+def _code(status_code: int, code: str, detail: str, **extra) -> JSONResponse:
+    """An error the panel tells apart by ``code``, not by its English text."""
+    return JSONResponse(
+        status_code=status_code, content={"detail": detail, "code": code, **extra}
+    )
+
+
+@router.get("/accounts/ssh-password")
+async def ssh_password_state():
+    """How the boneio SSH login stands, and whether the panel can change it.
+
+    Returns:
+        ``state`` — locked, empty, shipped, set, unknown, or None when the
+        helper is not there to ask — and ``supported``, false until the
+        migration that ships the change (1.6.29) has been applied.
+    """
+    supported = await asyncio.to_thread(system_ops.helper_supports, _SSH_CHANGE_VERB)
+    state = await asyncio.to_thread(system_ops.service_password_state)
+    return {"state": state, "supported": supported}
+
+
+@router.put("/accounts/ssh-password")
+async def change_ssh_password(payload: SshPasswordChange, request: Request):
+    """Change the boneio SSH password, given the current one.
+
+    Equivalent to ``passwd`` over SSH, and deliberately no more: there is no
+    way here to set it without the current password. A lost one is recovered
+    with the flasher card (``BONEIO_RESET_ACCOUNTS=1``).
+
+    Wrong guesses are counted twice. boneio-system keeps a global count as
+    root — five in fifteen minutes — because it can be called without the
+    panel. And each one counts against this session like a wrong panel
+    password, so a borrowed session is signed out the same way.
+
+    A wrong current password is 403 ``current_password_wrong`` with
+    ``attempts_left``, never 401, which the panel takes as a sign-out; the one
+    that uses the session's last try is 401 ``session_locked``.
+
+    Args:
+        payload: Current and new SSH password.
+        request: Incoming request, used to identify the caller.
+
+    Returns:
+        ``{"changed": True}``.
+
+    Raises:
+        HTTPException: 400 if the new password is rejected.
+    """
+    username = _caller(request)
+    if not username:
+        raise HTTPException(status_code=401, detail="Not signed in")
+
+    for password in (payload.current_password, payload.new_password):
+        if "\n" in password or "\r" in password:
+            raise HTTPException(status_code=400, detail="A password cannot contain a line break.")
+    try:
+        validate_password(payload.new_password, SSH_ACCOUNT)
+    except UserStoreError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+    if not await asyncio.to_thread(system_ops.helper_supports, _SSH_CHANGE_VERB):
+        return _code(
+            409,
+            "helper_outdated",
+            "The installed system helper cannot change the SSH password yet. "
+            "Apply the pending system migrations (1.6.29) and try again.",
+        )
+
+    result = await asyncio.to_thread(
+        system_ops.service_password_change, payload.current_password, payload.new_password
+    )
+    outcome = result.json() or {}
+    kind = outcome.get("result")
+    client = request.client.host if request.client else "unknown"
+
+    if kind == "changed":
+        forget_service_password_state()
+        _LOGGER.info("SSH password of '%s' changed from the panel by '%s'", SSH_ACCOUNT, username)
+        return {"changed": True}
+
+    if kind == "wrong_password":
+        _LOGGER.warning(
+            "Rejected SSH password change by '%s' from %s: wrong current password",
+            username,
+            client,
+        )
+        left = outcome.get("attempts_left")
+        left = left if isinstance(left, int) else 0
+        if left == 0:
+            # The one that shuts the helper for the window.
+            security_events.emit(
+                "password_guessing", username=SSH_ACCOUNT, client=client, where="ssh_password"
+            )
+        try:
+            session_left = await count_session_wrong_password(request, username, "ssh_password")
+        except SessionLocked:
+            return signed_out_response()
+        if session_left is not None:
+            left = min(left, session_left)
+        return _code(403, "current_password_wrong", "Current SSH password is incorrect",
+                     attempts_left=left)
+
+    if kind == "throttled":
+        retry_after = outcome.get("retry_after")
+        retry_after = retry_after if isinstance(retry_after, int) else 900
+        response = _code(
+            429,
+            "ssh_password_throttled",
+            "Too many wrong SSH passwords. Try again later.",
+            retry_after=retry_after,
+        )
+        response.headers["Retry-After"] = str(retry_after)
+        return response
+
+    if kind == "refused":
+        # Locked or empty: not the panel's to set. Unknown: nothing can check.
+        return _code(
+            409,
+            "ssh_password_not_set",
+            "The SSH login has no password to change.",
+            state=outcome.get("state"),
+        )
+
+    detail = (result.stderr or "").strip().splitlines()
+    _LOGGER.warning("SSH password change failed: %s", result.stderr.strip())
+    return _code(
+        500,
+        "ssh_password_failed",
+        detail[-1] if detail else "Could not change the SSH password.",
+    )

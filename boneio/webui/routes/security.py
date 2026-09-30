@@ -240,6 +240,12 @@ def _service_password_state() -> str | None:
     return state
 
 
+def forget_service_password_state() -> None:
+    """Drop the cached SSH login state, after the panel has just changed it."""
+    global _service_password_cache
+    _service_password_cache = None
+
+
 @router.get("/posture")
 def get_posture():
     """Report every security check and a summary of the failures.
