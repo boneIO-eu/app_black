@@ -8,6 +8,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
+import { areaMatches } from './areaFilter';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
@@ -55,9 +56,10 @@ const RemoteOutputTable: React.FC<RemoteOutputTableProps> = ({
         (item.id?.toLowerCase().includes(lowerFilter)) ||
         (item.device_id?.toLowerCase().includes(lowerFilter)) ||
         (item.output_id?.toLowerCase().includes(lowerFilter)) ||
-        (getDeviceName(item.device_id)?.toLowerCase().includes(lowerFilter))
+        (getDeviceName(item.device_id)?.toLowerCase().includes(lowerFilter)) ||
+        areaMatches(item.area, allAreas, lowerFilter)
       );
-  }, [items, filter, allRemoteDevices]);
+  }, [items, filter, allRemoteDevices, allAreas]);
 
   // Sort filtered items
   const sortedItems = useMemo(() => {

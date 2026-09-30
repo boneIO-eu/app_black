@@ -1095,7 +1095,7 @@
     "switch_to_light": "Switch to light theme",
     "switch_to_dark": "Switch to dark theme",
     "default": "Default",
-    "filter_placeholder": "Filter by name or ID...",
+    "filter_placeholder": "Filter by name, ID or area...",
     "showing": "Showing",
     "of": "of",
     "area": "Area",
