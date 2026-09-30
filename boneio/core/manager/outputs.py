@@ -962,6 +962,9 @@ class OutputManager:
         """Send Home Assistant autodiscovery for all outputs and groups."""
         # Send autodiscovery for outputs
         for output_id, output in self._outputs.items():
+            # Remote outputs are published only when show_in_ha is set
+            if not getattr(output, "show_in_ha", True):
+                continue
             if output.output_type not in (NONE, COVER):
                 ha_func = _OUTPUT_HA_FUNC.get(output.output_type, ha_switch_availabilty_message)
                 payload = ha_func(
@@ -1002,6 +1005,7 @@ class OutputManager:
                 name=group.name if hasattr(group, 'name') else group_id,
                 config_helper=self._manager._config_helper,
                 output_type=group.output_type,
+                area=getattr(group, 'area', None),
                 member_unique_ids=member_unique_ids,
             )
             self._manager.publish_ha_discovery(

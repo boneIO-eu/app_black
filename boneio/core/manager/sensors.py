@@ -489,13 +489,15 @@ class SensorManager:
                 update_interval=sensor_config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
                 filters=sensor_config.get(FILTERS, []),
             )
-            if sensor_config.get(SHOW_HA, True):
+            sensor.area = sensor_config.get("area")
+            sensor.show_in_ha = sensor_config.get(SHOW_HA, True)
+            if sensor.show_in_ha:
                 payload = ha_sensor_temp_availabilty_message(
                     id=sensor.id,
                     name=sensor.name,
                     config_helper=self._manager._config_helper,
                     unit_of_measurement=sensor_config.get("unit_of_measurement", "°C"),
-                    area=sensor_config.get("area"),
+                    area=sensor.area,
                 )
                 self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
             return sensor
@@ -567,12 +569,14 @@ class SensorManager:
                 update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
                 filters=gpio.get(FILTERS, []),
             )
-            if gpio.get(SHOW_HA, True):
+            sensor.area = gpio.get("area")
+            sensor.show_in_ha = gpio.get(SHOW_HA, True)
+            if sensor.show_in_ha:
                 payload = ha_adc_sensor_availabilty_message(
                     id=id,
                     name=name,
                     config_helper=self._manager._config_helper,
-                    area=gpio.get("area"),
+                    area=sensor.area,
                 )
                 self._manager.publish_ha_discovery(id=id, ha_type=SENSOR, payload=payload)
             return sensor
@@ -697,14 +701,17 @@ class SensorManager:
                         if new_interval:
                             sensor._update_interval = new_interval
 
+                        sensor.area = sensor_config.get("area")
+                        sensor.show_in_ha = sensor_config.get(SHOW_HA, True)
+
                         # Resend HA autodiscovery with updated info
-                        if sensor_config.get(SHOW_HA, True):
+                        if sensor.show_in_ha:
                             payload = ha_sensor_temp_availabilty_message(
                                 id=sensor.id,
                                 name=sensor.name,
                                 config_helper=self._manager._config_helper,
                                 unit_of_measurement=sensor_config.get("unit_of_measurement", "°C"),
-                                area=sensor_config.get("area"),
+                                area=sensor.area,
                             )
                             self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
                         break
@@ -832,13 +839,16 @@ class SensorManager:
                         if new_interval:
                             sensor._update_interval = new_interval
 
+                        sensor.area = sensor_config.get("area")
+                        sensor.show_in_ha = sensor_config.get(SHOW_HA, True)
+
                         # Resend HA autodiscovery with updated info
-                        if sensor_config.get(SHOW_HA, True):
+                        if sensor.show_in_ha:
                             payload = ha_adc_sensor_availabilty_message(
                                 id=sensor.id,
                                 name=new_name,
                                 config_helper=self._manager._config_helper,
-                                area=sensor_config.get("area"),
+                                area=sensor.area,
                             )
                             self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
                         break
@@ -1457,20 +1467,26 @@ class SensorManager:
 
         # Dallas 1-Wire sensors
         for sensor in self._dallas_sensors:
+            if not sensor.show_in_ha:
+                continue
             payload = ha_sensor_temp_availabilty_message(
                 id=sensor.id,
                 name=sensor.name,
                 config_helper=self._manager._config_helper,
                 unit_of_measurement=getattr(sensor, "unit_of_measurement", "°C"),
+                area=sensor.area,
             )
             self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
 
         # ADC sensors
         for sensor in self._adc_sensors:
+            if not sensor.show_in_ha:
+                continue
             payload = ha_adc_sensor_availabilty_message(
                 id=sensor.id,
                 name=sensor.name,
                 config_helper=self._manager._config_helper,
+                area=sensor.area,
             )
             self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
 
