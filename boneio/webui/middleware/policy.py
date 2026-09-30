@@ -168,6 +168,10 @@ _REAUTH_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         # Whom boneIO trusts as its broker, and what it presents to one.
         ("POST", r"^/api/mqtt-tls/client/(ca|certificate)$"),
         ("DELETE", r"^/api/mqtt-tls/client/[^/]+$"),
+        # What the broker here presents, and whether it still takes plain text.
+        ("POST", r"^/api/mqtt-tls/broker/(certificate|generate)$"),
+        ("PUT", r"^/api/mqtt-tls/broker/mode$"),
+        ("DELETE", r"^/api/mqtt-tls/broker/certificate$"),
     )
 )
 

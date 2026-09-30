@@ -126,3 +126,167 @@ def test_viewers_cannot_read_what_the_device_trusts():
 ])
 def test_changing_trust_wants_a_fresh_password(method, path):
     assert policy.requires_recent_auth(method, path)
+
+
+# ------------------------------------------------------------- the broker
+
+
+from boneio.core import system_ops  # noqa: E402
+from boneio.core.messaging import broker_tls  # noqa: E402
+
+
+class FakeHelper:
+    """system_ops as the routes see it, without sudo."""
+
+    def __init__(self, monkeypatch, supported=True):
+        self.calls: list[tuple] = []
+        self.mode = "off"
+        self.fail_with: str | None = None
+        monkeypatch.setattr(system_ops, "helper_supports", lambda verb: supported)
+        monkeypatch.setattr(system_ops, "mqtt_tls_state", self.state)
+        monkeypatch.setattr(system_ops, "mqtt_tls_cert", self.cert)
+        monkeypatch.setattr(system_ops, "mqtt_tls_mode", self.set_mode)
+        monkeypatch.setattr(system_ops, "mqtt_tls_cert_remove", self.remove)
+        monkeypatch.setattr(route, "_reached_by", lambda: ["boneio-test", "boneio-test.local", "192.168.1.50"])
+
+    def _result(self, stdout=""):
+        if self.fail_with:
+            return system_ops.Result(1, "", f"[ERROR] REFUSED: {self.fail_with}\n")
+        return system_ops.Result(0, stdout, "")
+
+    def state(self):
+        import json
+
+        return self._result(json.dumps({"mode": self.mode, "certificate": True, "active": True, "tls_port": 8883}))
+
+    def cert(self, bundle):
+        self.calls.append(("cert", bundle))
+        return self._result()
+
+    def set_mode(self, mode):
+        self.calls.append(("mode", mode))
+        return self._result()
+
+    def remove(self):
+        self.calls.append(("remove",))
+        return self._result()
+
+
+def _app_mqtt(state, **mqtt):
+    helper = MagicMock()
+    helper.get_config.return_value = {"mqtt": mqtt}
+    state.config_helper = helper
+
+
+def test_the_broker_state_describes_mode_and_app(client, state, monkeypatch):
+    FakeHelper(monkeypatch)
+    _app_mqtt(state, host="localhost", port=1883)
+    monkeypatch.setattr(broker_tls, "installed", lambda reached_by=None: None)
+    body = client.get("/api/mqtt-tls/broker").json()
+    assert body["supported"] is True
+    assert body["mode"] == "off"
+    assert body["app"]["uses_local_broker"] is True
+    assert body["app"]["blocks_required"] is False
+
+
+def test_an_old_helper_is_reported_not_called(client, state, monkeypatch):
+    fake = FakeHelper(monkeypatch, supported=False)
+    _app_mqtt(state, host="localhost")
+    body = client.get("/api/mqtt-tls/broker").json()
+    assert body["supported"] is False
+    response = client.post("/api/mqtt-tls/broker/generate")
+    assert response.status_code == 409
+    assert "migrations" in response.json()["detail"]
+    assert fake.calls == []
+
+
+def test_generating_hands_the_helper_a_chain_and_a_key(client, state, monkeypatch):
+    fake = FakeHelper(monkeypatch)
+    _app_mqtt(state, host="localhost")
+    response = client.post("/api/mqtt-tls/broker/generate")
+    assert response.status_code == 200
+    (verb, bundle), = fake.calls
+    assert verb == "cert"
+    assert bundle.count("BEGIN CERTIFICATE") == 2
+    assert bundle.count("BEGIN PRIVATE KEY") == 1
+    assert "PRIVATE KEY" not in response.text
+
+
+def test_an_uploaded_certificate_goes_to_the_helper_with_its_ca(client, state, monkeypatch, ca):
+    fake = FakeHelper(monkeypatch)
+    leaf = make_leaf(ca, ("boneio-test.local",))
+    response = client.post(
+        "/api/mqtt-tls/broker/certificate",
+        files={"certificate": ("b.crt", leaf.cert), "key": ("b.key", leaf.key), "ca": ("ca.crt", ca.cert)},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["certificate"]["ca_available"] is True
+    assert fake.calls[0][1].count("BEGIN CERTIFICATE") == 2
+
+
+def test_an_unusable_upload_never_reaches_the_helper(client, state, monkeypatch, ca):
+    fake = FakeHelper(monkeypatch)
+    leaf = make_leaf(ca, ("x",))
+    other = make_leaf(ca, ("y",))
+    response = client.post(
+        "/api/mqtt-tls/broker/certificate",
+        files={"certificate": ("b.crt", leaf.cert), "key": ("b.key", other.key)},
+    )
+    assert response.status_code == 422
+    assert fake.calls == []
+
+
+def test_the_helpers_refusal_comes_back_as_its_sentence(client, state, monkeypatch):
+    fake = FakeHelper(monkeypatch)
+    fake.fail_with = "the broker did not start with the new TLS settings, so the previous ones were put back"
+    _app_mqtt(state, host="localhost")
+    response = client.put("/api/mqtt-tls/broker/mode", json={"mode": "optional"})
+    assert response.status_code == 409
+    assert response.json()["detail"].startswith("the broker did not start")
+
+
+def test_tls_only_is_refused_while_boneio_uses_plain_mqtt_by_its_address(client, state, monkeypatch):
+    fake = FakeHelper(monkeypatch)
+    import boneio.webui.routes.update as update_route
+
+    monkeypatch.setattr(update_route, "is_local_broker_host", lambda host: True)
+    _app_mqtt(state, host="192.168.1.50", port=1883)
+    response = client.put("/api/mqtt-tls/broker/mode", json={"mode": "required"})
+    assert response.status_code == 409
+    assert "localhost" in response.json()["detail"]
+    assert fake.calls == []
+
+    # Over loopback it keeps working, and with TLS of its own too.
+    _app_mqtt(state, host="localhost", port=1883)
+    assert client.put("/api/mqtt-tls/broker/mode", json={"mode": "required"}).status_code == 200
+    _app_mqtt(state, host="192.168.1.50", port=8883, tls={"enabled": True})
+    assert client.put("/api/mqtt-tls/broker/mode", json={"mode": "required"}).status_code == 200
+
+
+def test_an_unknown_mode_is_refused_before_the_helper(client, state, monkeypatch):
+    fake = FakeHelper(monkeypatch)
+    assert client.put("/api/mqtt-tls/broker/mode", json={"mode": "on"}).status_code == 422
+    assert fake.calls == []
+
+
+def test_the_ca_is_offered_only_when_the_chain_has_one(client, monkeypatch):
+    monkeypatch.setattr(broker_tls, "installed_ca", lambda: None)
+    assert client.get("/api/mqtt-tls/broker/ca").status_code == 404
+    monkeypatch.setattr(broker_tls, "installed_ca", lambda: b"-----BEGIN CERTIFICATE-----\n")
+    response = client.get("/api/mqtt-tls/broker/ca")
+    assert response.status_code == 200
+    assert "boneio-mqtt-ca.crt" in response.headers["content-disposition"]
+
+
+@pytest.mark.parametrize("method,path", [
+    ("POST", "/api/mqtt-tls/broker/certificate"),
+    ("POST", "/api/mqtt-tls/broker/generate"),
+    ("PUT", "/api/mqtt-tls/broker/mode"),
+    ("DELETE", "/api/mqtt-tls/broker/certificate"),
+])
+def test_changing_the_broker_wants_a_fresh_password(method, path):
+    assert policy.requires_recent_auth(method, path)
+
+
+def test_reading_the_ca_does_not(client):
+    assert not policy.requires_recent_auth("GET", "/api/mqtt-tls/broker/ca")

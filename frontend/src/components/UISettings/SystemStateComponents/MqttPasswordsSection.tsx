@@ -13,6 +13,7 @@ import {
   NoticeCallout,
   ToggleRow,
 } from '../ui';
+import BrokerTlsCard from '../mqttTls/BrokerTlsCard';
 
 /**
  * Section for managing MQTT user passwords.
@@ -287,6 +288,8 @@ export default function MqttPasswordsSection() {
           </SettingsCard>
         );
       })}
+
+      <BrokerTlsCard />
     </SettingsPage>
   );
 }

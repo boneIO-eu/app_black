@@ -246,6 +246,42 @@ def mqtt_reload(timeout: int = 30) -> Result:
     return run("mqtt-reload", timeout=timeout)
 
 
+#: The broker's TLS modes: plain only, TLS on 8883 beside plain 1883, and TLS
+#: for the network with plain 1883 kept on loopback.
+MQTT_TLS_MODES = ("off", "optional", "required")
+
+
+def mqtt_tls_state(timeout: int = 30) -> Result:
+    """The broker's TLS mode and whether it has a certificate, as JSON."""
+    return run("mqtt-tls-state", timeout=timeout)
+
+
+def mqtt_tls_cert(bundle: str, timeout: int = 90) -> Result:
+    """Install the broker's certificate chain and key.
+
+    Over stdin: the key is a secret, and the process table is readable by
+    every local account. With TLS on, the helper restarts the broker onto the
+    new pair and restores the old one if it does not come back.
+
+    Args:
+        bundle: The chain followed by the unencrypted key, in PEM.
+        timeout: Seconds to allow; a restart on a BeagleBone takes a few.
+    """
+    return run("mqtt-tls-cert", timeout=timeout, stdin=bundle)
+
+
+def mqtt_tls_cert_remove(timeout: int = 30) -> Result:
+    """Remove the broker's certificate and key; refused while TLS is on."""
+    return run("mqtt-tls-cert-remove", timeout=timeout)
+
+
+def mqtt_tls_mode(mode: str, timeout: int = 90) -> Result:
+    """Switch the broker's TLS mode. The helper validates *mode* again."""
+    if mode not in MQTT_TLS_MODES:
+        return Result(1, "", f"unknown mode {mode!r}")
+    return run("mqtt-tls-mode", mode, timeout=timeout)
+
+
 def hostname_set(name: str, timeout: int = 30) -> Result:
     """Set the system hostname."""
     return run("hostname-set", name, timeout=timeout)

@@ -141,8 +141,9 @@ def inspect(cert_pem: bytes, key_pem: bytes, reached_by: list[str] | None = None
         key = serialization.load_pem_private_key(key_pem, password=None)
     except TypeError as err:
         raise CertificateError(
-            "The private key is protected by a passphrase. The proxy starts "
-            "unattended and has nobody to ask, so upload an unencrypted key."
+            "The private key is protected by a passphrase. The service using "
+            "it starts unattended and has nobody to ask, so upload an "
+            "unencrypted key."
         ) from err
     except Exception as err:  # noqa: BLE001
         raise CertificateError(f"The private key is not readable PEM: {err}") from err
@@ -158,7 +159,7 @@ def inspect(cert_pem: bytes, key_pem: bytes, reached_by: list[str] | None = None
     if cert_public != key_public:
         raise CertificateError(
             "That key does not belong to that certificate. Serving them "
-            "together would stop the proxy from starting at all."
+            "together would stop the service from starting at all."
         )
 
     not_after = cert.not_valid_after_utc
@@ -166,8 +167,8 @@ def inspect(cert_pem: bytes, key_pem: bytes, reached_by: list[str] | None = None
     now = datetime.datetime.now(datetime.UTC)
     if not_after <= now:
         raise CertificateError(
-            f"That certificate expired on {not_after.date()}. Browsers would "
-            "reject it more loudly than the self-signed one it replaces."
+            f"That certificate expired on {not_after.date()}. Every client "
+            "would reject it."
         )
 
     names = _names_of(cert)
