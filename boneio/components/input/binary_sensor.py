@@ -131,6 +131,15 @@ class GpioInputBinarySensor(GpioBaseClass):
         """Send initial state after setup."""
         self.send_current_state()
 
+    def send_current_state_when_ready(self) -> None:
+        """Send the current state now, or as soon as the GPIO manager starts.
+
+        Before start the pin cannot be read, and ``read_value`` answers False —
+        which a non-inverted input reports as ``pressed``. Publishing that would
+        put a wrong state on a retained topic.
+        """
+        get_gpio_manager(loop=self._loop).register_on_start_callback(self.send_current_state)
+
     def send_current_state(self) -> None:
         """Send current state to MQTT without triggering actions.
         

@@ -62,7 +62,7 @@ def test_a_payload_that_means_nothing_is_not_guessed_at(payload):
 async def test_a_state_message_moves_the_input():
     remote = make_input()
     seen: list = []
-    remote.press_callback = lambda click_type, duration=None, start_time=None: seen.append(click_type)
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(click_type)
 
     await remote.on_mqtt_message("peer/input/in_01", "pressed")
     assert seen == ["pressed"]
@@ -77,7 +77,7 @@ async def test_a_state_message_moves_the_input():
 async def test_inversion_is_applied():
     remote = make_input(inverted=True)
     seen: list = []
-    remote.press_callback = lambda click_type, duration=None, start_time=None: seen.append(click_type)
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(click_type)
 
     await remote.on_mqtt_message("peer/input/in_01", "ON")
     assert seen == ["released"]
@@ -87,12 +87,67 @@ async def test_inversion_is_applied():
 async def test_an_unreadable_payload_leaves_the_state_alone(caplog):
     remote = make_input()
     seen: list = []
-    remote.press_callback = lambda click_type, duration=None, start_time=None: seen.append(click_type)
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(click_type)
 
     with caplog.at_level("WARNING"):
         await remote.on_mqtt_message("peer/input/in_01", "banana")
     assert seen == []
     assert any("cannot read" in record.message for record in caplog.records)
+
+
+# ── retained replays ─────────────────────────────────────────────────────
+#
+# A peer's binary sensor topics are retained (issue #70), so the broker replays
+# them on every subscribe — every reconnect. That is the state, not a change.
+
+
+@pytest.mark.asyncio
+async def test_a_retained_state_is_taken_without_running_actions():
+    remote = make_input()
+    seen: list = []
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(
+        (click_type, publish_only)
+    )
+
+    await remote.on_mqtt_message("peer/input/in_01", "pressed", retained=True)
+    assert seen == [("pressed", True)]
+    assert remote.is_active is True
+
+
+@pytest.mark.asyncio
+async def test_a_live_state_still_runs_actions():
+    remote = make_input()
+    seen: list = []
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(
+        (click_type, publish_only)
+    )
+
+    await remote.on_mqtt_message("peer/input/in_01", "pressed", retained=False)
+    assert seen == [("pressed", False)]
+
+
+@pytest.mark.asyncio
+async def test_a_retained_publish_only_event_skips_actions_on_the_bus():
+    """The flag has to reach the EventBus: that is where actions are skipped."""
+    remote = make_input()
+    await remote.on_mqtt_message("peer/input/in_01", "pressed", retained=True)
+    await asyncio.sleep(0)
+    event = remote._event_bus.trigger_event.call_args.args[0]
+    assert event.click_type == "pressed"
+    assert event.publish_only is True
+
+
+@pytest.mark.asyncio
+async def test_a_retained_state_does_not_reach_the_click_detector():
+    """A lone replayed `pressed` with no release would become a long press."""
+    remote = make_input(mode="event")
+    remote._detector = MagicMock()
+    remote.press_callback = MagicMock()
+
+    await remote.on_mqtt_message("peer/input/in_01", "pressed", retained=True)
+    await remote.on_mqtt_message("peer/input/in_01", '{"event_type": "single"}', retained=True)
+    remote._detector.handle_raw_state.assert_not_called()
+    remote.press_callback.assert_not_called()
 
 
 # ── event mode ───────────────────────────────────────────────────────────
@@ -105,7 +160,7 @@ async def test_a_click_event_is_passed_through():
     side never saw."""
     remote = make_input(mode="event")
     seen: list = []
-    remote.press_callback = lambda click_type, duration=None, start_time=None: seen.append(click_type)
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(click_type)
 
     await remote.on_mqtt_message("peer/input/in_01", '{"event_type": "double"}')
     assert seen == ["double"]
@@ -115,7 +170,7 @@ async def test_a_click_event_is_passed_through():
 async def test_a_click_event_in_binary_mode_is_ignored(caplog):
     remote = make_input(mode="binary_sensor")
     seen: list = []
-    remote.press_callback = lambda click_type, duration=None, start_time=None: seen.append(click_type)
+    remote.press_callback = lambda click_type, duration=None, start_time=None, publish_only=False: seen.append(click_type)
 
     with caplog.at_level("DEBUG"):
         await remote.on_mqtt_message("peer/input/in_01", '{"event_type": "single"}')
@@ -190,12 +245,14 @@ async def test_start_subscribes_every_mqtt_input():
     )
     subscribed: list = []
 
-    async def subscribe(topic, handler):
-        subscribed.append((topic, handler))
+    async def subscribe(topic, handler, *, retain_aware=False):
+        subscribed.append((topic, handler, retain_aware))
 
     registrar._manager.message_bus.subscribe_and_listen = subscribe
     await registrar.start()
     assert subscribed[0][0] == "blk_peer/input/in_01"
+    # Retained replays must be told apart from live changes (issue #70).
+    assert subscribed[0][2] is True
 
 
 @pytest.mark.asyncio
@@ -222,7 +279,7 @@ async def test_one_failing_subscription_does_not_stop_the_others(caplog):
     ])
     done: list = []
 
-    async def subscribe(topic, handler):
+    async def subscribe(topic, handler, *, retain_aware=False):
         if topic.endswith("in_01"):
             raise RuntimeError("broker said no")
         done.append(topic)

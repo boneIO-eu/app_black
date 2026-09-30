@@ -98,7 +98,7 @@ class MqttBinarySensorInput(RemoteInputBase):
             return False
         return None
 
-    async def on_mqtt_message(self, _topic: str, payload: str) -> None:
+    async def on_mqtt_message(self, _topic: str, payload: str, retained: bool = False) -> None:
         """Handle a message on the subscribed topic.
 
         Two payload shapes are understood. A plain on/off state is the usual
@@ -107,11 +107,23 @@ class MqttBinarySensorInput(RemoteInputBase):
         mode it is passed through as-is rather than re-derived from a state
         this side never saw.
 
+        A retained message is the broker replaying what it stored, on every
+        subscribe — so on every reconnect. It says what the state *is*, not
+        that it just changed: binary_sensor mode takes it without running
+        actions, and event mode ignores it, because a lone ``pressed`` with no
+        release would turn into a long press.
+
         Args:
             _topic: The topic it arrived on; unused, one subscription per input.
             payload: The message.
+            retained: The broker is replaying its stored copy, not forwarding
+                a live message.
         """
         text = (payload or "").strip()
+
+        if retained and self._mode == "event":
+            _LOGGER.debug("Input %s: ignoring retained message in event mode", self.id)
+            return
 
         if text.startswith("{"):
             try:
@@ -145,4 +157,4 @@ class MqttBinarySensorInput(RemoteInputBase):
         if self._mode == "event":
             self._feed_detector(is_pressed=state)
         else:
-            self._handle_binary_state_change(state)
+            self._handle_binary_state_change(state, publish_only=retained)

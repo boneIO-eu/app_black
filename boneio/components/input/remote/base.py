@@ -137,7 +137,7 @@ class RemoteInputBase:
     # Helpers for subclasses
     # ------------------------------------------------------------------
 
-    def _handle_binary_state_change(self, new_state: bool) -> None:
+    def _handle_binary_state_change(self, new_state: bool, publish_only: bool = False) -> None:
         """Process a state change in binary_sensor mode.
 
         Emits ``pressed`` or ``released`` directly to EventBus.
@@ -146,10 +146,14 @@ class RemoteInputBase:
 
         Args:
             new_state: ``True`` if the sensor is now active/on.
+            publish_only: Take the state without running actions — for a state
+                learnt rather than seen changing, e.g. a retained replay.
         """
         self._state = new_state
         click_type = PRESSED if new_state else RELEASED
-        self.press_callback(click_type=click_type, duration=None, start_time=time.time())
+        self.press_callback(
+            click_type=click_type, duration=None, start_time=time.time(), publish_only=publish_only
+        )
 
     def _feed_detector(self, is_pressed: bool) -> None:
         """Feed a state change into the MultiClickDetector (event mode).
@@ -189,6 +193,7 @@ class RemoteInputBase:
         click_type: ClickTypes,
         duration: float | None = None,
         start_time: float | None = None,
+        publish_only: bool = False,
     ) -> None:
         """Schedule async event processing.
 
@@ -196,14 +201,16 @@ class RemoteInputBase:
             click_type: Type of click.
             duration: Duration of the press in seconds.
             start_time: Start time of the press.
+            publish_only: Publish the state, run no actions.
         """
-        asyncio.create_task(self._handle_press_with_lock(click_type, duration, start_time))
+        asyncio.create_task(self._handle_press_with_lock(click_type, duration, start_time, publish_only))
 
     async def _handle_press_with_lock(
         self,
         click_type: ClickTypes,
         duration: float | None = None,
         start_time: float | None = None,
+        publish_only: bool = False,
     ) -> None:
         """Emit InputEvent on EventBus (serialised with lock)."""
         async with self._event_lock:
@@ -232,6 +239,7 @@ class RemoteInputBase:
                     click_type=click_type,
                     duration=duration,
                     state=event_state,
+                    publish_only=publish_only,
                 )
             )
 

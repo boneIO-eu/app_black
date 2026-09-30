@@ -55,8 +55,22 @@ class MessageBus(ABC):
         pass
 
     @abstractmethod
-    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
-        """Subscribe to a topic and listen for messages."""
+    async def subscribe_and_listen(
+        self,
+        topic: str,
+        callback: Callable[..., Awaitable[None]],
+        *,
+        retain_aware: bool = False,
+    ) -> None:
+        """Subscribe to a topic and listen for messages.
+
+        Args:
+            topic: Topic to subscribe to.
+            callback: Called as ``callback(topic, payload)``.
+            retain_aware: Also pass ``retained=`` — True when the broker is
+                replaying a stored message on subscribe rather than forwarding
+                a live one. Buses without retained messages always pass False.
+        """
         pass
 
     @abstractmethod

@@ -2560,7 +2560,8 @@
       "cover_state_changes_retained": "Cover state changes (retained)",
       "cover_position_updates_retained": "Cover position updates (retained)",
       "tilt_position_updates_retained": "Tilt position updates (retained)",
-      "input_state_changes_retained": "Input state changes (retained)"
+      "input_state_changes_retained": "Input state changes (retained)",
+      "click_events_not_retained": "Click events (not retained)"
     }
   },
   "nodered_management": {

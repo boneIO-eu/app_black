@@ -127,6 +127,7 @@ class TestInputManagerMQTTPublish:
         mock_manager.send_message.assert_called_once_with(
             topic="boneio/input/in_01",
             payload="pressed",
+            retain=True,
         )
 
     def test_binary_sensor_publishes_released_state(self, input_manager, mock_manager):
@@ -161,6 +162,7 @@ class TestInputManagerMQTTPublish:
         mock_manager.send_message.assert_called_once_with(
             topic="boneio/input/in_01",
             payload="released",
+            retain=True,
         )
 
     def test_event_button_publishes_json_event(self, input_manager, mock_manager):
@@ -200,6 +202,8 @@ class TestInputManagerMQTTPublish:
         
         payload = json.loads(call_args.kwargs["payload"])
         assert payload["event_type"] == "single"
+        # A click replayed on subscribe would be a click that never happened.
+        assert not call_args.kwargs.get("retain", False)
 
     def test_event_button_publishes_long_with_duration(self, input_manager, mock_manager):
         """Test that long press event includes duration in payload."""
@@ -456,3 +460,50 @@ class TestInputManagerHandleEvent:
         
         # Verify - no MQTT publish
         mock_manager.send_message.assert_not_called()
+
+
+class TestResendBinarySensorStates:
+    """Binary sensor topics are retained (issue #70): each MQTT connect has to
+    replace the broker's copy with the pin state, or HA gets whatever the input
+    was before this boot."""
+
+    def test_every_gpio_binary_sensor_resends_and_nothing_else(self):
+        from boneio.components.input import GpioEventButton, GpioInputBinarySensor
+        from boneio.core.manager.inputs import InputManager
+
+        im = InputManager.__new__(InputManager)
+        sensor = MagicMock(spec=GpioInputBinarySensor)
+        button = MagicMock(spec=GpioEventButton)
+        im._inputs = {"in_01": sensor, "in_02": button}
+
+        im.resend_binary_sensor_states()
+
+        sensor.send_current_state_when_ready.assert_called_once_with()
+        assert not button.method_calls
+
+    def test_one_failing_sensor_does_not_stop_the_rest(self):
+        from boneio.components.input import GpioInputBinarySensor
+        from boneio.core.manager.inputs import InputManager
+
+        im = InputManager.__new__(InputManager)
+        broken = MagicMock(spec=GpioInputBinarySensor, id="in_01")
+        broken.send_current_state_when_ready.side_effect = RuntimeError("pin gone")
+        fine = MagicMock(spec=GpioInputBinarySensor, id="in_02")
+        im._inputs = {"in_01": broken, "in_02": fine}
+
+        im.resend_binary_sensor_states()
+
+        fine.send_current_state_when_ready.assert_called_once_with()
+
+    def test_the_pin_is_read_only_once_the_gpio_manager_runs(self):
+        """Before start read_value answers False, which reads as `pressed`."""
+        from boneio.components.input import GpioInputBinarySensor
+
+        sensor = GpioInputBinarySensor.__new__(GpioInputBinarySensor)
+        sensor._loop = MagicMock()
+        gpio_manager = MagicMock()
+        with patch("boneio.components.input.binary_sensor.get_gpio_manager", return_value=gpio_manager):
+            sensor.send_current_state_when_ready()
+
+        gpio_manager.register_on_start_callback.assert_called_once_with(sensor.send_current_state)
+        gpio_manager.read_value.assert_not_called()

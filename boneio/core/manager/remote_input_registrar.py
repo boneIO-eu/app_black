@@ -117,7 +117,7 @@ class RemoteInputRegistrar:
         for remote_input in self._mqtt_inputs:
             try:
                 await self._manager.message_bus.subscribe_and_listen(
-                    remote_input.topic, remote_input.on_mqtt_message
+                    remote_input.topic, remote_input.on_mqtt_message, retain_aware=True
                 )
                 _LOGGER.debug(
                     "Remote input '%s' listening on %s",

@@ -388,8 +388,14 @@ class LoxUDPClient(MessageBus):
         if self._transport:
             self._transport.sendto(b"boneio=offline", (self.host, self.send_port))
 
-    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Coroutine[Any, Any, None]]) -> None:
-        """Register a listener for a topic pattern."""
+    async def subscribe_and_listen(
+        self,
+        topic: str,
+        callback: Callable[..., Coroutine[Any, Any, None]],
+        *,
+        retain_aware: bool = False,
+    ) -> None:
+        """Register a listener for a topic pattern. Lox has no retained messages."""
         self._listeners[topic] = callback
 
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:

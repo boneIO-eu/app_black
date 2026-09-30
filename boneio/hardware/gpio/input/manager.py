@@ -523,8 +523,9 @@ class GpioManager:
                 callback()
             except Exception as e:
                 _LOGGER.error("Error in on-start callback: %s", e)
-        else:
-            # Queue for later execution
+        elif callback not in self._on_start_callbacks:
+            # Queue for later execution — once: MQTT connects queue the same
+            # state resend again and again while GPIO has not started.
             self._on_start_callbacks.append(callback)
 
     async def stop(self) -> None:

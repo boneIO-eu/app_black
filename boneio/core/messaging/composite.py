@@ -82,10 +82,16 @@ class CompositeMessageBus(MessageBus):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
+    async def subscribe_and_listen(
+        self,
+        topic: str,
+        callback: Callable[..., Awaitable[None]],
+        *,
+        retain_aware: bool = False,
+    ) -> None:
         """Subscribe to a topic and listen for messages on all buses."""
         for bus in self._buses:
-            await bus.subscribe_and_listen(topic, callback)
+            await bus.subscribe_and_listen(topic, callback, retain_aware=retain_aware)
 
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
         """Unsubscribe from a topic and stop listening on all buses."""

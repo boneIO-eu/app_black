@@ -235,11 +235,16 @@ def _build_input_reference(
             {
                 "topic": f"{topic_prefix}/input/{entity_id}",
                 "payload_format": (
-                    '{"state": "SINGLE"} | {"state": "DOUBLE"} | {"state": "LONG"} | {"state": "TRIPLE"}'
+                    '{"event_type": "single"} | {"event_type": "double"} | '
+                    '{"event_type": "long", "duration": 1.2} | {"event_type": "triple"}'
                     if input_type == "event"
-                    else '{"state": "PRESSED"} | {"state": "RELEASED"}'
+                    else "pressed | released"
                 ),
-                "description": "Input state changes (retained)",
+                "description": (
+                    "Click events (not retained)"
+                    if input_type == "event"
+                    else "Input state changes (retained)"
+                ),
             },
         ],
     }

@@ -56,7 +56,9 @@ class MQTTClient(MessageBus):
         self.reconnect_interval = 1
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
-        self._mqtt_energy_listeners: dict[str, Callable[[str, str], Awaitable[None]]] = {}
+        self._mqtt_energy_listeners: dict[str, Callable[..., Awaitable[None]]] = {}
+        # Listeners that are told whether a message is a retained replay.
+        self._retain_aware_listeners: set[str] = set()
         self._discovery_topics = (
             [
                 f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_number}/#"
@@ -144,8 +146,18 @@ class MQTTClient(MessageBus):
         )
 
     @override
-    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
+    async def subscribe_and_listen(
+        self,
+        topic: str,
+        callback: Callable[..., Awaitable[None]],
+        *,
+        retain_aware: bool = False,
+    ) -> None:
         self._mqtt_energy_listeners[topic] = callback
+        if retain_aware:
+            self._retain_aware_listeners.add(topic)
+        else:
+            self._retain_aware_listeners.discard(topic)
         # Subscribe immediately if already connected
         if self._connection_established:
             await self.subscribe(topics=[topic])
@@ -154,6 +166,7 @@ class MQTTClient(MessageBus):
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
         await self.unsubscribe([topic])
         del self._mqtt_energy_listeners[topic]
+        self._retain_aware_listeners.discard(topic)
 
     async def unsubscribe(
         self,
@@ -439,7 +452,14 @@ class MQTTClient(MessageBus):
                 if message.topic.matches(topic):
                     callback_start = False
                     try:
-                        await listener_callback(str(message.topic), payload)
+                        if topic in self._retain_aware_listeners:
+                            # v3.1.1: the broker sets retain only when replaying
+                            # its stored copy on subscribe, never on live ones.
+                            await listener_callback(
+                                str(message.topic), payload, retained=bool(message.retain)
+                            )
+                        else:
+                            await listener_callback(str(message.topic), payload)
                     except Exception as exc:
                         _LOGGER.error(
                             "Error in MQTT listener callback for topic %s: %s",

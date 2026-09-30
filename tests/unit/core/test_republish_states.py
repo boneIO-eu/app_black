@@ -258,6 +258,7 @@ class TestRepublishBinarySensorStates:
         manager.send_message.assert_called_with(
             topic="boneio/input/sensor_1",
             payload="pressed",
+            retain=True,
         )
 
     def test_binary_sensor_no_state_skipped(self, event_loop):
@@ -340,4 +341,5 @@ class TestRepublishBinarySensorStates:
         manager.send_message.assert_called_once_with(
             topic="boneio/input/sensor_ok",
             payload="pressed",
+            retain=True,
         )

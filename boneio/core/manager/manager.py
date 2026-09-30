@@ -618,6 +618,7 @@ class Manager:
                         self.send_message(
                             topic=f"{topic_prefix}/input/{input_id}",
                             payload=state,
+                            retain=True,
                         )
                 except Exception as e:
                     _LOGGER.debug(
@@ -2004,6 +2005,11 @@ class Manager:
         # Resend virtual switches. A mode nobody can see is a mode nobody
         # trusts, and a reinstalled broker comes back with no retained set.
         await self.virtual_switches.republish_states()
+
+        # Binary sensors are retained, so the broker would otherwise keep
+        # serving whatever they were before this boot, however long ago that
+        # was. Read the pins and publish what is true now.
+        self.inputs.resend_binary_sensor_states()
 
         _LOGGER.info(
             "Resent states: %d outputs, %d covers.",

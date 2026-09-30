@@ -2559,7 +2559,8 @@
       "cover_state_changes_retained": "Zmiany stanu rolety (retained)",
       "cover_position_updates_retained": "Aktualizacje pozycji rolety (retained)",
       "tilt_position_updates_retained": "Aktualizacje pozycji lameli (retained)",
-      "input_state_changes_retained": "Zmiany stanu wejścia (retained)"
+      "input_state_changes_retained": "Zmiany stanu wejścia (retained)",
+      "click_events_not_retained": "Zdarzenia kliknięć (bez retained)"
     }
   },
   "nodered_management": {

@@ -624,6 +624,20 @@ class InputManager:
         # Global listeners will receive these events for all inputs (including new ones)
         self._broadcast_all_input_states()
 
+    def resend_binary_sensor_states(self) -> None:
+        """Publish the pin state of every GPIO binary sensor, MQTT only.
+
+        Called on each MQTT connect. The topics are retained, and nothing else
+        corrects the broker's copy when an input changed while boneIO was off.
+        Actions do not run: these are ``publish_only`` events.
+        """
+        for input_ in self._inputs.values():
+            if isinstance(input_, GpioInputBinarySensor):
+                try:
+                    input_.send_current_state_when_ready()
+                except Exception as e:
+                    _LOGGER.debug("Error resending binary sensor state %s: %s", input_.id, e)
+
     def _broadcast_all_input_states(self) -> None:
         """Broadcast current state of all inputs via WebSocket.
 
@@ -766,9 +780,14 @@ class InputManager:
         elif input_type == INPUT_SENSOR:
             payload = str(click_type)  # "pressed" or "released"
 
+            # Retained: a float switch can hold one position for weeks, and
+            # without the broker's copy HA shows `unknown` after every restart
+            # until the input moves. Events above stay unretained — a click
+            # replayed on subscribe would be a click that never happened.
             self._manager.send_message(
                 topic=topic,
                 payload=payload,
+                retain=True,
             )
             _LOGGER.debug("Published binary sensor state to MQTT: topic=%s, payload=%s", topic, payload)
 

@@ -80,8 +80,18 @@ class LocalMessageBus(MessageBus):
         """Announce that the device is offline."""
         pass
 
-    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], None]) -> None:
-        """Subscribe to a topic and listen for messages."""
+    async def subscribe_and_listen(
+        self,
+        topic: str,
+        callback: Callable[..., Any],
+        *,
+        retain_aware: bool = False,
+    ) -> None:
+        """Subscribe to a topic and listen for messages.
+
+        ``retain_aware`` is accepted for the interface and ignored: the callback
+        is called with two arguments, so ``retained`` keeps its default.
+        """
         await self.subscribe(topic, callback)
 
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:

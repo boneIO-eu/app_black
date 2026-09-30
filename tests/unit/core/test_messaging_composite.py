@@ -35,7 +35,7 @@ class MockMessageBus(MessageBus):
     async def announce_offline(self):
         await self.announce_offline_mock()
 
-    async def subscribe_and_listen(self, topic, callback):
+    async def subscribe_and_listen(self, topic, callback, *, retain_aware=False):
         await self.subscribe_mock(topic, callback)
 
     async def unsubscribe_and_stop_listen(self, topic):
