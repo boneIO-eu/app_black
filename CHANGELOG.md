@@ -6,6 +6,38 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev26 (2026-09-30) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 💾 An OS update short of room clears apt's cache first
+
+Found on a controller with a 2.9 GB eMMC rootfs: the panel refused the
+system update with 277 MB free and 300 MB needed, and greyed the button out.
+144 MB of that was `/var/cache/apt/archives`: apt clears its downloads only
+after a successful upgrade, so packages fetched earlier — by
+unattended-upgrades too — were what kept the next upgrade from starting.
+
+- **`boneio-system`**: when short of room, the upgrade runs `apt-get clean`
+  and checks again. apt downloads whatever it needs anyway. If it is still
+  short, the refusal says so ("after clearing the apt cache").
+  `os-update-state` reports `apt_cache_mb`.
+- **The panel** offers the upgrade when clearing the cache would make room,
+  and says it will. The space warning and "restart required" no longer show
+  while a run is going: the threshold is for starting one, and the kernel
+  check that may say not to restart comes last.
+- **A finished upgrade ends on a green notice**, "System update finished",
+  with the number of updated packages and a restart hint when one is due.
+  Until now a successful upgrade showed no confirmation at all.
+- Migration **1.6.30** reinstalls `boneio-system`. The helper's hash is part
+  of every plan that installs it, so those plans are re-signed with it.
+
+The same controller then ran the upgrade (158 packages, kernel 6.18.0-bone10
+to 6.18.54-bone56, kernel check ok) with the old helper once there was room.
+The new helper and panel are covered by tests, not yet run on a
+controller.
+
 ## v1.6.0.dev25 (2026-09-30) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.
