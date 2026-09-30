@@ -54,6 +54,8 @@ _ADMIN_ONLY_READ_PREFIXES = (
     # A list of what is still unlocked is a shopping list for anyone who
     # should not have it.
     "/api/security",
+    # Which CA the device trusts and which certificate it presents.
+    "/api/mqtt-tls",
     # The bundle is the whole configuration and the device log in one file.
     "/api/diagnostics",
     # The rest of the Diagnostics page. Its bus scans are not passive reads:
@@ -163,6 +165,9 @@ _REAUTH_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         # The certificate the panel is served with.
         ("POST", r"^/api/security/certificate$"),
         ("DELETE", r"^/api/security/certificate$"),
+        # Whom boneIO trusts as its broker, and what it presents to one.
+        ("POST", r"^/api/mqtt-tls/client/(ca|certificate)$"),
+        ("DELETE", r"^/api/mqtt-tls/client/[^/]+$"),
     )
 )
 

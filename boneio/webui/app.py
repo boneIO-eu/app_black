@@ -75,6 +75,7 @@ from boneio.webui.routes import (
     onboarding_router,
     os_update_router,
     mqtt_reference_router,
+    mqtt_tls_router,
     outputs_router,
     remote_devices_router,
     diagnostics_router,
@@ -90,6 +91,7 @@ from boneio.webui.routes import (
 from boneio.webui.routes import config as config_module
 from boneio.webui.routes import onboarding as onboarding_module
 from boneio.webui.routes import diagnostics as diagnostics_module
+from boneio.webui.routes import mqtt_tls as mqtt_tls_module
 from boneio.webui.routes import security as security_module
 from boneio.webui.routes import system as system_module
 
@@ -201,6 +203,7 @@ app.include_router(templates_router)
 app.include_router(tools_router)
 app.include_router(migrations_router)
 app.include_router(mqtt_reference_router)
+app.include_router(mqtt_tls_router)
 app.include_router(sun_router)
 app.include_router(schedule_router)
 
@@ -897,6 +900,7 @@ def init_app(
     security_module.set_app_state(app.state)
     security_module.warm_system_state()
     diagnostics_module.set_app_state(app.state)
+    mqtt_tls_module.set_app_state(app.state)
 
     # Pre-populate config cache if initial_config provided
     if initial_config is not None:

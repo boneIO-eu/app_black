@@ -3,6 +3,7 @@ import axiosInstance from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { NumericInput } from '@/components/ui/NumericInput';
 import HelpLabel from './components/HelpLabel';
+import MqttTlsSettings, { type MqttTlsConfig } from './mqttTls/MqttTlsSettings';
 
 /** The `mqtt` section as edited here (other keys pass through untouched). */
 export interface MqttFormData {
@@ -20,6 +21,7 @@ export interface MqttFormData {
   send_boneio_autodiscovery?: boolean;
   receive_boneio_autodiscovery?: boolean;
   update_channel?: string;
+  tls?: MqttTlsConfig;
 }
 
 /** The part of an axios error these handlers read. */
@@ -144,6 +146,18 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="••••••••"
         />
         <HelpLabel>{t('mqtt_config.password_help')}</HelpLabel>
+      </div>
+
+      {/* TLS */}
+      <div className="divider">{t('mqtt_tls.section')}</div>
+      <div>
+        <MqttTlsSettings
+          tls={data?.tls}
+          port={data?.port}
+          onChange={(tls, port) =>
+            onChange({ ...data, tls, ...(port !== undefined ? { port } : {}) })
+          }
+        />
       </div>
 
       {/* HA Discovery Section */}
