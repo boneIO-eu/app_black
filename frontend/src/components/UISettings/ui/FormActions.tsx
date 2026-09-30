@@ -28,7 +28,9 @@ export const FormActions: React.FC<FormActionsProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col-reverse sm:flex-row sm:items-center gap-3',
+        // w-full: a card footer is itself a flex row, where this would shrink
+        // to its content and sit on the left instead of spreading the row.
+        'w-full flex flex-col-reverse sm:flex-row sm:items-center gap-3',
         hint ? 'sm:justify-between' : 'sm:justify-end',
         divided && 'pt-4 mt-1 border-t border-base-content/8',
         className,
