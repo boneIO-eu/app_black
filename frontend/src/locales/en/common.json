@@ -152,6 +152,7 @@
     "used_inputs": "Used",
     "bounce_time": "Bounce Time",
     "bounce_time_hint": "Debounce time in milliseconds",
+    "bounce_time_range": "{{min}} to {{max}} ms, usually 50–200 ms",
     "device_class": "Device Class",
     "none": "None",
     "show_in_ha": "Show in Home Assistant",

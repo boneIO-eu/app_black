@@ -2,14 +2,13 @@ import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
-import { NumericInput } from '@/components/ui/NumericInput';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
 import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
-import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import AreaSelect from './widgets/AreaSelect';
 import PinAvailabilityHint from './widgets/PinAvailabilityHint';
+import BounceTimeInput, { BOUNCE_TIME_MAX_MS, BOUNCE_TIME_MIN_MS } from './widgets/BounceTimeInput';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
@@ -365,13 +364,13 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                     <label className="label">
                       <span className="label-text font-medium">{t('inputs.bounce_time')} (ms)</span>
                     </label>
-                    <NumericInput
-                      placeholder="120"
-                      value={convertTimeperiodToMilliseconds(data.bounce_time) || 120}
-                      onChange={(v) => updateField('bounce_time', v === '' ? 120 : v)}
+                    <BounceTimeInput
+                      value={data.bounce_time}
+                      defaultMs={120}
+                      onChange={(ms) => updateField('bounce_time', ms)}
                     />
                     <label className="label">
-                      <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
+                      <span className="label-text-alt">{t('inputs.bounce_time_range', { min: BOUNCE_TIME_MIN_MS, max: BOUNCE_TIME_MAX_MS })}</span>
                     </label>
                   </div>
 

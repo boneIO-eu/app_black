@@ -152,6 +152,7 @@
     "used_inputs": "Zajęte",
     "bounce_time": "Czas Odbicia",
     "bounce_time_hint": "Czas odbicia w milisekundach",
+    "bounce_time_range": "Od {{min}} do {{max}} ms, zwykle 50–200 ms",
     "device_class": "Klasa Urządzenia",
     "none": "Brak",
     "show_in_ha": "Pokaż w Home Assistant",
