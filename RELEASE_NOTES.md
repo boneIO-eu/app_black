@@ -1,6 +1,16 @@
 # v1.5.6
 
-Prepares 1.5 controllers for the update to 1.6. Nothing else changes.
+Prepares 1.5 controllers for the update to 1.6, and fixes Home Assistant
+moving entities out of their room.
+
+## 🏠 Entities stay in their room in Home Assistant
+
+Entities assigned to a room appeared in HA under "Black - Room" at first and
+were moved to the main "Black" device shortly after, and a cover set to
+`shutter` showed up as a window. The second discovery message boneIO sends
+at startup had lost the room and the cover type. Covers, output groups and
+Dallas/ADC sensors now keep their room, covers keep their type, and entities
+with `show_in_ha: false` — including remote outputs — no longer appear in HA.
 
 ## 🧭 No more old panel after an update
 

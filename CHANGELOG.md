@@ -4,9 +4,32 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
-## v1.5.6 (2026-09-29)
+## v1.5.6 (2026-09-30)
 
-Prepares 1.5 controllers for the update to 1.6. Nothing else changes.
+Prepares 1.5 controllers for the update to 1.6, and fixes Home Assistant
+moving entities out of their room.
+
+### 🏠 Entities stay in their room in Home Assistant
+
+Field report on 1.5.5: HA first created "Black - Salon" with the room's
+entities in it, then moved them to the main "Black" device; a cover set to
+`shutter` in boneIO ended up as a window.
+
+Setup published the right discovery payload. Right after it, the startup
+resend rebuilt every payload from the entity objects, and those did not keep
+everything setup had read from the config. The rebuilt payload replaced the
+first one, and also the cached copy replayed every time HA restarts.
+
+- **Covers** keep their area and `device_class` (shutter, blind, curtain…).
+- **Output groups, Dallas and ADC sensors** keep their area.
+- **`show_in_ha: false` is honoured by the resend** for covers, inputs,
+  Dallas and ADC sensors, and for remote outputs, where it is the default —
+  they were published to HA anyway.
+
+The restart after the update publishes the corrected payloads, which should
+put the entities back under their room devices without removing anything in
+HA. Not tried against a real HA yet; covered by tests that compare the
+payload published at setup with the one the resend builds.
 
 ### 🧭 The panel says an update is running instead of showing a stale build
 
