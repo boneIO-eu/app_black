@@ -249,7 +249,8 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                   </Tr>
                   {isExpanded && itemHasActions && (
                     <tr>
-                      <td colSpan={6 + extraCols} className="p-0">
+                      <td className="w-8 p-2" />
+                      <td colSpan={5 + extraCols} className="pt-0 pb-2">
                         <ActionDetails item={item} allAreas={allAreas} allOutputs={allOutputs} allCovers={allCovers} allRemoteDevices={allRemoteDevices} />
                       </td>
                     </tr>
