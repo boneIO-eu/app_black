@@ -6,6 +6,103 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev23 (2026-09-29) — 1.6.x security series
+
+Still a beta. See RELEASE_NOTES.md before installing anything.
+
+### 🔐 A password change signs every other session out
+
+- **Changing a password now revokes every other login.** Accounts carry a
+  session version in `users.json`, bumped on every password change (panel,
+  CLI and recovery alike); tokens carry the version they were issued under,
+  and a mismatch is refused with 401 `session_revoked` — on the API, on
+  `/api/init` and `/api/version`, and on the WebSocket, which until now
+  never checked that the account still existed.
+- **The session that made the change is not signed out.** It gets a fresh
+  token straight away, whether it changed its own password or an admin
+  reset it from the accounts page.
+- **Upgrading signs nobody out.** Accounts and tokens from before this read
+  as session version 0.
+
+### 🔐 The dangerous requests ask for the password again
+
+- **A login token is good for 30 days, but the account, config and update
+  actions now want the password typed within the last 10 minutes:**
+  creating, deleting or changing an account's role or password; importing a
+  config archive, restoring a backup, a full or partial factory reset,
+  restoring Node-RED flows; an application update or rollback, a system
+  upgrade, switching automatic security updates, updating Caddy; uploading
+  or removing the panel's certificate.
+- **Restart, reboot, the file editor and section saves are left alone** —
+  everyday actions that a password prompt on every save would just train
+  people to click through.
+- **One dialog, wherever it's needed.** A stale token gets 403
+  `reauth_required`; the panel shows a single password prompt, retries
+  whatever was refused once the new `POST /api/auth/confirm` succeeds, and
+  turns a wrong password into an inline error instead of a sign-out.
+- The first-run wizard's own import goes straight through (its token is
+  new), and a device still on a legacy `web.auth` pair is never asked,
+  having no account to check against.
+
+### 🔐 A session that keeps guessing the password is signed out
+
+- **Five wrong passwords in one session — at the login form, the password
+  prompt or the own-password form — sign that session out** with 401
+  `session_locked`. Only that session; the account's other devices carry
+  on.
+- **The count is cumulative and survives a restart**, kept in `users.json`
+  and cleared only by the right password.
+- **Tokens now carry a session id (`sid`).** One issued before this upgrade
+  has none, and is identified by a hash of the token itself, so a token
+  stolen before the upgrade is cut off the same way.
+- The login screen now says why it signed out (too many wrong passwords,
+  the password changed elsewhere, the account deleted) instead of showing a
+  bare form.
+
+### 🌐 The real client address behind the reverse proxy
+
+- **The per-IP login throttle no longer lumps an entire household into one
+  bucket.** The panel is reached through Caddy, which connects from a
+  Docker bridge, so every proxied login looked like it came from the same
+  address. `X-Forwarded-For` is now trusted only when the connection itself
+  comes from loopback or a Docker bridge on this controller — never from
+  the LAN, where trusting it would let a guesser pick a fresh address on
+  every attempt.
+- Failed logins now name the real client in the log.
+
+### 🏠 Password guessing reaches Home Assistant as an event
+
+- **A new diagnostic event entity, "Security events"**, fires on MQTT
+  (`boneio/security/event`, not retained) for `password_guessing` (a
+  login-throttle bucket just filled, at the login form, the password
+  prompt or the own-password form — once per filling, not per refused
+  attempt) and `session_signed_out` (a session cut off for too many wrong
+  passwords).
+- Each event carries the account, which form, a message and the client's
+  address — left out when it's the controller's own loopback. Emitting
+  never raises: a device without MQTT still signs people in.
+
+### 🔄 The OS update card stays accurate through a stuck or finished run
+
+- **The card no longer freezes mid-upgrade.** It used to stop polling the
+  moment a `systemctl` read failed or timed out — exactly what happens
+  while dpkg replaces `systemd` on a busy single core. A run the record
+  says is still going is now believed without its unit for a minute,
+  polled every 12 s, and only then shown as interrupted, with the step it
+  stopped at.
+- **The log folds away once a run finishes well.** It stays open for a run
+  that failed, found a kernel problem or was interrupted, but a clean run
+  tucks it under "Last run log" instead of leaving the old apt output on
+  screen next to the new kernel tile.
+
+### 🧹 Minor
+
+- **The settings sidebar lines its labels up.** "Restart i wyłączenie" used
+  a text-only ⏻ symbol instead of an emoji; it's now 🔄, in a fixed,
+  centred icon slot.
+- **A migration that a later one makes moot is logged once**, not on every
+  status poll after a restart.
+
 ## v1.6.0.dev22 (2026-09-29) — 1.6.x security series
 
 Still a beta. See RELEASE_NOTES.md before installing anything.

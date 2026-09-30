@@ -2,7 +2,7 @@
 
 **This is a beta. Please do not use this version.**
 
-`1.6.0.dev22` exists so that we can test the new system-migration chain on a
+`1.6.0.dev23` exists so that we can test the new system-migration chain on a
 development controller. The chain has been run end to end on two devices, and
 dev4 stalled partway through on one of them — see below. That is the entire
 body of evidence behind it.
@@ -21,6 +21,78 @@ in any of that means a controller that needs physical access to repair.
 
 Stay on the latest stable release. A version of this work that is meant for you
 will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.0.dev23 — internal test build
+
+## Since dev22
+
+A stolen or shared login token used to work for the full 30 days no matter
+what happened to the account afterwards. Changing a password now bumps a
+session version kept in `users.json`; every token issued before that change
+stops working at once with 401 `session_revoked` — on the API, on
+`/api/init` and `/api/version`, and on the WebSocket, which until now never
+even checked the account still existed. The session that made the change is
+not caught by this: it gets a fresh token immediately, whether it changed
+its own password or an admin reset it from the accounts page. Accounts and
+tokens from before this upgrade read as session version 0, so upgrading
+itself signs nobody out.
+
+Two more limits land on top of that. First, a session that keeps typing the
+wrong password — at the login form, a password prompt, or the own-password
+form — is signed out on the fifth try, with 401 `session_locked`; the count
+is cumulative, survives a restart and only the right password clears it,
+while the account's other devices are untouched. Second, beyond the 30-day
+token there is now a 10-minute one: creating, deleting or changing an
+account's role or password; importing a config archive, restoring a backup,
+a full or partial factory reset, restoring Node-RED flows; an application
+update or rollback, a system upgrade, switching automatic security updates,
+updating Caddy; uploading or removing the panel's certificate — all of these
+now ask for the password again if it wasn't typed in the last 10 minutes. A
+stale token gets 403 `reauth_required`, the panel raises one password
+dialog regardless of how many requests were refused at once, and a correct
+password retries them through the new `POST /api/auth/confirm`. Restart,
+reboot, the file editor and section saves are deliberately left alone — a
+password on every save just trains people to type it without reading. The
+first-run wizard's own import is exempt (its token is new), and a device
+still on a legacy `web.auth` pair is never asked, having no account to
+check against.
+
+Behind Caddy, every proxied login used to arrive from the same Docker-bridge
+address, so the per-IP throttle lumped an entire household into one bucket
+and the logs never named the real caller. `X-Forwarded-For` is now trusted
+only when the connection itself comes from loopback or a Docker bridge on
+this controller — never from the LAN, where trusting it would let a guesser
+pick a fresh address on every attempt — and failed logins now log the real
+client. A new diagnostic entity, "Security events", also reports
+password-guessing and forced sign-outs to Home Assistant over MQTT
+(`boneio/security/event`, not retained), once per throttle filling rather
+than per refused attempt; emitting never raises, so a device without MQTT
+still signs people in.
+
+Two smaller fixes round this release out: the OS-update card no longer
+freezes or claims a run has finished the moment `systemctl` itself becomes
+unreadable while dpkg replaces `systemd` mid-upgrade, and its log now folds
+away under "Last run log" once a run has gone well instead of sitting open
+next to the tile showing the new kernel.
+
+None of this needs a config migration: `users.json` gains
+`session_version`, `revoked_sessions` and `session_failures`, and a missing
+field reads as zero or empty on an account that predates the upgrade.
+
+Verified on the dev controller (192.168.50.220, boneIO Black 32x10A): the
+device harness (45/45) and the on-device pytest suite (355/355) pass against
+the production service restarted on this code; a login through Caddy on
+8443 reports the real client address, and a spoofed `X-Forwarded-For` sent
+from the LAN is ignored; a run of wrong passwords produces exactly one
+`password_guessing` event. Not yet checked: that the event actually reaches
+Home Assistant — no MQTT subscriber was used to confirm delivery — and a
+manual run of the password prompt on the production panel, which was still
+under way at the time of this build.
+
+No new system migration this release, and no migration plan's content
+changed. Only the manifest is re-signed, since it names the release.
 
 ---
 
