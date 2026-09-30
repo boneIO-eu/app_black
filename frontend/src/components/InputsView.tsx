@@ -18,6 +18,10 @@ import { historyKey } from '@/utils/entityHistory';
 import EntityCard from './EntityCard';
 import type { EntityData } from './EntityCard';
 import { EntityGrid } from './EntityGrid';
+import GroupByAreaToggle from './GroupByAreaToggle';
+import { useGroupByArea } from '@/hooks/useGroupByArea';
+import { useAreas } from '@/hooks/useAreas';
+import { groupByArea } from '@/utils/groupByArea';
 import QuickActionSheet from '@/components/QuickActionSheet';
 import TeachMode from '@/components/TeachMode';
 
@@ -104,6 +108,8 @@ export default function InputsView() {
     const saved = localStorage.getItem('inputSortMode');
     return (saved as SortMode) || 'name';
   });
+  const areas = useAreas();
+  const [groupedByArea, setGroupedByArea] = useGroupByArea('inputGroupByArea', areas.length > 0);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
   const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
@@ -361,6 +367,28 @@ export default function InputsView() {
     [sortedInputs]
   );
   const hasBothSections = localInputs.length > 0 && remoteInputs.length > 0;
+  const areaGroups = useMemo(
+    () => (groupedByArea ? groupByArea(sortedInputs, (i) => i.state.area, areas) : []),
+    [groupedByArea, sortedInputs, areas],
+  );
+
+  const areaNames = useMemo(() => new Map(areas.map((a) => [a.id, a.name])), [areas]);
+  const areaLabelOf = (area: string | null | undefined) =>
+    groupedByArea ? null : (area ? areaNames.get(area) || area : undefined);
+
+  const renderInputCard = (inputEvent: InputEvent) => (
+    <EntityCard
+      key={inputEvent.entity_id}
+      output={inputToEntity(inputEvent)}
+      isGrid={isGrid}
+      isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
+      onLongPress={handleLongPress}
+      iconSlot={<InputTypeIcon type={inputEvent.state.type} />}
+      actionSlot={<InputStateBadge state={inputEvent.state.state} duration={inputEvent.duration} />}
+      longPressTitle={t('inputs.long_press_to_edit')}
+      areaLabel={areaLabelOf(inputEvent.state.area)}
+    />
+  );
 
   if (validInputs.length === 0) {
     return (
@@ -409,6 +437,9 @@ export default function InputsView() {
                   </li>
                 </ul>
               </div>
+              {areas.length > 0 && (
+                <GroupByAreaToggle active={groupedByArea} onToggle={setGroupedByArea} />
+              )}
               <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
               {/* Teach Mode writes input→action bindings into the
                   configuration (/api/config/quick-action, admin-only), so a
@@ -427,31 +458,31 @@ export default function InputsView() {
             </div>
           </div>
 
+          {/* By area: local and remote together, since a room is the point */}
+          {groupedByArea && areaGroups.map((group) => (
+            <EntityGrid
+              key={group.id ?? ''}
+              isGrid={isGrid}
+              title={group.name ?? t('common.without_area')}
+            >
+              {group.items.map(renderInputCard)}
+            </EntityGrid>
+          ))}
+
           {/* Local inputs section */}
-          {localInputs.length > 0 && (
+          {!groupedByArea && localInputs.length > 0 && (
             <>
               <EntityGrid
                 isGrid={isGrid}
                 title={hasBothSections ? t('inputs.local_inputs') : null}
               >
-                {localInputs.map((inputEvent: InputEvent) => (
-                  <EntityCard
-                    key={inputEvent.entity_id}
-                    output={inputToEntity(inputEvent)}
-                    isGrid={isGrid}
-                    isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
-                    onLongPress={handleLongPress}
-                    iconSlot={<InputTypeIcon type={inputEvent.state.type} />}
-                    actionSlot={<InputStateBadge state={inputEvent.state.state} duration={inputEvent.duration} />}
-                    longPressTitle={t('inputs.long_press_to_edit')}
-                  />
-                ))}
+                {localInputs.map(renderInputCard)}
               </EntityGrid>
             </>
           )}
 
           {/* Remote inputs section */}
-          {remoteInputs.length > 0 && (
+          {!groupedByArea && remoteInputs.length > 0 && (
             <>
               <EntityGrid
                 isGrid={isGrid}
@@ -462,18 +493,7 @@ export default function InputsView() {
                   </>
                 }
               >
-                {remoteInputs.map((inputEvent: InputEvent) => (
-                  <EntityCard
-                    key={inputEvent.entity_id}
-                    output={inputToEntity(inputEvent)}
-                    isGrid={isGrid}
-                    isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
-                    onLongPress={handleLongPress}
-                    iconSlot={<InputTypeIcon type={inputEvent.state.type} />}
-                    actionSlot={<InputStateBadge state={inputEvent.state.state} duration={inputEvent.duration} />}
-                    longPressTitle={t('inputs.long_press_to_edit')}
-                  />
-                ))}
+                {remoteInputs.map(renderInputCard)}
               </EntityGrid>
             </>
           )}

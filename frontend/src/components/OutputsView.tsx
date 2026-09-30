@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import axios from '@/api/axios';
 import { WebSocketContext } from '@/contexts/WebSocketContext';
 import ViewToggle from './ViewToggle';
-import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } from '../hooks/useWebSocket';
+import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, GroupState, OutputState } from '../hooks/useWebSocket';
 import EntityCard from './EntityCard';
 import type { EntityData } from './EntityCard';
-import { EntityGrid, ENTITY_GRID_CLASS } from './EntityGrid';
+import { EntityGrid, EntityPanel, ENTITY_GRID_CLASS, ENTITY_LIST_CLASS } from './EntityGrid';
+import GroupByAreaToggle from './GroupByAreaToggle';
+import { useGroupByArea } from '@/hooks/useGroupByArea';
+import { useAreas } from '@/hooks/useAreas';
+import { groupByArea } from '@/utils/groupByArea';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../hooks/useAuth';
@@ -40,6 +44,15 @@ interface RemoteDeviceStatus {
   }>;
 }
 
+/** One tile of the by-area view: the three kinds share a room's panel. */
+type AreaTile =
+  | { kind: 'output'; output: OutputState; stateOnly: boolean }
+  | { kind: 'group'; group: GroupState }
+  | { kind: 'cover'; cover: CoverState };
+
+/** Tile order inside an area: the same order the category sections use. */
+const AREA_TILE_CATEGORIES: OutputCategory[] = ['light', 'switch', 'virtual_switch', 'valve'];
+
 /**
  * Categorize output by its type
  */
@@ -70,6 +83,8 @@ export default function OutputsView({error}: {error: string | null}) {
     const saved = localStorage.getItem('outputSortMode');
     return (saved as SortMode) || 'name';
   });
+  const areas = useAreas();
+  const [groupedByArea, setGroupedByArea] = useGroupByArea('outputGroupByArea', areas.length > 0);
   const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
   const prevOutputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
   const isInitializedRef = useRef(false);
@@ -413,6 +428,77 @@ export default function OutputsView({error}: {error: string | null}) {
 
 
 
+  const areaNames = useMemo(() => new Map(areas.map((a) => [a.id, a.name])), [areas]);
+  const areaLabelOf = (area: string | null | undefined) =>
+    groupedByArea ? null : (area ? areaNames.get(area) || area : undefined);
+
+  const renderOutputCard = (output: OutputState, isStateOnly = false) => (
+    <EntityCard
+      key={output.id}
+      output={output}
+      onToggle={isStateOnly ? undefined : toggleOutput}
+      onDurationChange={handleDurationChange}
+      onBrightnessChange={handleBrightnessChange}
+      isGrid={isGrid}
+      error={error}
+      stateOnly={isStateOnly}
+      isHighlighted={recentlyChanged.has(output.id)}
+      onLongPress={handleLongPress}
+      areaLabel={areaLabelOf(output.area)}
+    />
+  );
+
+  const renderGroupCard = (group: GroupState) => (
+    <EntityCard
+      key={group.id}
+      output={{
+        id: group.id,
+        name: group.name,
+        state: group.state,
+        type: group.type,
+        timestamp: group.timestamp,
+        area: null,
+        interlock_groups: []
+      }}
+      onToggle={toggleGroup}
+      isGrid={isGrid}
+      error={error}
+      isGroup={true}
+      onLongPress={handleGroupLongPress}
+      areaLabel={areaLabelOf(group.area)}
+    />
+  );
+
+  const renderCoverCard = (cover: CoverState) => (
+    <CoverItem
+      key={cover.id}
+      cover={cover}
+      action={actionCover}
+      isGrid={isGrid}
+      error={error}
+      onLongPress={handleCoverLongPress}
+    />
+  );
+
+  // Everything local, room by room. Remote (CAN) outputs carry no area and
+  // keep their own panel either way.
+  const areaGroups = useMemo(() => {
+    if (!groupedByArea) return [];
+    const tiles: AreaTile[] = [
+      ...AREA_TILE_CATEGORIES.flatMap((category) =>
+        categorizedOutputs[category].map((output): AreaTile => ({ kind: 'output', output, stateOnly: false })),
+      ),
+      ...validGroups.map((group): AreaTile => ({ kind: 'group', group })),
+      ...stateOnlyOutputs.map((output): AreaTile => ({ kind: 'output', output, stateOnly: true })),
+      ...validCovers.map((cover): AreaTile => ({ kind: 'cover', cover })),
+    ];
+    return groupByArea(
+      tiles,
+      (tile) => (tile.kind === 'output' ? tile.output.area : tile.kind === 'group' ? tile.group.area : tile.cover.area),
+      areas,
+    );
+  }, [groupedByArea, categorizedOutputs, validGroups, stateOnlyOutputs, validCovers, areas]);
+
   /**
    * Render a section with outputs
    */
@@ -427,20 +513,7 @@ export default function OutputsView({error}: {error: string | null}) {
     return (
       <div key={category}>
         <EntityGrid isGrid={isGrid} title={getCategoryLabel(category)}>
-          {items.map((output) => (
-            <EntityCard 
-              key={output.id}
-              output={output}
-              onToggle={isStateOnly ? undefined : onToggle}
-              onDurationChange={handleDurationChange}
-              onBrightnessChange={handleBrightnessChange}
-              isGrid={isGrid}
-              error={error}
-              stateOnly={isStateOnly}
-              isHighlighted={recentlyChanged.has(output.id)}
-              onLongPress={handleLongPress}
-            />
-          ))}
+          {items.map((output) => renderOutputCard(output, isStateOnly || !onToggle))}
         </EntityGrid>
       </div>
     );
@@ -560,10 +633,39 @@ export default function OutputsView({error}: {error: string | null}) {
                   </li>
                 </ul>
               </div>
+              {areas.length > 0 && (
+                <GroupByAreaToggle active={groupedByArea} onToggle={setGroupedByArea} />
+              )}
               <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
             </div>
           </div>
 
+          {groupedByArea && areaGroups.map((group) => {
+            const tiles = group.items.filter((tile) => tile.kind !== 'cover');
+            const areaCovers = group.items.flatMap((tile) => (tile.kind === 'cover' ? [tile.cover] : []));
+            return (
+              <EntityPanel key={group.id ?? ''} title={group.name ?? t('common.without_area')}>
+                {tiles.length > 0 && (
+                  <div className={isGrid ? ENTITY_GRID_CLASS : ENTITY_LIST_CLASS}>
+                    {tiles.map((tile) =>
+                      tile.kind === 'group'
+                        ? renderGroupCard(tile.group)
+                        : tile.kind === 'output'
+                          ? renderOutputCard(tile.output, tile.stateOnly)
+                          : null,
+                    )}
+                  </div>
+                )}
+                {areaCovers.length > 0 && (
+                  <div className={cn(isGrid ? cn(ENTITY_GRID_CLASS, 'grid-cols-1') : ENTITY_LIST_CLASS, tiles.length > 0 && 'mt-4')}>
+                    {areaCovers.map(renderCoverCard)}
+                  </div>
+                )}
+              </EntityPanel>
+            );
+          })}
+
+          {!groupedByArea && (<>
           {/* Lights */}
           {renderOutputSection('light', categorizedOutputs.light, toggleOutput)}
 
@@ -585,16 +687,7 @@ export default function OutputsView({error}: {error: string | null}) {
                 title={getCategoryLabel('cover')}
                 gridClassName={cn(ENTITY_GRID_CLASS, "grid-cols-1")}
               >
-                {validCovers.map((cover) => (
-                  <CoverItem 
-                    key={cover.id}
-                    cover={cover}
-                    action={actionCover}
-                    isGrid={isGrid}
-                    error={error}
-                    onLongPress={handleCoverLongPress}
-                  />
-                ))}
+                {validCovers.map(renderCoverCard)}
               </EntityGrid>
             </>
           )}
@@ -603,31 +696,14 @@ export default function OutputsView({error}: {error: string | null}) {
           {validGroups.length > 0 && (
             <>
               <EntityGrid isGrid={isGrid} title={getCategoryLabel('group')}>
-                {validGroups.map((group) => (
-                  <EntityCard 
-                    key={group.id}
-                    output={{
-                      id: group.id,
-                      name: group.name,
-                      state: group.state,
-                      type: group.type,
-                      timestamp: group.timestamp,
-                      area: null,
-                      interlock_groups: []
-                    }}
-                    onToggle={toggleGroup}
-                    isGrid={isGrid}
-                    error={error}
-                    isGroup={true}
-                    onLongPress={handleGroupLongPress}
-                  />
-                ))}
+                {validGroups.map(renderGroupCard)}
               </EntityGrid>
             </>
           )}
 
           {/* State Only (cover or none type outputs - no controls) */}
           {renderOutputSection('state_only', stateOnlyOutputs, toggleOutput, true)}
+          </>)}
 
           {/* Remote Outputs */}
           {remoteOutputs.length > 0 && (

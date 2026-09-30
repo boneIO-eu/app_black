@@ -89,6 +89,12 @@ interface OutputItemProps {
   actionSlot?: React.ReactNode;
   /** Title text for hover/accessibility. */
   longPressTitle?: string;
+  /**
+   * The area line under the name: the area's display name, or `null` to
+   * leave the line out (the card already sits in its area's panel). Omitted,
+   * the card shows the raw area id it was given.
+   */
+  areaLabel?: string | null;
 }
 
 // Returns icon component and ON color for given type
@@ -130,6 +136,7 @@ const EntityCard: React.FC<OutputItemProps> = ({
   iconSlot,
   actionSlot,
   longPressTitle,
+  areaLabel,
 }) => {
   const { t } = useTranslation();
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
@@ -189,7 +196,9 @@ const EntityCard: React.FC<OutputItemProps> = ({
             {output.id}
             {output.remote && <FaWifi className="inline ml-1 text-blue-400 shrink-0" title="Remote" />}
           </span>
-          <span className="text-xs text-gray-400 truncate">{t('outputs.area_short')}: {output.area || t('outputs.no_area')}</span>
+          {areaLabel !== null && (
+            <span className="text-xs text-gray-400 truncate">{t('outputs.area_short')}: {areaLabel || output.area || t('outputs.no_area')}</span>
+          )}
           {output.interlock_groups && output.interlock_groups.length > 0 && (
             <div className="flex items-center gap-1 mt-1">
               <FaLock className="text-xs text-gray-400" />

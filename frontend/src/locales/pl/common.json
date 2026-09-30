@@ -1068,6 +1068,8 @@
     "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada na loopbacku, na mostku Dockera i na kablu USB, czyli przez HTTPS, przez tunel SSH albo po podłączeniu komputera do urządzenia. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
   },
   "common": {
+    "group_by_area": "Grupuj wg obszarów",
+    "without_area": "Bez obszaru",
     "pins_free": "Wolne: {{free}} z {{total}}",
     "save": "Zapisz",
     "cancel": "Anuluj",

@@ -1068,6 +1068,8 @@
     "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers on the loopback, the Docker bridge and the USB cable — reachable over HTTPS, through an SSH tunnel, or by plugging a computer into the device. Saving this is refused if the proxy is not already serving the panel, so it cannot end up unreachable. Takes effect after a restart."
   },
   "common": {
+    "group_by_area": "Group by area",
+    "without_area": "No area",
     "pins_free": "Free: {{free}} of {{total}}",
     "save": "Save",
     "cancel": "Cancel",

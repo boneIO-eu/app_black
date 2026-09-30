@@ -116,6 +116,8 @@ export interface GroupState {
   state: string;
   type: string;
   timestamp: number | null;
+  /** Area/zone assigned to this group. */
+  area?: string | null;
 }
 
 export interface GroupEvent {
