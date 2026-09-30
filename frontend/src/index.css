@@ -739,3 +739,32 @@ body {
     transition: none;
   }
 }
+
+/*
+ * Row actions stay in view on a narrow screen.
+ *
+ * A settings table wider than its card scrolls sideways, and its scrollbar is
+ * under the last row — so reaching the edit pencil in the last column meant
+ * scrolling down to scroll right. The cell holding TableActions, and the
+ * header above it, stick to the right edge instead.
+ *
+ * In the components layer on purpose: the zebra stripe (more specific) and the
+ * row hover (utilities layer) still win, and the stuck cell inherits whichever
+ * the row shows, so it does not read as a white patch.
+ */
+@layer components {
+  tbody tr:has(> td > .stg-row-actions) {
+    background-color: var(--color-base-100);
+  }
+  td:has(> .stg-row-actions),
+  table:has(td > .stg-row-actions) thead th:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background-color: inherit;
+    box-shadow: -8px 0 8px -8px color-mix(in oklab, var(--color-base-content) 25%, transparent);
+  }
+  table:has(td > .stg-row-actions) thead th:last-child {
+    background-color: var(--color-base-100);
+  }
+}

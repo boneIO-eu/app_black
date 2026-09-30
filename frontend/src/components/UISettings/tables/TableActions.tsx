@@ -26,7 +26,7 @@ const TableActions: React.FC<TableActionsProps> = ({
   dashboardTitle = 'HA Dashboard',
 }) => {
   return (
-    <div className="flex space-x-1">
+    <div className="stg-row-actions flex space-x-1">
       <button
         onClick={onEdit}
         className="btn btn-ghost btn-xs"
