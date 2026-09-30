@@ -2713,9 +2713,9 @@
     "cloud_done": "Rejestracja włączona. Nazwa i certyfikat są właśnie przygotowywane — to potrwa minutę lub dwie.",
     "cloud_failed": "Nie udało się włączyć rejestracji w chmurze.",
     "cloud_done_deferred": "Rejestracja zapisana. Uruchomi się przy następnym starcie urządzenia, bo jego adres nie był jeszcze znany.",
-    "ssh_password_notice": "To hasło będzie też hasłem SSH użytkownika boneio, z którego da się zostać rootem. Późniejsza zmiana hasła w panelu go nie zmieni — do tego służy karta logowania SSH w Kontach albo passwd po SSH.",
-    "ssh_set": "Hasło SSH użytkownika {{username}} jest teraz takie samo jak hasło do panelu.",
-    "ssh_kept": "Hasło SSH zostało bez zmian — ktoś ustawił je już wcześniej, więc nie jest to rola kreatora.",
+    "ssh_password_notice": "To hasło będzie też hasłem SSH. Po SSH logujesz się zawsze jako boneio — nazwa użytkownika wpisana tutaj dotyczy tylko panelu. Z konta boneio da się zostać rootem. Późniejsza zmiana hasła w panelu nie zmieni hasła SSH — do tego służy karta logowania SSH w Kontach albo passwd po SSH.",
+    "ssh_set": "Hasło SSH jest teraz takie samo jak hasło do panelu. Po SSH logujesz się jako {{username}}, nie nazwą konta z panelu.",
+    "ssh_kept": "Hasło SSH zostało bez zmian — ktoś ustawił je już wcześniej, więc nie jest to rola kreatora. Po SSH logujesz się jako boneio.",
     "ssh_failed": "Nie udało się ustawić hasła SSH. Logowanie hasłem po SSH pozostaje zablokowane."
   },
   "accounts": {
@@ -2761,7 +2761,7 @@
     "ssh_new": "Nowe hasło SSH",
     "ssh_repeat": "Powtórz nowe hasło SSH",
     "ssh_button": "Zmień hasło SSH",
-    "ssh_changed": "Hasło SSH zostało zmienione. Nowego użyj przy następnym logowaniu po SSH i przy sudo.",
+    "ssh_changed": "Hasło SSH zostało zmienione. Nowego użyj przy następnym logowaniu po SSH jako boneio i przy sudo.",
     "ssh_current_wrong": "Obecne hasło SSH jest nieprawidłowe.",
     "ssh_attempts_left": "Pozostałe próby: {{count}}.",
     "ssh_throttled": "Zbyt wiele błędnych haseł SSH. Spróbuj ponownie za {{minutes}} min.",
