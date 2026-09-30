@@ -957,6 +957,40 @@ can bootstrap trust on a machine that is already owned.
 
 ---
 
+# v1.5.6
+
+Prepares 1.5 controllers for the update to 1.6, and fixes Home Assistant
+moving entities out of their room.
+
+## 🏠 Entities stay in their room in Home Assistant
+
+Entities assigned to a room appeared in HA under "Black - Room" at first and
+were moved to the main "Black" device shortly after, and a cover set to
+`shutter` showed up as a window. The second discovery message boneIO sends
+at startup had lost the room and the cover type. Covers, output groups and
+Dallas/ADC sensors now keep their room, covers keep their type, and entities
+with `show_in_ha: false` — including remote outputs — no longer appear in HA.
+
+## 🧭 No more old panel after an update
+
+After an update the browser could keep showing the previous panel for several
+refreshes — its service worker serves a stored copy until it has downloaded
+the new one. The panel now knows which version it was built for: when the
+controller runs another one, it reloads itself once from the controller, and
+if that is not enough it says so and suggests Ctrl+Shift+R.
+
+While an update started from this browser is installing, a controller that
+does not answer shows "update in progress — do not power off" instead of "API
+unavailable". A controller that comes back on its old version is reported as
+a failed update. The update page now waits for the new version to answer
+before it reloads, and a page caught between two builds reloads itself instead
+of staying blank.
+
+Update to 1.5.6 before going to 1.6: the old panel cannot be fixed from the
+new version, only from its own code.
+
+---
+
 # v1.5.5
 
 Hotfix on top of `v1.5.4`, for the same field report: clicking an input logged

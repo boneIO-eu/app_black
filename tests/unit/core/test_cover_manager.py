@@ -488,3 +488,100 @@ class TestSmartToggle:
         assert stop_called, "stop() should be called when cover is moving"
         assert cover._current_operation == "idle"
         cover.stop = original_stop
+
+
+class TestCoverHaDiscoveryResend:
+    """The startup resend must publish exactly what setup published.
+
+    Setup publishes each cover's discovery payload, then ``publish_discovery``
+    calls ``send_ha_autodiscovery`` which rebuilds it from the cover object.
+    Any difference moves the entity in Home Assistant — a lost ``area`` puts it
+    back under the main device, a lost ``device_class`` turns a shutter into
+    the default cover.
+    """
+
+    @pytest.fixture
+    def event_loop(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        yield loop
+        loop.close()
+
+    @pytest.fixture
+    def relays(self):
+        return {f"OUT_0{i}": _make_mock_relay(f"OUT_0{i}") for i in range(1, 7)}
+
+    @pytest.fixture
+    def manager(self, relays):
+        from boneio.core.config.config_helper import ConfigHelper
+
+        manager = _make_mock_manager(relays)
+        config_helper = ConfigHelper(name="black", serial_override="blk0001")
+        config_helper.set_areas([{"id": "salon", "name": "Salon"}])
+        manager._config_helper = config_helper
+        return manager
+
+    @staticmethod
+    def _cover_config(cover_id: str, open_relay: str, close_relay: str, **extra) -> dict:
+        return {
+            "id": cover_id,
+            "open_relay": open_relay,
+            "close_relay": close_relay,
+            "open_time": TimePeriod(seconds=10),
+            "close_time": TimePeriod(seconds=10),
+            "tilt_duration": TimePeriod(seconds=2),
+            "restore_state": False,
+            **extra,
+        }
+
+    @staticmethod
+    def _published(manager) -> dict[str, dict]:
+        return {c.kwargs["id"]: c.kwargs["payload"] for c in manager.publish_ha_discovery.call_args_list}
+
+    def test_resend_matches_setup(self, event_loop, manager):
+        from boneio.core.manager.covers import CoverManager
+
+        config = [
+            self._cover_config("roleta", "OUT_01", "OUT_02", platform="time_based", area="salon", device_class="shutter"),
+            self._cover_config("zaluzja", "OUT_03", "OUT_04", platform="venetian", area="salon", device_class="blind"),
+            self._cover_config("plain", "OUT_05", "OUT_06", platform="time_based"),
+        ]
+        cover_mgr = CoverManager(manager=manager, cover_config=config)
+        at_setup = self._published(manager)
+
+        manager.publish_ha_discovery.reset_mock()
+        event_loop.run_until_complete(cover_mgr.send_ha_autodiscovery())
+        on_resend = self._published(manager)
+
+        assert on_resend == at_setup
+        assert at_setup["roleta"]["device_class"] == "shutter"
+        assert at_setup["roleta"]["device"]["name"] == "black - Salon"
+        assert at_setup["zaluzja"]["device_class"] == "blind"
+        assert "device_class" not in at_setup["plain"]
+
+    def test_resend_skips_hidden_cover(self, event_loop, manager):
+        from boneio.core.manager.covers import CoverManager
+
+        config = [self._cover_config("hidden", "OUT_01", "OUT_02", platform="time_based", show_in_ha=False)]
+        cover_mgr = CoverManager(manager=manager, cover_config=config)
+        event_loop.run_until_complete(cover_mgr.send_ha_autodiscovery())
+
+        manager.publish_ha_discovery.assert_not_called()
+
+    def test_resend_follows_reloaded_area_and_class(self, event_loop, manager):
+        from boneio.core.manager.covers import CoverManager
+
+        config = [self._cover_config("roleta", "OUT_01", "OUT_02", platform="time_based", area="salon", device_class="shutter")]
+        cover_mgr = CoverManager(manager=manager, cover_config=config)
+
+        reloaded = [self._cover_config("roleta", "OUT_01", "OUT_02", platform="time_based", device_class="curtain")]
+        with patch.object(type(manager._config_helper), "get_config", return_value={COVER: reloaded}):
+            cover_mgr.reload_covers()
+        after_reload = self._published(manager)["roleta"]
+
+        manager.publish_ha_discovery.reset_mock()
+        event_loop.run_until_complete(cover_mgr.send_ha_autodiscovery())
+
+        assert self._published(manager)["roleta"] == after_reload
+        assert after_reload["device_class"] == "curtain"
+        assert after_reload["device"]["name"] == "black"

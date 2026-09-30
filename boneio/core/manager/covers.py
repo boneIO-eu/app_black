@@ -168,8 +168,9 @@ class CoverManager:
                         _cover._open_relay = open_relay
                         _cover._close_relay = close_relay
                         _cover.update_config_times(_config)
+                        self._store_ha_attributes(_cover, _config)
                         # Re-send HA autodiscovery with potentially new name/area
-                        if _config.get(SHOW_HA, True):
+                        if _cover.show_in_ha:
                             # Remove old autodiscovery first (in case area changed)
                             self._remove_cover_ha_discovery(_id)
                             # Send new autodiscovery
@@ -181,8 +182,8 @@ class CoverManager:
                                 id=_cover.id,
                                 name=_cover.name,
                                 config_helper=self._manager._config_helper,
-                                device_class=_config.get(DEVICE_CLASS),
-                                area=_config.get("area"),
+                                device_class=_cover.device_class,
+                                area=_cover.area,
                             )
                             self._manager.publish_ha_discovery(
                                 id=_cover.id,
@@ -375,14 +376,16 @@ class CoverManager:
             )
             availability_msg_func = ha_cover_availabilty_message
 
+        self._store_ha_attributes(cover, config)
+
         # Send HA autodiscovery
-        if config.get(SHOW_HA, True):
+        if cover.show_in_ha:
             payload = availability_msg_func(
                 id=cover.id,
                 name=cover.name,
                 config_helper=self._manager._config_helper,
-                device_class=config.get(DEVICE_CLASS),
-                area=config.get("area"),
+                device_class=cover.device_class,
+                area=cover.area,
             )
             self._manager.publish_ha_discovery(
                 id=cover.id,
@@ -392,6 +395,20 @@ class CoverManager:
 
         _LOGGER.debug("Configured cover %s", cover_id)
         return cover
+
+    @staticmethod
+    def _store_ha_attributes(cover: TimeBasedCover | VenetianCover, config: dict) -> None:
+        """Keep the HA discovery inputs on the cover itself.
+
+        The cover classes don't take ``area``/``device_class`` (``area`` is
+        swallowed by ``BasicMqtt``'s kwargs), yet ``send_ha_autodiscovery``
+        rebuilds the payload from the cover object. Without these the rebuild
+        would drop the area sub-device and the device class, and HA would move
+        the cover back to the main device with the default class.
+        """
+        cover.area = config.get("area")
+        cover.device_class = config.get(DEVICE_CLASS)
+        cover.show_in_ha = config.get(SHOW_HA, True)
 
     def _remove_cover_ha_discovery(self, cover_id: str) -> None:
         """Remove HA Discovery entries for a cover.
@@ -508,6 +525,8 @@ class CoverManager:
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all covers."""
         for cover_id, cover in self._covers.items():
+            if not cover.show_in_ha:
+                continue
             # Use tilt variant if cover supports tilt
             if hasattr(cover, "tilt_position"):
                 msg_func = ha_cover_with_tilt_availabilty_message
@@ -517,8 +536,8 @@ class CoverManager:
                 id=cover_id,
                 name=cover.name if hasattr(cover, "name") else cover_id,
                 config_helper=self._manager._config_helper,
-                device_class=getattr(cover, "device_class", None),
-                area=getattr(cover, "area", None),
+                device_class=cover.device_class,
+                area=cover.area,
             )
             self._manager.publish_ha_discovery(
                 id=cover_id,

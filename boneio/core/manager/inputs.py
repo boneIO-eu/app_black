@@ -277,6 +277,7 @@ class InputManager:
 
                 # Store area on input
                 existing_input.area = area
+                existing_input.show_in_ha = gpio.get(SHOW_HA, True)
 
                 # Update device_class from new config
                 existing_input._device_class = gpio.get(DEVICE_CLASS)
@@ -327,6 +328,7 @@ class InputManager:
 
             # Store area on input
             input_device.area = area
+            input_device.show_in_ha = gpio.get(SHOW_HA, True)
 
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
@@ -407,6 +409,7 @@ class InputManager:
 
                 # Store area on input
                 existing_input.area = area
+                existing_input.show_in_ha = gpio.get(SHOW_HA, True)
 
                 # Update device_class from new config
                 existing_input._device_class = gpio.get(DEVICE_CLASS)
@@ -453,6 +456,7 @@ class InputManager:
 
             # Store area on input
             input_device.area = area
+            input_device.show_in_ha = gpio.get(SHOW_HA, True)
 
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
@@ -949,6 +953,8 @@ class InputManager:
         but can be called manually if needed.
         """
         for pin, input_device in self._inputs.items():
+            if not getattr(input_device, "show_in_ha", True):
+                continue
             try:
                 input_id = input_device.id if hasattr(input_device, "id") else pin
                 input_name = input_device.name if hasattr(input_device, "name") else input_id

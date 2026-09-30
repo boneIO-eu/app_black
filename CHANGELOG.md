@@ -1075,6 +1075,75 @@ of meeting those requirements; they are not a declaration of conformity.
 
 ---
 
+## v1.5.6 (2026-09-30)
+
+Prepares 1.5 controllers for the update to 1.6, and fixes Home Assistant
+moving entities out of their room.
+
+### 🏠 Entities stay in their room in Home Assistant
+
+Field report on 1.5.5: HA first created "Black - Salon" with the room's
+entities in it, then moved them to the main "Black" device; a cover set to
+`shutter` in boneIO ended up as a window.
+
+Setup published the right discovery payload. Right after it, the startup
+resend rebuilt every payload from the entity objects, and those did not keep
+everything setup had read from the config. The rebuilt payload replaced the
+first one, and also the cached copy replayed every time HA restarts.
+
+- **Covers** keep their area and `device_class` (shutter, blind, curtain…).
+- **Output groups, Dallas and ADC sensors** keep their area.
+- **`show_in_ha: false` is honoured by the resend** for covers, inputs,
+  Dallas and ADC sensors, and for remote outputs, where it is the default —
+  they were published to HA anyway.
+
+The restart after the update publishes the corrected payloads, which should
+put the entities back under their room devices without removing anything in
+HA. Not tried against a real HA yet; covered by tests that compare the
+payload published at setup with the one the resend builds.
+
+### 🧭 The panel says an update is running instead of showing a stale build
+
+Reported going from 1.5 to 1.6.0.dev20: F5 showed the old settings pages five
+times before the first-run wizard appeared. The panel's service worker answers
+every page load from its own copy of the build, so the old panel kept coming
+back until the new service worker had downloaded the whole new build from a
+controller busy starting up — and the old panel's requests meanwhile succeeded
+against the new server, which it then drew with pages written for 1.5.
+
+- **The build knows its version** (from `boneio/version.py`). When the server
+  reports another one, the panel drops its own service worker and cached copy
+  and reloads once, which fetches the new panel straight from the controller.
+  If that does not help, it says so, suggests Ctrl+Shift+R, and offers to go on
+  anyway. It never reloads in a loop.
+- **Starting an update leaves a note in this browser** for an hour. A
+  controller that does not answer is then "update in progress — do not power
+  off", with the target version and the time since it started, rather than
+  "API unavailable". Without the note: "not responding, probably starting up or
+  updating".
+- **A controller that restarts back on its old version** is reported as a
+  failed update, as a notice over the working panel.
+- **The update page waits for the new version to answer** instead of reloading
+  three seconds after "success", which could land on the old server still
+  stopping or on no server at all.
+- **A build replaced mid-load no longer leaves a blank page.** F5 right after
+  an update can let the new service worker take over while the old page is
+  still loading; its scripts are then gone and the page stayed white. A
+  failed script or lazy view now drops the service worker and reloads once.
+
+The note uses the same key and shape as 1.6.0.dev21, which reads it, so the
+update from 1.5.6 to 1.6 is the first one covered from both ends. Updating
+straight from 1.5.5 or older to 1.6 still shows the old panel once: a hard
+refresh (Ctrl+Shift+R) skips it.
+
+Not tried on a real controller yet. Checked in a browser with the production
+builds and their service worker against the 1.6.0.dev20 test controller: a
+1.5.6 panel kept by the service worker, with the 1.6 build on the server,
+ends on the 1.6 panel after one automatic reload; with 1.5.6 still on the
+server it stops at the manual screen without looping.
+
+---
+
 ## v1.5.5 (2026-09-21)
 
 Hotfix on top of `v1.5.4`. The same symptom came back from the field with
