@@ -33,7 +33,7 @@ interface PasswordFieldProps {
 }
 
 /** The login screen's field, eye button and all. */
-function PasswordField({ id, label, value, onChange, autoComplete, error, autoFocus }: PasswordFieldProps) {
+export function PasswordField({ id, label, value, onChange, autoComplete, error, autoFocus }: PasswordFieldProps) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   return (

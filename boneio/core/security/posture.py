@@ -389,16 +389,21 @@ def evaluate(
                 if not ssh_known
                 else "The SSH login does not use the shipped password."
             ),
-            # Not a button in the panel, on purpose: an operation that set this
-            # account's password from the panel whenever asked would be a way
-            # from the account to root. The first-run wizard sets it once; after
-            # that it is passwd, which asks for the current one.
+            # The panel's change is passwd: it wants the current password, so
+            # it is offered only where there is one to give — the shipped one,
+            # which is public. With no password at all there is nothing to
+            # check, and a panel operation that set it anyway would be a way
+            # from the account to root; that stays passwd over SSH.
             remedy=(
-                "Log in over SSH as boneio and run passwd."
+                "Change it under Accounts, with the shipped password as the "
+                "current one, or log in over SSH as boneio and run passwd."
+                if service_password == "shipped"
+                else "Log in over SSH as boneio and run passwd."
                 if ssh_exposed
                 else ""
             ),
-            settings_section=None,
+            settings_section="accounts" if service_password == "shipped" else None,
+            variant="empty" if service_password == "empty" else "",
         )
     )
 

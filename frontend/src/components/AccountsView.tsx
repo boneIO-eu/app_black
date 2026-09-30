@@ -11,6 +11,7 @@ import {
 import { FaUsers, FaUserPlus } from 'react-icons/fa';
 import AccountPasswordDialog from './AccountPasswordDialog';
 import AccountDeleteDialog from './AccountDeleteDialog';
+import SshPasswordCard from './SshPasswordCard';
 import {
   SettingsPage,
   SettingsCard,
@@ -282,6 +283,9 @@ export default function AccountsView() {
           </div>
         </SettingsCard>
       </form>
+
+      {/* Not a panel account: the Linux login behind SSH and sudo. */}
+      <SshPasswordCard />
 
       {/* Keyed by account: a fresh form, nothing typed for the last one. */}
       <AccountPasswordDialog

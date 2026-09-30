@@ -383,7 +383,17 @@ class TestPostureCheck:
         # A missing helper must not read as a clean bill of health.
         assert self._check(state).state == "unknown"
 
-    def test_there_is_no_button_for_it(self):
-        # On purpose: a panel operation that set this password whenever asked
+    def test_the_shipped_password_points_at_the_accounts_card(self):
+        # The card changes it given the current password, and the shipped one
+        # is public, so it grants nothing sudo with "Black" did not.
+        check = self._check("shipped")
+        assert check.settings_section == "accounts"
+        assert "Accounts" in check.remedy
+
+    def test_no_password_at_all_has_no_button(self):
+        # Nothing to check it against: a panel operation that set it anyway
         # would be a way from the service account to root.
-        assert self._check("shipped").settings_section is None
+        check = self._check("empty")
+        assert check.settings_section is None
+        assert check.variant == "empty"
+        assert "Accounts" not in check.remedy
