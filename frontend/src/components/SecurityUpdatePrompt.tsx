@@ -165,7 +165,9 @@ export default function SecurityUpdatePrompt() {
               </span>
             ))}
         </div>
-        <div className="modal-action">
+        {/* Three buttons do not fit one row on a phone: stacked there, the
+            primary on top, where the thumb is. */}
+        <div className="modal-action flex-col-reverse sm:flex-row [&>.btn]:w-full sm:[&>.btn]:w-auto">
           <button className="btn btn-ghost" onClick={snooze}>
             {t('security.after_update.tomorrow')}
           </button>
