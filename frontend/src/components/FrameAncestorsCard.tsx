@@ -4,6 +4,7 @@ import axios from '../api/axios';
 import type { AxiosError } from 'axios';
 import { FaObjectGroup } from 'react-icons/fa';
 import { SettingsCard, FormField, FormActions, ToggleRow } from './UISettings/ui';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 type ApiError = AxiosError<{ detail?: string }>;
 
@@ -107,9 +108,7 @@ export default function FrameAncestorsCard({ onSaved }: FrameAncestorsCardProps)
   if (!state) {
     return (
       <SettingsCard title={t('security.framing.title')}>
-        <div className="flex justify-center p-4">
-          <span className="loading loading-spinner loading-md text-primary" />
-        </div>
+        <LoadingState className="p-4" />
       </SettingsCard>
     );
   }

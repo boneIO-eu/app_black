@@ -5,6 +5,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { sshCardMode, type SshPasswordState } from '@/utils/sshPassword';
 import SshPasswordDialog from './SshPasswordDialog';
 import { SettingsCard, NoticeCallout } from './UISettings/ui';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 /**
  * The boneio SSH login's password, changed the way passwd changes it.
@@ -51,9 +52,7 @@ export default function SshPasswordCard() {
   const status = () => {
     if (isLoading) {
       return (
-        <div className="flex justify-center py-2">
-          <span className="loading loading-spinner loading-md text-primary" />
-        </div>
+        <LoadingState className="py-2" />
       );
     }
     if (mode === 'form') {

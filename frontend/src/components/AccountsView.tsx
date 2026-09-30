@@ -19,6 +19,7 @@ import {
   FormActions,
   NoticeCallout,
 } from './UISettings/ui';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 interface Account {
   username: string;
@@ -163,9 +164,7 @@ export default function AccountsView() {
       {/* Accounts list */}
       <SettingsCard icon={<FaUsers />} title={t('accounts.title')}>
         {isLoading ? (
-          <div className="flex justify-center py-6">
-            <span className="loading loading-spinner loading-md text-primary" />
-          </div>
+          <LoadingState className="py-6" />
         ) : (
           // A list, not a table: three columns of controls do not fit a phone,
           // and a table that scrolls sideways hides the delete button off-screen.

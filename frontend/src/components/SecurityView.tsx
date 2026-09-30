@@ -12,6 +12,7 @@ import { checkText as checkTextOf, fixRoute } from '../utils/securityPosture';
 import CertificateCard from './CertificateCard';
 import FrameAncestorsCard from './FrameAncestorsCard';
 import { SettingsPage, SecurityFindingCard, NoticeCallout } from './UISettings/ui';
+import { LoadingState } from '@/components/ui/LoadingState';
 
 /** This view's own route, so a check fixed here offers no button back to it. */
 const SELF_ROUTE = '/settings/security';
@@ -130,9 +131,7 @@ export default function SecurityView() {
   if (loading && !posture) {
     return (
       <SettingsPage width="wide">
-        <div className="flex justify-center py-12">
-          <span className="loading loading-ring loading-lg text-primary" />
-        </div>
+        <LoadingState variant="page" className="py-12" />
       </SettingsPage>
     );
   }
