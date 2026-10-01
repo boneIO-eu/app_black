@@ -592,6 +592,41 @@ Conf libssl3t64 (3.5.4-1~deb13u1 Debian-Security:13/stable [armhf])
 """
 
 
+#: Captured from a controller (apt-get on Debian 13, LC_ALL=C), cut to the end.
+APT_ASSUME_NO = """\
+4 upgraded, 3 newly installed, 0 to remove and 0 not upgraded.
+Need to get 44.4 MB of archives.
+After this operation, 59.0 MB of additional disk space will be used.
+Do you want to continue? [Y/n] N
+Abort.
+"""
+
+
+def test_apts_sizes_are_read_from_its_no_answer(helper):
+    # 44.4 MB and 59.0 MB are decimal; the device's free space is in MiB.
+    assert helper._apt_space_needed(APT_ASSUME_NO) == (43, 57)
+
+
+def test_partly_downloaded_counts_what_is_still_to_come(helper):
+    text = (
+        "Need to get 12.3 MB/44.4 MB of archives.\n"
+        "After this operation, 3072 kB disk space will be freed.\n"
+    )
+    assert helper._apt_space_needed(text) == (12, -2)
+
+
+def test_small_sizes_and_none_at_all(helper):
+    assert helper._apt_space_needed("Need to get 1308 B of archives.\n") == (1, 0)
+    assert helper._apt_space_needed("0 upgraded, 0 newly installed.\n") is None
+
+
+def test_the_requirement_counts_downloads_growth_and_a_margin(helper):
+    assert helper._os_update_required_mb(400, 250) == 400 + 250 + helper.OS_UPDATE_MARGIN_MB
+    # Shrinking packages still need their downloads; small upgrades the floor.
+    assert helper._os_update_required_mb(400, -50) == 400 + helper.OS_UPDATE_MARGIN_MB
+    assert helper._os_update_required_mb(2, 1) == helper.OS_UPDATE_MIN_FREE_MB
+
+
 def test_the_simulation_is_parsed_into_packages(helper):
     assert helper._os_update_list(APT_SIMULATION) == [
         {"name": "libssl3t64", "from": "3.5.1-1", "to": "3.5.4-1~deb13u1"},
@@ -653,8 +688,13 @@ def os_update(helper, monkeypatch, tmp_path):
     )
     calls: list[list[str]] = []
 
+    monkeypatch.setattr(helper.shutil, "disk_usage", _disk(10_000))
+
     def _fake(argv, log, timeout):
         calls.append(list(argv))
+        if "--assume-no" in argv:
+            log.write(APT_ASSUME_NO)
+            return 1, APT_ASSUME_NO
         out = APT_SIMULATION if "-s" in argv else ""
         log.write(out)
         return 0, out
@@ -689,53 +729,91 @@ def test_an_upgrade_keeps_local_configuration_and_a_clean_environment(
     assert state["reboot_recommended"] is True
 
 
-def test_an_upgrade_is_refused_without_room(helper, os_update, monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        helper.shutil, "disk_usage",
-        lambda path: helper.shutil._ntuple_diskusage(10**9, 10**9 - 10**6, 10**6),
-    )
-    assert helper.main(["os-update-run", "upgrade"]) == 1
-    assert os_update == []
-    state = json.loads((tmp_path / "state.json").read_text())
-    assert state["result"] == "failed"
-    assert "MB free" in state["message"]
-
-
 def _disk(free_mb: int):
     mb = 1024 * 1024
     return lambda path: shutil._ntuple_diskusage(10**10, 10**10 - free_mb * mb, free_mb * mb)
 
 
-def test_short_of_room_the_apt_cache_is_cleared_first(helper, os_update, monkeypatch, tmp_path):
+def _big_upgrade(download: str, growth: str) -> str:
+    return (
+        f"Need to get {download} of archives.\n"
+        f"After this operation, {growth} of additional disk space will be used.\n"
+        "Abort.\n"
+    )
+
+
+def test_an_upgrade_bigger_than_the_room_is_refused_before_it_starts(
+    helper, os_update, monkeypatch, tmp_path
+):
+    # 300 MB free used to be enough to start a year's worth of packages, which
+    # then filled / to zero halfway through and failed with rc=100.
+    monkeypatch.setattr(helper.shutil, "disk_usage", _disk(300))
+    streamed = helper._stream
+
+    def _year_old(argv, log, timeout):
+        if "--assume-no" in argv:
+            out = _big_upgrade("180 MB", "150 MB")
+            os_update.append(list(argv))
+            return 1, out
+        return streamed(argv, log, timeout)
+
+    monkeypatch.setattr(helper, "_stream", _year_old)
+    assert helper.main(["os-update-run", "upgrade"]) == 1
+    assert not any("-y" in argv and "dist-upgrade" in argv for argv in os_update)
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["result"] == "failed"
+    assert state["required_mb"] == 172 + 144 + helper.OS_UPDATE_MARGIN_MB
+    assert "300 MB free" in state["message"]
+    assert "172 MB to download" in state["message"]
+
+
+def test_a_full_device_is_still_repaired_before_anything_is_measured(
+    helper, os_update, monkeypatch, tmp_path
+):
+    # Left at 0 MB by a failed run: dpkg must get to finish its work, even
+    # though the upgrade proper will be refused.
+    monkeypatch.setattr(helper.shutil, "disk_usage", _disk(0))
+    assert helper.main(["os-update-run", "upgrade"]) == 1
+    assert ["dpkg", "--configure", "-a"] in os_update
+    assert not any("-y" in argv and "dist-upgrade" in argv for argv in os_update)
+
+
+def test_the_apt_cache_is_cleared_before_an_upgrade(helper, os_update, monkeypatch, tmp_path):
     archives = tmp_path / "archives"
     archives.mkdir()
     (archives / "linux-image.deb").write_bytes(b"x" * 1024 * 1024 * 3)
     monkeypatch.setattr(helper, "APT_ARCHIVES", archives)
-    free = {"mb": 277}
-    monkeypatch.setattr(helper.shutil, "disk_usage", lambda path: _disk(free["mb"])(path))
-    streamed = helper._stream
-
-    def _clean_frees(argv, log, timeout):
-        if argv == ["apt-get", "clean"] and free["mb"] == 277:
-            free["mb"] = 421
-        return streamed(argv, log, timeout)
-
-    monkeypatch.setattr(helper, "_stream", _clean_frees)
     assert helper.main(["os-update-run", "upgrade"]) == 0
     assert os_update[0] == ["apt-get", "clean"]
-    assert ["dpkg", "--configure", "-a"] in os_update
+    assert os_update.index(["dpkg", "--configure", "-a"]) == 1
 
 
-def test_still_short_after_clearing_the_cache_is_refused(helper, os_update, monkeypatch, tmp_path):
-    archives = tmp_path / "archives"
-    archives.mkdir()
-    (archives / "old.deb").write_bytes(b"x" * 1024 * 1024)
-    monkeypatch.setattr(helper, "APT_ARCHIVES", archives)
-    monkeypatch.setattr(helper.shutil, "disk_usage", _disk(100))
+def test_a_failed_upgrade_leaves_no_downloads_behind(helper, os_update, monkeypatch, tmp_path):
+    streamed = helper._stream
+
+    def _runs_out_of_room(argv, log, timeout):
+        if "-y" in argv and "dist-upgrade" in argv:
+            os_update.append(list(argv))
+            return 100, "E: No space left on device\n"
+        return streamed(argv, log, timeout)
+
+    cleaned: list[list[str]] = []
+    monkeypatch.setattr(helper, "_stream", _runs_out_of_room)
+    monkeypatch.setattr(
+        helper.subprocess, "run",
+        lambda argv, **kw: cleaned.append(list(argv)) or subprocess.CompletedProcess(argv, 0),
+    )
     assert helper.main(["os-update-run", "upgrade"]) == 1
-    assert os_update == [["apt-get", "clean"]]
+    assert cleaned == [["apt-get", "clean"]]
     state = json.loads((tmp_path / "state.json").read_text())
-    assert "after clearing the apt cache" in state["message"]
+    assert "dist-upgrade failed (rc=100)" in state["message"]
+
+
+def test_a_check_measures_what_the_upgrade_will_need(helper, os_update, tmp_path):
+    assert helper.main(["os-update-run", "check"]) == 0
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert (state["download_mb"], state["growth_mb"]) == (43, 57)
+    assert state["required_mb"] == helper.OS_UPDATE_MIN_FREE_MB
 
 
 def test_the_state_reports_what_clearing_the_cache_would_free(helper, monkeypatch, tmp_path, capsys):

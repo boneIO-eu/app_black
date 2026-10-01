@@ -234,10 +234,16 @@ OS_UPDATE_UNIT = "boneio-os-update.service"
 OS_UPDATE_STATE = Path("/var/lib/boneio/os-update/state.json")
 OS_UPDATE_LOG = Path("/var/log/boneio-os-update.log")
 OS_UPDATE_LOG_TAIL = 400
-#: A kernel upgrade alone unpacks ~60 MB and builds an initramfs next to the old
-#: one; the eMMC rootfs has little to spare. Below this, refuse up front rather
-#: than let dpkg run out of space halfway through.
+#: The least an upgrade starts with, however small apt says it is. A kernel
+#: upgrade alone unpacks ~60 MB and builds an initramfs next to the old one; the
+#: eMMC rootfs has little to spare.
 OS_UPDATE_MIN_FREE_MB = 300
+#: Added to what apt reports before an upgrade is let through. apt's figures are
+#: the downloads plus the packages' installed size; they leave out the new
+#: kernel's initramfs, the copies dpkg keeps of the files it replaces until each
+#: package is in, and the log. A year-old controller has well over a hundred
+#: packages to bring in, and 300 MB flat let one of them fill / to zero halfway.
+OS_UPDATE_MARGIN_MB = 100
 #: Packages apt downloaded earlier, unattended-upgrades included. It clears
 #: them only after a successful upgrade, so on a small eMMC they can be what
 #: keeps the next one from starting. apt downloads again whatever it needs.
@@ -297,6 +303,18 @@ _UNATTENDED_RUN_RE = re.compile(
 _APT_INST_RE = re.compile(
     r"^Inst (?P<name>\S+) (?:\[(?P<old>[^\]]+)\] )?\((?P<new>\S+)"
 )
+#: ``Need to get 44.4 MB of archives.`` — or ``12.3 MB/44.4 MB`` when part of
+#: it is already downloaded; the first figure is what is still to come.
+_APT_NEED_RE = re.compile(r"^Need to get (?P<size>[\d.,]+ ?[kMGT]?B)\b", re.MULTILINE)
+#: ``After this operation, 59.0 MB of additional disk space will be used.``, or
+#: ``… 3072 kB disk space will be freed.``
+_APT_AFTER_RE = re.compile(
+    r"^After this operation, (?P<size>[\d.,]+ ?[kMGT]?B) (?:of additional )?disk space "
+    r"will be (?P<way>used|freed)",
+    re.MULTILINE,
+)
+_APT_SIZE_RE = re.compile(r"^(?P<num>[\d.,]+) ?(?P<unit>[kMGT]?)B$")
+_APT_UNITS = {"": 1, "k": 10**3, "M": 10**6, "G": 10**9, "T": 10**12}
 
 VERBS = (
     "can-up", "can-down", "can-restart", "overlay-get", "overlay-set",
@@ -1506,6 +1524,68 @@ def _os_update_list(text: str) -> list[dict[str, str | None]]:
     return packages
 
 
+def _apt_size_bytes(text: str) -> int:
+    """Read one of apt's sizes, which are decimal: ``44.4 MB``, ``512 kB``, ``1308 B``.
+
+    Args:
+        text: The size as apt printed it.
+
+    Returns:
+        Bytes.
+
+    Raises:
+        ValueError: When it is not a size.
+    """
+    match = _APT_SIZE_RE.match(text.strip())
+    if not match:
+        raise ValueError(text)
+    return int(float(match.group("num").replace(",", "")) * _APT_UNITS[match.group("unit")])
+
+
+def _apt_space_needed(text: str) -> tuple[int, int] | None:
+    """What an upgrade will take on /, from ``apt-get --assume-no dist-upgrade``.
+
+    ``-s`` does not print the sizes, so they come from the real command
+    answered "no".
+
+    Args:
+        text: Its output, with ``LC_ALL=C``.
+
+    Returns:
+        ``(download_mb, growth_mb)`` rounded up, growth negative when the
+        upgrade frees space; None when apt printed neither figure.
+    """
+    need = _APT_NEED_RE.search(text)
+    after = _APT_AFTER_RE.search(text)
+    if not need and not after:
+        return None
+    mib = 1024 * 1024
+    try:
+        download = _apt_size_bytes(need.group("size")) if need else 0
+        growth = _apt_size_bytes(after.group("size")) if after else 0
+    except ValueError:
+        return None
+    if after and after.group("way") == "freed":
+        growth = -growth
+    return -(-download // mib), -(-growth // mib)
+
+
+def _os_update_required_mb(download_mb: int, growth_mb: int) -> int:
+    """Free space an upgrade must start with.
+
+    The downloads stay on disk until the end, so they count in full next to
+    what the packages grow by.
+
+    Args:
+        download_mb: Still to download.
+        growth_mb: What the installed packages grow by (negative when they shrink).
+
+    Returns:
+        MB, never below OS_UPDATE_MIN_FREE_MB.
+    """
+    return max(OS_UPDATE_MIN_FREE_MB, download_mb + max(growth_mb, 0) + OS_UPDATE_MARGIN_MB)
+
+
 def _os_update_unit_active() -> bool:
     """Whether an update is running right now.
 
@@ -1903,6 +1983,13 @@ def _os_update_state_verb() -> int:
         "kernel": kernel,
         "free_mb": usage.free // (1024 * 1024),
         "min_free_mb": OS_UPDATE_MIN_FREE_MB,
+        # What the last check or failed upgrade measured; nothing is left to
+        # need it once an upgrade has gone through.
+        "required_mb": (
+            None
+            if state.get("mode") == "upgrade" and state.get("result") == "success"
+            else state.get("required_mb")
+        ),
         "apt_cache_mb": _apt_cache_mb(),
         "autoupdate": _autoupdate_state(),
     }))
@@ -2037,19 +2124,29 @@ def _os_update_run(mode: str | None) -> int:
                 raise Refused(f"{name} failed (rc={returncode})")
             return output
 
+        def measure() -> None:
+            """Record what the upgrade needs on /, as apt itself counts it."""
+            state["step"] = "measure"
+            _os_update_save(state)
+            argv = ["apt-get", *APT_OPTIONS, "--assume-no", "dist-upgrade"]
+            log.write(f"\n=== measure: {' '.join(argv)}\n")
+            log.flush()
+            # Answering "no" is how it ends, so its status says nothing.
+            _, output = _stream(argv, log, 600)
+            sizes = _apt_space_needed(output)
+            if sizes is None:
+                log.write("\n=== apt printed no sizes; using the fixed minimum\n")
+                sizes = (0, 0)
+            state["download_mb"], state["growth_mb"] = sizes
+            state["required_mb"] = _os_update_required_mb(*sizes)
+
         try:
             if mode == "upgrade":
-                free_mb = shutil.disk_usage("/").free // (1024 * 1024)
-                cleared = ""
-                if free_mb < OS_UPDATE_MIN_FREE_MB and _apt_cache_mb():
+                # Packages downloaded earlier, unattended-upgrades included, are
+                # space this upgrade may need; apt downloads again what it uses.
+                # First, so a device left full by a failed run can be repaired.
+                if _apt_cache_mb():
                     step("clean-cache", ["apt-get", "clean"], 300)
-                    free_mb = shutil.disk_usage("/").free // (1024 * 1024)
-                    cleared = " after clearing the apt cache"
-                if free_mb < OS_UPDATE_MIN_FREE_MB:
-                    raise Refused(
-                        f"only {free_mb} MB free on /{cleared}, "
-                        f"{OS_UPDATE_MIN_FREE_MB} MB needed"
-                    )
                 # An upgrade cut short by a power loss leaves dpkg half-done, and
                 # apt refuses to do anything until this has run.
                 step("dpkg-configure", ["dpkg", "--configure", "-a"], 1800)
@@ -2058,7 +2155,16 @@ def _os_update_run(mode: str | None) -> int:
                 "simulate", ["apt-get", *APT_OPTIONS, "-s", "dist-upgrade"], 600
             )
             state["packages"] = _os_update_list(simulated)
+            if state["packages"]:
+                measure()
             if mode == "upgrade" and state["packages"]:
+                free_mb = shutil.disk_usage("/").free // (1024 * 1024)
+                if free_mb < state["required_mb"]:
+                    raise Refused(
+                        f"only {free_mb} MB free on /, {state['required_mb']} MB needed "
+                        f"({state['download_mb']} MB to download, "
+                        f"{max(state['growth_mb'], 0)} MB more once installed)"
+                    )
                 step("dist-upgrade", ["apt-get", *APT_OPTIONS, "-y", "dist-upgrade"], 3 * 3600)
                 step("autoremove", ["apt-get", *APT_OPTIONS, "-y", "autoremove", "--purge"], 1800)
                 step("clean", ["apt-get", "clean"], 300)
@@ -2074,7 +2180,22 @@ def _os_update_run(mode: str | None) -> int:
         except (Refused, OSError, subprocess.SubprocessError) as exc:
             state["result"] = "failed"
             state["message"] = str(exc)
+            cleared = False
+            if mode == "upgrade":
+                # A run that ran out of room leaves its downloads behind, and a
+                # full / is what the device is left with otherwise. First,
+                # because even this log line and the state need room.
+                try:
+                    subprocess.run(
+                        ["apt-get", "clean"], env=APT_ENV, stdin=subprocess.DEVNULL,
+                        capture_output=True, timeout=300, check=False,
+                    )
+                    cleared = True
+                except (OSError, subprocess.SubprocessError):
+                    pass
             log.write(f"\n=== FAILED: {exc}\n")
+            if cleared:
+                log.write("=== apt cache cleared after the failure\n")
         finally:
             state["finished"] = time.time()
             state["step"] = None

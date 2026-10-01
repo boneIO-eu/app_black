@@ -50,6 +50,8 @@ interface OsUpdateState {
   kernel?: KernelReport;
   free_mb?: number;
   min_free_mb?: number;
+  /** What the last check measured the upgrade needs: apt's downloads and growth plus a margin. */
+  required_mb?: number | null;
   /** What ``apt-get clean`` would free; the helper clears it when short. */
   apt_cache_mb?: number;
 }
@@ -269,10 +271,12 @@ export const OsUpdateCard: React.FC = () => {
   const packages = last?.packages ?? [];
   const kernelProblem = state?.kernel?.status === 'problem';
   // The threshold is for starting a run; during one apt uses the space itself.
+  // A check measures the real requirement; before one, only the floor is known.
+  const neededMb = state?.required_mb ?? state?.min_free_mb;
   const shortOfSpace =
-    !busy && state?.free_mb !== undefined && state.min_free_mb !== undefined && state.free_mb < state.min_free_mb;
+    !busy && state?.free_mb !== undefined && neededMb !== undefined && state.free_mb < neededMb;
   const aptCache = state?.apt_cache_mb ?? 0;
-  const lowSpace = shortOfSpace && (state?.free_mb ?? 0) + aptCache < (state?.min_free_mb ?? 0);
+  const lowSpace = shortOfSpace && (state?.free_mb ?? 0) + aptCache < (neededMb ?? 0);
   const clearsCache = shortOfSpace && !lowSpace;
   const upgradeDone = !busy && last?.mode === 'upgrade' && last.result === 'success';
   const formatTime = (ts?: number | null) => (ts ? new Date(ts * 1000).toLocaleString() : '—');
@@ -420,7 +424,7 @@ export const OsUpdateCard: React.FC = () => {
         {lowSpace && (
           <NoticeCallout
             variant="warning"
-            message={t('os_update.low_space', { free: state?.free_mb ?? 0, needed: state?.min_free_mb ?? 0 })}
+            message={t('os_update.low_space', { free: state?.free_mb ?? 0, needed: neededMb ?? 0 })}
           />
         )}
 
@@ -429,7 +433,7 @@ export const OsUpdateCard: React.FC = () => {
             variant="info"
             message={t('os_update.low_space_cache', {
               free: state?.free_mb ?? 0,
-              needed: state?.min_free_mb ?? 0,
+              needed: neededMb ?? 0,
               cache: aptCache,
             })}
           />

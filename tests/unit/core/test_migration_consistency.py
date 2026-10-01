@@ -462,6 +462,31 @@ class TestOsUpdateAptCache:
         assert '"apt_cache_mb"' in (ASSETS_DIR / "helpers/boneio-system").read_text()
 
 
+class TestOsUpdateMeasuredSpace:
+    """1.6.33 reinstalls boneio-system, which gates an upgrade on apt's figures."""
+
+    @staticmethod
+    def _actions() -> list[dict]:
+        from boneio.migrations.versions import v1_6_33_os_update_measured_space as migration
+
+        return [a.to_dict() for a in migration.plan()]
+
+    def test_the_pristine_copy_goes_first(self):
+        assert [a["dst"] for a in self._actions()] == [
+            "/usr/lib/boneio/trusted/boneio-system",
+            "/usr/sbin/boneio-system",
+        ]
+
+    def test_both_copies_are_root_owned_and_compiled_first(self):
+        for action in self._actions():
+            assert action["src"] == "helpers/boneio-system"
+            assert (action["owner"], action["group"], action["mode"]) == ("root", "root", 0o755)
+            assert action["validate"] == "python"
+
+    def test_the_helper_it_installs_reports_the_requirement(self):
+        assert '"required_mb"' in (ASSETS_DIR / "helpers/boneio-system").read_text()
+
+
 class TestCertificateLifetime:
     """The device's own certificate lasts long enough to be worth trusting.
 
