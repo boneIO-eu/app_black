@@ -520,6 +520,7 @@ class Manager:
         _LOGGER.info("Sending HA autodiscovery messages")
 
         await self.outputs.send_ha_autodiscovery()
+        self.virtual_switches.publish_discovery()
         await self.inputs.send_ha_autodiscovery()
         await self.covers.send_ha_autodiscovery()
         await self.sensors.send_ha_autodiscovery()
