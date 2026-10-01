@@ -145,6 +145,12 @@ class BaseEntity(Filter):
     def entity_type(self) -> str:
         return self._entity_type
 
+    def reserve_ha_discovery(self) -> None:
+        """Claim this entity's discovery topic before it is announced."""
+        self._config_helper.reserve_autodiscovery_msg(
+            ha_type=self._entity_type, topic=self._topic
+        )
+
     def send_ha_discovery(self):
         """Send HA MQTT autodiscovery message for this entity."""
         payload = self.discovery_message()

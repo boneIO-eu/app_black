@@ -173,6 +173,12 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._event_bus = manager.event_bus
         self._event_bus.add_haonline_listener(target=self.set_payload_offline)
 
+        # Discovery goes out once the device has answered, which may be long
+        # after startup or never. Until then the entities still belong to
+        # this controller, and their retained configs must outlive the
+        # cleanup of unused ones.
+        self._reserve_discovery_for_all_registers()
+
     def __init_modbus_entities__(self):
         # Standard sensors
         for index, data in enumerate(self._db["registers_base"]):
@@ -651,13 +657,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         except Exception as e:
             _LOGGER.debug("Could not send online status for %s: %s", self._name, e)
 
-    def _send_polling_switch_discovery(self) -> None:
-        """Send HA MQTT autodiscovery for the polling enable/disable switch.
-
-        The switch appears under the Modbus device in HA with entity_category
-        'config' and allows the user to temporarily stop/start register polling.
-        """
-
+    def _polling_switch_discovery(self) -> tuple[str, dict]:
+        """Topic and payload of the polling enable/disable switch."""
         payload = modbus_polling_switch_message(
             device_id=self._id,
             device_name=self._name,
@@ -666,7 +667,15 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             config_helper=self.manager.config_helper,
             area=self._area,
         )
-        topic = payload.pop("_topic")
+        return payload.pop("_topic"), payload
+
+    def _send_polling_switch_discovery(self) -> None:
+        """Send HA MQTT autodiscovery for the polling enable/disable switch.
+
+        The switch appears under the Modbus device in HA with entity_category
+        'config' and allows the user to temporarily stop/start register polling.
+        """
+        topic, payload = self._polling_switch_discovery()
         self.manager.config_helper.add_autodiscovery_msg(
             topic=topic, payload=payload, ha_type="switch",
         )
@@ -677,6 +686,14 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             payload={"state": ON if self._polling_enabled else OFF},
             retain=True,
         )
+
+    def _reserve_discovery_for_all_registers(self) -> None:
+        """Claim every discovery topic of this device without announcing it."""
+        for entities in (*self._modbus_entities, *self._additional_entities):
+            for entity in entities.values():
+                entity.reserve_ha_discovery()
+        topic, _ = self._polling_switch_discovery()
+        self.manager.config_helper.reserve_autodiscovery_msg(ha_type="switch", topic=topic)
 
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""

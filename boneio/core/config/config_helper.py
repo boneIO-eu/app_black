@@ -4,7 +4,6 @@ Module to provide basic config options.
 from __future__ import annotations
 
 import logging
-from _collections_abc import dict_values
 from typing import TYPE_CHECKING, Any
 import time as _time
 
@@ -414,6 +413,18 @@ class ConfigHelper:
         """Add autodiscovery message."""
         self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}
 
+    def reserve_autodiscovery_msg(self, ha_type: str, topic: str) -> None:
+        """Claim the topic of an entity that is configured but not announced yet.
+
+        A reserved topic counts as in use, so a retained config left on it
+        from an earlier run is not removed, but it is not resent until
+        add_autodiscovery_msg gives it a payload. Reserving a topic that
+        already has one changes nothing.
+        """
+        self._autodiscovery_messages[ha_type].setdefault(
+            topic, {"topic": topic, "payload": None}
+        )
+
     @property
     def ha_types(self) -> list[str]:
         return list(self._autodiscovery_messages.keys())
@@ -574,9 +585,11 @@ class ConfigHelper:
 
 
     @property
-    def autodiscovery_msgs(self) -> dict_values:
-        """Get autodiscovery messages"""
-        output = {}
-        for ha_type in self._autodiscovery_messages:
-            output.update(self._autodiscovery_messages[ha_type])
-        return output.values()
+    def autodiscovery_msgs(self) -> list[dict[str, Any]]:
+        """Get autodiscovery messages, leaving out topics only reserved."""
+        return [
+            msg
+            for messages in self._autodiscovery_messages.values()
+            for msg in messages.values()
+            if msg["payload"] is not None
+        ]
