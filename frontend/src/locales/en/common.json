@@ -3409,6 +3409,9 @@
       "clients_title": "Setting up clients",
       "clients_help": "Home Assistant: in the MQTT integration, set port {{port}}, open the advanced options, enable certificate validation with a custom broker certificate and upload ca.crt from above. Other clients: port {{port}}, TLS on, CA = ca.crt.",
       "required_note": "In “TLS only on the network” boneIO and others on this controller keep plain 1883 over localhost. Node-RED reaching the broker through host.docker.internal:1883 comes from Docker's network, not localhost, and must move to {{port}} with TLS."
-    }
+    },
+    "status_tls": "Connected to the broker over TLS.",
+    "status_plain": "Connected, but still without TLS. Save this page to switch.",
+    "status_disconnected": "Not connected to the broker right now. Check the host, port and certificate; the log says why."
   }
 }

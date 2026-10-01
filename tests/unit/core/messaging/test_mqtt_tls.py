@@ -354,3 +354,40 @@ def test_certificate_files_stay_out_of_the_yaml_globs(tmp_path, ca):
     mqtt_tls.store_client(pair.cert, pair.key, tmp_path)
     found = [p for pattern in ("*.yaml", "*.yml", "*.json") for p in Path(tmp_path).rglob(pattern)]
     assert found == []
+
+
+# -------------------------------------------------------------- the log
+
+
+async def test_a_session_says_it_connected_and_how(config_helper, server_files, ca_file, tmp_path, caplog):
+    """Without this the log never says the broker was reached, or whether it is encrypted."""
+    import logging
+
+    from unittest.mock import AsyncMock
+
+    client = _client(config_helper, 0, {"enabled": True, "ca_certs": str(ca_file)}, tmp_path)
+    with TlsServer(*server_files, mqtt=True) as server:
+        client.port = server.port
+        client.asyncio_client = client.create_client()
+        manager = MagicMock()
+        manager.reconnect_callback = AsyncMock()
+        client.subscribe = AsyncMock(side_effect=asyncio.CancelledError)
+        with caplog.at_level(logging.INFO, logger="boneio.core.messaging.mqtt"):
+            with pytest.raises(asyncio.CancelledError):
+                await client._subscribe_manager(manager)
+    assert f"Connected to MQTT broker at localhost:{server.port} (TLS, broker checked against {ca_file})" in caplog.text
+    assert client.tls_in_use is True
+
+
+async def test_the_transport_is_described_for_each_mode(config_helper, tmp_path, ca_file):
+    pytest.importorskip("aiomqtt")
+    from boneio.core.messaging.mqtt import MQTTClient
+
+    def describe(tls):
+        return MQTTClient(host="h", config_helper=config_helper, tls=tls, config_dir=tmp_path).describe_transport()
+
+    assert describe(None) == "plain text"
+    assert describe({"enabled": True}) == "TLS, broker checked against the system CAs"
+    assert describe({"enabled": True, "insecure": True}) == "TLS, broker certificate NOT checked"
+    assert describe({"enabled": True, "ca_certs": str(ca_file)}).endswith(str(ca_file))
+    assert describe({"enabled": True, "ca_certs": "missing.pem"}) == "plain text"  # never connects anyway

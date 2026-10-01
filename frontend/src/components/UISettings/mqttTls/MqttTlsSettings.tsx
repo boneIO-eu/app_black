@@ -30,6 +30,8 @@ interface ClientTlsState {
   files: { ca: StoredFile | null; client: StoredFile | null };
   tls_error: string | null;
   connected: boolean;
+  /** The running connection's transport — the form's only after a save. */
+  tls_in_use: boolean;
 }
 
 type Verify = 'system' | 'custom' | 'insecure';
@@ -113,6 +115,10 @@ const MqttTlsSettings: React.FC<MqttTlsSettingsProps> = ({ tls, port, onChange }
 
   useEffect(() => {
     void load();
+    // The connection changes behind the form — after a save, a broker
+    // restart — so the status line keeps up on its own.
+    const timer = window.setInterval(() => void load(), 10000);
+    return () => window.clearInterval(timer);
   }, [load]);
 
   // A section that changed without us — Restore, or the saved data arriving —
@@ -206,8 +212,16 @@ const MqttTlsSettings: React.FC<MqttTlsSettingsProps> = ({ tls, port, onChange }
         description={t('mqtt_tls.enable_help')}
       />
 
-      {enabled && state?.tls_error && (
-        <NoticeCallout variant="error" title={t('mqtt_tls.not_working')} message={state.tls_error} />
+      {state && (enabled || state.tls_in_use) && (
+        state.tls_error ? (
+          <NoticeCallout variant="error" title={t('mqtt_tls.not_working')} message={state.tls_error} />
+        ) : !state.connected ? (
+          <NoticeCallout variant="warning" message={t('mqtt_tls.status_disconnected')} />
+        ) : state.tls_in_use ? (
+          <NoticeCallout variant="success" message={t('mqtt_tls.status_tls')} />
+        ) : (
+          <NoticeCallout variant="info" message={t('mqtt_tls.status_plain')} />
+        )
       )}
 
       {enabled && (

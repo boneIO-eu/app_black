@@ -3408,6 +3408,9 @@
       "clients_title": "Konfiguracja klientów",
       "clients_help": "Home Assistant: w integracji MQTT ustaw port {{port}}, otwórz opcje zaawansowane, włącz weryfikację certyfikatu z własnym certyfikatem brokera i wgraj ca.crt pobrany powyżej. Inni klienci: port {{port}}, TLS włączony, CA = ca.crt.",
       "required_note": "W trybie „Z sieci tylko TLS” boneIO i inni na tym sterowniku dalej łączą się zwykłym 1883 przez localhost. Node-RED łączący się przez host.docker.internal:1883 przychodzi z sieci Dockera, nie z localhost, i musi przejść na {{port}} z TLS."
-    }
+    },
+    "status_tls": "Połączono z brokerem przez TLS.",
+    "status_plain": "Połączono, ale jeszcze bez TLS. Zapisz tę stronę, żeby przełączyć.",
+    "status_disconnected": "Brak połączenia z brokerem. Sprawdź host, port i certyfikat; przyczyna jest w logu."
   }
 }

@@ -67,6 +67,8 @@ class MQTTClient(MessageBus):
         #: Why the last client could not be given TLS. While set, no session
         #: is opened at all — see :meth:`_subscribe_manager`.
         self._tls_error: str | None = None
+        #: Whether the current client was built with TLS.
+        self._tls_in_use = False
         client_options["identifier"] = str(uuid.uuid4())
         client_options["logger"] = logging.getLogger(PAHO)
         client_options["clean_session"] = True
@@ -117,6 +119,7 @@ class MQTTClient(MessageBus):
         except mqtt_tls.MqttTlsError as err:
             self._tls_error = str(err)
             context = None
+        self._tls_in_use = context is not None
         if context is not None:
             tls_options["tls_context"] = context
             if self._tls.get("insecure"):
@@ -133,6 +136,20 @@ class MQTTClient(MessageBus):
             **tls_options,
             **self.client_options,
         )
+
+    @property
+    def tls_in_use(self) -> bool:
+        """Whether the current connection (or the next attempt) uses TLS."""
+        return self._tls_in_use
+
+    def describe_transport(self) -> str:
+        """How this client reaches the broker, in words for the log."""
+        if not self._tls_in_use:
+            return "plain text"
+        if self._tls.get("insecure"):
+            return "TLS, broker certificate NOT checked"
+        ca = self._tls.get("ca_certs")
+        return f"TLS, broker checked against {ca}" if ca else "TLS, broker checked against the system CAs"
 
     @property
     def tls_error(self) -> str | None:
@@ -430,6 +447,12 @@ class MQTTClient(MessageBus):
             async with AsyncExitStack() as stack:
                 _ = await stack.enter_async_context(self.asyncio_client)
                 self.publish_queue.set_connected(True)
+                # Said once per session, so the log answers "is it connected,
+                # and is it encrypted" without reading the configuration.
+                _LOGGER.info(
+                    "Connected to MQTT broker at %s:%s (%s)",
+                    self.host, self.port, self.describe_transport(),
+                )
 
                 publish_task = asyncio.create_task(self._handle_publish())
                 tasks.add(publish_task)

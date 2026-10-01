@@ -91,6 +91,9 @@ def get_client_tls():
         "files": mqtt_tls.stored(_config_dir()),
         "tls_error": getattr(bus, "tls_error", None) if bus is not None else None,
         "connected": bool(getattr(bus, "state", False)) if bus is not None else False,
+        # The running connection's transport, which differs from the form
+        # until the page is saved.
+        "tls_in_use": bool(getattr(bus, "tls_in_use", False)) if bus is not None else False,
     }
 
 

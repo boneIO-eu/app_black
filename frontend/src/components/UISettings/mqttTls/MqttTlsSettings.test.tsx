@@ -32,8 +32,14 @@ const storedCa = {
   count: 1,
 };
 
-function answer(files: Record<string, unknown> = { ca: null, client: null }, tlsError: string | null = null) {
-  get.mockResolvedValue({ data: { files, tls_error: tlsError, connected: false } });
+function answer(
+  files: Record<string, unknown> = { ca: null, client: null },
+  tlsError: string | null = null,
+  link: { connected?: boolean; tls_in_use?: boolean } = {},
+) {
+  get.mockResolvedValue({
+    data: { files, tls_error: tlsError, connected: link.connected ?? false, tls_in_use: link.tls_in_use ?? false },
+  });
 }
 
 /** Holds the section and the port the way MqttForm does. */
@@ -167,6 +173,24 @@ describe('MqttTlsSettings', () => {
     );
     const toggles = screen.getAllByRole('checkbox') as HTMLInputElement[];
     expect(toggles.map((t) => t.checked)).toEqual([true, true]);
+  });
+
+  it('says when the running connection is encrypted', async () => {
+    answer(undefined, null, { connected: true, tls_in_use: true });
+    render(<Harness tls={{ enabled: true }} port={8883} spy={vi.fn()} />);
+    expect(await screen.findByText('mqtt_tls.status_tls')).toBeTruthy();
+  });
+
+  it('says when TLS is chosen but the connection is still plain (not saved yet)', async () => {
+    answer(undefined, null, { connected: true, tls_in_use: false });
+    render(<Harness tls={{ enabled: true }} port={8883} spy={vi.fn()} />);
+    expect(await screen.findByText('mqtt_tls.status_plain')).toBeTruthy();
+  });
+
+  it('says when there is no connection', async () => {
+    answer(undefined, null, { connected: false, tls_in_use: true });
+    render(<Harness tls={{ enabled: true }} port={8883} spy={vi.fn()} />);
+    expect(await screen.findByText('mqtt_tls.status_disconnected')).toBeTruthy();
   });
 
   it('shows nothing but the switch while TLS is off', () => {
