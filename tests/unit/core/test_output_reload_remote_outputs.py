@@ -42,6 +42,7 @@ def _outputs(existing: dict) -> OutputManager:
     outputs._configured_output_groups = {}
     outputs._interlock_manager = SoftwareInterlockManager()
     outputs._ha_topics = set()
+    outputs.grouped_outputs_by_expander = {}
     for output in existing.values():
         if getattr(output, "interlock_groups", None):
             outputs._interlock_manager.register(output, output.interlock_groups)

@@ -768,6 +768,9 @@ class OutputManager:
             # Delayed state send
             self._manager.loop.create_task(self._delayed_send_state(out))
 
+        if reload_config:
+            self._prune_expander_groups()
+
         for output_id, output in remote_outputs.items():
             if output_id in self._outputs:
                 # Same rule as at startup: the local output wins.
@@ -912,6 +915,24 @@ class OutputManager:
         # Broadcast updated states to WebSocket clients
         self._broadcast_all_states()
     
+    def _prune_expander_groups(self) -> None:
+        """Drop deleted or moved outputs from ``grouped_outputs_by_expander``.
+
+        A reload writes the rebuilt outputs into these per-expander dicts but
+        never took anything out, so a deleted output stayed on its OLED screen.
+        Each group gets a new dict instead of being changed in place: the OLED
+        thread iterates them, and the outer dict is shared with it by
+        reference, so it must stay the same object.
+        """
+        for expander_id, group in list(self.grouped_outputs_by_expander.items()):
+            current = {
+                output_id: output
+                for output_id, output in group.items()
+                if self._outputs.get(output_id) is output
+            }
+            if len(current) != len(group):
+                self.grouped_outputs_by_expander[expander_id] = current
+
     def resolve_current(self, output: Any, include_groups: bool = False) -> Any:
         """The object registered now under ``output``'s id.
 

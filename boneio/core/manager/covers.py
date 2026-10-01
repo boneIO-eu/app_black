@@ -91,22 +91,7 @@ class CoverManager:
             for cid in removed_ids:
                 _LOGGER.info("Cover %s removed from config, cleaning up", cid)
                 cover = self._covers.pop(cid)
-                # Stop cover movement if running (synchronous - no running loop guaranteed)
-                try:
-                    if hasattr(cover, "_stop_event"):
-                        cover._stop_event.set()
-                    if (
-                        hasattr(cover, "_movement_thread")
-                        and cover._movement_thread
-                        and cover._movement_thread.is_alive()
-                    ):
-                        cover._movement_thread.join(timeout=1.0)
-                    if hasattr(cover, "_open_relay"):
-                        cover._open_relay.turn_off()
-                    if hasattr(cover, "_close_relay"):
-                        cover._close_relay.turn_off()
-                except Exception:
-                    pass
+                self._halt_cover(cover)
                 # Remove HA autodiscovery
                 self._remove_cover_ha_discovery(cid)
 
@@ -151,6 +136,9 @@ class CoverManager:
                         _LOGGER.info(
                             "Cover %s platform changed from %s to %s, recreating cover", _id, current_kind, new_kind
                         )
+                        # The old object goes away: a movement it was running
+                        # would otherwise keep its relay energised.
+                        self._halt_cover(_cover)
                         # Remove old HA autodiscovery
                         self._remove_cover_ha_discovery(_id)
                         # Remove old cover from dict (will be recreated below)
@@ -466,6 +454,29 @@ class CoverManager:
             Dictionary of all covers
         """
         return self._covers
+
+    @staticmethod
+    def _halt_cover(cover: Any) -> None:
+        """Stop a cover that is being dropped and de-energise both relays.
+
+        Synchronous: a reload may run without a usable event loop for the
+        cover's own async stop.
+        """
+        try:
+            if hasattr(cover, "_stop_event"):
+                cover._stop_event.set()
+            if (
+                hasattr(cover, "_movement_thread")
+                and cover._movement_thread
+                and cover._movement_thread.is_alive()
+            ):
+                cover._movement_thread.join(timeout=1.0)
+            if hasattr(cover, "_open_relay"):
+                cover._open_relay.turn_off()
+            if hasattr(cover, "_close_relay"):
+                cover._close_relay.turn_off()
+        except Exception:
+            _LOGGER.exception("Could not stop cover %s", getattr(cover, "id", "?"))
 
     def rebind_outputs(self) -> None:
         """Point each cover at the relays registered now under their ids.

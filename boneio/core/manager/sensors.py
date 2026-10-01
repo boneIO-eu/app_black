@@ -1318,6 +1318,10 @@ class SensorManager:
                             if new_flow and sensor._flow_rate != new_flow:
                                 sensor._flow_rate = new_flow
 
+                        new_output_id = str(cfg.get("output_id") or "")
+                        if new_output_id and new_output_id != sensor.output_id:
+                            self._move_virtual_energy_sensor(sensor, new_output_id)
+
                         # Resend HA autodiscovery with updated info
                         area = cfg.get("area")
                         reload_output_id = cfg.get("output_id")
@@ -1337,6 +1341,39 @@ class SensorManager:
 
         # Broadcast updated states
         await self._broadcast_virtual_energy_states()
+
+    def _move_virtual_energy_sensor(self, sensor: VirtualEnergySensor, output_id: str) -> None:
+        """Make an existing sensor track another output, keeping what it counted.
+
+        Args:
+            sensor: The sensor whose ``output_id`` changed in the config.
+            output_id: The output it tracks from now on.
+        """
+        output = self._manager.outputs.get_output(output_id)
+        if output is None:
+            _LOGGER.error(
+                "Virtual energy sensor %s: output '%s' not found, keeps tracking '%s'",
+                sensor.id,
+                output_id,
+                sensor.output_id,
+            )
+            return
+        _LOGGER.info("Virtual energy sensor %s now tracks %s (was %s)", sensor.id, output_id, sensor.output_id)
+        # Close the period counted on the old output before switching.
+        sensor.stop_tracking()
+        self._manager._event_bus.remove_event_listener(
+            event_type="output",
+            listener_id=f"virtual_energy_{sensor.id}",
+        )
+        sensor.rebind_output(lambda _old: output)
+        self._manager._event_bus.add_event_listener(
+            event_type="output",
+            entity_id=output_id,
+            listener_id=f"virtual_energy_{sensor.id}",
+            target=lambda event, s=sensor: self._on_output_state_change(event, s),
+        )
+        if output.state == ON:
+            sensor.start_tracking()
 
     def _create_virtual_energy_sensor(self, config: dict) -> None:
         """Create a single virtual energy sensor from config.

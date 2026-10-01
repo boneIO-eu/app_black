@@ -86,6 +86,7 @@ def _output_manager(manager, announced: list[tuple[str, str]]) -> OutputManager:
     outputs._interlock_manager = MagicMock()
     outputs._outputs_group = []
     outputs._ha_topics = set()
+    outputs.grouped_outputs_by_expander = {}
     for ha_type, entity_id in announced:
         outputs._publish_discovery(id=entity_id, ha_type=ha_type, payload={"name": entity_id})
     manager.publish_ha_discovery.reset_mock()
