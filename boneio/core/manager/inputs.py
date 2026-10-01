@@ -186,8 +186,13 @@ class InputManager:
             if config:
                 self._event_pins = config.get(EVENT_ENTITY, [])
                 self._binary_pins = config.get(BINARY_SENSOR, [])
-                self._manager._config_helper.clear_autodiscovery_type(ha_type=EVENT_ENTITY)
-                self._manager._config_helper.clear_autodiscovery_type(ha_type=BINARY_SENSOR)
+                # The discovery cache is left alone: an input whose HA fields
+                # did not change is not re-published, so its entry must stay.
+                # The MQTT client deletes any discovery topic it receives that
+                # is not in the cache — including the echo of our own publish —
+                # and the cache is shared with entities that are not inputs
+                # (security events, the OLED button). Removed and hidden inputs
+                # take their own entries out.
 
         # Configure event buttons
         for gpio in self._event_pins:
@@ -262,10 +267,12 @@ class InputManager:
                 new_device_class = gpio.get(DEVICE_CLASS)
                 old_mqtt_sequences = existing_input.mqtt_sequences if hasattr(existing_input, "mqtt_sequences") else {}
                 new_mqtt_sequences = gpio.get("mqtt_sequences", {})
+                was_shown = getattr(existing_input, "show_in_ha", True)
                 ha_fields_changed = (
                     (old_name != name) or (old_area != area)
                     or (old_device_class != new_device_class)
                     or (old_mqtt_sequences != new_mqtt_sequences)
+                    or not was_shown
                 )
 
                 # Update actions (always - this is internal to the controller)
@@ -302,7 +309,10 @@ class InputManager:
 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area, mqtt_sequences)
                 # Actions are internal to the controller and don't need HA update
-                if ha_fields_changed and gpio.get(SHOW_HA, True):
+                if not gpio.get(SHOW_HA, True):
+                    if was_shown:
+                        self._unpublish_input_ha_discovery(EVENT_ENTITY, input_id)
+                elif ha_fields_changed:
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
                     self._publish_input_ha_discovery(
                         ha_type=EVENT_ENTITY,
@@ -395,9 +405,11 @@ class InputManager:
                 old_area = getattr(existing_input, "area", None)
                 old_device_class = getattr(existing_input, "_device_class", None)
                 new_device_class = gpio.get(DEVICE_CLASS)
+                was_shown = getattr(existing_input, "show_in_ha", True)
                 ha_fields_changed = (
                     (old_name != name) or (old_area != area)
                     or (old_device_class != new_device_class)
+                    or not was_shown
                 )
 
                 # Update actions (always - this is internal to the controller)
@@ -424,7 +436,10 @@ class InputManager:
 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area)
                 # Actions are internal to the controller and don't need HA update
-                if ha_fields_changed and gpio.get(SHOW_HA, True):
+                if not gpio.get(SHOW_HA, True):
+                    if was_shown:
+                        self._unpublish_input_ha_discovery(BINARY_SENSOR, input_id)
+                elif ha_fields_changed:
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
                     self._publish_input_ha_discovery(
                         ha_type=BINARY_SENSOR,
@@ -1081,3 +1096,16 @@ class InputManager:
             ha_type=ha_type,
             payload=payload,
         )
+
+    def _unpublish_input_ha_discovery(self, ha_type: str, input_id: str) -> None:
+        """Take an input out of Home Assistant and out of the discovery cache.
+
+        Args:
+            ha_type: HA entity type the input was published as.
+            input_id: Unique input identifier.
+        """
+        config_helper = self._manager._config_helper
+        topic = f"{config_helper.ha_discovery_prefix}/{ha_type}/{config_helper.serial_number}/{input_id}/config"
+        _LOGGER.info("Input %s hidden from HA, removing discovery %s", input_id, topic)
+        self._manager.send_message(topic=topic, payload=None, retain=True)
+        config_helper.remove_autodiscovery_msg(ha_type, topic)
