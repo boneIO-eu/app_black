@@ -97,6 +97,11 @@ class MQTTClient(MessageBus):
         # Add BoneIO autodiscovery subscription if enabled
         if self._config_helper.receive_boneio_autodiscovery:
             self._topics.append("boneio/+/discovery/#")
+        # Until startup has registered every entity, a retained config missing
+        # from the cache may be one that just hasn't been registered yet. Such
+        # topics wait here and are judged once release_discovery_cleanup() runs.
+        self._discovery_cleanup_held = True
+        self._held_discovery_topics: set[str] = set()
         self._running = True
         # The running session, so new credentials can end it on purpose.
         self._session_task: asyncio.Task | None = None
@@ -498,6 +503,25 @@ class MQTTClient(MessageBus):
         """State of MQTT Client."""
         return self._connection_established
 
+    def release_discovery_cleanup(self) -> None:
+        """Start removing discovery entities that aren't in the cache.
+
+        Called once startup has registered everything it is going to. Topics
+        the broker replayed before then are removed now if they still aren't
+        in the cache; from here on, an unknown topic is removed as it arrives.
+        """
+        if not self._discovery_cleanup_held:
+            return
+        self._discovery_cleanup_held = False
+        held, self._held_discovery_topics = self._held_discovery_topics, set()
+        for topic in sorted(held):
+            if not self._config_helper.is_topic_in_autodiscovery(topic):
+                self._remove_discovery_entity(topic)
+
+    def _remove_discovery_entity(self, topic: str) -> None:
+        _LOGGER.info("Removing unused discovery entity %s", topic)
+        self.send_message(topic=topic, payload=None, retain=True)
+
     async def handle_messages(
         self, messages, callback: Callable[[str, str], Awaitable[None]]
     ):
@@ -519,18 +543,14 @@ class MQTTClient(MessageBus):
                 if message.topic.matches(discovery_topic):
                     callback_start = False
                     topic = str(message.topic)
-                    if (
-                        message.payload
-                        and not self._config_helper.is_topic_in_autodiscovery(
-                            topic
-                        )
-                    ):
-                        _LOGGER.info(
-                            "Removing unused discovery entity %s", topic
-                        )
-                        self.send_message(
-                            topic=topic, payload=None, retain=True
-                        )
+                    if not message.payload:
+                        # Already removed, by us or by someone else.
+                        self._held_discovery_topics.discard(topic)
+                    elif not self._config_helper.is_topic_in_autodiscovery(topic):
+                        if self._discovery_cleanup_held:
+                            self._held_discovery_topics.add(topic)
+                        else:
+                            self._remove_discovery_entity(topic)
                     break
             for topic, listener_callback in self._mqtt_energy_listeners.items():
                 if message.topic.matches(topic):

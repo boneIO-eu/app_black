@@ -59,6 +59,11 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="cryptogra
 
 _LOGGER = logging.getLogger(__name__)
 
+# Longest startup waits for its entities before removing unknown discovery
+# topics: the web stack (120 s) and first page load (8 + 3 s) remote inputs
+# wait for, plus headroom for initialising the remote devices themselves.
+DISCOVERY_CLEANUP_HOLD_SECONDS = 180.0
+
 
 # Early OLED is initialized in bonecli.py before runner.
 # Import centralized functions here for use during startup sequence.
@@ -524,6 +529,9 @@ async def async_run(
     tasks.add(message_bus_task)
     message_bus_task.add_done_callback(tasks.discard)
 
+    # Set once the initial discovery is out, or has failed to go out.
+    discovery_published = asyncio.Event()
+
     # Publish discovery after message bus is started (non-blocking)
     async def _delayed_discovery() -> None:
         """Wait for MQTT connection and publish discovery in background."""
@@ -532,7 +540,10 @@ async def async_run(
             _draw_startup_status(early_oled_device, "Publishing discovery...")
             await manager.set_startup_status("ha_discovery", "Publishing HA Discovery...")
             _LOGGER.info("Publishing device discovery information")
-            await manager.publish_discovery()
+            try:
+                await manager.publish_discovery()
+            finally:
+                discovery_published.set()
             _draw_startup_status(early_oled_device, "Ready")
             # Brief pause so user sees "Ready" before handoff stops drawing
             await asyncio.sleep(1)
@@ -543,10 +554,32 @@ async def async_run(
             _LOGGER.error("Error during delayed discovery: %s", e)
             await manager.mark_startup_complete()
 
+    async def _release_discovery_cleanup() -> None:
+        """Let MQTT remove unknown discovery entities once all are registered.
+
+        The broker replays every retained config the moment we subscribe,
+        before most entities are in the cache, and removing one that is only
+        late makes it drop out of Home Assistant until it is published again.
+        Remote inputs are the last to register, after the web stack is up, so
+        wait for them too - capped, because a stale entity left in Home
+        Assistant a little longer costs less than cleanup that never starts.
+        """
+        published = asyncio.create_task(discovery_published.wait())
+        try:
+            await asyncio.wait(
+                {published, remote_task}, timeout=DISCOVERY_CLEANUP_HOLD_SECONDS
+            )
+        finally:
+            published.cancel()
+        mqtt_bus.release_discovery_cleanup()
+
     if has_mqtt:
         discovery_task = asyncio.create_task(_delayed_discovery())
         tasks.add(discovery_task)
         discovery_task.add_done_callback(tasks.discard)
+        cleanup_task = asyncio.create_task(_release_discovery_cleanup())
+        tasks.add(cleanup_task)
+        cleanup_task.add_done_callback(tasks.discard)
     else:
         # No MQTT — mark startup complete immediately
         _draw_startup_status(early_oled_device, "Ready")
