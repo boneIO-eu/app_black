@@ -6,6 +6,23 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev27 (2026-10-01) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### ⚙️ MQTT and Loxone (UDP) get their own settings entries
+
+- **"Messaging Protocols" is gone.** It was one settings entry with two
+  tabs, so saving, restoring and the unsaved-changes dot all had to treat
+  MQTT and Loxone (UDP) as a single section. They are now two entries under
+  Connections — MQTT and Loxone (UDP) — each with its own form, save,
+  description and restart badge.
+- **A bad Loxone host no longer blocks saving the MQTT broker.** The two
+  sections save and restore independently now.
+- No new migrations. Only the manifest is re-signed, since it names the
+  release.
+
 ## v1.6.0.dev26 (2026-10-01) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See

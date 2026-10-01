@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev26` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev27` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,28 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev27 — internal test build
+
+## Since dev26
+
+"Messaging Protocols" was one settings entry with two tabs behind it, so
+saving, restoring and the unsaved-changes dot all had to treat MQTT and
+Loxone (UDP) as one section — and a Loxone host the panel did not like
+blocked saving the MQTT broker underneath it, even though the two have
+nothing to do with each other. They are now two entries under Connections,
+MQTT and Loxone (UDP), each with its own form, save, description and
+restart badge; saving one no longer touches the other. This also makes room
+for what comes next in that group: a Home Assistant entry once boneIO can
+talk to it without MQTT.
+
+Checked with `tsc -b` and the frontend test suite (624/624, six of them
+new); not tried on a controller in a browser yet.
+
+No new migrations this release, and no plan changed since dev26. Only the
+manifest is re-signed, since it names the release.
 
 ---
 
