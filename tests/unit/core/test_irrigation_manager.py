@@ -76,6 +76,7 @@ def _make_manager_with_controllers(
     mgr = object.__new__(_IrrigationManager)
     mgr._controllers = controllers
     mgr._subscribed_topics = set()
+    mgr._topic_handlers = {}
     mgr._manager = MagicMock()
     mgr._manager.message_bus = MagicMock()
     mgr._manager.message_bus.subscribe_and_listen = AsyncMock()

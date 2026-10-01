@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from boneio.components.irrigation import IrrigationController, IrrigationZone, WaterSource
@@ -35,6 +36,9 @@ class IrrigationManager:
         self._manager = manager
         self._controllers: dict[str, IrrigationController] = {}
         self._subscribed_topics: set[str] = set()
+        # Who handles each subscribed topic now. A topic is subscribed once,
+        # and its messages go to whatever handler was registered last.
+        self._topic_handlers: dict[str, Callable[[str, str], Awaitable[None]]] = {}
 
         self._initialize(irrigation_config)
 
@@ -224,6 +228,7 @@ class IrrigationManager:
             with contextlib.suppress(Exception):
                 await self._manager.message_bus.unsubscribe_and_stop_listen(topic)
         self._subscribed_topics.clear()
+        self._topic_handlers.clear()
 
         for ctrl in self._controllers.values():
             await ctrl.full_stop()
@@ -249,6 +254,10 @@ class IrrigationManager:
             ctrl_id = str(cfg.get("id", "")).strip()
             if ctrl_id:
                 new_ids.add(ctrl_id)
+
+        # Every controller registers its handlers again below; whatever is
+        # left without one afterwards belongs to nothing that exists.
+        self._topic_handlers.clear()
 
         # Stop & remove deleted controllers
         removed_ids = set(self._controllers.keys()) - new_ids
@@ -288,11 +297,8 @@ class IrrigationManager:
             await ctrl.publish_all_states()
             _LOGGER.info("Reloaded irrigation controller '%s'", ctrl_id)
 
-        # Unsubscribe topics for controllers that no longer exist
-        valid_prefixes = set()
-        for ctrl in self._controllers.values():
-            valid_prefixes.add(f"{ctrl._topic_prefix}/cmd/irrigation/{ctrl.id}")
-        stale_topics = {t for t in self._subscribed_topics if not any(t.startswith(p) for p in valid_prefixes)}
+        # Unsubscribe topics of controllers, zones and schedules that are gone
+        stale_topics = self._subscribed_topics - self._topic_handlers.keys()
         for topic in stale_topics:
             with contextlib.suppress(Exception):
                 await self._manager.message_bus.unsubscribe_and_stop_listen(topic)
@@ -351,13 +357,27 @@ class IrrigationManager:
         self._manager.send_message(topic=topic, payload="", retain=True)
         cfg.remove_autodiscovery_msg(ha_type, topic)
 
-    async def _subscribe_topic(self, topic: str, handler) -> None:
+    async def _subscribe_topic(self, topic: str, handler: Callable[[str, str], Awaitable[None]]) -> None:
+        """Route a command topic to handler, replacing any handler it had.
+
+        A reload rebuilds controllers with the ids they had, on the same
+        topics; the subscription stays and the new controller's handler takes
+        the messages from then on.
+        """
+        self._topic_handlers[topic] = handler
         if topic in self._subscribed_topics:
-            _LOGGER.debug("Irrigation: topic already subscribed: %s", topic)
             return
         _LOGGER.debug("Irrigation: subscribing to MQTT topic: %s → handler=%s", topic, handler.__name__)
-        await self._manager.message_bus.subscribe_and_listen(topic, handler)
+        await self._manager.message_bus.subscribe_and_listen(topic, self._dispatch)
         self._subscribed_topics.add(topic)
+
+    async def _dispatch(self, topic: str, payload: str) -> None:
+        handler = self._topic_handlers.get(topic)
+        if handler is None:
+            # Between a reload dropping the old handlers and registering new ones.
+            _LOGGER.debug("Irrigation: no handler for %s, dropping command", topic)
+            return
+        await handler(topic, payload)
 
     async def _subscribe_controller(self, ctrl: IrrigationController) -> None:
         async def handle_main(_topic: str, payload: str, _ctrl: IrrigationController = ctrl) -> None:
