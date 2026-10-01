@@ -39,6 +39,8 @@ before one can be made.
   the SSH password from the Accounts page.
 - **MQTT password** moves out of `mqtt.yaml` into `secrets.yaml`, and saving
   the MQTT page no longer writes it back in the open.
+- **MQTT over TLS**, in both directions: boneIO connecting out to a broker,
+  and the controller's own Mosquitto broker taking encrypted connections in.
 - **Operating-system updates from the panel.**
 
 ## New features and fixes
@@ -59,6 +61,11 @@ before one can be made.
   update now says so.
 - GPIO binary sensors publish their state as retained, so HA knows it right
   after a restart.
+- **Home Assistant, again:** saving a section (inputs, outputs, covers) no
+  longer removes entities it does not own from Home Assistant — security
+  events, virtual switches, irrigation, remote outputs and more could
+  disappear or stop updating on a save.
+- v0.2/v0.3 boards: `IN_26`, `IN_27` and `IN_28` work again.
 
 The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -80,6 +87,71 @@ you can — the output of `journalctl -u boneio -b`.
 # v1.6.0.dev26 — internal test build
 
 ## Since dev25
+
+A broker can now require TLS, and boneIO can speak it on both sides.
+Connecting out, a new `mqtt.tls` section checks the broker's certificate
+against the system's trusted authorities or your own CA, with an optional
+client certificate; turning it on and failing to set up means no connection
+at all, never a silent fall-back to a plain one — the broker password
+travels in the CONNECT packet. Taking connections in, the Mosquitto page
+gets a Broker encryption card: make a ten-year certificate here or upload
+your own, and choose plain, TLS alongside plain, or TLS only from the
+network — boneIO itself keeps a plain loopback connection so it cannot lock
+itself out, and Node-RED on the controller reaches the broker through
+`host.docker.internal`, from Docker's network rather than localhost, so its
+own broker node needs moving to 8883 as well if the mode goes TLS-only.
+Changes go through `boneio-system` and roll back automatically if the
+broker does not come back up on the new settings. Migration 1.6.32 installs
+the updated helper and opens 8883 in the firewall. See `docs/MQTT_TLS.md`
+for both directions and an openssl recipe for the certificates.
+
+Ten fixes close the same family of bug: saving one section of the
+configuration — inputs, outputs, covers — rebuilds its own discovery
+entries and, in doing so, could silently remove or stop updating entities
+it does not own. Saving inputs no longer wipes event and binary_sensor
+entities (security events, the security alert, the OLED button) out of
+Home Assistant; saving outputs or covers no longer removes schedules,
+virtual switches, irrigation, modbus switches, remote outputs, output
+groups, remote covers or gate covers. Covers, irrigation, thermostats, gate
+covers, alarm panels and virtual energy sensors now follow the new output
+objects an output reload creates instead of going on watching ones nobody
+updates any more; remote outputs survive an output reload as the same
+objects. A Modbus device that has not answered yet is no longer dropped
+from Home Assistant as unused. Entities that register a while after startup
+— security, updates, irrigation, remote inputs — are no longer caught by
+the discovery-replay race at startup and removed moments after they appear.
+
+v0.2 and v0.3 boards get a corrected pin overlay: P9_11, P9_12 and P9_13
+work as inputs `IN_26`, `IN_27` and `IN_28` again, instead of being claimed
+by 1-Wire and a UART4 these boards do not have. Migration 1.6.31 installs
+it and reinstalls `boneio-system`; the startup check now asks for a repair
+whenever an installed overlay copy differs from the shipped one, not only
+when it is missing outright.
+
+Smaller things: the security page and the SSH login card no longer wait on
+a slow sudo check on every open — both are kept warm and refreshed in the
+background. Outputs and inputs can be grouped by area on the dashboard.
+Frontend assets are gzipped once at build time instead of on the
+BeagleBone's CPU on every request. A number of webui rough edges — ghost
+buttons that did not look clickable, a bounce-time field with no limit, a
+Save button that did not span its card — are fixed.
+
+No migrations beyond 1.6.31 and 1.6.32 above; the plans that install
+`boneio-system` carry its new hash and are re-signed with it (1.6.5, 1.6.8,
+1.6.9, 1.6.17, 1.6.18, 1.6.22, 1.6.26, 1.6.27, 1.6.29, 1.6.30, plus the new
+1.6.31 and 1.6.32).
+
+Checked on 192.168.50.220: MQTT over TLS, including the broker's own TLS
+mode and migration 1.6.32. The discovery/reload fixes too, read off Home
+Assistant's `online` status and what the discovery cache held before and
+after each reload: an input reload went from 0 to 50 event/binary_sensor
+entries kept instead of wiped; an output or cover reload stopped dropping
+other entity types (switch 8→0, valve 7→4, cover 4→2 before the fix,
+unchanged after); a remote output stayed reachable after an output reload;
+`OUT_02`'s energy sensor resumed counting after a reload (0 → +0.5 Wh/min);
+the startup discovery race, an offline Modbus device and irrigation were
+checked on the same controller by a second session. Migration 1.6.31 (the
+v0.2/v0.3 overlay) has not been tried on a controller yet.
 
 A system update no longer stops at "not enough space" because of apt's own
 downloads. On a controller with a small eMMC the panel refused with 277 MB

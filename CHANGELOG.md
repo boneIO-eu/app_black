@@ -6,10 +6,132 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
-## v1.6.0.dev26 (2026-09-30) — 1.6.x security series
+## v1.6.0.dev26 (2026-10-01) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
 RELEASE_NOTES.md before updating.
+
+### 🔒 MQTT over TLS, in both directions
+
+- **boneIO can connect to a broker over TLS.** A new `mqtt.tls` section
+  checks the broker's certificate against the system's trusted authorities
+  or an owner-supplied CA, takes an optional client certificate, and an
+  explicit `insecure` switch for testing. TLS that cannot be set up means no
+  connection at all, never a silent fall-back to plain text — the broker
+  password travels in CONNECT.
+- **The MQTT settings page gets an Encryption (TLS) block**: move the
+  default port between 1883 and 8883, pick what to check the broker's
+  certificate against, and upload a client certificate. The log and the
+  page both say whether the current session is over TLS.
+- **The local Mosquitto broker can require TLS too.** A new Broker
+  encryption (TLS) card makes a ten-year certificate from a one-off CA, or
+  takes an uploaded one, and a mode: off, TLS beside plain 1883, or TLS only
+  from the network with plain 1883 kept on loopback for boneIO itself.
+  Changes go through `boneio-system` (four new verbs) and roll back if the
+  broker does not come back up. TLS-only is refused while boneIO's own
+  connection to this broker is still plain.
+- Migration **1.6.32** installs the new `boneio-system` and opens 8883 in
+  `ufw`; the plans that install the helper are re-signed with it.
+- `docs/MQTT_TLS.md` covers both directions and how to make the
+  certificates by hand, towards the CRA requirement for protecting data in
+  transit.
+
+### 🏠 Reloading a section no longer drops other entities from Home Assistant
+
+Ten fixes to the same family of bug: a section reload rebuilding its own
+discovery topics could remove, or silently stop updating, entities it did
+not own.
+
+- **Saving inputs** no longer removes event and binary_sensor entities
+  (security events, the security alert, the OLED button) from Home
+  Assistant — a reload no longer wipes the whole discovery cache, only what
+  it actually stops announcing.
+- **Saving outputs or covers** no longer removes the other side's entities:
+  schedules, virtual switches, irrigation zones, modbus switches, remote
+  outputs and output groups survive an output save; remote covers and gate
+  covers survive a cover save. Home Assistant no longer recreates every
+  cover and group on each save.
+- **Covers, irrigation zones and water sources, thermostats, gate covers,
+  alarm panels and virtual energy sensors** now pick up the new output
+  objects an output reload creates, instead of going on driving ones that
+  are no longer updated — a virtual energy sensor had stopped counting, an
+  interlock had stopped checking.
+- **Remote outputs** survive an output reload as the same objects, so MQTT
+  commands, actions, groups and interlocks keep finding them.
+- **Virtual switches** are announced to Home Assistant at startup, not only
+  after the section is saved once.
+- **A Modbus device that hasn't answered yet** keeps its discovery topics
+  reserved, so it is not wrongly cleaned up as unused, and can still be
+  removed from the configuration later.
+- **Entities that register late at startup** (security, update entities,
+  irrigation, remote inputs up to ~40 s in) are no longer removed and
+  republished during the discovery-replay race at startup.
+- **Irrigation** entities taken out of Home Assistant are now fully removed
+  from the discovery cache, and a reload dispatches each command topic to
+  the controller rebuilt by that reload instead of the one running before
+  it.
+- A cover whose type changes while it might be moving is now stopped
+  first; a virtual energy sensor follows a changed `output_id`; the OLED's
+  per-expander groups drop deleted or moved outputs after a reload.
+
+### 🔌 v0.2/v0.3 boards: P9_11, P9_12 and P9_13 work as inputs again
+
+- **`IN_26`, `IN_27` and `IN_28` never worked** on v0.2/v0.3 boards: the
+  overlay the image installed bound `w1-gpio` and UART4 onto those pins,
+  which these boards have neither of. Migration **1.6.31** ships the
+  corrected overlay and reinstalls `boneio-system`; the startup check now
+  asks for `overlay-repair` whenever an installed copy differs from the
+  shipped one, not only when it is missing outright.
+
+### ⚡ The security page and SSH card stop waiting on sudo
+
+- **Security posture and OS-update state are kept warm** instead of
+  recomputed on every open: up to 5.3 s (a deliberately slow password check
+  plus OS-update subprocesses) drops to the last cached answer, refreshed in
+  the background. The SSH login card in Accounts shares the same cache and
+  no longer waits on its own.
+
+### 📍 Group the dashboard by area
+
+- **Outputs and inputs can be grouped into one panel per area**, in the
+  configured order, with a "Group by area" button shown once areas exist.
+  Output groups and covers now carry their area over the WebSocket too, so
+  they can be placed correctly.
+- The filter above the output, cover, remote output, template and input
+  tables also matches the area, not just the name or ID.
+
+### 🧹 Minor
+
+- Frontend assets are gzipped at build time and cached for a year instead
+  of being gzipped on the BeagleBone's CPU on every request.
+- Real buttons instead of ghost ones for the log viewer toolbar, lone
+  actions (CAN status, security recheck, Node-RED backups…), "Add" buttons
+  and the alarm's on-disconnect toggle.
+- Table row actions stay in view on a narrow screen; a card's Save button
+  spans its footer again; the dashboard's sort and grouping buttons look
+  like buttons.
+- Number fields keep a typed decimal separator and minus sign instead of
+  reformatting on every keystroke; the binary sensor bounce time is limited
+  to 1–1000 ms, client- and server-side.
+- Slow sections (security page, SSH card, framing card, account list) show
+  "Loading…" instead of a bare spinner.
+- Output groups with many outputs fold the extra ones into a "+N" badge;
+  expanded input actions line up with the table; disabled action types say
+  "none defined" instead of leading to an empty list.
+- The setup wizard and the Accounts page say SSH always logs in as
+  `boneio`, whatever the panel's own username.
+
+Checked on 192.168.50.220: MQTT over TLS, including the broker's own TLS and
+migration 1.6.32. The discovery/reload fixes too, counted against Home
+Assistant's `online` status in the discovery cache — before/after: an input
+reload went from 0 to 50 event/binary_sensor entries kept instead of wiped;
+an output or cover reload stopped dropping other types (switch 8→0, valve
+7→4, cover 4→2 before, unchanged after); a remote output stayed reachable
+after an output reload; `OUT_02`'s energy sensor counted again after a
+reload (0 → +0.5 Wh/min); the startup discovery race, an offline Modbus
+device and irrigation were checked on the same controller by a second
+session. Migration 1.6.31 (the v0.2/v0.3 overlay) is not yet tried on a
+controller.
 
 ### 💾 An OS update short of room clears apt's cache first
 
