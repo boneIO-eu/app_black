@@ -308,9 +308,6 @@ class IrrigationManager:
 
         Sends empty payload to discovery topics to remove entities from HA.
         """
-        cfg = self._manager.config_helper
-        serial = cfg.serial_number
-
         # Build list of discovery IDs to remove
         discovery_ids: list[tuple[str, str]] = [
             (f"{ctrl.id}", "switch"),
@@ -321,7 +318,11 @@ class IrrigationManager:
             (f"{ctrl.id}_pause", "button"),
             (f"{ctrl.id}_resume", "button"),
             (f"{ctrl.id}_event", "event"),
+            (f"{ctrl.id}_zone_end_time", "sensor"),
+            (f"{ctrl.id}_next_run_time", "sensor"),
         ]
+        if len(ctrl.water_sources) > 1:
+            discovery_ids.append((f"{ctrl.id}_water_source", "select"))
         # Multi-zone-only entities
         if len(ctrl.zones) > 1:
             discovery_ids.extend([
@@ -337,8 +338,18 @@ class IrrigationManager:
             discovery_ids.append((f"{ctrl.id}_schedule_{idx}_skip", "switch"))
 
         for disc_id, ha_type in discovery_ids:
-            topic = f"{cfg.ha_discovery_prefix}/{ha_type}/{serial}/{disc_id}/config"
-            self._manager.send_message(topic=topic, payload="", retain=True)
+            self._unpublish_discovery(id=disc_id, ha_type=ha_type)
+
+    def _unpublish_discovery(self, id: str, ha_type: str) -> None:
+        """Take an entity out of Home Assistant and out of the discovery cache.
+
+        Left in the cache, the entity would be announced again whenever Home
+        Assistant comes online, and an empty payload there is resent each time.
+        """
+        cfg = self._manager.config_helper
+        topic = f"{cfg.ha_discovery_prefix}/{ha_type}/{cfg.serial_number}/{id}/config"
+        self._manager.send_message(topic=topic, payload="", retain=True)
+        cfg.remove_autodiscovery_msg(ha_type, topic)
 
     async def _subscribe_topic(self, topic: str, handler) -> None:
         if topic in self._subscribed_topics:
@@ -570,11 +581,7 @@ class IrrigationManager:
 
         for zone in ctrl.zones:
             # Remove stale switch discovery (migration from switch → valve)
-            self._manager.publish_ha_discovery(
-                id=f"{ctrl.id}_zone_{zone.id}",
-                ha_type="switch",
-                payload="",
-            )
+            self._unpublish_discovery(id=f"{ctrl.id}_zone_{zone.id}", ha_type="switch")
             _pub(
                 id=f"{ctrl.id}_zone_{zone.id}",
                 ha_type="valve",
@@ -621,10 +628,8 @@ class IrrigationManager:
 
             # Remove stale per-zone next_run sensor (migrated to valve attributes)
             if zone.run_every_n > 1:
-                self._manager.publish_ha_discovery(
-                    id=f"{ctrl.id}_zone_{zone.id}_next_run",
-                    ha_type="sensor",
-                    payload="",
+                self._unpublish_discovery(
+                    id=f"{ctrl.id}_zone_{zone.id}_next_run", ha_type="sensor"
                 )
 
         for idx, _schedule in enumerate(ctrl._schedule):
