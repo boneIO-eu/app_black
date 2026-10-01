@@ -20,6 +20,10 @@ This replaces both with named operations:
     ntp-set <servers|default>      point systemd-timesyncd at given servers
     mqtt-password <account>        set a broker password, read from stdin
     mqtt-reload                    have the broker re-read its password file
+    mqtt-tls-state                 the broker's TLS mode and whether it has a certificate
+    mqtt-tls-cert                  install the broker's certificate and key, from stdin
+    mqtt-tls-cert-remove           remove them, while TLS is off
+    mqtt-tls-mode <off|optional|required>  TLS on 8883, beside or instead of 1883
     service-password-state         is the boneio login locked, shipped or set
     service-password-init          set it once, from stdin — see below
     service-password-change        passwd: current and new, from stdin
@@ -126,6 +130,54 @@ MQTT_ACCOUNTS = ("boneio", "homeassistant", "mqtt")
 #: has to stay or the fix takes the broker down with the exposure.
 MOSQUITTO_PASSWD_MODE = 0o640
 MOSQUITTO_PASSWD_OWNER = ("root", "mosquitto")
+
+#: The broker configuration boneIO manages, in exactly one of the shapes in
+#: MOSQUITTO_CONFS. Anything else is somebody's hand edit, and the TLS verbs
+#: refuse to overwrite it rather than guess which parts matter.
+MOSQUITTO_CONF = Path("/etc/mosquitto/conf.d/boneio.conf")
+MOSQUITTO_CONF_OWNER = ("mosquitto", "mosquitto")
+MOSQUITTO_CONF_MODE = 0o600
+#: Debian's own directory for broker certificates, 0755 root. The key is
+#: protected by its own mode; the certificate is public and stays readable so
+#: the panel can describe it and hand out the CA at the end of its chain.
+MOSQUITTO_CERT_DIR = Path("/etc/mosquitto/certs")
+MOSQUITTO_CERT = MOSQUITTO_CERT_DIR / "boneio.crt"
+MOSQUITTO_KEY = MOSQUITTO_CERT_DIR / "boneio.key"
+MOSQUITTO_TLS_OWNER = ("root", "mosquitto")
+MOSQUITTO_CERT_MODE = 0o644
+MOSQUITTO_KEY_MODE = 0o640
+MQTT_PLAIN_PORT = 1883
+MQTT_TLS_PORT = 8883
+MQTT_TLS_MODES = ("off", "optional", "required")
+#: A chain and a key are a few kilobytes.
+MQTT_TLS_MAX_BYTES = 64 * 1024
+#: How long a restarted broker gets to open its listeners before a change is
+#: rolled back. A BeagleBone needs about two seconds.
+MQTT_TLS_START_TIMEOUT = 20.0
+
+#: ``off`` is byte for byte what migration 1.3.0 installs, so turning TLS off
+#: returns a device to the state every other one is in. ``required`` keeps 1883
+#: on loopback: boneIO and anything else on the controller keep connecting
+#: without TLS, where the traffic never leaves the device.
+_MOSQUITTO_PLAIN = "listener 1883\npassword_file /etc/mosquitto/passwd\n"
+_MOSQUITTO_LOOPBACK = "listener 1883 127.0.0.1\npassword_file /etc/mosquitto/passwd\n"
+_MOSQUITTO_TLS = (
+    "\n# TLS for the network. Written by boneio-system mqtt-tls-mode.\n"
+    "listener 8883\n"
+    "certfile /etc/mosquitto/certs/boneio.crt\n"
+    "keyfile /etc/mosquitto/certs/boneio.key\n"
+)
+MOSQUITTO_CONFS = {
+    "off": _MOSQUITTO_PLAIN,
+    "optional": _MOSQUITTO_PLAIN + _MOSQUITTO_TLS,
+    "required": _MOSQUITTO_LOOPBACK + _MOSQUITTO_TLS,
+}
+#: One PEM block. The body alphabet has no room for the ``Proc-Type`` header of
+#: an encrypted traditional key, so such a key is refused as unknown text.
+_PEM_BLOCK_RE = re.compile(
+    r"-----BEGIN ([A-Z ]+)-----\r?\n[A-Za-z0-9+/=\r\n]+?-----END \1-----[ \t]*(?:\r?\n|$)"
+)
+_PEM_KEY_TYPES = ("PRIVATE KEY", "EC PRIVATE KEY", "RSA PRIVATE KEY")
 
 #: The login this helper serves, and the only account whose password it may
 #: touch. Not a parameter: a verb that set "an account's password" would be a
@@ -252,6 +304,7 @@ VERBS = (
     "hostname-set",
     "ntp-get", "ntp-set",
     "mqtt-password", "mqtt-reload",
+    "mqtt-tls-state", "mqtt-tls-cert", "mqtt-tls-cert-remove", "mqtt-tls-mode",
     "service-password-state", "service-password-init", "service-password-change",
     "os-update-state", "os-update-start", "os-update-run", "os-update-log",
     "os-autoupdate-set",
@@ -600,6 +653,316 @@ def _restore_passwd_permissions() -> None:
 def _mqtt_reload() -> int:
     """Have the broker re-read its password file."""
     return _run(["systemctl", "reload", "mosquitto"])
+
+
+# ------------------------------------------------------------ broker TLS
+
+
+def _mqtt_tls_mode_now() -> str:
+    """Which managed shape the broker configuration is in.
+
+    Returns:
+        ``off``, ``optional`` or ``required``; ``custom`` for a file edited by
+        hand; ``missing`` when there is none.
+    """
+    try:
+        text = MOSQUITTO_CONF.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "missing"
+    except (OSError, UnicodeDecodeError):
+        return "custom"
+    for mode, conf in MOSQUITTO_CONFS.items():
+        if text == conf:
+            return mode
+    return "custom"
+
+
+def _mqtt_tls_have_cert() -> bool:
+    return MOSQUITTO_CERT.is_file() and MOSQUITTO_KEY.is_file()
+
+
+def _broker_active() -> bool:
+    """Whether systemd reports the broker as running."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "mosquitto"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.stdout.strip() == "active"
+
+
+def _port_open(port: int, host: str = "127.0.0.1") -> bool:
+    """Whether something accepts TCP connections on *port*."""
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+def _set_owner(path: Path, owner: tuple[str, str], mode: int) -> None:
+    import grp
+    import pwd
+
+    os.chown(path, pwd.getpwnam(owner[0]).pw_uid, grp.getgrnam(owner[1]).gr_gid)
+    os.chmod(path, mode)
+
+
+def _broker_file_spec(path: Path) -> tuple[tuple[str, str], int]:
+    """Owner and mode each managed broker file must have."""
+    if path == MOSQUITTO_CONF:
+        return MOSQUITTO_CONF_OWNER, MOSQUITTO_CONF_MODE
+    if path == MOSQUITTO_KEY:
+        return MOSQUITTO_TLS_OWNER, MOSQUITTO_KEY_MODE
+    return MOSQUITTO_TLS_OWNER, MOSQUITTO_CERT_MODE
+
+
+def _replace_file(path: Path, data: bytes | None) -> None:
+    """Put *data* at *path* atomically, owned and moded from the start.
+
+    None removes the file. The temporary file is private until renamed, so a
+    key is never readable by anyone it should not be, even for an instant.
+    """
+    if data is None:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return
+    owner, mode = _broker_file_spec(path)
+    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        os.fchmod(handle, 0o600)
+        with os.fdopen(handle, "wb") as out:
+            out.write(data)
+            out.flush()
+            os.fsync(out.fileno())
+        _set_owner(Path(temporary), owner, mode)
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def _read_or_none(path: Path) -> bytes | None:
+    try:
+        return path.read_bytes()
+    except FileNotFoundError:
+        return None
+
+
+def _broker_restarted(expect_tls: bool) -> bool:
+    """Restart the broker and wait until it serves what it should.
+
+    Running is not enough: mosquitto that cannot load a certificate exits,
+    and systemd starts it again, so ``is-active`` flickers. Success is 1883
+    answering on loopback — boneIO's own connection — and, with TLS, 8883.
+
+    The unit restarts on failure every 100 ms with a limit of five starts in
+    ten seconds, so a bad certificate uses the limit up within a second —
+    and the restart that rolls it back would then be refused, leaving the
+    broker down in exactly the case the rollback exists for. Clearing the
+    failed state first keeps every restart here possible.
+    """
+    _run(["systemctl", "reset-failed", "mosquitto"], timeout=30, tolerate=True)
+    if _run(["systemctl", "restart", "mosquitto"], timeout=60) != 0:
+        return False
+    deadline = time.monotonic() + MQTT_TLS_START_TIMEOUT
+    while True:
+        if (
+            _broker_active()
+            and _port_open(MQTT_PLAIN_PORT)
+            and (not expect_tls or _port_open(MQTT_TLS_PORT))
+        ):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.5)
+
+
+def _apply_broker_files(changes: dict[Path, bytes | None], expect_tls: bool, had_tls: bool) -> int:
+    """Write broker files, restart, and put everything back if it fails.
+
+    A broker that does not start takes Home Assistant and boneIO's own
+    connection with it, on a device that may be in a cabinet. So nothing is
+    left half-applied: the previous files are restored and the broker started
+    again on them.
+
+    Raises:
+        Refused: If the broker did not come up with the new files.
+    """
+    saved = {path: _read_or_none(path) for path in changes}
+    try:
+        for path, data in changes.items():
+            _replace_file(path, data)
+    except OSError as exc:
+        for path, data in saved.items():
+            try:
+                _replace_file(path, data)
+            except OSError:
+                _LOGGER.error("could not restore %s", path)
+        raise Refused(f"could not write the broker's files: {exc}") from exc
+
+    if _broker_restarted(expect_tls):
+        return 0
+
+    _LOGGER.error("the broker did not come up with the new files; restoring the previous ones")
+    for path, data in saved.items():
+        try:
+            _replace_file(path, data)
+        except OSError as exc:
+            _LOGGER.error("could not restore %s: %s", path, exc)
+    if not _broker_restarted(had_tls):
+        _LOGGER.error("the broker did not come up with the previous files either")
+    raise Refused(
+        "the broker did not start with the new TLS settings, so the previous "
+        "ones were put back"
+    )
+
+
+def _mqtt_tls_state() -> int:
+    """Print the broker's TLS state as JSON."""
+    print(json.dumps({
+        "mode": _mqtt_tls_mode_now(),
+        "certificate": _mqtt_tls_have_cert(),
+        "active": _broker_active(),
+        "tls_port": MQTT_TLS_PORT,
+    }))
+    return 0
+
+
+def _split_bundle(text: str) -> tuple[bytes, bytes]:
+    """Separate a PEM bundle into the certificate chain and the one key.
+
+    Raises:
+        Refused: If it holds anything but certificates, one unencrypted key
+            and optional EC parameters.
+    """
+    certificates: list[str] = []
+    keys: list[str] = []
+    for match in _PEM_BLOCK_RE.finditer(text):
+        kind = match.group(1)
+        block = match.group(0).rstrip() + "\n"
+        if kind == "CERTIFICATE":
+            certificates.append(block)
+        elif kind in _PEM_KEY_TYPES:
+            keys.append(block)
+        elif kind == "EC PARAMETERS":
+            continue
+        elif kind == "ENCRYPTED PRIVATE KEY":
+            raise Refused("the key is protected by a passphrase; the broker starts unattended")
+        else:
+            raise Refused(f"unexpected PEM block: {kind}")
+    if _PEM_BLOCK_RE.sub("", text).strip():
+        raise Refused("stdin holds something besides PEM certificates and a key")
+    if not certificates:
+        raise Refused("no certificate on stdin")
+    if len(keys) != 1:
+        raise Refused(f"expected exactly one private key on stdin, found {len(keys)}")
+    return "".join(certificates).encode("ascii"), keys[0].encode("ascii")
+
+
+def _check_pair(chain: bytes, key: bytes) -> None:
+    """Load the pair the way the broker will, before it is asked to.
+
+    Raises:
+        Refused: If OpenSSL will not serve them together.
+    """
+    import ssl
+
+    with tempfile.TemporaryDirectory() as scratch:
+        cert_path = Path(scratch) / "cert.pem"
+        key_path = Path(scratch) / "key.pem"
+        cert_path.write_bytes(chain)
+        key_path.write_bytes(key)
+        try:
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER).load_cert_chain(
+                str(cert_path), str(key_path), password=lambda: b""
+            )
+        except (ssl.SSLError, OSError, ValueError) as exc:
+            raise Refused(f"the certificate and key cannot be served together: {exc}") from exc
+
+
+def _mqtt_tls_cert() -> int:
+    """Install the broker's certificate chain and key, read from stdin.
+
+    With TLS on, the broker is restarted onto them and rolled back if it does
+    not come up; with TLS off they only wait for ``mqtt-tls-mode``.
+    """
+    raw = sys.stdin.read(MQTT_TLS_MAX_BYTES + 1)
+    if len(raw) > MQTT_TLS_MAX_BYTES:
+        raise Refused("that is far too much to be a certificate and a key")
+    chain, key = _split_bundle(raw)
+    _check_pair(chain, key)
+
+    mode = _mqtt_tls_mode_now()
+    if mode == "custom":
+        raise Refused(f"{MOSQUITTO_CONF} was edited by hand; boneIO will not touch the broker's TLS")
+    MOSQUITTO_CERT_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+    if mode in ("optional", "required"):
+        result = _apply_broker_files(
+            {MOSQUITTO_CERT: chain, MOSQUITTO_KEY: key}, expect_tls=True, had_tls=True
+        )
+    else:
+        # The key first: a certificate without its key is the worse half-state.
+        _replace_file(MOSQUITTO_KEY, key)
+        _replace_file(MOSQUITTO_CERT, chain)
+        result = 0
+    _LOGGER.info("Broker certificate installed (TLS %s)", mode)
+    return result
+
+
+def _mqtt_tls_cert_remove() -> int:
+    """Remove the broker's certificate and key. Only while TLS is off."""
+    mode = _mqtt_tls_mode_now()
+    if mode not in ("off", "missing"):
+        raise Refused(f"TLS is {mode}; turn it off before removing its certificate")
+    _replace_file(MOSQUITTO_KEY, None)
+    _replace_file(MOSQUITTO_CERT, None)
+    _LOGGER.info("Broker certificate removed")
+    return 0
+
+
+def _mqtt_tls_mode(mode: str | None) -> int:
+    """Switch the broker between plain, TLS beside plain, and TLS only.
+
+    Args:
+        mode: One of :data:`MQTT_TLS_MODES`.
+
+    Raises:
+        Refused: For an unknown mode, a hand-edited configuration, TLS without
+            a certificate, or a broker that did not come back.
+    """
+    if mode not in MQTT_TLS_MODES:
+        raise Refused(f"unknown mode {mode!r}. Allowed: {', '.join(MQTT_TLS_MODES)}")
+    current = _mqtt_tls_mode_now()
+    if current == "custom":
+        raise Refused(
+            f"{MOSQUITTO_CONF} was edited by hand; boneIO will not overwrite it. "
+            "Put it back to the two lines migration 1.3.0 installs to manage TLS here."
+        )
+    if current == "missing":
+        raise Refused(f"{MOSQUITTO_CONF} does not exist; apply the pending migrations first")
+    if current == mode:
+        _LOGGER.info("Broker TLS already %s", mode)
+        return 0
+    if mode != "off" and not _mqtt_tls_have_cert():
+        raise Refused("install a certificate first (mqtt-tls-cert)")
+
+    result = _apply_broker_files(
+        {MOSQUITTO_CONF: MOSQUITTO_CONFS[mode].encode("ascii")},
+        expect_tls=mode != "off",
+        had_tls=current != "off",
+    )
+    _LOGGER.info("Broker TLS %s -> %s", current, mode)
+    return result
 
 
 def _hostname_set(name: str | None) -> int:
@@ -1909,6 +2272,16 @@ def main(argv: list[str] | None = None) -> int:
             return _mqtt_password(args.argument)
         if args.verb == "mqtt-reload":
             return _mqtt_reload()
+        if args.verb in ("mqtt-tls-state", "mqtt-tls-cert", "mqtt-tls-cert-remove"):
+            if args.argument is not None or args.value is not None:
+                raise Refused(f"{args.verb} takes no arguments")
+            if args.verb == "mqtt-tls-state":
+                return _mqtt_tls_state()
+            if args.verb == "mqtt-tls-cert":
+                return _mqtt_tls_cert()
+            return _mqtt_tls_cert_remove()
+        if args.verb == "mqtt-tls-mode":
+            return _mqtt_tls_mode(args.argument)
         if args.verb == "service-password-state":
             return _service_password_state_verb()
         if args.verb == "service-password-init":
