@@ -15,6 +15,7 @@ import hmac
 import json
 import logging
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import ALARM_CONTROL_PANEL, STATE
@@ -915,6 +916,15 @@ class BoneIOAlarmPanel:
         if self._codes:
             self._publish_code_lock(False)
         _LOGGER.info("Alarm panel %s started", self._id)
+
+    def rebind_outputs(self, resolve: Callable[[Any], Any]) -> None:
+        """Swap each alarm output for the one registered now under its id.
+
+        Args:
+            resolve: Maps a held output to the current one.
+        """
+        for alarm_output in self._outputs:
+            alarm_output.output = resolve(alarm_output.output)
 
     async def stop(self) -> None:
         """Stop alarm panel — cancel timers and unsubscribe."""

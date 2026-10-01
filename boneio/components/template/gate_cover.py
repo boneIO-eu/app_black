@@ -35,6 +35,7 @@ import asyncio
 import contextlib
 import json
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from boneio.const import (
@@ -199,6 +200,19 @@ class BoneIOGateCover:
         await self._message_bus.subscribe_and_listen(self._cmd_topic, self.handle_command)
         self._publish_state()
         _LOGGER.info("GateCover %s started (state=%s), subscribed to %s", self._id, self._state, self._cmd_topic)
+
+    def rebind_outputs(self, resolve: Callable[[BasicOutput | None], BasicOutput | None]) -> None:
+        """Swap the relays for the ones registered now under their ids.
+
+        A pulse already timed keeps the relay its off-timer captured.
+
+        Args:
+            resolve: Maps a held output to the current one; None stays None.
+        """
+        self._pulse_output = resolve(self._pulse_output)
+        self._open_output = resolve(self._open_output)
+        self._close_output = resolve(self._close_output)
+        self._stop_output = resolve(self._stop_output)
 
     async def stop(self) -> None:
         """Unsubscribe from MQTT and cancel timers."""

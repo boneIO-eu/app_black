@@ -690,3 +690,17 @@ class IrrigationManager:
                 config_helper=cfg,
             ),
         )
+
+    def rebind_outputs(self) -> None:
+        """Point zones and water sources at the outputs registered now.
+
+        Called after an output reload, which rebuilds outputs as new objects.
+        Unlike reload_irrigation it stops nothing: a running cycle carries on
+        with the current valves.
+        """
+        outputs = self._manager.outputs
+        for ctrl in self._controllers.values():
+            for zone in ctrl.zones:
+                zone.valve = outputs.resolve_current(zone.valve)
+            for water_source in ctrl.water_sources:
+                water_source.outputs[:] = [outputs.resolve_current(o) for o in water_source.outputs]

@@ -897,6 +897,11 @@ class OutputManager:
         # dropped duration number: announced before, not any more.
         for ha_type, entity_id in announced_before - self._ha_topics:
             self._unpublish_discovery(ha_type, entity_id)
+
+        # Outputs and groups are new objects now. Covers, irrigation,
+        # templates and virtual energy sensors took theirs at their own setup
+        # and would keep driving and reading the old ones.
+        self._rebind_dependents()
         
         _LOGGER.info(
             "Output reload complete: %d outputs, %d groups",
@@ -907,6 +912,42 @@ class OutputManager:
         # Broadcast updated states to WebSocket clients
         self._broadcast_all_states()
     
+    def resolve_current(self, output: Any, include_groups: bool = False) -> Any:
+        """The object registered now under ``output``'s id.
+
+        A reload rebuilds local outputs and groups as new objects, so whoever
+        kept one swaps it for this. An id that is gone keeps the old object:
+        the owner's own reload deals with a config that no longer has it.
+
+        Args:
+            output: The output (or group) held so far, or None.
+            include_groups: Also look among output groups.
+
+        Returns:
+            The current object, the old one if its id is gone, or None.
+        """
+        if output is None:
+            return None
+        current = self._outputs.get(output.id)
+        if current is None and include_groups:
+            current = self._configured_output_groups.get(output.id)
+        if current is None:
+            _LOGGER.warning("Output %s is gone after the reload, keeping the old object", output.id)
+            return output
+        return current
+
+    def _rebind_dependents(self) -> None:
+        """Point every subsystem holding outputs at the current objects."""
+        for name in ("covers", "irrigation", "templates", "sensors"):
+            owner = getattr(self._manager, name, None)
+            rebind = getattr(owner, "rebind_outputs", None)
+            if rebind is None:
+                continue
+            try:
+                rebind()
+            except Exception:
+                _LOGGER.exception("Could not rebind outputs in %s", name)
+
     def _publish_discovery(
         self, id: str, ha_type: str, payload: dict, remote: bool = False
     ) -> None:

@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import CLIMATE, OFF, ON, SENSOR, STATE
@@ -301,6 +302,15 @@ class BoneIOThermostat:
         )
         self._publish_state()
         _LOGGER.info("Thermostat %s started", self._id)
+
+    def rebind_outputs(self, resolve: Callable[[Any], Any]) -> None:
+        """Swap the controlled output for the one registered now under its id.
+
+        Args:
+            resolve: Maps the held object to the current one (an output reload
+                rebuilds outputs and groups as new objects).
+        """
+        self._output = resolve(self._output)
 
     async def stop(self) -> None:
         """Stop MQTT command subscriptions."""

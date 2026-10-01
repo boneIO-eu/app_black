@@ -467,6 +467,19 @@ class CoverManager:
         """
         return self._covers
 
+    def rebind_outputs(self) -> None:
+        """Point each cover at the relays registered now under their ids.
+
+        Called after an output reload, which rebuilds the relays as new
+        objects. A movement already running keeps the relay it started with.
+        """
+        outputs = self._manager.outputs
+        for cover in self._covers.values():
+            if getattr(cover, "is_remote", False):
+                continue
+            cover._open_relay = outputs.resolve_current(cover._open_relay)
+            cover._close_relay = outputs.resolve_current(cover._close_relay)
+
     def reload_covers(self) -> None:
         """Reload cover configuration from file.
 

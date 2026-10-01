@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from boneio.const import ON
@@ -130,6 +131,17 @@ class VirtualEnergySensor:
     def last_on_timestamp(self) -> float | None:
         """Get timestamp when output was last turned ON."""
         return self._last_on_timestamp
+
+    def rebind_output(self, resolve: Callable[[BasicOutput], BasicOutput]) -> None:
+        """Swap the tracked output for the one registered now under its id.
+
+        Tracking reads the output's state; after an output reload the old
+        object's state no longer changes, so nothing was counted.
+
+        Args:
+            resolve: Maps the held output to the current one.
+        """
+        self._output = resolve(self._output)
 
     def start_tracking(self):
         """Start tracking consumption (called when output turns ON)."""

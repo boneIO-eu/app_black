@@ -169,6 +169,20 @@ class TemplateManager:
 
     # -- Hot reload ----------------------------------------------------------
 
+    def rebind_outputs(self) -> None:
+        """Point thermostats, gates and alarms at the outputs registered now.
+
+        Called after an output reload. Unlike reload_templates it keeps their
+        state: no siren silenced, no thermostat mode reset.
+        """
+        outputs = self._manager.outputs
+        for thermostat in self._thermostats.items:
+            thermostat.rebind_outputs(lambda o: outputs.resolve_current(o, include_groups=True))
+        for gate in self._gates.items:
+            gate.rebind_outputs(outputs.resolve_current)
+        for alarm in self._alarms.items:
+            alarm.rebind_outputs(outputs.resolve_current)
+
     async def reload_templates(self) -> None:
         """Reload template configuration from file.
 

@@ -1206,6 +1206,15 @@ class SensorManager:
         else:
             sensor.stop_tracking()
 
+    def rebind_outputs(self) -> None:
+        """Point virtual energy sensors at the outputs registered now.
+
+        Called after an output reload, which rebuilds outputs as new objects.
+        """
+        outputs = self._manager.outputs
+        for sensor in self._virtual_energy_sensors:
+            sensor.rebind_output(outputs.resolve_current)
+
     async def reload_virtual_energy_sensors(self) -> None:
         """Reload virtual energy sensor configuration from file.
 
