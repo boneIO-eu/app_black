@@ -104,8 +104,8 @@ export const RESTART_SECTIONS: SectionDefinition[] = [
   { name: 'boneio', icon: '🔧', translationKey: 'sections.boneio', group: 'device', badge: 'restart' },
   { name: 'board_sensors', icon: '🔌', translationKey: 'sections.board_sensors', group: 'device', badge: 'restart' },
 
-  // MQTT and Loxone UDP together — the section is about protocols, not one broker.
   { name: 'mqtt', icon: '📡', translationKey: 'sections.mqtt', group: 'connections', badge: 'restart' },
+  { name: 'lox_udp', icon: '📨', translationKey: 'sections.lox_udp', group: 'connections', badge: 'restart' },
   { name: 'modbus', icon: '🔌', translationKey: 'sections.modbus', group: 'connections', badge: 'restart' },
   { name: 'can', icon: '🔗', translationKey: 'sections.can', group: 'connections', badge: 'restart' },
 

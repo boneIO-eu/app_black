@@ -1251,23 +1251,14 @@ export default function UISettings() {
     [],
   );
 
-  const sectionDirty =
-    activeSection === 'mqtt'
-      ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
-      : (unsavedChanges[activeSection] || false);
+  const sectionDirty = unsavedChanges[activeSection] || false;
 
   const saveActiveSection = async () => {
-    if (activeSection === 'mqtt') {
-      if (unsavedChanges['mqtt']) await saveSection('mqtt');
-      if (unsavedChanges['lox_udp']) await saveSection('lox_udp');
-    } else {
-      await saveSection(activeSection);
-    }
+    await saveSection(activeSection);
   };
 
   const restoreActiveSection = () => {
     restoreSection(activeSection);
-    if (activeSection === 'mqtt') restoreSection('lox_udp');
   };
   return (
     <div className="settings-scope flex flex-col lg:flex-row h-full relative">
@@ -1477,7 +1468,7 @@ export default function UISettings() {
                 dirty={sectionDirty}
                 saving={saveStatus[activeSection] === 'saving'}
                 saveDisabled={
-                  activeSection === 'mqtt' && unsavedChanges['lox_udp'] && !loxFormValid
+                  activeSection === 'lox_udp' && !loxFormValid
                 }
                 width={sectionWidth}
                 onSave={() => void saveActiveSection()}
