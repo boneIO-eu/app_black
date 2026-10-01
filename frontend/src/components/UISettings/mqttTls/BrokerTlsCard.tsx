@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FaLock, FaSpinner } from 'react-icons/fa';
 import axiosInstance from '@/api/axios';
+import { apiErrorMessage } from '@/api/errorMessage';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FormActions, FormField, MoreOptions, NoticeCallout, SelectableCard, SettingsCard } from '../ui';
 import OpenSslGuide from './OpenSslGuide';
@@ -37,10 +38,7 @@ export interface BrokerState {
 /** A restart of the broker on a BeagleBone, plus the helper's checks. */
 const SLOW = { timeout: 120000 };
 
-const errorDetail = (err: unknown): string =>
-  (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-  (err as Error)?.message ??
-  String(err);
+const errorDetail = apiErrorMessage;
 
 /**
  * TLS for the broker installed on this controller.

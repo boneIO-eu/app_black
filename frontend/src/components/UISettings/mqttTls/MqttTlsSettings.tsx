@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axiosInstance from '@/api/axios';
+import { apiErrorMessage } from '@/api/errorMessage';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FormField, NoticeCallout, ToggleRow } from '../ui';
 import HelpLabel from '../components/HelpLabel';
@@ -43,10 +44,7 @@ interface MqttTlsSettingsProps {
 const DEFAULT_PORT = 1883;
 const TLS_PORT = 8883;
 
-const errorDetail = (err: unknown): string =>
-  (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-  (err as Error)?.message ??
-  String(err);
+const errorDetail = apiErrorMessage;
 
 /** Drop keys whose value is undefined, so the saved section stays tidy. */
 const clean = (tls: MqttTlsConfig): MqttTlsConfig =>

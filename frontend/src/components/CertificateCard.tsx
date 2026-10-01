@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FaLock } from 'react-icons/fa';
 import axios from '../api/axios';
+import { apiErrorMessage } from '../api/errorMessage';
 import { useTranslation } from '../hooks/useTranslation';
 import { SettingsCard, FormField, FormActions } from './UISettings/ui';
 
@@ -96,9 +97,7 @@ export default function CertificateCard() {
     void load();
   }, [load]);
 
-  const detail = (err: unknown): string =>
-    (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-    (err as Error).message;
+  const detail = apiErrorMessage;
 
   const upload = async () => {
     const cert = certInput.current?.files?.[0];

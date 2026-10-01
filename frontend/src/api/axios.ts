@@ -30,6 +30,12 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // A file upload has to go out as multipart. With the instance's JSON
+    // default, axios serialises FormData into JSON instead — `{"file":{}}` —
+    // and the server never sees the file. The browser adds the boundary.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      config.headers.set('Content-Type', 'multipart/form-data');
+    }
     return config;
   },
   (error) => {
