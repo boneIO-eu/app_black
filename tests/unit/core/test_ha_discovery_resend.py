@@ -47,6 +47,7 @@ def _run(coro):
 def test_output_resend_keeps_group_area_and_skips_hidden_remote(manager):
     outputs = OutputManager.__new__(OutputManager)
     outputs._manager = manager
+    outputs._ha_topics = set()
     outputs._outputs = {
         "remote_hidden": SimpleNamespace(
             output_type="switch", name="Remote", area=None, show_in_ha=False, adjustable_duration_enabled=False

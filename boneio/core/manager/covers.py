@@ -68,7 +68,9 @@ class CoverManager:
             # Get config from ConfigHelper (already reloaded by Manager)
             config = self._manager._config_helper.get_config()
             self._config_covers = config.get(COVER, [])
-            self._manager._config_helper.clear_autodiscovery_type(ha_type=COVER)
+            # The discovery cache is not cleared: COVER is shared with gate
+            # covers and remote covers, and the MQTT client deletes from HA
+            # any discovery topic it sees that the cache does not hold.
 
             # Remove covers that are no longer in config
             new_ids = set()
@@ -80,7 +82,12 @@ class CoverManager:
                     _close = str(_cfg.get("close_relay", ""))
                     new_ids.add(f"cover_{_open}_{_close}".lower().replace(" ", "_"))
 
-            removed_ids = [cid for cid in self._covers if cid not in new_ids]
+            # Remote covers are not in this section; they have their own reload.
+            removed_ids = [
+                cid
+                for cid, cover in self._covers.items()
+                if cid not in new_ids and not getattr(cover, "is_remote", False)
+            ]
             for cid in removed_ids:
                 _LOGGER.info("Cover %s removed from config, cleaning up", cid)
                 cover = self._covers.pop(cid)
@@ -168,11 +175,18 @@ class CoverManager:
                         _cover._open_relay = open_relay
                         _cover._close_relay = close_relay
                         _cover.update_config_times(_config)
+                        was_shown = _cover.show_in_ha
+                        old_area = _cover.area
                         self._store_ha_attributes(_cover, _config)
+                        if was_shown and not _cover.show_in_ha:
+                            self._remove_cover_ha_discovery(_id)
                         # Re-send HA autodiscovery with potentially new name/area
                         if _cover.show_in_ha:
-                            # Remove old autodiscovery first (in case area changed)
-                            self._remove_cover_ha_discovery(_id)
+                            # A new area is a new HA device: take the entity off
+                            # the old one first. Otherwise update in place — a
+                            # removal makes HA delete the entity and recreate it.
+                            if was_shown and old_area != _cover.area:
+                                self._remove_cover_ha_discovery(_id)
                             # Send new autodiscovery
                             if new_platform == "venetian":
                                 availability_msg_func = ha_cover_with_tilt_availabilty_message
@@ -420,8 +434,12 @@ class CoverManager:
         Args:
             cover_id: ID of the cover to remove from HA Discovery
         """
-        # Find all autodiscovery topics for this cover ID
-        matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(cover_id)
+        # Only COVER: another entity type may use the same id.
+        matching_topics = [
+            (ha_type, topic)
+            for ha_type, topic in self._manager._config_helper.get_autodiscovery_topics_for_id(cover_id)
+            if ha_type == COVER
+        ]
 
         for ha_type, topic in matching_topics:
             _LOGGER.debug("Removing HA Discovery for cover %s: %s", cover_id, topic)
