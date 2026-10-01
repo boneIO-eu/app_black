@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev27` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev28` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,53 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev28 — internal test build
+
+## Since dev27
+
+Reported by a user: a controller a year behind, with well over a hundred
+packages to bring in, had 300 MB free — the panel's own minimum — and still
+ended an update in `dist-upgrade failed (rc=100)`, with `/` filled to zero.
+The check ran before `apt-get update`, against a flat 300 MB that took no
+account of how much a given upgrade would actually download and unpack, and
+`autoremove`/`clean` ran only on success, so the downloads that caused the
+failure stayed on disk for the next attempt. `boneio-system` now runs
+`apt-get --assume-no dist-upgrade` after `update` and reads apt's own
+figures for what is still to download and how much the installed packages
+grow by, and requires that total plus a 100 MB margin for the new kernel's
+initramfs and dpkg's working copies — never less than the old 300 MB; the
+refusal states the figures. The apt cache is cleared before every upgrade
+and after a failed one, `dpkg --configure -a` runs before the gate so a
+device a failed run left full can be repaired from the panel, and the
+OS-update card now warns against the figure the check actually measured
+instead of a fixed minimum. Migration 1.6.33 reinstalls `boneio-system`.
+
+A virtual switch normally has no `id` of its own — the identifier is made
+from its name — and the panel's own form for adding one has no id field, so
+this affected every switch added from the panel. The action picker on an
+input, the condition picker, and the action summary all read `vs.id`
+directly and dropped anything without one, so a freshly added switch simply
+did not appear in either list; the "no virtual switches" message did not
+show either, because the list itself was not empty. Both pickers and the
+summary now resolve the id the way the switch's own form and the backend
+already do, and the summary shows the switch's name instead of its id.
+Reported by a user.
+
+Checked: `boneio-system`'s own test suite, 166/166. The apt-output parser
+against real apt output captured on 192.168.50.220 (44.4 MB / 59.0 MB → 43 /
+57 MiB); a full upgrade on a small eMMC has not been reproduced, since .220
+has 25 GB free. The virtual-switch fix is checked with `tsc -b` and the
+frontend test suite (625/625, one of them new); neither fix has been tried
+on a controller's own panel yet.
+
+Migration 1.6.33 is new. Its plan, and the plans of every earlier migration
+that installs `boneio-system` — 1.6.5, 1.6.8, 1.6.9, 1.6.17, 1.6.18, 1.6.22,
+1.6.26, 1.6.27, 1.6.29, 1.6.30, 1.6.31 and 1.6.32 — are re-signed, since the
+helper's content, and so its hash, changed. The manifest is re-signed too,
+as it is every release.
 
 ---
 

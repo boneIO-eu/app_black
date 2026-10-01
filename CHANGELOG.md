@@ -6,6 +6,53 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev28 (2026-10-01) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 💾 An OS update asks apt how much room it actually needs
+
+Reported by a user: a controller a year behind, well over a hundred
+packages to bring in, had 300 MB free and passed the check — and the
+upgrade still ended in `dist-upgrade failed (rc=100)` with `/` filled to
+zero. The check ran before `apt-get update` and against a flat minimum that
+never accounted for how much a given upgrade would actually download and
+unpack; `autoremove` and `clean` ran only after a success, so the downloads
+that caused it stayed on disk for the next attempt.
+
+- **`boneio-system` now asks apt first.** After `update`, it runs
+  `apt-get --assume-no dist-upgrade` and reads apt's own figures — what is
+  still to download, how much the packages grow by — and requires that
+  total plus a 100 MB margin for the new kernel's initramfs and dpkg's
+  working copies, never less than the old 300 MB. The refusal states the
+  figures it used.
+- **The apt cache is cleared before every upgrade and after a failed one**,
+  before the log and state are written — at 0 B free, even those could fail.
+- **`dpkg --configure -a` runs before the gate**, so a device a failed run
+  left full can be repaired from the panel rather than needing a console.
+- **The check records the same figure (`required_mb`)**, and the OS-update
+  card in the panel warns against it instead of a fixed minimum.
+- Migration 1.6.33 reinstalls `boneio-system`; the plans of every earlier
+  migration that installs it (1.6.5, 1.6.8, 1.6.9, 1.6.17, 1.6.18, 1.6.22,
+  1.6.26, 1.6.27, 1.6.29–1.6.32) are re-signed with it, and so is the
+  manifest.
+
+### 🏳️ Virtual switches added from the panel show up in action pickers again
+
+- **A virtual switch added from the panel has no `id` field in its form** —
+  the identifier is made from its name, as the backend already does it — but
+  the action picker on an input and the condition picker read `vs.id`
+  directly and dropped every switch without one. A freshly added switch left
+  the list empty, and the "no virtual switches" message did not show either,
+  because the list itself was not empty.
+- **Both pickers now resolve the id from the name**, the same way the
+  switch's own form and the backend do, instead of reading a field most
+  switches do not have.
+- **The action summary now names the switch instead of showing its id.**
+- Reported by a user.
+- No migration of its own; see the plans re-signed above.
+
 ## v1.6.0.dev27 (2026-10-01) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
