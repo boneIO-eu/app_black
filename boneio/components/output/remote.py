@@ -740,6 +740,11 @@ class RemoteOutputBase:
         """Whether this is a remote output — always True."""
         return True
 
+    @property
+    def interlock_groups(self) -> list[str]:
+        """Interlock groups this output belongs to."""
+        return self._interlock_groups
+
     # ------------------------------------------------------------------
     # Adjustable duration stubs (remote outputs don't support this)
     # ------------------------------------------------------------------

@@ -616,7 +616,16 @@ class OutputManager:
             reload_config: If True, reload configuration from file and clear existing outputs
             preserved_states: Optional dict of output_id -> is_active state to preserve during reload
         """
+        # Remote outputs come from the remote_outputs section and are not
+        # rebuilt here. They are kept as the same objects: a new one would
+        # also mean a second state callback on the remote device.
+        remote_outputs: dict[str, Any] = {}
         if reload_config:
+            remote_outputs = {
+                output_id: output
+                for output_id, output in self._outputs.items()
+                if getattr(output, "is_remote", False)
+            }
             # Clear existing outputs and event listeners
             for output_id, output in list(self._outputs.items()):
                 # Remove event listeners
@@ -758,6 +767,17 @@ class OutputManager:
             
             # Delayed state send
             self._manager.loop.create_task(self._delayed_send_state(out))
+
+        for output_id, output in remote_outputs.items():
+            if output_id in self._outputs:
+                # Same rule as at startup: the local output wins.
+                _LOGGER.warning(
+                    "Remote output '%s' conflicts with existing output, dropping it", output_id
+                )
+                continue
+            self._outputs[output_id] = output
+            if output.interlock_groups:
+                self._interlock_manager.register(output, output.interlock_groups)
 
     async def reload_outputs(self) -> None:
         """Reload output configuration from file.
