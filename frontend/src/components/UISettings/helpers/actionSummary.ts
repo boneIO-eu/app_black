@@ -6,6 +6,7 @@
  * turns on two lights" into a page of scrolling.
  */
 import { formatActionLabel } from '../ActionFields/helpers';
+import { resolveId } from './slugifyId';
 
 /** One action, as the config carries it. Its fields depend on `action`. */
 export type ActionEntry = Record<string, unknown>;
@@ -41,6 +42,11 @@ const join = (verb: string, target: string): string =>
 /** "thing @ device", or just whichever half exists. */
 const at = (thing: string, device: string): string =>
   thing && device ? `${thing} @ ${device}` : thing || device;
+
+/** Give each entry the id it is known by, for lists whose id may come from the name. */
+function withResolvedIds(entities: readonly NamedEntity[] | undefined): NamedEntity[] {
+  return (entities || []).map((entity) => ({ ...entity, id: resolveId(entity) }));
+}
 
 /** The friendliest name for a target, falling back to the id it was given. */
 function nameOf(id: string, entities: readonly NamedEntity[] | undefined): string {
@@ -87,7 +93,7 @@ export function actionSummary(
       line = join(verb('action_cover', 'TOGGLE'), nameOf(str(action.boneio_cover), entities.allCovers));
       break;
     case 'virtual_switch':
-      line = join(verb('action_output', 'TOGGLE'), nameOf(str(action.boneio_virtual_switch), entities.allVirtualSwitches));
+      line = join(verb('action_output', 'TOGGLE'), nameOf(str(action.boneio_virtual_switch), withResolvedIds(entities.allVirtualSwitches)));
       break;
     case 'mqtt':
       line = join('MQTT', str(action.topic));

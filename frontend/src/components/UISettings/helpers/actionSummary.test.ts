@@ -33,6 +33,15 @@ describe('actionSummary', () => {
     expect(actionSummary({ action: 'output', boneio_output: 'out_09' }, t)).toBe('Toggle: out_09');
   });
 
+  it('names a virtual switch whose id is made from its name', () => {
+    const line = actionSummary(
+      { action: 'virtual_switch', boneio_virtual_switch: 'tryb_wieczorny', action_output: 'ON' },
+      t,
+      { allVirtualSwitches: [{ name: 'Tryb wieczorny' }] },
+    );
+    expect(line).toBe('Turn on: Tryb wieczorny');
+  });
+
   it('describes a cover', () => {
     const line = actionSummary({ action: 'cover', boneio_cover: 'blind_1', action_cover: 'OPEN' }, t);
     expect(line).toBe('Open: blind_1');

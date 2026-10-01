@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { resolveId } from '../helpers/slugifyId';
 import { formatActionLabel } from './helpers';
 import type { ActionDef, ActionUpdate } from './types';
 
@@ -58,11 +59,14 @@ const VirtualSwitchAction: React.FC<VirtualSwitchActionProps> = ({
               <SelectValue placeholder={t('event_form.select_virtual_switch')} />
             </SelectTrigger>
             <SelectContent>
+              {/* A switch usually has no `id` of its own — it is made from the
+                  name, so the id has to be resolved, not read. */}
               {allVirtualSwitches
-                .filter((vs) => !!vs.id)
-                .map((vs) => (
-                  <SelectItem key={vs.id as string} value={vs.id as string}>
-                    {(vs.name as string) || (vs.id as string)}
+                .map((vs) => ({ vs, id: resolveId(vs as { id?: string; name?: string }) }))
+                .filter(({ id }) => !!id)
+                .map(({ vs, id }) => (
+                  <SelectItem key={id} value={id}>
+                    {(vs.name as string) || id}
                   </SelectItem>
                 ))}
             </SelectContent>

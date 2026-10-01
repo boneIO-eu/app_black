@@ -13,6 +13,7 @@ import type { OutputEntity, CoverEntity, BinarySensorEntity, AreaEntity } from '
 import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import { useConfig } from '@/contexts/ConfigContext';
+import { resolveId } from '../helpers/slugifyId';
 import { validateCondition } from './helpers';
 import type { ActionCondition, ActionDef, ActionInput, ActionUpdate } from './types';
 
@@ -325,11 +326,13 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
           })
           .filter(item => !!item.id);
       case 'virtual_switch':
+        // Resolved rather than read: a switch's id is usually made from its name.
         return (allVirtualSwitches || [])
-          .filter((vs: Record<string, unknown>) => !!vs.id)
-          .map((vs: Record<string, unknown>) => ({
-            id: vs.id as string,
-            name: (vs.name as string) || (vs.id as string),
+          .map((vs: Record<string, unknown>) => ({ vs, id: resolveId(vs as { id?: string; name?: string }) }))
+          .filter(({ id }) => !!id)
+          .map(({ vs, id }) => ({
+            id,
+            name: (vs.name as string) || id,
             area: vs.area as string | undefined,
             badge: '🏳',
             badgeClass: 'badge-ghost',
