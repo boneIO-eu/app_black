@@ -128,3 +128,21 @@ def test_the_shipped_settings_require_a_login():
 
     shipped = Path(guard.__file__).parents[1] / "migrations/assets/docker/nodered/node-red/settings.js"
     assert guard.settings_require_login(shipped)
+
+
+def test_a_commented_out_login_does_not_count(tmp_path):
+    path = tmp_path / "settings.js"
+    path.write_text(
+        "module.exports = {\n"
+        "  // adminAuth: { type: 'credentials' },\n"
+        "  /* adminAuth: {\n     type: 'credentials' } */\n"
+        "  httpAdminRoot: '/nodered',\n"
+        "};\n"
+    )
+    assert not guard.settings_require_login(path)
+
+
+def test_a_file_that_only_explains_adminauth_does_not_count(tmp_path):
+    path = tmp_path / "settings.js"
+    path.write_text("/** Without adminAuth the editor is open. */\nmodule.exports = {};\n")
+    assert not guard.settings_require_login(path)

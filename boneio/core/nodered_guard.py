@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import ssl
 import urllib.error
 import urllib.request
@@ -69,8 +70,18 @@ def probe(port: int, timeout: float = 5.0) -> str:
     return PROTECTED if body.get("type") else OPEN
 
 
+#: Comments, so a commented-out ``adminAuth`` — or the shipped file's own
+#: explanation of it — does not count as one that is set.
+_JS_COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+_ADMIN_AUTH = re.compile(r"\badminAuth\s*:")
+
+
 def settings_require_login(path: Path = SETTINGS_FILE) -> bool:
     """Whether the settings on disk turn ``adminAuth`` on.
+
+    A property, outside comments. Not a JavaScript parser: it decides only
+    whether restarting Node-RED could help, and a file that fools it gets an
+    error in the log instead of a restart that changes nothing.
 
     Args:
         path: Node-RED's settings.js.
@@ -79,9 +90,10 @@ def settings_require_login(path: Path = SETTINGS_FILE) -> bool:
         True when the file configures it.
     """
     try:
-        return "adminAuth" in path.read_text()
+        code = _JS_COMMENTS.sub("", path.read_text())
     except OSError:
         return False
+    return bool(_ADMIN_AUTH.search(code))
 
 
 async def ensure_admin_auth(
