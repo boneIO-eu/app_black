@@ -292,7 +292,15 @@ async def get_init(
     # Cloud status
     cloud_data: dict = {"enabled": False}
     ch: ConfigHelper | None = getattr(_app_state, "config_helper", None)
-    if ch:
+    # The caller may not be signed in: this endpoint answers before the login
+    # form. Whether cloud is on is all the first-run wizard needs. The rest
+    # stays with signed-in callers — the domain spells out the serial withheld
+    # below, and last_error carries docker compose's stderr verbatim.
+    full_view = _may_see_serial(request)
+    if ch and not full_view:
+        cloud_reg = getattr(ch, "_cloud_reg", None)
+        cloud_data = {"enabled": cloud_reg.enabled if cloud_reg else ch.cloud_registration}
+    elif ch:
         cloud_reg = getattr(ch, "_cloud_reg", None)
         if cloud_reg:
             cloud_data = {
@@ -390,7 +398,8 @@ async def get_init(
         # since BONEIO_DEV opts in too.
         "allow_anonymous": is_anonymous_allowed() and not auth_required,
         "pwa_name": config_helper.pwa_name,
-        "pwa_default": f"bIO {serial_suffix}",
+        # Built from the serial, so withheld with it.
+        "pwa_default": f"bIO {serial_suffix}" if full_view else None,
         "pwa_max_length": 12,
         "cloud": cloud_data,
         "has_boneio": has_boneio,

@@ -45,7 +45,7 @@ interface AppInitData {
    *  configuration: the wizard drops the steps that assume a blank one. */
   configured_before?: boolean;
   pwa_name: string;
-  pwa_default: string;
+  pwa_default: string | null;
   pwa_max_length: number;
   cloud: CloudStatus;
   has_boneio: boolean;
