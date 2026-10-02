@@ -1098,7 +1098,9 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
 
     #: FastAPI's own schema and docs routes. In dev mode they are registered
     #: ahead of this catch-all and answer first; otherwise nothing should.
-    _API_DOC_PATHS = frozenset({"docs", "docs/oauth2-redirect", "redoc", "openapi.json"})
+    _API_DOC_PATHS = frozenset(
+        {"docs", "docs/oauth2-redirect", "redoc", "openapi.json", "openapi.yaml"}
+    )
 
     @app.get("/{filename:path}")
     async def serve_react_app(filename: str):
@@ -1108,7 +1110,9 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
         them. index.html (SPA fallback) is never cached to prevent stale
         versions being served through Cloudflare Tunnel or other caching proxies.
         """
-        if filename in _API_DOC_PATHS:
+        # Matched loosely — a trailing slash or capitals reach the same
+        # fallback, and a scanner tries both.
+        if filename.strip("/").lower() in _API_DOC_PATHS:
             # The schema is off outside dev mode, and these names answering
             # with the panel's index.html read to a scanner as an exposed API
             # schema. Saying "not here" is the truth.

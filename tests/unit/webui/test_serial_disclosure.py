@@ -206,7 +206,10 @@ def _spa_fallback():
     return route.endpoint
 
 
-@pytest.mark.parametrize("path", ["docs", "redoc", "openapi.json", "docs/oauth2-redirect"])
+@pytest.mark.parametrize(
+    "path",
+    ["docs", "redoc", "openapi.json", "docs/oauth2-redirect", "docs/", "redoc/", "DOCS", "openapi.yaml"],
+)
 @pytest.mark.asyncio
 async def test_the_docs_paths_answer_404_not_the_panel(path):
     # The SPA fallback used to answer these with index.html and a 200, which a
