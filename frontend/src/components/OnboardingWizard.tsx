@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fa';
 import type { AxiosError } from 'axios';
 import axios from '@/api/axios';
+import { updateWebSection } from '@/api/webSection';
 import { useAuth } from '../hooks/useAuth';
 import { useAppInit } from '@/contexts/AppInitContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -369,15 +370,12 @@ export default function OnboardingWizard() {
     setCloudError(null);
     setIsEnablingCloud(true);
     try {
-      // PUT replaces the whole section, so merge rather than overwrite — the
-      // port and proxy port set moments ago live in here too.
-      const { data: config } = await axios.get('/api/config');
-      const web = (config?.web ?? {}) as Record<string, unknown>;
-      const cloud = (web.cloud ?? {}) as Record<string, unknown>;
-      const { data: saved } = await axios.put('/api/config/web', {
+      // Merged into the stored section: the port and proxy port set moments
+      // ago live in here too, and so does `expose`.
+      const saved = await updateWebSection<{ cloud?: string }>((web) => ({
         ...web,
-        cloud: { ...cloud, enabled: true },
-      });
+        cloud: { ...((web.cloud ?? {}) as Record<string, unknown>), enabled: true },
+      }));
       // The backend starts registration where the change is made. It reports
       // "unavailable" when it could not — no address yet, most likely — and
       // then the next boot is what picks it up, which is worth saying rather

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaRedo } from 'react-icons/fa';
 import axios from '@/api/axios';
+import { updateWebSection } from '@/api/webSection';
 import { useTranslation } from '../hooks/useTranslation';
 import {
   useSecurityPosture,
@@ -84,18 +85,12 @@ export default function SecurityView() {
     if (!window.confirm(t('security.move_behind_proxy_confirm'))) return;
     setMovingBehindProxy(true);
     try {
-      const { data: config } = await axios.get('/api/config');
-      const web = (config?.web ?? {}) as Record<string, unknown>;
       // Longer than the default: the backend checks the proxy is really
       // serving before it writes, and the first such check on a device can
       // take seconds while Caddy mints itself a certificate. At the default
       // the browser gave up first and reported a failure for a save that had
       // gone through.
-      await axios.put(
-        '/api/config/web',
-        { ...web, expose: 'proxy' },
-        { timeout: 30000 },
-      );
+      await updateWebSection((web) => ({ ...web, expose: 'proxy' }), { timeout: 30000 });
       window.alert(t('security.move_behind_proxy_done'));
       invalidateSecurityPosture();
       await refresh();
