@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
@@ -1096,6 +1096,10 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
             headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 
+    #: FastAPI's own schema and docs routes. In dev mode they are registered
+    #: ahead of this catch-all and answer first; otherwise nothing should.
+    _API_DOC_PATHS = frozenset({"docs", "docs/oauth2-redirect", "redoc", "openapi.json"})
+
     @app.get("/{filename:path}")
     async def serve_react_app(filename: str):
         """Serve static files from frontend-dist, fallback to index.html for SPA routing.
@@ -1104,6 +1108,11 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
         them. index.html (SPA fallback) is never cached to prevent stale
         versions being served through Cloudflare Tunnel or other caching proxies.
         """
+        if filename in _API_DOC_PATHS:
+            # The schema is off outside dev mode, and these names answering
+            # with the panel's index.html read to a scanner as an exposed API
+            # schema. Saying "not here" is the truth.
+            return Response(status_code=404)
         file_path = (FRONTEND_DIR / filename).resolve()
         if filename and file_path.is_relative_to(FRONTEND_DIR.resolve()) and file_path.exists() and file_path.is_file():
             return FileResponse(str(file_path))

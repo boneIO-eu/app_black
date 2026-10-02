@@ -189,3 +189,34 @@ class TestApiDocsAreClosed:
         assert app.docs_url is None
         assert app.redoc_url is None
         assert app.openapi_url is None
+
+
+
+def _spa_fallback():
+    """The catch-all route's handler, called directly.
+
+    Not through TestClient(app): starting the module's app builds its
+    middleware stack, and a later test adding middleware to it then fails.
+    """
+    from boneio.webui import app as app_module
+
+    if not app_module.FRONTEND_DIR.exists():
+        pytest.skip("no frontend build to fall back to")
+    route = next(r for r in app_module.app.routes if getattr(r, "path", None) == "/{filename:path}")
+    return route.endpoint
+
+
+@pytest.mark.parametrize("path", ["docs", "redoc", "openapi.json", "docs/oauth2-redirect"])
+@pytest.mark.asyncio
+async def test_the_docs_paths_answer_404_not_the_panel(path):
+    # The SPA fallback used to answer these with index.html and a 200, which a
+    # scanner reports as an exposed API schema.
+    response = await _spa_fallback()(path)
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_panel_routes_still_fall_back_to_the_panel():
+    response = await _spa_fallback()("settings/web")
+    assert response.status_code == 200
+    assert str(response.path).endswith("index.html")
