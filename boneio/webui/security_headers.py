@@ -48,9 +48,15 @@ from boneio.core.security import framing
 #: YAML editor breaks. 'unsafe-inline' for scripts is required because a
 #: reverse proxy injects window.__BONEIO_BASE_PATH__ as an inline script, and
 #: blob: workers are how the Monaco editor runs.
+#:
+#: No 'unsafe-eval': nothing in the build — Monaco and its YAML worker included
+#: — evaluates strings as code or compiles WebAssembly, so allowing it only
+#: helped an injected script. Nor a hash or nonce for the inline scripts: with
+#: either present a browser ignores 'unsafe-inline', and the base path the Home
+#: Assistant add-on injects would stop running.
 _CSP_DIRECTIVES = (
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",

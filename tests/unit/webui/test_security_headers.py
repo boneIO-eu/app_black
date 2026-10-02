@@ -83,6 +83,19 @@ def test_csp_still_allows_what_the_panel_needs():
     assert "'unsafe-inline'" in csp
 
 
+def test_csp_does_not_let_scripts_evaluate_strings():
+    # Nothing in the build needs it; an injected script would.
+    assert "unsafe-eval" not in build_csp()
+
+
+def test_inline_scripts_are_not_pinned_by_hash_or_nonce():
+    # Either would make the browser ignore 'unsafe-inline', and the Home
+    # Assistant add-on's injected base path would stop running.
+    script_src = next(d for d in build_csp().split("; ") if d.startswith("script-src"))
+    assert "'sha256-" not in script_src
+    assert "'nonce-" not in script_src
+
+
 def test_frame_ancestors_defaults_to_self():
     """An unconfigured device refuses framing by any other site.
 
