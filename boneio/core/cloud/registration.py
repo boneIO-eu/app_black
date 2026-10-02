@@ -88,6 +88,7 @@ class CloudRegistration:
         self._task: asyncio.Task | None = None
         self._session: aiohttp.ClientSession | None = None
         self._last_error: str | None = None
+        self._switching = False
 
     @property
     def domain(self) -> str | None:
@@ -103,6 +104,18 @@ class CloudRegistration:
     def last_error(self) -> str | None:
         """Get the last error message, if any."""
         return self._last_error
+
+    @property
+    def serving(self) -> bool:
+        """Whether Caddy is up on the cloud template with the certificate.
+
+        False while the template is being swapped and Caddy recreated: the
+        compose file already names the cloud script then, but the proxy — the
+        only way into a panel with ``web.expose: proxy`` — is down for the half
+        minute that takes. Anything sending somebody to the registered name
+        has to wait for this rather than for the template.
+        """
+        return self._domain is not None and not self._switching and self.is_cloud_config_active()
 
     @property
     def is_compose_writable(self) -> bool:
@@ -551,6 +564,14 @@ class CloudRegistration:
         Returns:
             True if the switch was successful.
         """
+        self._switching = True
+        try:
+            return await self._apply_cloud_config()
+        finally:
+            self._switching = False
+
+    async def _apply_cloud_config(self) -> bool:
+        """The body of :meth:`_switch_to_cloud_config`, without the flag."""
         # The init script still comes from the package; it is mounted read-only
         # into the container and is not what compose executes on the host.
         self._ensure_cloud_script()
@@ -571,7 +592,9 @@ class CloudRegistration:
             return False
 
         _LOGGER.info("Switched docker-compose.yaml to the cloud template")
-        return await self._recreate_caddy()
+        # The service definition changed, so ``up`` recreates the container
+        # and it reads the certificate as it starts.
+        return await self._recreate_caddy(restart=False)
 
     async def _restore_local_config(self) -> bool:
         """Restore the plain compose template and restart Caddy.
@@ -595,13 +618,20 @@ class CloudRegistration:
             return False
 
         _LOGGER.info("Restored the local docker-compose.yaml template")
-        return await self._recreate_caddy()
+        return await self._recreate_caddy(restart=False)
 
-    async def _recreate_caddy(self) -> bool:
+    async def _recreate_caddy(self, restart: bool = True) -> bool:
         """Recreate and restart Caddy so it picks up new certs or compose config.
 
         Both steps go through the container helper, so neither passes anything
         from here to Docker.
+
+        Args:
+            restart: Restart after ``up``. Needed when the compose file did not
+                change — ``up`` then leaves the running container alone and it
+                keeps the certificate it read at start. Not after a template
+                swap: ``up`` has just recreated it, and a restart on top takes
+                the proxy down a second time.
 
         Returns:
             True if the recreate was successful.
@@ -614,12 +644,16 @@ class CloudRegistration:
             )
             return False
 
+        if not restart:
+            _LOGGER.info("Caddy container recreated successfully")
+            return True
+
         # Restart as well: mounted TLS certificates are only re-read on start.
-        restart = await loop.run_in_executor(None, containers.restart_caddy)
-        if not restart.ok:
+        restarted = await loop.run_in_executor(None, containers.restart_caddy)
+        if not restarted.ok:
             _LOGGER.warning(
                 "Caddy was recreated but the restart failed: %s",
-                restart.stderr.strip() or "unknown error",
+                restarted.stderr.strip() or "unknown error",
             )
 
         _LOGGER.info("Caddy container recreated and restarted successfully")

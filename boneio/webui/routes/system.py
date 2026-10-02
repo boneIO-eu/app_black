@@ -491,8 +491,13 @@ async def get_cloud_status():
     """
     Get cloud registration status including domain and last error.
 
+    ``serving`` is what to wait for before sending anybody to ``url``: the
+    template switches first and Caddy is recreated after it, and until then
+    the registered name answers nothing.
+
     Returns:
-        Dict with enabled, domain, cloud_config_active, and last_error fields.
+        Dict with enabled, domain, cloud_config_active, serving, url and
+        last_error fields.
     """
     config_helper: ConfigHelper | None = getattr(_app_state, "config_helper", None)
     if not config_helper:
@@ -504,6 +509,8 @@ async def get_cloud_status():
             "enabled": config_helper.cloud_registration,
             "domain": None,
             "cloud_config_active": False,
+            "serving": False,
+            "url": None,
             "last_error": None,
         }
 
@@ -511,6 +518,8 @@ async def get_cloud_status():
         "enabled": cloud_reg.enabled,
         "domain": cloud_reg.domain,
         "cloud_config_active": cloud_reg.is_cloud_config_active(),
+        "serving": cloud_reg.serving,
+        "url": config_helper.configuration_url if cloud_reg.domain else None,
         "compose_writable": cloud_reg.is_compose_writable,
         "last_error": cloud_reg.last_error,
     }
@@ -620,13 +629,15 @@ async def check_configuration():
 async def get_restart_status():
     """
     Get restart status.
-    
+
     Returns:
-        Dictionary with restart_pending flag.
+        Dictionary with restart_required, true once a saved section needs
+        an application restart to take effect.
     """
-    if _app_state:
-        return {"restart_pending": getattr(_app_state, 'restart_pending', False)}
-    return {"restart_pending": False}
+    try:
+        return {"restart_required": bool(get_config_helper().restart_required)}
+    except Exception:  # noqa: BLE001
+        return {"restart_required": False}
 
 
 @router.get("/hardware/errors")

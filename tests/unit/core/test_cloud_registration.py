@@ -199,3 +199,107 @@ class TestRegistrationLoopCaddyMismatch:
                     await cloud_reg._registration_loop()
 
             mock_recreate.assert_not_called()
+
+
+def _ok():
+    return MagicMock(ok=True, stderr="", stdout="")
+
+
+class TestOneCaddyStartPerTemplateSwap:
+    """With ``web.expose: proxy`` Caddy is the only way into the panel.
+
+    Switching the template used to run ``up`` and then ``restart``: ``up``
+    already recreated the container from the new definition, so the restart
+    took the panel down a second time — it came back, then died again.
+    """
+
+    @pytest.mark.asyncio
+    async def test_switching_to_cloud_starts_caddy_once(self, cloud_reg):
+        with (
+            patch("boneio.core.cloud.registration.containers") as containers,
+            patch.object(cloud_reg, "_ensure_cloud_script"),
+            patch.object(cloud_reg, "_check_compose_ownership", return_value=True),
+            patch.object(cloud_reg, "is_cloud_config_active", return_value=False),
+        ):
+            containers.apply_cloud_template.return_value = _ok()
+            containers.start_caddy.return_value = _ok()
+
+            assert await cloud_reg._switch_to_cloud_config() is True
+
+            containers.start_caddy.assert_called_once()
+            containers.restart_caddy.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_restoring_the_local_template_starts_caddy_once(self, cloud_reg):
+        with (
+            patch("boneio.core.cloud.registration.containers") as containers,
+            patch.object(cloud_reg, "_check_compose_ownership", return_value=True),
+            patch.object(cloud_reg, "is_cloud_config_active", return_value=True),
+        ):
+            containers.remove_cloud_template.return_value = _ok()
+            containers.start_caddy.return_value = _ok()
+
+            assert await cloud_reg._restore_local_config() is True
+
+            containers.start_caddy.assert_called_once()
+            containers.restart_caddy.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_refreshed_certificate_still_restarts(self, cloud_reg):
+        # Same compose file: ``up`` leaves the container running with the
+        # certificate it read at start, so only the restart picks up the new one.
+        with patch("boneio.core.cloud.registration.containers") as containers:
+            containers.start_caddy.return_value = _ok()
+            containers.restart_caddy.return_value = _ok()
+
+            assert await cloud_reg._recreate_caddy() is True
+
+            containers.restart_caddy.assert_called_once()
+
+
+class TestServing:
+    """``serving`` is what the panel waits for before sending anybody away."""
+
+    @pytest.mark.asyncio
+    async def test_not_serving_while_caddy_is_being_recreated(self, cloud_reg):
+        cloud_reg._domain = "blkf8dc18.black.boneio.app"
+        seen: list[bool] = []
+
+        def start_caddy():
+            seen.append(cloud_reg.serving)
+            return _ok()
+
+        with (
+            patch("boneio.core.cloud.registration.containers") as containers,
+            patch.object(cloud_reg, "_ensure_cloud_script"),
+            patch.object(cloud_reg, "_check_compose_ownership", return_value=True),
+            # The template is already the cloud one by the time Caddy restarts.
+            patch.object(cloud_reg, "is_cloud_config_active", side_effect=[False, True, True]),
+        ):
+            containers.apply_cloud_template.return_value = _ok()
+            containers.start_caddy.side_effect = start_caddy
+
+            await cloud_reg._switch_to_cloud_config()
+
+            assert seen == [False]
+            assert cloud_reg.serving is True
+
+    def test_not_serving_before_the_name_is_registered(self, cloud_reg):
+        with patch.object(cloud_reg, "is_cloud_config_active", return_value=True):
+            assert cloud_reg.serving is False
+
+    @pytest.mark.asyncio
+    async def test_a_failed_switch_does_not_stay_switching(self, cloud_reg):
+        cloud_reg._domain = "blkf8dc18.black.boneio.app"
+        with (
+            patch("boneio.core.cloud.registration.containers") as containers,
+            patch.object(cloud_reg, "_ensure_cloud_script"),
+            patch.object(cloud_reg, "_check_compose_ownership", return_value=True),
+            patch.object(cloud_reg, "is_cloud_config_active", return_value=False),
+        ):
+            containers.apply_cloud_template.side_effect = RuntimeError("helper gone")
+
+            with pytest.raises(RuntimeError):
+                await cloud_reg._switch_to_cloud_config()
+
+            assert cloud_reg._switching is False
