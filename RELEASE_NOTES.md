@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev28` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev29` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,37 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev29 — internal test build
+
+## Since dev28
+
+Seen on a fresh controller during onboarding: turning the PWA on left
+`web: {cloud: {enabled: true}}` behind. `expose: proxy`, the ports and
+`security` were gone, the panel kept listening off the LAN only until the
+next start, and the save asked for a restart — correctly, since to the
+backend more than `cloud` had changed. "Move the panel behind the proxy" on
+the security page did the opposite: it saved `{expose: proxy}` alone, which
+dropped `cloud`, read by the backend as the PWA switched off, so
+registration stopped and the local Caddy template came back.
+
+The cause was the same in both places: `PUT /api/config/web` replaces the
+whole section, and each caller merged the one setting it cares about into
+the section read from the wrong level of `GET /api/config`'s answer —
+`config.web` instead of `config.config.web`. Reading nothing meant the
+merge started from nothing, so the save kept only the caller's own key.
+
+Both now go through a shared `updateWebSection()` helper that reads the
+stored section from under `config` and saves the merged result.
+
+Checked: `tsc -b` clean, eslint clean, frontend suite 629/629 (four new).
+Seen on blk239bb2; not yet tried end to end on a controller's own panel
+after this fix.
+
+No migration of its own, and no plan changed since dev28 — only the
+manifest is re-signed, since it names the release.
 
 ---
 

@@ -6,6 +6,31 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev29 (2026-10-02) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🌐 Turning the PWA on or moving behind the proxy no longer wipes the rest of the web section
+
+`PUT /api/config/web` replaces the whole section, and the onboarding
+wizard's PWA step and the security page's "move behind the proxy" switch
+both merged the one setting they care about into it from the wrong level
+of `GET /api/config`'s answer — `config.web` instead of `config.config.web`
+— so the merge started from nothing and the save kept only the caller's
+own key.
+
+- **Finishing onboarding with the PWA on, on a fresh controller, dropped
+  `expose: proxy`, the ports and `security`**, leaving the panel listening
+  off the LAN only until the next start, and asked for a restart, since to
+  the backend more than `cloud` had changed.
+- **"Move the panel behind the proxy" dropped `cloud`**, which the backend
+  reads as the PWA switched off — registration stopped and the local Caddy
+  template came back.
+- **Both now go through a shared `updateWebSection()` helper** that reads
+  the stored section from under `config` and saves the merged result.
+- No migration of its own.
+
 ## v1.6.0.dev28 (2026-10-01) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
