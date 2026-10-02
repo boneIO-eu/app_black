@@ -455,7 +455,7 @@ export default function UISettings() {
   const loadConfiguration = useCallback(async () => {
     try {
       // Check restart status from backend (non-blocking)
-      axios.get('/api/status/restart')
+      axios.get<{ restart_required?: boolean }>('/api/status/restart')
         .then(res => {
           if (res.data?.restart_required) setRestartRequired(true);
         })
