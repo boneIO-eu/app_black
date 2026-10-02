@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev29` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev30` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,85 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev30 — internal test build
+
+## Since dev29
+
+Node-RED's editor came up open on a controller flashed from the dev29
+image: `GET /nodered/flows` answered with no token, and a flow with an exec
+node is code execution. The image's rootfs had run migration 1.6.0, which
+installs `settings.js` with `adminAuth`, before a later build step wrote a
+four-line stub back over it — the migration itself never reran, so the file
+stayed wrong on anything built from that rootfs. Migration 1.6.34 installs
+the right `settings.js` again; where it already matches, the helper finds
+the hash already correct. That alone would not fix a controller already
+running, since an update restarts boneIO, not the controller, and Node-RED
+keeps whatever settings it started with — `boneio.core.nodered_guard` now
+asks the running editor, a minute after start, how it signs people in, and
+restarts it once if it answers with no login while the file on disk asks
+for one. No answer, because Node-RED is off, still starting, or its proxy
+is being recreated, is retried for ten minutes and never triggers a restart
+on its own.
+
+Every controller flashed from the dev27–dev29 images also carried the same
+token secret: those images are built on a rootfs that had already run
+boneIO once, sealing does not remove the secret file, and it was reused as
+found, so anyone holding the image could sign an administrator's token for
+any device made from it. The secret file now carries a hash of the
+machine's own `/etc/machine-id` alongside it; a secret with no binding, or
+bound to another machine, is replaced on start. `machine-id` is itself
+emptied when an image is sealed and drawn fresh on first boot, so a secret
+made while building the image is replaced there too. Every session is
+signed out once, on the first start of this version, since no secret from
+before carries the binding yet.
+
+Two smaller panel-hardening fixes: the Content-Security-Policy no longer
+allows `'unsafe-eval'`, which nothing in the panel's own code needs; and
+`/docs`, `/redoc` and `/openapi.json`, which only serve outside of
+developer mode, now answer 404 instead of the SPA's catch-all handing back
+the panel itself with a 200.
+
+The PWA/HTTPS switch is steadier. Turning registration on used to run
+`compose up` and then `compose restart` on Caddy — `up` already recreates
+the container from the new template, so the restart only took the reverse
+proxy down a second time, the only way into the panel once it is moved
+behind it. A template swap now runs `up` alone. `GET /api/cloud/status`
+gains `serving` and `url`: the existing `cloud_config_active` turned true
+as soon as the template was copied, half a minute before Caddy actually
+answered on it, so it was no signal for when to send the owner to the new
+address. The onboarding wizard's PWA step now follows that status instead
+of reloading straight into "the controller is not answering" while Caddy
+restarts — it offers "Go to `<name>`" once the browser itself can reach
+that address, never a name a DNS-rebinding router would refuse to resolve,
+and says to sign in again there, since another origin keeps its own
+storage. Past three minutes it says so and shows the backend's own error;
+a name that never answers can still be opened anyway. The availability
+screen no longer replaces an open wizard either — a failed `/api/init`
+poll during the restart used to swap the wizard for that screen,
+unmounting it and losing everything it knew. Separately, Settings shows
+the restart banner again when a save needs one: `GET /api/status/restart`
+had been reading `restart_pending` off an attribute nothing ever set, so
+the banner was always false on reopening the page.
+
+Checked: on 192.168.50.220 — the image's stub `settings.js` in place,
+Node-RED restarted on it (`auth/login` answered `{}`, `flows` 200); after
+deploying, 1.6.34 applied, the guard restarted Node-RED a minute later, and
+`auth/login` asked for credentials, `flows` 401. Backend suite 4274
+passed. The CSP change was checked on .220 in a browser — the login page
+and the Monaco chunk load with no violation, and a string evaluated from
+page script is refused; the YAML editor itself was not opened under the
+new header, no account being set up there. The token-secret fix has eight
+new tests; the image side, removing the secret file when sealing, is a
+separate change in black_debian_images, not this one. The cloud/PWA and
+restart-banner fixes are `tsc -b` clean, eslint clean, frontend suite
+636/636 (seven new); the onboarding flow itself has not yet been run
+through on a controller being onboarded.
+
+Migration 1.6.34 is new, and the manifest is re-signed since it names the
+release; no other plan changed since dev29.
 
 ---
 

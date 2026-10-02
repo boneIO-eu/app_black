@@ -6,6 +6,90 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev30 (2026-10-02) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🔐 Node-RED's editor requires a login again
+
+- **A controller flashed from the dev29 image ran Node-RED's editor
+  open to the network** — `GET /nodered/flows` answered with no token, and a
+  flow with an exec node is code execution. The image's rootfs had already
+  run migration 1.6.0, which installs `settings.js` with `adminAuth`, before
+  the build step that writes the stub `settings.js` overwrote it; the
+  migration itself never ran again to put it back.
+- **Migration 1.6.34 installs `settings.js` once more** on every device;
+  where it already matches, the helper finds the hash already correct.
+- **A new guard restarts the running editor when it needs to.** An update
+  restarts boneIO, not the controller, so Node-RED keeps whatever settings
+  it started with — `boneio.core.nodered_guard` asks the editor itself,
+  a minute after start, how it signs people in, and restarts it once if it
+  answers with no login while the file on disk asks for one. No answer —
+  Node-RED off, starting, or the proxy being recreated — is retried for ten
+  minutes and never restarts anything on its own.
+
+### 🔑 The session-token secret is bound to the controller it's drawn on
+
+- **Every controller flashed from the dev27–dev29 images carried the same
+  `jwt_secret`.** The images are built on a rootfs that had already run
+  boneIO once, sealing does not remove the file, and the secret was reused
+  as found — so anyone holding the image could sign an administrator's
+  token for every device made from it.
+- **The secret file now carries a hash of `/etc/machine-id` alongside it.**
+  A secret with no binding, or another machine's, is replaced on start;
+  `machine-id` itself is emptied when an image is sealed and drawn fresh on
+  first boot, so a secret made while building the image is replaced there
+  too. The file is created `0600` from its first byte and swapped in with a
+  rename, instead of written and `chmod`-ed afterwards.
+- **Every session is signed out once**, on the first start of this version
+  — no secret from before carries the binding yet.
+
+### 🛡️ The panel's own hardening catches up: no `'unsafe-eval'`, no API docs outside dev mode
+
+- **The Content-Security-Policy no longer allows `'unsafe-eval'`.** Nothing
+  in the panel needs it — a fresh build, Monaco and its YAML and editor
+  workers included, has no `eval`, `new Function` or WebAssembly; it only
+  ever helped a script that got injected. `'unsafe-inline'` stays, needed by
+  the Home Assistant add-on's own injected script until it can pass the
+  base path another way.
+- **`/docs`, `/redoc` and `/openapi.json` now answer 404** outside of
+  developer mode, instead of the SPA's catch-all serving the panel itself
+  under those paths with a 200.
+
+### 🌐 The PWA/HTTPS switch is steadier, and Settings shows a pending restart again
+
+- **Turning registration on recreates Caddy once, not twice.** Switching
+  templates ran `compose up`, which already recreates the container on the
+  new service definition, and then `compose restart`, which only took the
+  reverse proxy down a second time — the only way into the panel once
+  `web.expose: proxy` is set. A template swap now runs `up` alone; a
+  changed certificate still gets picked up, since `up` otherwise leaves the
+  container running with whatever it read at start.
+- **`GET /api/cloud/status` gains `serving` and `url`.** `cloud_config_active`
+  turned true as soon as the template was copied, half a minute before Caddy
+  actually answered on it, so it was no signal for "send the owner to the
+  new address"; `serving` turns true only once Caddy is up on the cloud
+  template with the name registered.
+- **The onboarding wizard's PWA step waits for the switch and offers the new
+  address**, instead of reloading straight into "the controller is not
+  answering" while Caddy restarts. It polls the new status, offers "Go to
+  `<name>`" once the browser itself can reach it (never a name a
+  DNS-rebinding router would refuse to resolve), and says to sign in again
+  there — another origin keeps its own storage. Past three minutes it says
+  so and shows the backend's own error; a name that never answers can still
+  be opened anyway.
+- **The availability screen no longer replaces an open wizard.** A failed
+  `/api/init` poll while Caddy restarts used to swap the wizard for "the
+  controller is not answering", unmounting it and losing everything it knew.
+- **Settings shows the restart banner again when one is pending.**
+  `GET /api/status/restart` had answered `restart_pending`, read from an
+  attribute nothing ever set, so it was always false — reopening Settings
+  after saving a section that needs a restart dropped the banner early. It
+  now reports `restart_required` from the same flag every other endpoint
+  already uses.
+- Migration 1.6.34 is new; no plan content changed since dev29 besides it.
+
 ## v1.6.0.dev29 (2026-10-02) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
