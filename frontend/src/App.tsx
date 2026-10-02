@@ -106,8 +106,14 @@ function ProtectedRoute({
   );
 
   // API confirmed unavailable after retries, or a panel the service worker
-  // kept from before an update: say so instead of rendering it
-  if ((!isApiAvailable && !initLoading) || panelState === 'stale_panel') {
+  // kept from before an update: say so instead of rendering it.
+  //
+  // Not over the first-run wizard. Its PWA step recreates Caddy, which with
+  // web.expose: proxy is the only way in, so the API is expected to vanish
+  // for half a minute — and swapping the wizard out for this screen unmounted
+  // it, so it came back at its welcome step with everything it knew gone.
+  // The wizard waits that window out itself.
+  if ((!isApiAvailable && !initLoading && !needsOnboarding) || panelState === 'stale_panel') {
     return <NotAvailable />
   }
 

@@ -14,6 +14,7 @@ import type { AxiosError } from 'axios';
 import axios from '@/api/axios';
 import { updateWebSection } from '@/api/webSection';
 import { useAuth } from '../hooks/useAuth';
+import { type CloudSwitch, isCurrentOrigin, useCloudSwitch } from '../hooks/useCloudSwitch';
 import { useAppInit } from '@/contexts/AppInitContext';
 import { useTranslation } from '../hooks/useTranslation';
 import {
@@ -49,6 +50,66 @@ type ApiError = AxiosError<{ detail?: string }>;
  */
 function errorMessage(err: unknown, fallback: string): string {
   return (err as ApiError)?.response?.data?.detail || fallback;
+}
+
+/** The host of a URL, for a button label; the URL itself if it does not parse. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Where the PWA switch is, in words. Shown on the cloud step once it is on
+ * and again on the last one, since that is where the owner waits for it.
+ */
+function CloudSwitchNotice({ cloud }: { cloud: CloudSwitch }) {
+  const { t } = useTranslation();
+  switch (cloud.phase) {
+    case 'switching':
+    case 'probing':
+      return (
+        <NoticeCallout
+          variant="info"
+          title={
+            <span className="inline-flex items-center gap-2">
+              <span className="loading loading-spinner loading-xs" />
+              {t('onboarding.cloud_switching_title')}
+            </span>
+          }
+          message={t('onboarding.cloud_switching')}
+        />
+      );
+    case 'ready':
+      return (
+        <NoticeCallout
+          variant="success"
+          message={cloud.url && !isCurrentOrigin(cloud.url)
+            ? t('onboarding.cloud_ready', { url: cloud.url })
+            : t('onboarding.cloud_ready_here')}
+        />
+      );
+    case 'unreachable':
+      return (
+        <NoticeCallout
+          variant="warning"
+          message={t('onboarding.cloud_unreachable', { url: cloud.url ?? '' })}
+        />
+      );
+    case 'timeout':
+      return (
+        <NoticeCallout
+          variant="warning"
+          message={cloud.error
+            ? `${t('onboarding.cloud_timeout')} ${cloud.error}`
+            : t('onboarding.cloud_timeout')}
+        />
+      );
+    default:
+      return null;
+  }
 }
 
 /** Mirrors INPUT_MODES in boneio/core/config/input_bindings.py. */
@@ -133,6 +194,14 @@ export default function OnboardingWizard() {
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [cloudDone, setCloudDone] = useState<'live' | 'deferred' | false>(false);
   const [isEnablingCloud, setIsEnablingCloud] = useState(false);
+  const cloudSwitch = useCloudSwitch(cloudDone === 'live');
+  const cloudSwitchPending = cloudSwitch.phase === 'switching' || cloudSwitch.phase === 'probing';
+  // Only a name this browser reached: one it cannot resolve would trade a
+  // working panel for an error page.
+  const newAddress =
+    cloudSwitch.phase === 'ready' && cloudSwitch.url && !isCurrentOrigin(cloudSwitch.url)
+      ? cloudSwitch.url
+      : null;
   // Set while a file is dragged over the drop zone, so it can light up.
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -389,6 +458,12 @@ export default function OnboardingWizard() {
   };
 
   const finish = () => {
+    if (newAddress) {
+      // Another origin, so another localStorage: the token stays behind and
+      // the panel there asks for the password once. The notice says so.
+      window.location.assign(newAddress);
+      return;
+    }
     // A restored config is only live after a restart, and the rest of the app
     // caches config aggressively, so start from a clean load either way.
     window.location.reload();
@@ -912,15 +987,14 @@ export default function OnboardingWizard() {
 
             {cloudError && <NoticeCallout variant="error" message={cloudError} />}
 
-            {cloudDone && (
+            {cloudDone === 'deferred' && (
               <NoticeCallout
                 variant="success"
-                message={t(cloudDone === 'deferred'
-                  ? 'onboarding.cloud_done_deferred'
-                  : 'onboarding.cloud_done')}
+                message={t('onboarding.cloud_done_deferred')}
                 className="animate-in fade-in zoom-in-95 duration-200"
               />
             )}
+            {cloudDone === 'live' && <CloudSwitchNotice cloud={cloudSwitch} />}
 
             <div className="flex flex-wrap gap-2 mt-auto">
               {previousStep && (
@@ -1001,14 +1075,35 @@ export default function OnboardingWizard() {
               <NoticeCallout variant="warning" message={t('onboarding.ssh_failed')} />
             )}
 
+            {cloudDone === 'live' && <CloudSwitchNotice cloud={cloudSwitch} />}
+
             <div className="flex flex-wrap gap-2 mt-auto">
               {previousStep && (
                 <button className={backButtonClass} onClick={goBack}>
                   {t('onboarding.back')}
                 </button>
               )}
-              <button className="btn btn-primary flex-1" onClick={finish}>
-                {t('onboarding.finish')}
+              {newAddress && (
+                <button className="btn btn-outline flex-1" onClick={() => window.location.reload()}>
+                  {t('onboarding.cloud_stay_here')}
+                </button>
+              )}
+              {cloudSwitch.phase === 'unreachable' && cloudSwitch.url && (
+                <a className="btn btn-outline flex-1" href={cloudSwitch.url} rel="noopener noreferrer">
+                  {t('onboarding.cloud_open_anyway', { host: hostOf(cloudSwitch.url) })}
+                </a>
+              )}
+              <button
+                className="btn btn-primary flex-1"
+                onClick={finish}
+                disabled={cloudSwitchPending}
+              >
+                {cloudSwitchPending && <span className="loading loading-spinner loading-sm" />}
+                {cloudSwitchPending
+                  ? t('onboarding.cloud_switch_wait')
+                  : newAddress
+                    ? t('onboarding.finish_at', { host: hostOf(newAddress) })
+                    : t('onboarding.finish')}
               </button>
             </div>
           </div>
