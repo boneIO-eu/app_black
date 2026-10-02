@@ -626,3 +626,27 @@ def test_1_6_34_puts_the_node_red_login_back():
     assert isinstance(action, InstallFile)
     assert (action.src, action.dst) == (first.plan()[0].src, first.plan()[0].dst)
     assert (action.owner, action.mode) == ("boneio", 0o644)
+
+
+class TestSshGuessingPenalty:
+    """1.6.35 slows password guessing down without turning passwords off."""
+
+    def _plan(self):
+        from boneio.migrations.versions import v1_6_35_ssh_guessing_penalty as migration
+
+        return migration.plan()
+
+    def test_the_drop_in_is_validated_and_reloads_ssh(self):
+        (action,) = self._plan()
+        assert action.dst == "/etc/ssh/sshd_config.d/15-boneio-penalties.conf"
+        assert action.validate == "sshd"
+        assert action.on_change.to_dict() == {"action": "systemctl_reload", "unit": "ssh"}
+
+    def test_it_penalises_failures_and_leaves_passwords_on(self):
+        text = (ASSETS_DIR / "sshd/15-boneio-penalties.conf").read_text()
+        directives = [line.split() for line in text.splitlines() if line and not line.startswith("#")]
+        assert directives == [["PerSourcePenalties", "authfail:300s", "max:3600s"]]
+
+    def test_the_1_6_4_drop_in_is_left_alone(self):
+        dsts = {action.dst for action in self._plan()}
+        assert "/etc/ssh/sshd_config.d/10-boneio-hardening.conf" not in dsts
