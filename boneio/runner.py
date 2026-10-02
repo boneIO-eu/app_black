@@ -616,6 +616,16 @@ async def async_run(
 
     stable_task = asyncio.create_task(_forgive_earlier_crashes())
 
+    # An update restarts boneIO, not the controller, so a Node-RED settings
+    # file installed by it is not what the running editor read. Not in the
+    # main gather either: it finishes after a look or two.
+    from boneio.const import DEFAULT_PROXY_PORT
+    from boneio.core.nodered_guard import ensure_admin_auth
+
+    nodered_task = asyncio.create_task(
+        ensure_admin_auth(_config_helper.proxy_port or DEFAULT_PROXY_PORT)
+    )
+
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
@@ -668,6 +678,7 @@ async def async_run(
     finally:
         _LOGGER.info("Cleaning up resources...")
         stable_task.cancel()
+        nodered_task.cancel()
 
         # Cancel pending deferred state saves and write final state synchronously.
         # This MUST happen before event_bus.stop() which may trigger sigterm

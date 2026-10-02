@@ -614,3 +614,15 @@ class TestSupersession:
             assert newer.version_tuple() > older.version_tuple(), (
                 f"{version} is superseded by {successor}, which comes before it"
             )
+
+
+def test_1_6_34_puts_the_node_red_login_back():
+    """1.6.34 reinstalls the settings.js that 1.6.0 shipped, with adminAuth."""
+    from boneio.migrations.actions import InstallFile
+    from boneio.migrations.versions import v1_6_0_nodered_admin_auth as first
+    from boneio.migrations.versions import v1_6_34_nodered_admin_auth_again as again
+
+    (action,) = again.plan()
+    assert isinstance(action, InstallFile)
+    assert (action.src, action.dst) == (first.plan()[0].src, first.plan()[0].dst)
+    assert (action.owner, action.mode) == ("boneio", 0o644)
