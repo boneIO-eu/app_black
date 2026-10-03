@@ -114,3 +114,46 @@ def test_fetch_requests_the_largest_page(monkeypatch) -> None:
     update_routes._fetch_github_releases()
 
     assert seen["params"] == {"per_page": 100}
+
+
+@pytest.mark.asyncio
+async def test_concurrent_callers_share_one_fetch(monkeypatch) -> None:
+    """The update page asks for the check and the version list at once.
+
+    With the cache expired each went to GitHub on its own, and on a BeagleBone
+    the two together outlasted the panel's timeout, which then said "network
+    error" while a manual retry - answered from the cache - always worked.
+    """
+    calls = 0
+
+    def fetch(repo="boneIO-eu/app_black"):
+        nonlocal calls
+        calls += 1
+        time.sleep(0.2)
+        releases = [{"tag_name": "v1.6.0"}]
+        update_routes._GITHUB_RELEASES_CACHE["data"] = releases
+        update_routes._GITHUB_RELEASES_CACHE["fetched_at"] = time.monotonic()
+        return releases, None
+
+    monkeypatch.setattr(update_routes, "_fetch_github_releases", fetch)
+
+    results = await asyncio.gather(
+        update_routes._fetch_github_releases_async(),
+        update_routes._fetch_github_releases_async(),
+        update_routes._fetch_github_releases_async(),
+    )
+
+    assert calls == 1
+    assert all(releases == [{"tag_name": "v1.6.0"}] for releases, _ in results)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_fetch_lets_the_next_caller_try(monkeypatch) -> None:
+    outcomes = iter([(None, "GitHub API request failed: timeout"), ([{"tag_name": "v1"}], None)])
+    monkeypatch.setattr(update_routes, "_fetch_github_releases", lambda repo="": next(outcomes))
+
+    first = await update_routes._fetch_github_releases_async()
+    second = await update_routes._fetch_github_releases_async()
+
+    assert first[1] is not None
+    assert second == ([{"tag_name": "v1"}], None)

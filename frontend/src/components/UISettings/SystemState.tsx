@@ -157,7 +157,11 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
     setIsChecking(true);
     setError(null);
     try {
-      const { data } = await axios.get('/api/check_update');
+      // GitHub, fetched by the controller when its cache has expired: about
+      // 4 s on a BeagleBone, so the 5 s default failed the first look after
+      // every quarter of an hour and only the manual retry, from the cache it
+      // had filled, worked.
+      const { data } = await axios.get('/api/check_update', { timeout: 30_000 });
       setUpdateInfo(data);
 
       // Check if backend returned an error
@@ -178,7 +182,7 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
   // Fetch available versions for rollback
   const fetchAvailableVersions = useCallback(async () => {
     try {
-      const { data } = await axios.get('/api/update/available_versions');
+      const { data } = await axios.get('/api/update/available_versions', { timeout: 30_000 });
       setAvailableVersions(data.versions || []);
     } catch (err) {
       console.error('Error fetching available versions:', err);

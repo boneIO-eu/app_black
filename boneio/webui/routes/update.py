@@ -47,6 +47,23 @@ _GITHUB_RELEASES_TTL = 900  # 15 minutes in seconds
 # latest stable release and stable devices are never offered an update. 100 is
 # the API maximum.
 _GITHUB_RELEASES_PER_PAGE = 100
+_fetch_lock: asyncio.Lock | None = None
+_fetch_lock_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _github_fetch_lock() -> asyncio.Lock:
+    """The lock that makes concurrent callers share one GitHub fetch.
+
+    Made for the running loop: a lock is bound to the loop it first waits on,
+    and the application has one, but anything that starts another (tests, the
+    recovery panel) would otherwise inherit a lock it cannot use.
+    """
+    global _fetch_lock, _fetch_lock_loop
+    loop = asyncio.get_running_loop()
+    if _fetch_lock is None or _fetch_lock_loop is not loop:
+        _fetch_lock = asyncio.Lock()
+        _fetch_lock_loop = loop
+    return _fetch_lock
 
 
 def _get_cached_releases() -> list | None:
@@ -126,7 +143,16 @@ async def _fetch_github_releases_async(
         _LOGGER.debug("Using cached GitHub releases (%d entries)", len(cached))
         return cached, None
 
-    return await asyncio.to_thread(_fetch_github_releases, repo)
+    # One fetch at a time. The update page asks for the update check and the
+    # version list at once, and with the cache expired each went to GitHub on
+    # its own - two downloads of the same hundred releases, about 4 s apiece
+    # on a BeagleBone, that together outlasted the panel's timeout. The second
+    # caller waits for the first and is answered from the cache it fills.
+    async with _github_fetch_lock():
+        cached = _get_cached_releases()
+        if cached is not None:
+            return cached, None
+        return await asyncio.to_thread(_fetch_github_releases, repo)
 
 
 def get_manager():

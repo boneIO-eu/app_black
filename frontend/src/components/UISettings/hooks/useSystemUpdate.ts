@@ -47,7 +47,7 @@ export const useSystemUpdate = () => {
     setIsChecking(true);
     setError(null);
     try {
-      const { data } = await axios.get('/api/check_update');
+      const { data } = await axios.get('/api/check_update', { timeout: 30_000 });
       setUpdateInfo(data);
 
       if (data.error) {
