@@ -577,8 +577,15 @@ class InputManager:
                     continue
                 new_input_map[input_id] = {"pin": pin, "area": gpio.get("area"), "ha_type": ha_type}
 
-        # Find inputs to remove (in current config but not in new config)
-        current_input_ids = set(self._inputs.keys())
+        # Find inputs to remove (in current config but not in new config).
+        # Only the inputs these two sections own: remote inputs and the OLED
+        # button share the map but come from elsewhere, and dropping them here
+        # took their HA entities away on the first reload after start.
+        current_input_ids = {
+            input_id
+            for input_id, device in self._inputs.items()
+            if input_id != "oled_button" and not isinstance(device, RemoteInputBase)
+        }
         new_input_ids = set(new_input_map.keys())
 
         inputs_to_remove = current_input_ids - new_input_ids
@@ -619,7 +626,8 @@ class InputManager:
                 _LOGGER.info("Removed input %s (type_changed=%s)", input_id, input_id in inputs_type_changed)
 
         # Check for area changes on remaining inputs
-        for input_id, input_device in self._inputs.items():
+        for input_id in current_input_ids - inputs_to_remove - inputs_type_changed:
+            input_device = self._inputs[input_id]
             old_area = getattr(input_device, "area", None)
             new_area = new_input_map.get(input_id, {}).get("area")
 
