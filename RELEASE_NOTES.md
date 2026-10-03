@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev31` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev32` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -28,7 +28,7 @@ before one can be made.
 
 - **No standing path to root.** Privileged work goes through three small
   system helpers with a fixed list of operations. Wildcard sudo rules are
-  gone, and the `boneio` account is no longer in the `docker` group.
+  gone, and the `boneio` account is no longer in the `docker` or `kmem` group.
 - **Signed updates.** System migrations are signed when a release is made and
   checked on the controller before anything runs as root.
 - **Logins and sessions.** The panel requires an administrator account
@@ -81,6 +81,66 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev32 — internal test build
+
+## Since dev31
+
+The service account, `boneio`, came from the base image as a member of
+`kmem`. That group owns `/dev/mem` and `/dev/port` with group read, and the
+BeagleBone kernel is built without `CONFIG_STRICT_DEVMEM`, so anything
+running as `boneio` could read all of physical memory — shadow hashes, SSH
+host keys, root's own processes — undoing the line the earlier work on
+privilege escalation drew between `boneio` and root. Nothing boneIO runs
+opens either device; GPIO goes through `/dev/gpiochip*`. Migration 1.6.36
+reinstalls the migration helper so it can take a group away, not only add
+one; 1.6.37 then removes `boneio` from `kmem`. A service already running
+keeps the group until it next starts.
+
+1.6.35's SSH penalty closed two gaps. It charged a source when a connection
+closed without logging in, but nothing capped how many a source could hold
+open at once, so guessing in parallel batches slipped past roughly twice
+the intended rate — `PerSourceMaxStartups 3` now caps unauthenticated
+connections per source. And IPv6 sources were counted per /128, which a
+host on the same LAN can rotate through its /64 for every connection —
+`PerSourceNetBlockSize 32:64` now counts IPv6 per /64, IPv4 stays per
+address. A device that already carries 1.6.35's drop-in gets the two new
+lines from migration 1.6.38; one updating from before 1.6.35 gets them
+already included.
+
+`/api/init` kept sending `pwa_name` to a caller who had not signed in, even
+after dev31 stopped sending `pwa_default` — the same string, `bIO <serial
+suffix>`, under a different key. Both are now `null` before sign-in and
+unchanged after it; the PWA manifest itself still carries the short name,
+since it is fetched without credentials and cannot be gated the same way.
+
+And the update page's "could not check for updates — network error" on the
+first visit after the release cache had expired is gone. The page asks at
+once for the update check and the release list; with the cache expired,
+each request went to GitHub on its own — the same list of releases fetched
+twice — and the panel's own timeout gave up before either came back, even
+though both finished a moment later and filled the cache, which is what a
+manual retry was then answered from. Concurrent callers now share a single
+fetch instead of each starting one; the panel's own timeout for the pair is
+now 30 s. The automatic check on opening the page stays, since it is what
+tells the owner there is something to install.
+
+Checked on 192.168.50.220: migrations 1.6.36, 1.6.37 and 1.6.38 applied;
+`kmem` left empty in `/etc/group`; after a restart the service no longer
+carried that group, and GPIO and the web server came up as before; sshd
+reloaded with the three new directives, and of five simultaneous
+unauthenticated connections two were dropped with "Maxstartups". The
+update-page fix has two new tests against the route and has not yet been
+seen on a controller's own panel; the `/api/init` fix extends an existing
+test with two more assertions. pytest passed in full, `tsc -b` clean.
+
+Migrations 1.6.36, 1.6.37 and 1.6.38 are new. 1.6.5, 1.6.16, 1.6.19 and
+1.6.23, which install the migration helper, are re-signed to match its
+updated copy; 1.6.35 is re-signed since its drop-in now carries the two
+new sshd lines as well. The manifest is re-signed too, since it names the
+release.
 
 ---
 

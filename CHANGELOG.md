@@ -6,6 +6,67 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev32 (2026-10-03) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🔐 `boneio` is out of the `kmem` group
+
+- **The service account no longer belongs to `kmem`.** That group owns
+  `/dev/mem` and `/dev/port` with group read, and the BeagleBone kernel
+  is built without `CONFIG_STRICT_DEVMEM`, so anything running as
+  `boneio` could read all of physical memory — shadow hashes, SSH host
+  keys, root's own processes — undoing the line between `boneio` and
+  root that kept it out of `docker` and sudo. Nothing boneIO runs opens
+  either device; GPIO goes through `/dev/gpiochip*`.
+- **A running service keeps the group until its next start.** The
+  membership is only removed going forward, not forced on a process
+  already up.
+- Migrations 1.6.36 (teaches the migration helper to drop a group
+  membership) and 1.6.37 (removes `boneio` from `kmem`) are new; 1.6.5,
+  1.6.16, 1.6.19 and 1.6.23, which install that helper, are re-signed to
+  match the new copy.
+
+### 🔐 The SSH guessing penalty closes two ways around it
+
+- **Parallel connections no longer add up faster than the penalty
+  intends.** 1.6.35 charged a source when a connection closed without
+  logging in, but nothing capped how many it could hold open at once,
+  so guessing in batches slipped in roughly twice the rate.
+  `PerSourceMaxStartups 3` caps unauthenticated connections per source.
+- **IPv6 sources are counted by /64, not by address.** A host on the LAN
+  can take a new address from the same /64 for every connection, which
+  used to reset the penalty each time. `PerSourceNetBlockSize 32:64`
+  counts IPv6 per /64; IPv4 stays per address.
+- Migration 1.6.38 installs the updated drop-in on a device already past
+  1.6.35; 1.6.35 itself is re-signed, since the drop-in it installs now
+  carries these two lines as well.
+
+### 🛡️ `/api/init` stops sending `pwa_name` before sign-in too
+
+- **The short name shown on the lock screen before login is now `null`
+  for a stranger, like `pwa_default` already was.** Both default to the
+  same `bIO <serial suffix>` string; dev31 withheld one and missed the
+  other. Signed-in callers, and devices with anonymous access on, still
+  get it. The PWA manifest itself still carries the short name — it is
+  fetched without credentials and cannot be gated.
+
+### 🛟 Opening the update page no longer reports a network error
+
+- **A page opened after the release cache had expired no longer answers
+  "could not check for updates - network error".** The page asks for
+  the update check and the release list at once; with the cache
+  expired, each request went to GitHub on its own — the same list
+  fetched twice — and the panel's timeout gave up before either
+  returned, even though both finished a moment later and filled the
+  cache. Concurrent callers now share a single fetch: the second waits
+  for the first and is answered from the cache it fills, and a failed
+  fetch leaves the next caller free to try again. The panel's own
+  timeout for the pair is now 30 s.
+- The automatic check on opening the page stays; it is what tells the
+  owner there is something to install.
+
 ## v1.6.0.dev31 (2026-10-03) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
