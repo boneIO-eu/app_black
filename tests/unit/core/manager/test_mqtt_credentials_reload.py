@@ -98,5 +98,5 @@ async def test_the_section_is_reachable_by_a_targeted_reload():
     knows, or the save goes back to waiting for a restart."""
     import inspect
 
-    source = inspect.getsource(Manager.reload_config)
+    source = inspect.getsource(Manager._reload_config_locked)
     assert "_reload_mqtt_credentials" in source

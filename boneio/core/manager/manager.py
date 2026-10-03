@@ -172,6 +172,9 @@ class Manager:
         self._config_helper = config_helper
         self._config_file_path = config_file_path
         self._topic_prefix = config_helper.topic_prefix
+        # One reload at a time: they re-read the file and rebuild entity maps
+        # across awaits, so two interleaved runs corrupt each other's state.
+        self._reload_lock = asyncio.Lock()
 
         # Where the Sun is. Built even when `location:` is absent: an
         # unconfigured provider answers "not ready" and says so once, which is
@@ -1842,6 +1845,16 @@ class Manager:
                 - reloaded_sections: List of successfully reloaded sections
                 - failed_sections: List of sections that failed to reload
         """
+        async with self._reload_lock:
+            return await self._reload_config_locked(reload_sections)
+
+    async def reload_inputs_serialized(self) -> None:
+        """Reload inputs without racing a config reload already running."""
+        async with self._reload_lock:
+            await self.inputs.reload_inputs()
+
+    async def _reload_config_locked(self, reload_sections: list[str] | None) -> dict:
+        """Body of :meth:`reload_config`; the caller holds ``_reload_lock``."""
         from boneio.const import BINARY_SENSOR, EVENT_ENTITY
 
         _LOGGER.info("Starting config reload")
@@ -2221,7 +2234,7 @@ class Manager:
         if msg_type == BUTTON and command == "set":
             if device_id == "inputs_reload" and message == "inputs_reload":
                 _LOGGER.info("Reloading events and binary sensors actions")
-                asyncio.create_task(self.inputs.reload_inputs())
+                asyncio.create_task(self.reload_inputs_serialized())
             elif device_id == "cover_reload" and message == "cover_reload":
                 _LOGGER.info("Reloading covers actions")
                 self.covers.reload_covers()
