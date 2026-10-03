@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { FaChevronDown, FaChevronRight, FaExclamationTriangle, FaPlus, FaTrash } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { cleanActionFields } from '../ActionFields';
@@ -77,6 +77,14 @@ const ActionRowList: React.FC<ActionRowListProps> = ({
 }) => {
   const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  // The list as of the last change, not the last render. The editors make
+  // two calls for one choice - a cover's action, then the data that action
+  // reads - and each built on `actions` would drop the other: the cover
+  // action fell back to TOGGLE whatever was picked.
+  const latest = useRef(actions);
+  useLayoutEffect(() => {
+    latest.current = actions;
+  }, [actions]);
 
   const add = () => {
     onChange([...actions, newAction()]);
@@ -90,17 +98,17 @@ const ActionRowList: React.FC<ActionRowListProps> = ({
   };
 
   const update = (index: number, field: string, value: unknown) => {
-    onChange(
-      actions.map((current, i) => {
-        if (i !== index) return current;
-        // Switching the action type drops fields that belonged to the old one;
-        // anything else is an ordinary field update, including the `__batch`
-        // sentinel the shared editors use.
-        return field === 'action'
-          ? (cleanActionFields(String(value), current) as ActionEntry)
-          : applyActionUpdate(current, field, value);
-      }),
-    );
+    const next = latest.current.map((current, i) => {
+      if (i !== index) return current;
+      // Switching the action type drops fields that belonged to the old one;
+      // anything else is an ordinary field update, including the `__batch`
+      // sentinel the shared editors use.
+      return field === 'action'
+        ? (cleanActionFields(String(value), current) as ActionEntry)
+        : applyActionUpdate(current, field, value);
+    });
+    latest.current = next;
+    onChange(next);
   };
 
   return (
