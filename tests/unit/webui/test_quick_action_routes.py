@@ -272,3 +272,29 @@ class TestRouting:
         with pytest.raises(HTTPException) as err:
             run(update_section_content("quick-action", {"entity_id": "in_05"}))
         assert err.value.status_code == 404
+
+
+class TestBackgroundSaveOrder:
+    def test_snapshots_reach_the_disk_in_the_order_they_were_made(self, store, monkeypatch):
+        """Each save writes the whole section; a slow older one must not land last."""
+        import threading
+        import time
+
+        written: list[list] = []
+        first = threading.Event()
+
+        def slow_then_fast(_file, _section, entries):
+            if not first.is_set():
+                first.set()
+                time.sleep(0.05)
+            written.append(copy.deepcopy(entries))
+            return {"status": "ok"}
+
+        monkeypatch.setattr(config_actions, "update_config_section", slow_then_fast)
+        for output in ("out_05", "out_06"):
+            action = {"action": "output", "boneio_output": output, "action_output": "ON"}
+            run(config_actions.add_quick_action({"entity_id": "IN_01", "click_type": "single", "action_def": action}))
+        config_actions._yaml_save_executor.submit(lambda: None).result(timeout=2)
+
+        last = next(e for e in written[-1] if e["id"] == "IN_01")
+        assert [a["boneio_output"] for a in last["actions"]["single"]] == ["out_05", "out_06"]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
-import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import Body, HTTPException
 
@@ -48,6 +48,11 @@ from boneio.webui.routes.config_core import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# One writer, first in first out: every quick action saves a whole-section
+# snapshot, so the order they reach the disk must be the order they were made.
+# A thread per save let an older snapshot finish last and undo a newer one.
+_yaml_save_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="yaml-save-quick-action")
 
 
 @router.get("/config/save-status")
@@ -713,11 +718,7 @@ def _persist_entry_change(
         finally:
             decrement_pending_yaml_saves()
 
-    threading.Thread(
-        target=_background_yaml_save,
-        name=f"yaml-save-quick-action-{entity_id}",
-        daemon=True,
-    ).start()
+    _yaml_save_executor.submit(_background_yaml_save)
 
 
 def _load_config_from_cache_or_disk(app_state) -> dict:
