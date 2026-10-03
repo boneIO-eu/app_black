@@ -98,6 +98,8 @@ async def test_a_stranger_learns_only_whether_cloud_is_on():
     body = await _init(signed_in=False)
     assert body["cloud"] == {"enabled": True}
     assert body["pwa_default"] is None
+    # The configured short name defaults to the same "bIO <suffix>".
+    assert body["pwa_name"] is None
     assert "serial_no" not in body
 
 
@@ -107,3 +109,4 @@ async def test_a_signed_in_caller_gets_the_cloud_details():
     assert body["cloud"]["domain"] == "blkf8dc18.black.boneio.app"
     assert body["cloud"]["last_error"].startswith("Error response")
     assert body["pwa_default"] == "bIO f8dc18"
+    assert body["pwa_name"] == "bIO f8dc18"

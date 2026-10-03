@@ -397,8 +397,8 @@ async def get_init(
         # a password — and point at a config.yaml key that need not even exist,
         # since BONEIO_DEV opts in too.
         "allow_anonymous": is_anonymous_allowed() and not auth_required,
-        "pwa_name": config_helper.pwa_name,
-        # Built from the serial, so withheld with it.
+        # Both default to the serial's suffix, so both are withheld with it.
+        "pwa_name": config_helper.pwa_name if full_view else None,
         "pwa_default": f"bIO {serial_suffix}" if full_view else None,
         "pwa_max_length": 12,
         "cloud": cloud_data,
