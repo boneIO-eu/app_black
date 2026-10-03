@@ -36,10 +36,16 @@ class VirtualSwitchManager:
     def __init__(self, manager: Manager, config: list[dict] | None = None) -> None:
         self._manager = manager
         self._switches: dict[str, VirtualSwitch] = {}
-        self._configure(config or [])
+        if config:
+            self.configure(config)
 
-    def _configure(self, config: list[dict]) -> None:
-        """Build the switches, restoring the state of the ones that ask for it."""
+    def configure(self, config: list[dict]) -> None:
+        """Build the switches, restoring the state of the ones that ask for it.
+
+        The manager calls this after binding the object to
+        ``manager.virtual_switches``: an action that targets another switch is
+        resolved through that attribute, so it has to exist by then.
+        """
         for entry in config:
             # An explicit id wins; otherwise it is made from the name, so that
             # `name: Nie ma nas w domu` is enough and the config says the same
@@ -176,7 +182,7 @@ class VirtualSwitchManager:
         """
         previous = self._switches
         self._switches = {}
-        self._configure(config or [])
+        self.configure(config or [])
 
         for switch_id, switch in self._switches.items():
             kept = previous.get(switch_id)

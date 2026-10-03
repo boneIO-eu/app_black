@@ -243,6 +243,15 @@ class Manager:
             cover_config=cover,
         )
 
+        # 4b. Virtual switches — flags with no hardware, read by conditions and
+        # set by actions. Before anything whose actions may target one: the
+        # inputs here, the scheduler below. Their own actions resolve outputs
+        # and covers, both built above. Bound before it is configured, because
+        # one switch's action may target another and that lookup goes through
+        # self.virtual_switches.
+        self.virtual_switches = VirtualSwitchManager(manager=self)
+        self.virtual_switches.configure(virtual_switch or [])
+
         # 5. InputManager
         self.inputs = InputManager(
             manager=self,
@@ -312,10 +321,6 @@ class Manager:
             manager=self,
             irrigation_config=merged_irrigation,
         )
-
-        # 13. Virtual switches — flags with no hardware, read by conditions and
-        # set by actions. Before the scheduler, whose actions may set one.
-        self.virtual_switches = VirtualSwitchManager(manager=self, config=virtual_switch or [])
 
         # 14. Scheduler — actions that fire on their own. Built here because
         # parsing its actions needs the outputs and covers to exist, and armed
