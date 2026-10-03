@@ -8,6 +8,7 @@ import io
 import json
 import logging
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -35,7 +36,7 @@ BACKUP_DIR = os.path.join(NODERED_DIR, "backups")
 MAX_BACKUPS = 3
 
 # Cache Docker Hub releases
-_DOCKER_HUB_CACHE: dict[str, float | list[dict[str, str]] | None] = {
+_DOCKER_HUB_CACHE: dict[str, float | list[dict] | None] = {
     "data": None,
     "fetched_at": 0.0,
 }
@@ -131,9 +132,34 @@ def _get_current_image_version() -> str:
     return "unknown"
 
 
+#: An image reference's Node-RED tag, with or without a registry in front.
+_IMAGE_TAG_RE = re.compile(r"(?:^|/)node-red:(?P<tag>[^\s@]+)")
+
+
+def _get_installed_version() -> str:
+    """The Node-RED version actually running, else the one the compose file names.
+
+    The two differ when an update rewrote the compose file and then could not
+    pull or start the new image: the old container keeps running, and the
+    compose tag describes something that is not there. What the user sees in
+    the editor is the running one, so that is the one to report and to
+    compare against when looking for updates.
+
+    Returns:
+        A tag such as ``'4.1.2-22-minimal'``, or ``'unknown'``.
+    """
+    if _check_container_running():
+        image = _STATUS_CACHE["image"]
+        match = _IMAGE_TAG_RE.search(image) if isinstance(image, str) else None
+        if match:
+            return match.group("tag")
+    return _get_current_image_version()
+
+
 # Cache for container running status (subprocess is expensive)
-_STATUS_CACHE: dict[str, float | bool] = {
+_STATUS_CACHE: dict[str, float | bool | str] = {
     "running": False,
+    "image": "",
     "checked_at": 0.0,
 }
 _STATUS_CACHE_TTL = 30.0  # 30 seconds
@@ -159,14 +185,17 @@ def _check_container_running(force: bool = False) -> bool:
         return _STATUS_CACHE["running"]
     
     running = False
+    image = ""
     try:
         info = containers.service_status("node-red", timeout=10)
         if info is not None:
             running = info.get("State", "unknown") == "running"
+            image = str(info.get("Image") or "")
     except Exception as e:
         _LOGGER.error("Failed to check Node-RED container status: %s", e)
     
     _STATUS_CACHE["running"] = running
+    _STATUS_CACHE["image"] = image
     _STATUS_CACHE["checked_at"] = now
     return running
 
@@ -192,10 +221,15 @@ async def get_nodered_available() -> NodeRedAvailableResponse:
 
 @router.get("/status", response_model=NodeRedStatusResponse)
 async def get_nodered_status() -> NodeRedStatusResponse:
-    """Get overall Node-RED status (uses cached container check)."""
+    """Get overall Node-RED status (uses cached container check).
+
+    The container check is a privileged helper call of several seconds on a
+    BeagleBone, so it runs off the event loop.
+    """
+    running = await asyncio.to_thread(_check_container_running)
     return NodeRedStatusResponse(
-        running=_check_container_running(),
-        version=_get_current_image_version(),
+        running=running,
+        version=await asyncio.to_thread(_get_installed_version),
         data_dir_exists=os.path.exists(DATA_DIR),
         compose_exists=os.path.exists(COMPOSE_FILE_PATH),
     )
@@ -684,7 +718,7 @@ async def upload_restore(
         raise HTTPException(status_code=500, detail=f"Failed to restore: {e}") from e
 
 
-def _fetch_docker_hub_tags() -> list[dict[str, str]]:
+def _fetch_docker_hub_tags() -> list[dict]:
     """
     Fetch image tags for nodered/node-red from Docker Hub API.
 
@@ -692,7 +726,8 @@ def _fetch_docker_hub_tags() -> list[dict[str, str]]:
     :func:`_fetch_docker_hub_tags_async` instead.
 
     Returns:
-        List of dicts representing tags.
+        One dict per tag: ``name``, and ``platforms`` as
+        ``[architecture, variant]`` pairs the tag has an image for.
     """
     cached = _DOCKER_HUB_CACHE["data"]
     fetched_at = _DOCKER_HUB_CACHE["fetched_at"]
@@ -709,7 +744,16 @@ def _fetch_docker_hub_tags() -> list[dict[str, str]]:
         if response.status_code == 200:
             data = response.json()
             results = data.get("results", [])
-            tags = [{"name": t["name"]} for t in results]
+            tags = [
+                {
+                    "name": t["name"],
+                    "platforms": [
+                        [image.get("architecture"), image.get("variant")]
+                        for image in t.get("images") or []
+                    ],
+                }
+                for t in results
+            ]
             
             _DOCKER_HUB_CACHE["data"] = tags
             _DOCKER_HUB_CACHE["fetched_at"] = time.monotonic()
@@ -724,7 +768,7 @@ def _fetch_docker_hub_tags() -> list[dict[str, str]]:
     return []
 
 
-async def _fetch_docker_hub_tags_async() -> list[dict[str, str]]:
+async def _fetch_docker_hub_tags_async() -> list[dict]:
     """Fetch Docker Hub tags without stalling the event loop.
 
     Same defect as the GitHub releases fetch: a blocking ``requests.get()``
@@ -747,81 +791,74 @@ async def _fetch_docker_hub_tags_async() -> list[dict[str, str]]:
     return await asyncio.to_thread(_fetch_docker_hub_tags)
 
 
+#: Docker's name for this machine's platform, as (architecture, variant).
+#: A variant of None matches any variant.
+_DOCKER_PLATFORMS: dict[str, tuple[str, str | None]] = {
+    "armv7l": ("arm", "v7"),
+    "aarch64": ("arm64", None),
+    "arm64": ("arm64", None),
+    "x86_64": ("amd64", None),
+    "amd64": ("amd64", None),
+}
+
+#: A versioned Node-RED tag: ``4.1.2``, ``4.1.2-22``, ``4.1.2-22-minimal``.
+#: The number after the version is the Node.js major, not a build.
+_VERSION_TAG_RE = re.compile(
+    r"^(?P<version>\d+\.\d+\.\d+)(?:-(?P<node>\d+))?(?P<minimal>-minimal)?$"
+)
+
+
+def _runs_here(tag: dict) -> bool:
+    """Whether Docker Hub has an image of *tag* for this machine.
+
+    Node-RED 5 stopped publishing arm/v7 images, which is what a BeagleBone
+    is. Offering such a tag sends the update into a pull that cannot succeed.
+    """
+    wanted = _DOCKER_PLATFORMS.get(platform.machine().lower())
+    if wanted is None:
+        return True
+    architecture, variant = wanted
+    return any(
+        image_arch == architecture and (variant is None or image_variant == variant)
+        for image_arch, image_variant in tag.get("platforms") or []
+    )
+
+
 @router.get("/update/check", response_model=UpdateCheckResponse)
 async def check_update() -> UpdateCheckResponse:
-    """Check if Node-RED update is available."""
-    current_version = _get_current_image_version()
-    if current_version == "unknown":
-        return UpdateCheckResponse(
-            current_version="unknown",
-            latest_version="unknown",
-            update_available=False,
-        )
+    """Check if Node-RED update is available.
 
-    # Determine if we are using minimal or standard variant
-    is_minimal = "-minimal" in current_version
-    
-    # Strip suffix to get version part (e.g. 4.1.2-22-minimal -> 4.1.2)
-    # The tag pattern on docker hub is often like 4.0.2-20-minimal or 4.0.2
-    
+    Only a tag of the same flavour qualifies: the same Node.js major and the
+    same minimal-or-not, so an update never swaps the runtime under the flows,
+    and only one with an image for this machine.
+    """
+    current_version = await asyncio.to_thread(_get_installed_version)
+    no_update = UpdateCheckResponse(
+        current_version=current_version,
+        latest_version=current_version,
+        update_available=False,
+    )
+    current = _VERSION_TAG_RE.match(current_version)
+    if current is None:
+        return no_update
+
     tags = await _fetch_docker_hub_tags_async()
-    if not tags:
-        return UpdateCheckResponse(
-            current_version=current_version,
-            latest_version=current_version,
-            update_available=False,
-        )
 
-    latest_version = current_version
-    
-    try:
-        from packaging import version
-    except ImportError:
-        # Fallback simple string match
-        _LOGGER.warning("packaging module not installed, fallback to string matching")
-        # Find latest tag matching variant
-        for t in tags:
-            tag_name = t["name"]
-            if is_minimal and not tag_name.endswith("-minimal"):
-                continue
-            if not is_minimal and "-minimal" in tag_name:
-                continue
-            # Docker Hub tag format: major.minor.patch[-build]
-            if re.match(r"^\d+\.\d+\.\d+", tag_name):
-                latest_version = tag_name
-                break
-                
-        return UpdateCheckResponse(
-            current_version=current_version,
-            latest_version=latest_version,
-            update_available=(latest_version != current_version),
-        )
+    def version_of(match: re.Match[str]) -> tuple[int, ...]:
+        return tuple(int(part) for part in match.group("version").split("."))
 
-    # Find the highest version with packaging
-    current_clean = current_version.replace("-minimal", "")
-    current_parsed = version.parse(current_clean)
-    
     best_tag = current_version
-    best_parsed = current_parsed
-    
-    for t in tags:
-        tag_name = t["name"]
-        if is_minimal and not tag_name.endswith("-minimal"):
+    best_version = version_of(current)
+    for tag in tags:
+        candidate = _VERSION_TAG_RE.match(tag["name"])
+        if candidate is None:
             continue
-        if not is_minimal and "-minimal" in tag_name:
+        if candidate.group("node", "minimal") != current.group("node", "minimal"):
             continue
-        
-        clean_tag = tag_name.replace("-minimal", "")
-        if not re.match(r"^\d+\.\d+\.\d+", clean_tag):
+        if version_of(candidate) <= best_version or not _runs_here(tag):
             continue
-            
-        try:
-            parsed = version.parse(clean_tag)
-            if parsed > best_parsed:
-                best_parsed = parsed
-                best_tag = tag_name
-        except Exception:
-            continue
+        best_tag = tag["name"]
+        best_version = version_of(candidate)
 
     return UpdateCheckResponse(
         current_version=current_version,
@@ -834,6 +871,38 @@ async def check_update() -> UpdateCheckResponse:
 async def get_update_status() -> UpdateProgress:
     """Get Node-RED update status."""
     return _update_status
+
+
+async def _restore_image_tag(
+    loop: asyncio.AbstractEventLoop, tag: str, restart: bool
+) -> None:
+    """Put the compose file back on *tag* after a failed update.
+
+    Args:
+        loop: The running loop, for the blocking helper calls.
+        tag: The tag the compose file named before the update.
+        restart: Whether the container was being recreated when the update
+            failed, in which case the old one may be gone and is brought back.
+    """
+    if tag == "unknown":
+        _update_status["log"].append(
+            "Warning: the previous image tag is unknown; the compose file was not restored."
+        )
+        return
+    result = await loop.run_in_executor(None, containers.set_nodered_image, tag)
+    if not result.ok:
+        _LOGGER.error("Could not restore the Node-RED image tag %s: %s", tag, result.stderr)
+        _update_status["log"].append(
+            f"Error: could not restore the image tag {tag}: {result.stderr.strip()}"
+        )
+        return
+    _update_status["log"].append(f"Image tag restored to {tag}.")
+    if restart:
+        up_result = await loop.run_in_executor(None, containers.start_nodered)
+        if not up_result.ok:
+            _update_status["log"].append(
+                f"Error: Node-RED {tag} did not start again: {up_result.stderr.strip()}"
+            )
 
 
 @router.post("/update/perform")
@@ -881,6 +950,7 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
             # mounted — the same hole as the docker group, reached through the
             # update flow. The helper changes the one tag, after validating it.
             loop = asyncio.get_event_loop()
+            previous_tag = _get_current_image_version()
             set_result = await loop.run_in_executor(
                 None, containers.set_nodered_image, target_version
             )
@@ -890,21 +960,32 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
                     f"{set_result.stderr.strip() or 'unknown error'}"
                 )
 
-            # 4. Pull new image
-            _update_progress(60, "Pulling new Node-RED Docker image...", "docker compose pull")
-            pull_result = await loop.run_in_executor(None, containers.pull_nodered)
-            if not pull_result.ok:
-                raise Exception(
-                    f"docker compose pull failed: {pull_result.stderr.strip()}"
-                )
+            recreating = False
+            try:
+                # 4. Pull new image
+                _update_progress(60, "Pulling new Node-RED Docker image...", "docker compose pull")
+                pull_result = await loop.run_in_executor(None, containers.pull_nodered)
+                if not pull_result.ok:
+                    raise Exception(
+                        f"docker compose pull failed: {pull_result.stderr.strip()}"
+                    )
 
-            # 5. Restart Node-RED container
-            _update_progress(80, "Restarting Node-RED container...", "docker compose up -d")
-            up_result = await loop.run_in_executor(None, containers.start_nodered)
-            if not up_result.ok:
-                raise Exception(
-                    f"docker compose up failed: {up_result.stderr.strip()}"
-                )
+                # 5. Restart Node-RED container
+                _update_progress(80, "Restarting Node-RED container...", "docker compose up -d")
+                recreating = True
+                up_result = await loop.run_in_executor(None, containers.start_nodered)
+                if not up_result.ok:
+                    raise Exception(
+                        f"docker compose up failed: {up_result.stderr.strip()}"
+                    )
+            except Exception:
+                # The compose file must not be left naming an image that is
+                # not there: the next `up` (a reboot, a restore) would try to
+                # pull it again and Node-RED would not come back.
+                await _restore_image_tag(loop, previous_tag, restart=recreating)
+                raise
+            finally:
+                _STATUS_CACHE["checked_at"] = 0.0
 
             # 6. Verify and complete
             _update_status["status"] = "success"

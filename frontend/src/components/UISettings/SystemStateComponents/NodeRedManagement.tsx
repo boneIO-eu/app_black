@@ -193,15 +193,21 @@ export default function NodeRedManagement() {
       <StatusTile
         icon={<FaServer />}
         label={t('nodered_management.service_status') || 'Status usługi'}
-        value={status?.running ? t('nodered_management.status_running') : t('nodered_management.status_stopped')}
+        value={
+          !status
+            ? t('nodered_management.status_unknown')
+            : status.running ? t('nodered_management.status_running') : t('nodered_management.status_stopped')
+        }
         badge={
-          <span
-            className={`badge ${
-              status?.running ? 'badge-success' : 'badge-error'
-            } badge-sm font-semibold`}
-          >
-            {status?.version ? `v${status.version}` : (status?.running ? 'Online' : 'Offline')}
-          </span>
+          status ? (
+            <span
+              className={`badge ${
+                status.running ? 'badge-success' : 'badge-error'
+              } badge-sm font-semibold`}
+            >
+              {status.version ? `v${status.version}` : (status.running ? 'Online' : 'Offline')}
+            </span>
+          ) : undefined
         }
         action={
           status?.running ? (

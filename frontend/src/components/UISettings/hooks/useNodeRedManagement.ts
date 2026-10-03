@@ -49,7 +49,9 @@ export const useNodeRedManagement = () => {
   const fetchStatus = useCallback(async () => {
     setIsLoadingStatus(true);
     try {
-      const { data } = await axios.get<NodeRedStatus>('/api/nodered/status');
+      // The container check is a privileged helper call, 2-5 s on a
+      // BeagleBone - past the default timeout, which then read as "stopped".
+      const { data } = await axios.get<NodeRedStatus>('/api/nodered/status', { timeout: 30_000 });
       setStatus(data);
     } catch (err) {
       console.error('Failed to fetch Node-RED status:', err);
