@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev30` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev31` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,79 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev31 — internal test build
+
+## Since dev30
+
+Guessing an SSH password used to cost nothing between tries. 1.6.4 cut
+attempts to three per connection, but nothing stopped a client opening the
+next connection straight away, so a password could still be guessed at
+network speed — and `boneio`'s password is also its sudo password. Migration
+1.6.35 installs a drop-in, `15-boneio-penalties.conf`, with sshd's own
+`PerSourcePenalties authfail:300s max:3600s`: a connection that ends without
+logging in costs its source address five minutes, accumulating up to an
+hour. Typing the password wrong and then right in the same connection costs
+nothing, and three guesses every five minutes stays under nine hundred a
+day. Password login stays on, deliberately — owners setting up from Windows
+with PuTTY rarely have a key — and nothing new is running for it: no
+package, no daemon, nothing in the firewall; fail2ban was weighed and set
+aside for its memory on a 512 MB board. The rule lives in a file of its
+own, so the 1.6.4 plan keeps its signature.
+
+`/api/init` answers before the login form, and its cloud section used to go
+out whole: the registered domain, `compose_writable`, and `last_error`,
+which registration fills with docker compose's stderr verbatim when a
+switch fails. The domain spells out the serial the same endpoint already
+withholds elsewhere, and so did `pwa_default` (`bIO <serial suffix>`). An
+unauthenticated caller now gets `cloud: {enabled}` — what the first-run
+wizard reads — and `pwa_default` null. Signed-in callers, and devices with
+anonymous access on, get everything as before; the panel re-reads
+`/api/init` right after signing in. The serial itself stays no more hidden
+than before: it is the hostname, made from the MAC, and DHCP, LLMNR and the
+PWA manifest's own `short_name` — fetched without credentials, so it cannot
+be gated — all carry it regardless; this keeps the endpoint consistent with
+its own rule rather than pretending the number is secret.
+
+Two smaller fixes. `/docs/`, `/redoc/`, `/DOCS` and `/openapi.yaml` — a
+trailing slash, capitals, or the YAML form of the schema — still reached
+the SPA's catch-all and answered with a 200 outside developer mode; the
+404 added in dev30 now matches with slashes and case stripped. And
+`nodered_guard`'s check for whether Node-RED's `settings.js` configures a
+login looked for the word `adminAuth` anywhere in the file, so a
+commented-out block — or a comment explaining it — read as configured,
+and the guard would have restarted an editor that comes back just as open; it now
+looks for the property outside comments, and logs the open editor
+instead.
+
+Three more fixes. Node-RED's update check now reads
+the version off the running container instead of the compose file — which an
+update that could not pull or start its image had already rewritten, so the
+panel reported a version that was not running — and offers only tags with an
+image for this machine, in the same Node.js major and minimal-or-not: Node-RED
+5 stopped publishing arm/v7 images, which is what a BeagleBone is, so the
+newest tag was one the controller could not pull. The container check, 2-5 s
+on a BeagleBone, moved off the event loop, and the status reads "Unknown"
+rather than "Stopped" until it answers. A long press on a virtual switch now
+opens the virtual switch settings rather than the outputs section. And picking
+a cover action in the action editor keeps it: one pick arrived as two changes
+built on the same stale list, and the second reset the action to TOGGLE.
+
+Checked on 192.168.50.220 (OpenSSH 10.3): 1.6.35 applied, ssh reloaded on
+SIGHUP with sessions kept. Three wrong passwords from `127.0.0.1` logged an
+active penalty of 300 seconds, and the next connection from there was
+dropped in 0.1 s before any prompt, while a key login from
+`192.168.50.190` went through; sshd's RSS was 5 MB. The `/api/init`
+change has two new tests against the real endpoint, the docs-404 fix
+extends `test_serial_disclosure.py`, and the Node-RED guard fix adds two
+tests to `test_nodered_guard.py`; backend suite 4302 passed, `tsc -b`
+clean. The Node-RED update check has eleven new tests and the action editor
+fix one; frontend suite 637/637.
+
+Migration 1.6.35 is new, and the manifest is re-signed since it names the
+release; no other plan changed since dev30.
 
 ---
 

@@ -6,6 +6,67 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev31 (2026-10-03) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🔐 Guessing an SSH password now costs the guesser time
+
+- **A connection that ends without logging in costs its source address five
+  minutes**, accumulating to an hour on repeat. 1.6.4 cut attempts to three
+  per connection, but nothing stopped the next connection, so a password
+  could still be guessed at network speed — and `boneio`'s password is also
+  its sudo password. Migration 1.6.35 installs a drop-in with sshd's own
+  `PerSourcePenalties authfail:300s max:3600s`; typing it wrong and then
+  right in the same connection costs nothing, and three guesses every five
+  minutes stays under nine hundred a day.
+- **Password login stays on, deliberately** — owners setting up from Windows
+  with PuTTY rarely have a key. No new package or daemon: fail2ban was set
+  aside for its memory use on a 512 MB board.
+- A file of its own, so the 1.6.4 plan keeps its signature.
+
+### 🔐 A commented-out `adminAuth` no longer passes as a login being configured
+
+- **The guard that restarts Node-RED's editor when it comes up open now
+  looks for `adminAuth` outside comments.** It used to find the word
+  anywhere in `settings.js`, so a commented-out block — or a comment
+  explaining it — read as configured, and the guard would have restarted an editor
+  that came back just as open. It now logs the open editor instead.
+
+### 🛡️ Less is given away before signing in
+
+- **`/api/init`, answered before the login form, gives an unauthenticated
+  caller only `cloud: {enabled}`** — not the registered domain,
+  `compose_writable`, or `last_error`, which carries docker compose's
+  stderr verbatim when a switch fails; `pwa_default` is `null` instead of
+  spelling out the serial. Signed-in callers, and devices with anonymous
+  access on, see everything as before; the panel re-reads `/api/init` right
+  after sign-in.
+- **The `/docs`, `/redoc` and `/openapi.json` 404 also catches a trailing
+  slash, capitals, and `/openapi.yaml`.** `/docs/`, `/redoc/`, `/DOCS` and
+  `/openapi.yaml` still reached the SPA's catch-all and answered with a
+  200 — no schema, but the same false lead for a scanner.
+- Migration 1.6.35 is new; no plan content changed since dev30 besides it.
+
+### 🧩 Node-RED updates and two panel fixes
+
+- **The Node-RED update check reports what is actually running** — the
+  version is read off the running container, not the compose file, which an
+  update that could not pull or start its image had already rewritten.
+- **Only tags with an image for this machine are offered, in the same
+  flavour.** Node-RED 5 stopped publishing arm/v7 images, which is what a
+  BeagleBone is, so the newest tag was one the controller could not pull.
+  Tags are also kept to the running Node.js major and minimal-or-not.
+- **The Node-RED status no longer reads "Stopped" on a slow answer.** The
+  container check (2–5 s on a BeagleBone) moved off the event loop, the panel
+  waits for it, and shows "Unknown" until it has an answer.
+- **A long press on a virtual switch opens the virtual switch settings**, not
+  the outputs section, which does not have it.
+- **Picking a cover action in the action editor keeps it.** The pick arrived
+  as two changes built on the same stale list, and the second reset the action
+  to TOGGLE.
+
 ## v1.6.0.dev30 (2026-10-02) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
