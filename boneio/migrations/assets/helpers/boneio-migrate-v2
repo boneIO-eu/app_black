@@ -152,8 +152,15 @@ VALIDATORS: dict[str, list[str]] = {
 #: machine weeks before it runs, and cannot see the account layout of the
 #: device it lands on. A general verb would be a way to strip an operator of
 #: their own access, or a service account of something it needs, with a valid
-#: signature on it. These are the memberships boneIO granted itself.
-REMOVABLE_MEMBERSHIPS = {("boneio", "docker")}
+#: signature on it. These are the memberships boneIO granted itself, and the
+#: ones the image's default account came with that read straight past root:
+#:
+#: ``kmem`` owns ``/dev/mem`` and ``/dev/port``, readable by the group, and the
+#: BeagleBone kernel is built without ``CONFIG_STRICT_DEVMEM`` - so the group
+#: reads all of physical memory: password hashes, SSH host keys, root's
+#: processes. Nothing boneIO runs opens either device (GPIO goes through
+#: ``/dev/gpiochip*``), so taking it away costs nothing.
+REMOVABLE_MEMBERSHIPS = {("boneio", "docker"), ("boneio", "kmem")}
 
 #: Membership of ``docker`` is membership of root: the daemon will start a
 #: container as root with the host filesystem mounted for anyone who can reach

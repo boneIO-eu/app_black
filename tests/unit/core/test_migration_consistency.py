@@ -645,7 +645,32 @@ class TestSshGuessingPenalty:
     def test_it_penalises_failures_and_leaves_passwords_on(self):
         text = (ASSETS_DIR / "sshd/15-boneio-penalties.conf").read_text()
         directives = [line.split() for line in text.splitlines() if line and not line.startswith("#")]
-        assert directives == [["PerSourcePenalties", "authfail:300s", "max:3600s"]]
+        assert directives == [
+            ["PerSourcePenalties", "authfail:300s", "max:3600s"],
+            ["PerSourceMaxStartups", "3"],
+            ["PerSourceNetBlockSize", "32:64"],
+        ]
+
+    def test_1_6_38_brings_the_same_file_to_devices_past_1_6_35(self):
+        from boneio.migrations.versions import v1_6_38_ssh_penalty_per_block as again
+
+        (first,) = self._plan()
+        (second,) = again.plan()
+        assert (second.src, second.dst, second.validate) == (first.src, first.dst, first.validate)
+        assert second.on_change.to_dict() == {"action": "systemctl_reload", "unit": "ssh"}
+
+
+def test_1_6_37_takes_boneio_out_of_kmem_after_the_helper_learns_to():
+    from boneio.migrations.versions import v1_6_36_helper_drops_kmem as helper
+    from boneio.migrations.versions import v1_6_37_drop_kmem_group as kmem
+
+    assert [a.dst for a in helper.plan()] == [
+        "/usr/lib/boneio/trusted/boneio-migrate-v2",
+        "/usr/sbin/boneio-migrate-v2",
+    ]
+    assert [a.to_dict() for a in kmem.plan()] == [
+        {"action": "remove_from_group", "account": "boneio", "group": "kmem"}
+    ]
 
     def test_the_1_6_4_drop_in_is_left_alone(self):
         dsts = {action.dst for action in self._plan()}

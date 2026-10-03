@@ -824,7 +824,23 @@ def test_only_the_listed_membership_may_be_taken_away(helper, groups, account, g
 
 
 def test_the_vocabulary_is_a_closed_list_of_pairs(helper):
-    assert helper.REMOVABLE_MEMBERSHIPS == {("boneio", "docker")}
+    assert helper.REMOVABLE_MEMBERSHIPS == {("boneio", "docker"), ("boneio", "kmem")}
+
+
+def test_kmem_is_removed_without_waiting_for_anything(helper, groups, monkeypatch):
+    """Unlike docker, kmem guards nothing boneIO uses, so there is no
+    replacement to check for first."""
+    groups["groups"]["kmem"] = _FakeGroup(15, ["boneio"])
+    monkeypatch.setattr(helper, "_root_owned", lambda path: False)
+    _remove(helper, group="kmem")
+    assert groups["calls"] == [["gpasswd", "--delete", "boneio", "kmem"]]
+
+
+def test_kmem_is_only_removed_from_boneio(helper, groups):
+    groups["groups"]["kmem"] = _FakeGroup(15, ["boneio", "root"])
+    with pytest.raises(helper.Refused):
+        _remove(helper, account="root", group="kmem")
+    assert groups["calls"] == []
 
 
 def test_docker_is_not_removed_without_the_replacement(helper, groups, monkeypatch):
@@ -888,11 +904,13 @@ def test_group_removal_has_a_handler(helper):
 def test_the_migration_asks_for_a_pair_the_helper_accepts(helper):
     """Cross-check: the plan is written in one repo and enforced in another
     file that deliberately does not import it."""
-    from boneio.migrations.versions import v1_6_11_drop_docker_group as migration
+    from boneio.migrations.versions import v1_6_11_drop_docker_group as docker
+    from boneio.migrations.versions import v1_6_37_drop_kmem_group as kmem
 
-    for action in (a.to_dict() for a in migration.plan()):
-        assert action["action"] in helper.ALLOWED_ACTIONS
-        assert (action["account"], action["group"]) in helper.REMOVABLE_MEMBERSHIPS
+    for migration in (docker, kmem):
+        for action in (a.to_dict() for a in migration.plan()):
+            assert action["action"] in helper.ALLOWED_ACTIONS
+            assert (action["account"], action["group"]) in helper.REMOVABLE_MEMBERSHIPS
 
 
 # ------------------------------------------------------------------ apt_purge
