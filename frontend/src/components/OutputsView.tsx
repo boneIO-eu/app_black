@@ -275,9 +275,15 @@ export default function OutputsView({error}: {error: string | null}) {
 
   const handleGoToSettings = useCallback(() => {
     if (!card.id) return;
-    navigate(`/settings/${card.type}?edit=${encodeURIComponent(card.id)}`);
+    // A virtual switch is drawn and long-pressed as an output, but it is
+    // configured in a section of its own.
+    const section = card.type === 'output'
+      && categorizedOutputs.virtual_switch.some(o => o.id === card.id)
+      ? 'virtual_switch'
+      : card.type;
+    navigate(`/settings/${section}?edit=${encodeURIComponent(card.id)}`);
     closeCard();
-  }, [card.id, card.type, navigate, closeCard]);
+  }, [card.id, card.type, categorizedOutputs, navigate, closeCard]);
 
   // MQTT Reference dialog state
   const [mqttRef, setMqttRef] = useState<{
