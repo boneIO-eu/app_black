@@ -93,6 +93,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<ConfigRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Set while an input committed from the modal is on its way to the device.
+  const [inputSaving, setInputSaving] = useState(false);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
@@ -322,12 +324,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   };
 
   const handleCancel = () => {
+    // Closing mid-save would let another edit start on the list it replaces.
+    if (inputSaving) return;
     setIsModalOpen(false);
     setEditingItem(null);
     setEditingIndex(null);
   };
 
-  const handleSave = (e?: { formData?: ConfigRecord }) => {
+  const handleSave = async (e?: { formData?: ConfigRecord }) => {
+    if (inputSaving) return;
     setAttemptedSubmit(true);
     if (hasValidationErrors) {
       alert(t('array_table_widget.fix_validation_errors_before_saving'));
@@ -368,6 +373,22 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       newValue.push(cleanedData);
     }
     onChange(newValue);
+
+    // An input is committed by its own Save: the device applies it in place,
+    // so making the user confirm it again on the section bar bought nothing.
+    // The modal stays open until it lands, which keeps the next edit from
+    // starting on a list the finishing save is about to replace.
+    if (isInputSection(sectionType) && onSaveSection) {
+      setInputSaving(true);
+      try {
+        await onSaveSection(sectionType, newValue);
+      } catch (err) {
+        console.warn('Saving input section failed:', err);
+      } finally {
+        setInputSaving(false);
+      }
+    }
+
     setIsModalOpen(false);
     setEditingItem(null);
     setEditingIndex(null);
@@ -570,7 +591,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       {/* Edit Modal */}
       <EditItemDialog
         open={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        onOpenChange={(open) => { if (!inputSaving) setIsModalOpen(open); }}
         editingItem={editingItem}
         editingIndex={editingIndex}
         sectionType={sectionType}
@@ -596,6 +617,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         availableDallasSensors={availableDallasSensors}
         onChange={setEditingItem}
         onSave={handleSave}
+        isSaving={inputSaving}
         onCancel={handleCancel}
         onValidationChange={setHasValidationErrors}
         onInterlockGroupCreated={handleInterlockGroupCreated}
