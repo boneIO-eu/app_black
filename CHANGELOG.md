@@ -11,6 +11,20 @@ All notable changes to boneIO Black are documented in this file.
 A pre-release, now open for testing on real installations. See
 RELEASE_NOTES.md before updating.
 
+### 🛟 An input action that sets a virtual switch no longer stops the start
+
+- **boneIO starts again when an input has an action that sets a virtual
+  switch.** A single input with a `boneio_virtual_switch` action — or a
+  virtual switch whose own action sets another switch — made the service
+  stop at startup with `AttributeError: 'Manager' object has no
+  attribute 'virtual_switches'`, and the controller stayed down until the
+  config was edited by hand. It has been that way since dev11.
+- **Cause and fix.** The inputs were built before the virtual switches,
+  but parsing such an action looks the target switch up in the manager.
+  The switches are now built right after the covers, before the inputs,
+  and bound to the manager before they are configured, so a switch that
+  targets another resolves too. Nothing in the config changes.
+
 ### 🔐 `boneio` is out of the `kmem` group
 
 - **The service account no longer belongs to `kmem`.** That group owns

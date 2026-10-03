@@ -88,6 +88,34 @@ you can — the output of `journalctl -u boneio -b`.
 
 ## Since dev31
 
+**A start-up crash is fixed — update if you are stuck, and before you add
+one.** If any input in the configuration had an action that sets a virtual
+switch (`boneio_virtual_switch`), or a virtual switch had an action that
+sets another one, boneIO did not start: the service stopped with
+`AttributeError: 'Manager' object has no attribute 'virtual_switches'` and
+the controller stayed down, with its outputs idle, until the file was
+edited by hand. It has been so since dev11, so every build from dev11 up
+to dev31 has it, and nobody on one of them should add such an action
+before updating.
+
+If your controller is already stuck and cannot be updated from the panel,
+the way out is over SSH: remove the `boneio_virtual_switch` actions from
+the inputs (and from any virtual switch's own actions) in
+`/home/boneio/boneio/config.yaml`, then restart with
+`sudo systemctl restart boneio`. Or leave the file alone and update to
+this build: the same configuration then starts as it is.
+
+The inputs were built before the virtual switches, and parsing such an
+action looks the target switch up in the manager, which did not have the
+attribute yet. The switches are now built right after the covers, before
+the inputs, and bound to the manager before they are configured — so a
+switch that targets another one resolves too. Their own actions only need
+outputs and covers, both built earlier; the scheduler still comes after
+them. Two new tests build the real manager with every other subsystem
+stubbed, so the order of construction is under test; both fail on the
+previous code with the traceback above. Checked on 192.168.50.220: the
+service starts with a virtual switch configured, startup complete.
+
 The service account, `boneio`, came from the base image as a member of
 `kmem`. That group owns `/dev/mem` and `/dev/port` with group read, and the
 BeagleBone kernel is built without `CONFIG_STRICT_DEVMEM`, so anything
