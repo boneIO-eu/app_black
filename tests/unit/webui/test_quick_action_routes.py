@@ -15,6 +15,7 @@ import copy
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from fastapi import HTTPException
 
 from boneio.webui.routes import config_actions
@@ -56,23 +57,22 @@ def _config() -> dict:
 
 
 @pytest.fixture
-def store(monkeypatch):
-    """The config the routes read, and what they would write back."""
-    state = {"config": _config(), "written": {}}
-
-    def load(_app_state):
-        return state["config"]
+def store(monkeypatch, tmp_path):
+    """The file the routes edit, and the config cache they patch afterwards."""
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(yaml.safe_dump(_config(), sort_keys=False), encoding="utf-8")
+    state = {"config": _config(), "file": str(config_file)}
 
     def invalidate(section=None, section_data=None):
         state["config"][section] = copy.deepcopy(section_data)
-        state["written"][section] = copy.deepcopy(section_data)
 
     app_state = MagicMock()
+    app_state.yaml_config_file = str(config_file)
     app_state.manager.inputs._inputs = {}
     monkeypatch.setattr(config_actions, "_get_app_state", lambda: app_state)
-    monkeypatch.setattr(config_actions, "_load_config_from_cache_or_disk", load)
     monkeypatch.setattr(config_actions, "invalidate_config_cache", invalidate)
-    monkeypatch.setattr(config_actions, "update_config_section", lambda *a: {"status": "ok"})
+    monkeypatch.setattr(config_actions, "_quick_action_lock", asyncio.Lock())
+    state["app_state"] = app_state
     return state
 
 
@@ -233,12 +233,11 @@ class TestDelete:
 
 
 class TestTimePeriods:
-    """The parsed config holds durations as TimePeriod objects."""
-
     def test_listed_actions_carry_durations_as_the_yaml_spells_them(self, store):
-        from boneio.core.utils import TimePeriod
-
-        _entry(store, "event", "IN_02")["actions"]["single"][0]["repeat_interval"] = TimePeriod(milliseconds=800)
+        config = yaml.safe_load(open(store["file"], encoding="utf-8"))
+        config["event"][1]["actions"]["single"][0]["repeat_interval"] = "800ms"
+        with open(store["file"], "w", encoding="utf-8") as handle:
+            yaml.safe_dump(config, handle, sort_keys=False)
         listed = run(config_actions.get_input_actions("IN_02"))
         assert listed["actions"][0]["raw"]["repeat_interval"] == "800ms"
 
@@ -274,27 +273,38 @@ class TestRouting:
         assert err.value.status_code == 404
 
 
-class TestBackgroundSaveOrder:
-    def test_snapshots_reach_the_disk_in_the_order_they_were_made(self, store, monkeypatch):
-        """Each save writes the whole section; a slow older one must not land last."""
-        import threading
-        import time
+class TestEditsStartFromTheFile:
+    def test_the_file_gains_only_the_action(self, store):
+        """The running config has the board's pins and the schema's defaults
+        filled in; edits built on it wrote them into the user's file."""
+        from boneio.core.config.yaml_util import strip_default_values
 
-        written: list[list] = []
-        first = threading.Event()
+        # Every section save drops explicit defaults; that is not the leak.
+        before = strip_default_values(yaml.safe_load(open(store["file"], encoding="utf-8"))["event"], {}, "event")
+        # What the running config holds: the board's fields and the schema's
+        # defaults on every input.
+        running = _config()
+        for entry in running["event"]:
+            entry.update({"pin": "P8_37", "gpiochip": 1, "line": 14, "sequence_mode": "exclusive"})
+        store["app_state"].manager.config_helper.get_config.return_value = running
 
-        def slow_then_fast(_file, _section, entries):
-            if not first.is_set():
-                first.set()
-                time.sleep(0.05)
-            written.append(copy.deepcopy(entries))
-            return {"status": "ok"}
+        action = {"action": "output", "boneio_output": "out_03", "action_output": "ON"}
+        run(config_actions.add_quick_action({"entity_id": "IN_01", "click_type": "single", "action_def": action}))
 
-        monkeypatch.setattr(config_actions, "update_config_section", slow_then_fast)
-        for output in ("out_05", "out_06"):
-            action = {"action": "output", "boneio_output": output, "action_output": "ON"}
-            run(config_actions.add_quick_action({"entity_id": "IN_01", "click_type": "single", "action_def": action}))
-        config_actions._yaml_save_executor.submit(lambda: None).result(timeout=2)
+        after = yaml.safe_load(open(store["file"], encoding="utf-8"))
+        assert after["event"][0] == {**before[0], "actions": {"single": [action]}}
+        assert after["event"][1:] == before[1:]
+        assert store["config"]["event"] == after["event"]
 
-        last = next(e for e in written[-1] if e["id"] == "IN_01")
-        assert [a["boneio_output"] for a in last["actions"]["single"]] == ["out_05", "out_06"]
+    def test_two_edits_at_once_both_land(self, store):
+        async def both():
+            await asyncio.gather(
+                config_actions.add_quick_action({"entity_id": "IN_01", "click_type": "single", "action_def": {"action": "output", "boneio_output": "out_05", "action_output": "ON"}}),
+                config_actions.add_quick_action({"entity_id": "IN_01", "click_type": "double", "action_def": {"action": "output", "boneio_output": "out_06", "action_output": "ON"}}),
+            )
+
+        run(both())
+
+        on_disk = yaml.safe_load(open(store["file"], encoding="utf-8"))["event"][0]["actions"]
+        assert set(on_disk) == {"single", "double"}
+        assert store["config"]["event"][0]["actions"] == on_disk

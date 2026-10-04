@@ -158,55 +158,6 @@ _CACHE_FOREIGN_BUILD_ERRORS = (
 # ── YAML write serialization & background save tracking ──────────────────
 # Shared with yaml_patch: both rewrite the same files.
 _yaml_write_lock = CONFIG_WRITE_LOCK
-_yaml_pending_saves = 0
-_yaml_pending_lock = threading.Lock()
-
-
-def yaml_saves_pending() -> bool:
-    """Return True if background YAML saves are still in progress."""
-    return _yaml_pending_saves > 0
-
-
-def get_pending_yaml_saves_count() -> int:
-    """Return count of pending background YAML saves."""
-    return _yaml_pending_saves
-
-
-def wait_for_pending_yaml_saves(timeout: float = 30.0) -> bool:
-    """Block until all pending YAML saves complete (or timeout).
-
-    Args:
-        timeout: Maximum seconds to wait.
-
-    Returns:
-        True if all saves completed, False if timed out.
-    """
-    deadline = time.monotonic() + timeout
-    while yaml_saves_pending():
-        if time.monotonic() > deadline:
-            _LOGGER.warning(
-                "Timed out waiting for %d pending YAML save(s)",
-                _yaml_pending_saves,
-            )
-            return False
-        time.sleep(0.1)
-    return True
-
-
-def increment_pending_yaml_saves() -> None:
-    """Increment pending YAML save counter."""
-    global _yaml_pending_saves
-    with _yaml_pending_lock:
-        _yaml_pending_saves += 1
-
-
-def decrement_pending_yaml_saves() -> None:
-    """Decrement pending YAML save counter."""
-    global _yaml_pending_saves
-    with _yaml_pending_lock:
-        _yaml_pending_saves = max(0, _yaml_pending_saves - 1)
-
-
 # Cache for schema to avoid loading it multiple times (saves ~2-3s per config load)
 _SCHEMA_CACHE = None
 # Cache for board configs to avoid loading them multiple times
@@ -2357,6 +2308,38 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
         except Exception as e:
             _LOGGER.error(f"Error saving section '{section}': {str(e)}")
             return {"status": "error", "message": f"Error saving section: {str(e)}"}
+
+
+def edit_config_section(
+    config_file: str, mutate: Callable[[dict], tuple[str, Any]]
+) -> tuple[str, Any, Any]:
+    """Change one section starting from what the user's file holds.
+
+    Edits begin from the file, not from the running config: that one has the
+    board's pins and the schema's defaults filled in, and writing it back put
+    them into the user's file. The read, the change and the write happen under
+    the write lock, so a save in between cannot be lost.
+
+    Args:
+        config_file: Path to the main config.yaml file.
+        mutate: Gets the whole config as the files hold it (includes followed,
+            secrets resolved), changes one section in place and returns that
+            section's name and whatever its caller wants back. Anything it
+            raises aborts the edit before anything is written.
+
+    Returns:
+        The section's name, the section as written, and what ``mutate`` returned.
+
+    Raises:
+        ConfigurationException: When the section could not be written.
+    """
+    with _yaml_write_lock:
+        config = load_yaml_file(config_file) or {}
+        section, result = mutate(config)
+        status = update_config_section(config_file, section, config[section])
+        if status["status"] == "error":
+            raise ConfigurationException(status["message"])
+        return section, strip_default_values(config[section], {}, section), result
 
 
 def update_yaml_field(config_file: str, section: str, field: str, value: str) -> dict:

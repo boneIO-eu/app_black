@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import Body, HTTPException
 
 from boneio.core.config.yaml_util import (
-    decrement_pending_yaml_saves,
+    edit_config_section,
     get_board_config_path,
-    get_pending_yaml_saves_count,
-    increment_pending_yaml_saves,
     load_config_from_file,
     load_yaml_file,
     normalize_board_name,
     normalize_version,
+    strip_default_values,
     update_config_section,
-    yaml_saves_pending,
 )
 from boneio.core.config.input_bindings import (
     INPUT_MODE_COVERS,
@@ -34,6 +34,7 @@ from boneio.core.config.input_bindings import (
 )
 from boneio.core.manager import Manager
 from boneio.core.utils import TimePeriod
+from boneio.exceptions import ConfigurationException
 from boneio.webui.action_validation import (
     ACTION_ALLOWED_FIELDS,
     SHARED_FIELDS,
@@ -49,23 +50,10 @@ from boneio.webui.routes.config_core import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# One writer, first in first out: every quick action saves a whole-section
-# snapshot, so the order they reach the disk must be the order they were made.
-# A thread per save let an older snapshot finish last and undo a newer one.
-_yaml_save_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="yaml-save-quick-action")
-
-
-@router.get("/config/save-status")
-async def get_save_status():
-    """Check if background YAML saves are in progress.
-
-    Returns:
-        Dictionary with saving status and pending count.
-    """
-    return {
-        "saving": yaml_saves_pending(),
-        "pending_count": get_pending_yaml_saves_count(),
-    }
+# Quick actions run one at a time: each reads its section from the file,
+# changes it and writes it back, and the config cache and the running input
+# have to follow in the same order.
+_quick_action_lock = asyncio.Lock()
 
 
 @router.post("/config/validate_device_type_change")
@@ -590,6 +578,15 @@ def _describe_action(act: dict) -> dict:
     }
 
 
+def _as_stored(action: dict) -> dict:
+    """An action the way the file keeps it, without defaults or empty fields.
+
+    The file drops ``action_output: TOGGLE`` and the like on save, so the
+    same action read back and sent again would otherwise not compare equal.
+    """
+    return strip_default_values({"actions": {"_": [action]}})["actions"]["_"][0]
+
+
 def _assert_no_duplicate(
     target_list: list,
     new_action: dict,
@@ -615,10 +612,11 @@ def _assert_no_duplicate(
     Raises:
         HTTPException: 409 when an identical action already exists.
     """
+    wanted = _as_stored(new_action)
     for idx, existing in enumerate(target_list):
         if skip_index is not None and idx == skip_index:
             continue
-        if existing == new_action:
+        if _as_stored(existing) == wanted:
             raise HTTPException(
                 status_code=409,
                 detail=f"This action already exists for {entity_id} ({click_type})",
@@ -651,120 +649,52 @@ def _hot_update_input(app_state, section: str, entry: dict, entity_id: str) -> N
         _LOGGER.warning("Quick action saved but hot-update failed: %s", hot_err)
 
 
-def _persist_entry_change(
-    app_state,
-    section: str,
-    entries: list,
-    entry: dict,
-    entity_id: str,
-    click_type: str,
-) -> None:
-    """Validate, cache, hot-update and asynchronously persist a changed entry.
+async def _edit_input(entity_id: str, change: Callable[[dict, str], Any]) -> tuple[str, Any]:
+    """Change one input as the user's file holds it, then apply it in memory.
 
     Args:
-        app_state: Web UI application state.
-        section: Config section that was modified.
-        entries: Full list of entries for that section.
-        entry: The modified entry.
-        entity_id: Input entity id (for logging).
-        click_type: Click type that was modified (for logging).
+        entity_id: Input entity id, ``boneio_input`` name or pin.
+        change: Gets the input entry, with legacy action keys already folded
+            in, and its section. Edits the entry in place and returns what the
+            route reports; raises HTTPException to refuse the edit.
+
+    Returns:
+        The section and what ``change`` returned.
 
     Raises:
-        HTTPException: 422 when the changed entry fails validation.
-    """
-    # Only the entry being changed: a problem in another input is not this
-    # request's to report, and would block every quick action until someone
-    # found it. Validated as what it is — a remote input can be either kind,
-    # and the validator walks the click types of the section it is told.
-    kind = "binary_sensor" if _uses_binary_actions(entry, section) else "event"
-    config = _load_config_from_cache_or_disk(app_state) or {}
-    errors = _validate_section_actions(kind, [entry], has_location=bool(config.get("location")))
-    if errors:
-        raise HTTPException(
-            status_code=422,
-            detail={"message": "Invalid action configuration", "errors": errors},
-        )
-
-    # 1. Update in-memory cache immediately (instant)
-    invalidate_config_cache(section=section, section_data=entries)
-
-    # 2. Hot-update input device actions in-memory
-    _hot_update_input(app_state, section, entry, entity_id)
-
-    # 3. Fire YAML save in background (don't block response)
-    config_file = app_state.yaml_config_file
-
-    increment_pending_yaml_saves()
-
-    def _background_yaml_save() -> None:
-        """Persist quick-action to YAML on disk in a background thread."""
-        try:
-            result = update_config_section(config_file, section, entries)
-            if result["status"] == "error":
-                _LOGGER.error(
-                    "Background YAML save failed for quick action: %s",
-                    result["message"],
-                )
-            else:
-                _LOGGER.info(
-                    "Background YAML save completed for quick action: %s -> %s",
-                    entity_id, click_type,
-                )
-        except Exception as bg_err:
-            _LOGGER.error(
-                "Background YAML save error for quick action: %s",
-                bg_err, exc_info=True,
-            )
-        finally:
-            decrement_pending_yaml_saves()
-
-    _yaml_save_executor.submit(_background_yaml_save)
-
-
-def _load_config_from_cache_or_disk(app_state) -> dict:
-    """Load config preferring the in-memory ConfigHelper cache over disk.
-
-    The in-memory cache is patched immediately by ``invalidate_config_cache``
-    after each quick-action change, so it always has the latest data even while
-    a background YAML save is still in progress.
-
-    Args:
-        app_state: Web UI application state.
-
-    Returns:
-        Parsed config dict.
-    """
-    try:
-        manager: Manager = app_state.manager
-        config = manager.config_helper.get_config()
-        if config:
-            return config
-    except Exception:
-        pass
-    return load_yaml_file(app_state.yaml_config_file)
-
-
-def _load_entry_for_edit(entity_id: str) -> tuple:
-    """Load config and locate a normalized input entry for modification.
-
-    Reads from the in-memory ConfigHelper cache (which is updated
-    immediately after each quick-action change) rather than from disk,
-    avoiding race conditions with background YAML saves.
-
-    Args:
-        entity_id: Input entity id.
-
-    Returns:
-        Tuple of (app_state, section, entries, input_index, entry).
+        HTTPException: 404 for an unknown input, 422 when the changed entry
+            fails validation, 500 when it could not be written.
     """
     app_state = _get_app_state()
-    config = _load_config_from_cache_or_disk(app_state)
-    section, input_index = _find_input_entry(config, entity_id)
-    # Deep-copy the entries list so we don't mutate the in-memory cache
-    entries = copy.deepcopy(config[section])
-    entry = entries[input_index]
-    _migrate_flat_action_keys(entry, section)
-    return app_state, section, entries, input_index, entry
+
+    def mutate(config: dict) -> tuple[str, Any]:
+        section, index = _find_input_entry(config, entity_id)
+        entry = config[section][index]
+        _migrate_flat_action_keys(entry, section)
+        result = change(entry, section)
+        # Only the entry being changed: a problem in another input is not this
+        # request's to report, and would block every quick action until someone
+        # found it. Validated as what it is — a remote input can be either kind,
+        # and the validator walks the click types of the section it is told.
+        kind = "binary_sensor" if _uses_binary_actions(entry, section) else "event"
+        errors = _validate_section_actions(kind, [entry], has_location=bool(config.get("location")))
+        if errors:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Invalid action configuration", "errors": errors},
+            )
+        return section, (index, result)
+
+    async with _quick_action_lock:
+        try:
+            section, written, (index, result) = await asyncio.to_thread(
+                edit_config_section, app_state.yaml_config_file, mutate
+            )
+        except ConfigurationException as err:
+            raise HTTPException(status_code=500, detail=f"Saving the input failed: {err}") from err
+        invalidate_config_cache(section=section, section_data=written)
+        _hot_update_input(app_state, section, written[index], entity_id)
+    return section, result
 
 
 @router.get("/config/input-actions")
@@ -785,8 +715,9 @@ async def get_input_actions(entity_id: str):
         raise HTTPException(status_code=422, detail="entity_id is required")
 
     try:
-        app_state = _get_app_state()
-        config = _load_config_from_cache_or_disk(app_state)
+        # The file, like the edits: an index listed here has to be the one
+        # PUT/DELETE find.
+        config = await asyncio.to_thread(load_yaml_file, _get_app_state().yaml_config_file) or {}
         section, input_index = _find_input_entry(config, entity_id)
         # Legacy keys are folded in exactly as an edit would fold them, so the
         # indexes listed here are the ones PUT/DELETE will find.
@@ -837,17 +768,15 @@ async def add_quick_action(payload: dict = Body(...)):
     click_type = _validate_click_type(payload.get("click_type", "").strip())
     new_action = _action_from_payload(payload)
 
-    try:
-        app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
-        click_type = _click_type_for_entry(entry, section, click_type)
-
-        target_list = _get_target_list(entry, section, click_type)
-        _assert_no_duplicate(target_list, new_action, entity_id, click_type)
-
+    def change(entry: dict, section: str) -> tuple[str, int]:
+        resolved = _click_type_for_entry(entry, section, click_type)
+        target_list = _get_target_list(entry, section, resolved)
+        _assert_no_duplicate(target_list, new_action, entity_id, resolved)
         target_list.append(new_action)
-        entries[input_index] = entry
+        return resolved, len(target_list) - 1
 
-        _persist_entry_change(app_state, section, entries, entry, entity_id, click_type)
+    try:
+        section, (click_type, new_index) = await _edit_input(entity_id, change)
 
         _LOGGER.info(
             "Quick action added: %s -> %s -> %s %s [section=%s]",
@@ -860,7 +789,7 @@ async def add_quick_action(payload: dict = Body(...)):
             "message": f"Action added to {entity_id} ({click_type})",
             "section": section,
             "click_type": click_type,
-            "index": len(target_list) - 1,
+            "index": new_index,
         }
 
     except HTTPException:
@@ -903,16 +832,15 @@ async def update_quick_action(payload: dict = Body(...)):
     replaces_whole = "action_def" in payload
     new_action = _action_from_payload(payload)
 
-    try:
-        app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
-        click_type = _click_type_for_entry(entry, section, click_type)
-        new_click_type = _click_type_for_entry(entry, section, new_click_type)
+    def change(entry: dict, section: str) -> tuple[str, str, int]:
+        source_type = _click_type_for_entry(entry, section, click_type)
+        target_type = _click_type_for_entry(entry, section, new_click_type)
 
-        source_list = _get_target_list(entry, section, click_type, create=False)
+        source_list = _get_target_list(entry, section, source_type, create=False)
         if index >= len(source_list):
             raise HTTPException(
                 status_code=404,
-                detail=f"No action at index {index} for {entity_id} ({click_type})",
+                detail=f"No action at index {index} for {entity_id} ({source_type})",
             )
 
         if not replaces_whole:
@@ -922,23 +850,21 @@ async def update_quick_action(payload: dict = Body(...)):
                     new_action[key] = original_action[key]
             clean_action_fields(new_action)
 
-        if new_click_type == click_type:
+        if target_type == source_type:
             _assert_no_duplicate(
-                source_list, new_action, entity_id, click_type, skip_index=index
+                source_list, new_action, entity_id, source_type, skip_index=index
             )
             source_list[index] = new_action
-            new_index = index
-        else:
-            target_list = _get_target_list(entry, section, new_click_type)
-            _assert_no_duplicate(target_list, new_action, entity_id, new_click_type)
-            source_list.pop(index)
-            target_list.append(new_action)
-            new_index = len(target_list) - 1
-            _drop_empty_action_list(entry, click_type)
+            return source_type, target_type, index
+        target_list = _get_target_list(entry, section, target_type)
+        _assert_no_duplicate(target_list, new_action, entity_id, target_type)
+        source_list.pop(index)
+        target_list.append(new_action)
+        _drop_empty_action_list(entry, source_type)
+        return source_type, target_type, len(target_list) - 1
 
-        entries[input_index] = entry
-
-        _persist_entry_change(app_state, section, entries, entry, entity_id, new_click_type)
+    try:
+        section, (click_type, new_click_type, new_index) = await _edit_input(entity_id, change)
 
         _LOGGER.info(
             "Quick action updated: %s (%s[%d]) -> %s %s [section=%s]",
@@ -1021,24 +947,21 @@ async def delete_quick_action(payload: dict = Body(...)):
     if not isinstance(index, int) or isinstance(index, bool) or index < 0:
         raise HTTPException(status_code=422, detail="index must be a non-negative integer")
 
-    try:
-        app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
-        click_type = _click_type_for_entry(entry, section, click_type)
-
-        target_list = _get_target_list(entry, section, click_type, create=False)
+    def change(entry: dict, section: str) -> tuple[str, dict]:
+        resolved = _click_type_for_entry(entry, section, click_type)
+        target_list = _get_target_list(entry, section, resolved, create=False)
         if index >= len(target_list):
             raise HTTPException(
                 status_code=404,
-                detail=f"No action at index {index} for {entity_id} ({click_type})",
+                detail=f"No action at index {index} for {entity_id} ({resolved})",
             )
-
         removed = target_list.pop(index)
         # Drop empty containers so the YAML stays clean
-        _drop_empty_action_list(entry, click_type)
+        _drop_empty_action_list(entry, resolved)
+        return resolved, removed
 
-        entries[input_index] = entry
-
-        _persist_entry_change(app_state, section, entries, entry, entity_id, click_type)
+    try:
+        section, (click_type, removed) = await _edit_input(entity_id, change)
 
         _LOGGER.info(
             "Quick action removed: %s (%s[%d]) -> %s [section=%s]",

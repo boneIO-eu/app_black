@@ -28,8 +28,8 @@ from boneio.core.config.secret_masking import collect_secrets, scrub_text
 from boneio.core.config.yaml_util import (
     load_config_from_file,
     update_yaml_field,
-    wait_for_pending_yaml_saves,
 )
+from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 from boneio.core.utils import overlay as overlay_util
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
@@ -198,8 +198,8 @@ def _scrub_log_entries(entries: list) -> list:
 async def restart_service(background_tasks: BackgroundTasks):
     """Restart the BoneIO service.
 
-    Waits for any pending background YAML saves (from quick-actions)
-    to complete before restarting, so no config changes are lost.
+    Waits for a config save in progress to finish before restarting, so no
+    file is left half written.
 
     Returns:
         Status response indicating if restart was initiated.
@@ -207,18 +207,12 @@ async def restart_service(background_tasks: BackgroundTasks):
     if not is_running_as_service():
         return {"status": "not available"}
 
-    # Flush pending background YAML saves before restarting.
-    # Run in executor to avoid blocking the async event loop.
-    loop = asyncio.get_running_loop()
-    saves_flushed = await loop.run_in_executor(
-        None, wait_for_pending_yaml_saves, 30.0
-    )
-    if not saves_flushed:
-        _LOGGER.warning("Restarting with pending YAML saves — some changes may be lost")
-
     async def shutdown_and_restart():
         if _app_state and _app_state.web_server:
             await asyncio.sleep(0.1)
+            # Held, never released: every save takes it, so none is cut off
+            # halfway and none starts after this point.
+            await asyncio.to_thread(CONFIG_WRITE_LOCK.acquire)
             os._exit(0)
 
     background_tasks.add_task(shutdown_and_restart)
