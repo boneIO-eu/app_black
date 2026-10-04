@@ -20,6 +20,27 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+def _hash_plain_codes(template_list: list) -> bool:
+    """Hash the plain-text PIN codes of alarm panels in a template list.
+
+    Args:
+        template_list: ``template`` section entries, changed in place.
+
+    Returns:
+        True if any code was hashed.
+    """
+    changed = False
+    for entry in template_list:
+        if not isinstance(entry, dict) or entry.get("platform") != "alarm_control_panel":
+            continue
+        for code_cfg in entry.get("codes", []):
+            raw = str(code_cfg.get("code", ""))
+            if raw and not AlarmPinCode._is_sha256(raw):
+                code_cfg["code"] = AlarmPinCode.hash_code(raw)
+                changed = True
+    return changed
+
+
 class AlarmManager:
     """Manages alarm panel template entities.
 
@@ -276,26 +297,24 @@ class AlarmManager:
         """
         try:
             config_helper = self._manager._config_helper
-            config = config_helper.get_config()
-            template_list: list[dict] = config.get("template", [])
-            changed = False
+            # The running config, so what is in memory matches the file.
+            if not _hash_plain_codes(config_helper.get_config().get("template", [])):
+                return
 
-            for entry in template_list:
-                if entry.get("platform") != "alarm_control_panel":
-                    continue
-                for code_cfg in entry.get("codes", []):
-                    raw = str(code_cfg.get("code", ""))
-                    if raw and not AlarmPinCode._is_sha256(raw):
-                        code_cfg["code"] = AlarmPinCode.hash_code(raw)
-                        changed = True
+            from boneio.core.config.yaml_util import edit_config_section
+            config_file = config_helper._config_file_path
+            if config_file is None:
+                _LOGGER.warning("Cannot migrate PIN codes: config_file_path not set")
+                return
 
-            if changed:
-                from boneio.core.config.yaml_util import update_config_section
-                config_file = config_helper._config_file_path
-                if config_file is None:
-                    _LOGGER.warning("Cannot migrate PIN codes: config_file_path not set")
-                    return
-                update_config_section(config_file, "template", template_list)
+            # The file from its own section: the running one has the schema's
+            # defaults filled in, and writing it back put them into the file.
+            def hash_in_file(file_config: dict) -> tuple[str | None, None]:
+                changed = _hash_plain_codes(file_config.get("template") or [])
+                return ("template" if changed else None), None
+
+            written, _, _ = edit_config_section(config_file, hash_in_file)
+            if written:
                 _LOGGER.info(
                     "Migrated plain-text alarm PIN codes to SHA-256 hashes in YAML"
                 )
