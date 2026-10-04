@@ -30,6 +30,11 @@ from boneio.const import (
     TEXT_SENSOR,
     VALVE,
 )
+from boneio.core.config.yaml_util import (
+    load_config_from_file,
+    load_yaml_file,
+    merge_board_config,
+)
 from boneio.core.system import get_serial_from_mac
 
 _LOGGER = logging.getLogger(__name__)
@@ -494,7 +499,6 @@ class ConfigHelper:
             raise ValueError("config_file_path not set in ConfigHelper")
         
         if self._config_cache is None or force_reload:
-            from boneio.core.config.yaml_util import load_config_from_file
             _LOGGER.debug("Loading config from file: %s", self._config_file_path)
             config = load_config_from_file(self._config_file_path)
             if config is None:
@@ -531,8 +535,6 @@ class ConfigHelper:
 
         _t0 = _time.monotonic()
         _LOGGER.info("Fast-reloading config from: %s", self._config_file_path)
-
-        from boneio.core.config.yaml_util import load_yaml_file, merge_board_config
 
         config_yaml = load_yaml_file(self._config_file_path)
         if config_yaml is None:
