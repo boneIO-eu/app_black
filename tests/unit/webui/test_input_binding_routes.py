@@ -235,3 +235,29 @@ class TestApplyInputBindings:
         with pytest.raises(HTTPException) as err:
             self._run(tmp_path, _relay_board(), {"mode": "none", "restore_state": "yes"})
         assert err.value.status_code == 400
+
+
+class TestRestoreStateStartsFromTheFile:
+    def test_the_file_gains_only_restore_state(self, tmp_path):
+        """The running config has every output merged with the board's
+        expander fields; writing it back put them into the user's file."""
+        on_disk = _relay_board(2)
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(yaml.safe_dump(on_disk), encoding="utf-8")
+        running = _relay_board(2)
+        for output in running["output"]:
+            output.update({"kind": "mcp", "mcp_id": "mcp_left", "pin": 7})
+
+        app_state = MagicMock()
+        app_state.yaml_config_file = str(config_file)
+        from boneio.webui.routes import config_actions
+
+        with (
+            patch.object(config_actions, "_get_app_state", return_value=app_state),
+            patch.object(config_actions, "invalidate_config_cache"),
+            patch.object(config_actions, "load_config_from_file", return_value=running),
+        ):
+            asyncio.run(config_actions.apply_input_bindings({"mode": "none", "restore_state": True}))
+
+        written = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+        assert written["output"] == [{**o, "restore_state": True} for o in on_disk["output"]]

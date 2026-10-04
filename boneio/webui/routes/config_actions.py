@@ -1097,15 +1097,23 @@ async def apply_input_bindings(request: dict = Body(...)):
 
     if restore_state is not None:
         for section in ("output", "cover"):
-            current = [e for e in (config.get(section) or []) if isinstance(e, dict)]
-            if not current:
+            # From the file: the running config has the board's expanders
+            # merged into every output, and on a cover board a whole output
+            # list the file never had.
+            def set_restore_state(file_config: dict, section: str = section) -> tuple[str | None, int]:
+                entries = [e for e in (file_config.get(section) or []) if isinstance(e, dict)]
+                for entry in entries:
+                    entry["restore_state"] = restore_state
+                return (section if entries else None), len(entries)
+
+            try:
+                saved, section_data, count = edit_config_section(config_file, set_restore_state)
+            except ConfigurationException as err:
+                raise HTTPException(status_code=500, detail=str(err)) from err
+            if saved is None:
                 continue
-            updated = [{**entry, "restore_state": restore_state} for entry in current]
-            result = update_config_section(config_file, section, updated)
-            if result.get("status") == "error":
-                raise HTTPException(status_code=500, detail=result.get("message"))
-            invalidate_config_cache(section=section, section_data=updated)
-            written[section] = len(updated)
+            invalidate_config_cache(section=section, section_data=section_data)
+            written[section] = count
 
     _LOGGER.info("Input bindings applied: mode=%s written=%s", mode, written)
     return {"status": "success", "mode": mode, "written": written}

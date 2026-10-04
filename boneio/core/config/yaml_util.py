@@ -2311,8 +2311,8 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
 
 def edit_config_section(
-    config_file: str, mutate: Callable[[dict], tuple[str, Any]]
-) -> tuple[str, Any, Any]:
+    config_file: str, mutate: Callable[[dict], tuple[str | None, Any]]
+) -> tuple[str | None, Any, Any]:
     """Change one section starting from what the user's file holds.
 
     Edits begin from the file, not from the running config: that one has the
@@ -2324,11 +2324,13 @@ def edit_config_section(
         config_file: Path to the main config.yaml file.
         mutate: Gets the whole config as the files hold it (includes followed,
             secrets resolved), changes one section in place and returns that
-            section's name and whatever its caller wants back. Anything it
-            raises aborts the edit before anything is written.
+            section's name and whatever its caller wants back. A name of None
+            means there was nothing to change and nothing is written. Anything
+            it raises aborts the edit before anything is written.
 
     Returns:
-        The section's name, the section as written, and what ``mutate`` returned.
+        The section's name, the section as written, and what ``mutate``
+        returned; None and None in front of that when nothing was written.
 
     Raises:
         ConfigurationException: When the section could not be written.
@@ -2336,6 +2338,8 @@ def edit_config_section(
     with _yaml_write_lock:
         config = load_yaml_file(config_file) or {}
         section, result = mutate(config)
+        if section is None:
+            return None, None, result
         status = update_config_section(config_file, section, config[section])
         if status["status"] == "error":
             raise ConfigurationException(status["message"])
