@@ -3,6 +3,7 @@ Module to provide basic config options.
 """
 from __future__ import annotations
 
+import copy
 import logging
 from typing import TYPE_CHECKING, Any
 import time as _time
@@ -24,6 +25,7 @@ from boneio.const import (
     LIGHT,
     NONE,
     NUMERIC,
+    OUTPUT,
     SELECT,
     SENSOR,
     SWITCH,
@@ -34,10 +36,15 @@ from boneio.core.config.yaml_util import (
     load_config_from_file,
     load_yaml_file,
     merge_board_config,
+    strip_default_values,
 )
 from boneio.core.system import get_serial_from_mac
+from boneio.exceptions import ConfigurationException
 
 _LOGGER = logging.getLogger(__name__)
+
+# Sections merge_board_config fills in from the board (pins, expanders).
+_BOARD_SECTIONS = (EVENT_ENTITY, BINARY_SENSOR, OUTPUT)
 
 
 class ConfigHelper:
@@ -565,8 +572,33 @@ class ConfigHelper:
                 section,
             )
             return
-        self._config_cache[section] = data
+        self._config_cache[section] = self._section_as_reloaded(section, data)
         _LOGGER.debug("Updated config section '%s' in-place", section)
+
+    def _section_as_reloaded(self, section: str, data: object) -> object:
+        """What a reload from the file would hold for a section just saved.
+
+        The file gets the section with empty fields and default action values
+        dropped, and a reload merges the board's pins and expanders back into
+        inputs and outputs. Patching the cache with the data as sent left
+        inputs without a pin until the next reload.
+
+        Args:
+            section: Top-level config key.
+            data: The section as it was saved.
+
+        Returns:
+            The section the way the reload path would see it.
+        """
+        cleaned = strip_default_values(copy.deepcopy(data), {}, section)
+        boneio = self._config_cache.get(BONEIO) if self._config_cache else None
+        if section not in _BOARD_SECTIONS or not isinstance(boneio, dict):
+            return cleaned
+        try:
+            return merge_board_config({BONEIO: dict(boneio), section: cleaned})[section]
+        except ConfigurationException as err:
+            _LOGGER.warning("Section '%s' kept unmerged in the config cache: %s", section, err)
+            return cleaned
 
     def get_section(self, section_name: str, force_reload: bool = False) -> Any:
         """Get a specific configuration section.
