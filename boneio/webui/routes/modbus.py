@@ -833,6 +833,17 @@ async def get_entity_labels(
     return {"coordinator_id": coordinator_id, "labels": coordinator.entity_labels}
 
 
+def _config_device_id(device_config: dict) -> str:
+    """The coordinator id a ``modbus_devices`` entry runs under."""
+    from boneio.const import ADDRESS, ID, MODEL
+
+    if device_config.get(ID):
+        return str(device_config[ID]).replace(" ", "").lower()
+    addr = device_config.get(ADDRESS, "")
+    model = device_config.get(MODEL, "")
+    return f"{addr}_{model}".lower().replace(" ", "_")
+
+
 @router.put("/modbus/{coordinator_id}/entity_labels")
 async def set_entity_labels(
     coordinator_id: str,
@@ -850,7 +861,8 @@ async def set_entity_labels(
     Returns:
         Confirmation with saved labels.
     """
-    from boneio.core.config.yaml_util import update_config_section
+    from boneio.core.config.yaml_util import edit_config_section
+    from boneio.webui.routes.config import invalidate_config_cache
 
     coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
     if not coordinator:
@@ -859,44 +871,23 @@ async def set_entity_labels(
     # Apply labels to running coordinator immediately
     coordinator.update_entity_labels(labels)
 
-    # Save to YAML config
-    try:
-        config = manager.config_helper.get_config()
-        modbus_devices = config.get("modbus_devices", [])
-
-        # Find matching device config entry
-        updated = False
-        for device_config in modbus_devices:
-            from boneio.const import ADDRESS, ID, MODEL
-            has_custom_id = bool(device_config.get(ID))
-            if has_custom_id:
-                device_id = str(device_config[ID]).replace(" ", "").lower()
-            else:
-                addr = device_config.get(ADDRESS, "")
-                model = device_config.get(MODEL, "")
-                device_id = f"{addr}_{model}".lower().replace(" ", "_")
-
-            if device_id == coordinator_id.lower():
+    # From the file: the running config has the schema's defaults filled in,
+    # and writing it back put them into the user's file.
+    def set_labels(file_config: dict) -> tuple[str, None]:
+        for device_config in file_config.get("modbus_devices") or []:
+            if isinstance(device_config, dict) and _config_device_id(device_config) == coordinator_id.lower():
                 device_config["entity_labels"] = labels if labels else {}
-                updated = True
-                break
+                return "modbus_devices", None
+        raise HTTPException(
+            status_code=404,
+            detail=f"Device config for '{coordinator_id}' not found in YAML"
+        )
 
-        if not updated:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Device config for '{coordinator_id}' not found in YAML"
-            )
-
-        # Write back to YAML
-        config_file = manager._config_file_path
-        result = update_config_section(config_file, "modbus_devices", modbus_devices)
-        if result.get("status") == "error":
-            raise HTTPException(status_code=500, detail=result.get("message", "Failed to save config"))
-
-        # Invalidate disk cache and refresh in-memory config
-        from boneio.webui.routes.config import invalidate_config_cache
-        invalidate_config_cache()
-        manager.config_helper.get_config(force_reload=True)
+    try:
+        section, section_data, _ = await asyncio.to_thread(
+            edit_config_section, manager._config_file_path, set_labels
+        )
+        invalidate_config_cache(section=section, section_data=section_data)
 
     except HTTPException:
         raise
