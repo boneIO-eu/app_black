@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev32` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev33` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,46 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev33 — internal test build
+
+## Since dev32
+
+**Remote outputs on MQTT devices switch again.** An output that stands for
+a relay on another boneIO Black, or on any other MQTT remote, refused every
+ON and OFF with `Cannot control remote output without message_bus`: the
+output was built without the message bus to send it through. It is fixed;
+no configuration changes. Checked on 192.168.50.220.
+
+**Saving from the panel no longer writes things you did not write into
+your configuration.** Adding or changing a quick action, setting
+`restore_state` from the input wizard, naming a Modbus entity and the start-up
+step that hashes plain alarm PIN codes each took a section from the running
+configuration and wrote it back whole. The running configuration has the
+board's pins, expanders and the schema's defaults merged in, so one such edit
+could leave `event.yaml`, the outputs or the Modbus devices full of values
+nobody typed. These edits are now made on the file's own section, read just
+before the change, and a section your file does not have is left alone. The
+list of an input's quick actions is read from the file too, so the numbers the
+panel uses are the ones an edit finds. Saves are synchronous now, so the
+background save queue and `/config/save-status` are gone, and a restart waits
+for a save in progress.
+
+**Saving an input does less work.** The input's dialog now saves it to the
+device by itself, where adding an action used to take the dialog's Save and
+then the section bar's. Only the half that changed, `event` or
+`binary_sensor`, is written and reloaded. A reload no longer drops remote
+inputs and the OLED button: the first input save after start used to remove
+them and send empty discovery, so they disappeared from Home Assistant and the
+panel until a restart. Reloads run one at a time, and a saved section reaches
+the in-memory configuration the way a reload would read it.
+
+pytest and `tsc -b` pass in full.
+
+No system migration, plan or asset changed since dev32. Only the manifest is
+re-signed, since it names the release.
 
 ---
 

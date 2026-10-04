@@ -6,6 +6,55 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev33 (2026-10-04) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🛟 Remote outputs on MQTT devices switch again
+
+- **ON/OFF on an output of a boneIO Black or another MQTT remote works
+  again.** Every command failed with `Cannot control remote output without
+  message_bus`, because the output was built without the message bus.
+  Nothing in the config changes.
+
+### 🗂️ Your config files keep only what you wrote
+
+- **Quick actions, `restore_state`, Modbus entity labels and alarm PIN
+  hashing now edit the user's own file.** Each of them used to take a
+  section from the running config and write it back whole. That config
+  has the board's pins, expanders and the schema's defaults merged in,
+  so a single edit could fill `event.yaml`, the outputs or the Modbus
+  devices with values you never wrote. The edit is now made on the
+  file's own section, read under the write lock; a section the file
+  does not have is left alone.
+- **Listing an input's quick actions reads the file too**, so the indexes
+  it hands out are the ones an edit finds. The duplicate check compares
+  actions the way the file keeps them, so an identical action is caught.
+- **The in-memory config matches what a reload would read** after a
+  section save: inputs keep their pin, outputs their expander.
+- **Naming a Modbus entity no longer forces a full reload**, which
+  ran the whole validation (about 20 s on a BeagleBone) on the event loop.
+- The background save queue, its pending-save counter and
+  `/config/save-status` are gone: saves are synchronous now. A restart
+  waits for the write lock, so it cannot cut a save off halfway.
+
+### ⚡ Saving an input is one step and reloads less
+
+- **An input's dialog saves it to the device itself.** Adding an action
+  used to take two saves, the dialog's and the section bar's. Save now
+  shows its state and the dialog stays open until the device has the
+  change.
+- **Only the half that changed is written and reloaded.** Editing an
+  event input no longer rewrites and reloads `binary_sensor` as well.
+- **A reload no longer drops remote inputs and the OLED button.** The
+  first input save after start removed them from the map and sent empty
+  discovery, so they vanished from Home Assistant and the panel until a
+  restart.
+- **Config reloads run one at a time**, including the MQTT
+  `inputs_reload` button, so two quick saves cannot rebuild the input map
+  on top of each other.
+
 ## v1.6.0.dev32 (2026-10-03) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
