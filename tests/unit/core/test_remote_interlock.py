@@ -271,7 +271,7 @@ class TestEnforceInterlock:
 
         # Should have called control_output OFF
         output._device_manager.control_output.assert_called_with(
-            output_id="relay_1", action="OFF"
+            output_id="relay_1", message_bus=None, action="OFF"
         )
 
     async def test_no_enforce_allows_violation(self):

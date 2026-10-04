@@ -300,6 +300,7 @@ class RemoteOutputBase:
 
         success = await self._device_manager.control_output(
             output_id=self._output_id,
+            message_bus=self._message_bus,
             action="ON",
         )
         if success:
@@ -326,6 +327,7 @@ class RemoteOutputBase:
 
         success = await self._device_manager.control_output(
             output_id=self._output_id,
+            message_bus=self._message_bus,
             action="OFF",
         )
         if success:
@@ -417,6 +419,7 @@ class RemoteOutputBase:
 
         success = await self._device_manager.control_output(
             output_id=self._output_id,
+            message_bus=self._message_bus,
             action="ON",
             brightness=brightness,
         )
@@ -484,6 +487,7 @@ class RemoteOutputBase:
         )
         success = await self._device_manager.control_output(
             output_id=self._output_id,
+            message_bus=self._message_bus,
             action="OFF",
         )
         if not success:
@@ -646,6 +650,7 @@ class RemoteOutputBase:
             return
         success = await self._device_manager.control_output(
             output_id=self._output_id,
+            message_bus=self._message_bus,
             action="OFF",
         )
         if success:
