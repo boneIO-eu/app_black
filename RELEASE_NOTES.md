@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev33` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev34` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,47 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev34 — internal test build
+
+## Since dev33
+
+**Updating Node-RED no longer fails on a slow pull.** Pulling a new Node-RED
+image onto a BeagleBone took longer than the two minutes every container
+command was given, so the update was rolled back to the old tag. Pulls now
+get 900 s. Before the pull the update also checks the disk: it needs four
+times the image's compressed size plus 100 MB free, never less than 500 MB,
+and stops with how much it needs and how much is free, rather than filling
+`/` and taking the controller down. Diagnostics > System > Disk is new: it
+shows what fills the controller (Docker images and whether a container uses
+them, the apt cache, the journal, Node-RED backups) and removes unused
+images and the apt cache. The Disk section was checked on a controller.
+
+**The panel no longer hangs after a restart.** The first migration-status
+request ran a self-test on the event loop and every request behind it timed
+out; it runs in a thread now.
+
+**First-run wizard.** Turning the PWA on no longer ends on an address that
+stopped answering: the wizard follows the new one and opens it in a new tab.
+New, and **not yet checked on hardware**: when the card did not say which
+controller it is (no `DEVICE_TYPE`), the wizard asks after the account step
+(32x10, 24x16, cover or cover_mix) and installs that template. It is meant
+for the one image that serves every board.
+
+**Inputs and actions.** Closing the panel no longer stops every input action
+until a restart. MQTT output and cover actions without an explicit action
+value reload again instead of failing. MQTT remote inputs react from the
+first start, and a remote-devices reload no longer keeps the old inputs.
+Hardware errors are visible to administrators only, and their toast opens the
+right settings page.
+
+pytest and `tsc -b` pass in full.
+
+Two system migrations are new, 1.6.39 and 1.6.40. Plans already in place were
+re-signed where they install the updated system helper; the manifest names
+the release, so it is re-signed as always.
 
 ---
 

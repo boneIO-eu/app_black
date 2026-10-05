@@ -6,6 +6,73 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev34 (2026-10-05) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🐳 Node-RED updates survive a slow pull
+
+- **Pulling a new Node-RED image is no longer cut off after two minutes.**
+  On a BeagleBone the pull took longer, timed out, and the update was rolled
+  back to the old tag. `pull` and `pull-nodered` now get 900 s, as the Caddy
+  pull already did. Shipped by system migration 1.6.39.
+- **An update checks for disk space before it pulls.** A pull that fills `/`
+  takes the whole controller down, not only Node-RED. It now needs four times
+  the image's compressed size plus 100 MB free (never less than 500 MB) and
+  stops, saying how much it needs and how much is free.
+
+### 💽 Diagnostics shows what fills the disk
+
+- **Diagnostics > System > Disk** shows how full `/` is, every Docker image
+  with its size and whether a container uses it, the apt cache, the journal
+  and the Node-RED backups. Unused images and the apt cache can be removed
+  from there; nothing a container refers to is touched. Shipped by system
+  migration 1.6.40.
+- An image pinned by digest (Caddy) is named by its repository and the start
+  of its digest instead of being listed as untagged.
+
+### 🧭 Panel and first-run wizard
+
+- **The panel no longer stalls after a restart.** The first migration-status
+  request ran a helper self-test (about 4 s on a BeagleBone) on the event
+  loop, so every request after login hit the 5 s client timeout. It runs in a
+  thread now.
+- **Turning the PWA on no longer ends on a dead address.** The wizard
+  remembers the new address while the old one still answers, asks it directly
+  once the old one has been silent for 30 s, holds Next while the switch runs
+  and opens the new address in a new tab, also after a timeout.
+- **The wizard asks "Which controller is this?" when the card did not say.**
+  With no `DEVICE_TYPE` in `boneio.txt` the controller starts outputless and
+  the wizard offers 32x10, 24x16, cover or cover_mix, then copies that
+  revision's template and restarts. Administrator only, only while the
+  question is open. Meant for the single image that serves every board;
+  not yet checked on hardware.
+- **Hardware errors are for administrators.** `GET /api/hardware/errors` is
+  admin-only, the toast is neither shown nor polled for a read-only account,
+  and its button opens `/settings/hardware_errors` instead of the update page.
+
+### 🎛️ Inputs and actions
+
+- **Closing the panel no longer stops every input action.** Removing an
+  event listener that had never been added wiped every listener of that type
+  off the bus, so clicks were detected but no action ran until a restart.
+  An unknown listener now removes nothing.
+- **MQTT output and cover actions without an action value reload again.**
+  The file drops `toggle` on save, and the reload failed with `'NoneType'
+  object has no attribute 'upper'`, leaving later inputs on their old
+  actions. They default to toggle now.
+- **MQTT remote inputs react from the first start.** They subscribe when
+  registered after the broker connected, and a remote-devices reload no
+  longer leaves the previous inputs running their old actions.
+
+### 🛠️ Developer scripts
+
+- `prepare_dev_controller.sh` prepares a freshly flashed controller for
+  development (SSH key, this tree installed editable, restart rule,
+  `BONEIO_DEV=1`); `remote_test.sh` reaches a controller behind its proxy
+  through Caddy on :8443 when :8090 refuses.
+
 ## v1.6.0.dev33 (2026-10-04) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
