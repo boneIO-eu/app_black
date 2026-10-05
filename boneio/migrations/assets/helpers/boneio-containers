@@ -724,7 +724,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.argument is not None:
             raise Refused(f"verb {args.verb!r} takes no argument")
-        return _run(_argv_for(args.verb))
+        # Pulling an image onto a BeagleBone takes minutes, as for Caddy above.
+        timeout = 900 if VERBS.get(args.verb, ("",))[0] == "pull" else 120
+        return _run(_argv_for(args.verb), timeout=timeout)
     except Refused as exc:
         _LOGGER.error("REFUSED: %s", exc)
         return 2 if "not owned by root" in str(exc) else 1

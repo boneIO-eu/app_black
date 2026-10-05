@@ -349,8 +349,8 @@ def restart_nodered(timeout: int = 120) -> Result:
     return run("restart-nodered", timeout=timeout)
 
 
-def pull_nodered(timeout: int = 600) -> Result:
-    """Pull the Node-RED image."""
+def pull_nodered(timeout: int = 960) -> Result:
+    """Pull the Node-RED image; outlasts the helper's own 900 s limit."""
     return run("pull-nodered", timeout=timeout)
 
 

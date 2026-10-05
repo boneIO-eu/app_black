@@ -427,3 +427,14 @@ def test_the_shipped_templates_pin_caddy_by_digest(helper):
         assert helper._PINNED_CADDY_RE.match(match.group("image")), name
     package = (REPO_ROOT / "boneio" / "core" / "cloud" / "data" / "docker-compose.yaml").read_text()
     assert helper._CADDY_IMAGE_RE.search(package).group("image") == match.group("image")
+
+
+@pytest.mark.parametrize(("verb", "timeout"), [
+    ("pull-nodered", 900), ("pull", 900), ("restart-caddy", 120),
+])
+def test_an_image_pull_gets_minutes_not_the_default(helper, project, monkeypatch, verb, timeout):
+    """A Node-RED pull on a BeagleBone outlasts 120 s and was cut off."""
+    seen: list[int] = []
+    monkeypatch.setattr(helper, "_run", lambda argv, timeout=120: seen.append(timeout) or 0)
+    assert helper.main([verb]) == 0
+    assert seen == [timeout]
