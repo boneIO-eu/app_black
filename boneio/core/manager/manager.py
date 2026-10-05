@@ -830,7 +830,7 @@ class Manager:
 
                 elif action == OUTPUT_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
-                    action_output = action_definition.get("action_output")
+                    action_output = action_definition.get("action_output", TOGGLE)
                     action_to_execute = output_actions.get(action_output.upper())
                     if boneio_id and action_to_execute:
                         parsed_action = {
@@ -845,7 +845,7 @@ class Manager:
 
                 elif action == COVER_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
-                    action_cover = action_definition.get("action_cover")
+                    action_cover = action_definition.get("action_cover", TOGGLE)
                     action_to_execute = cover_actions.get(action_cover.upper())
                     if boneio_id and action_to_execute:
                         parsed_action = {
