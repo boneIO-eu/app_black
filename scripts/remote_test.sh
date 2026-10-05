@@ -46,6 +46,7 @@
 #   VENV=/home/boneio/boneio/venv
 #   HARNESS_PORT=8099
 #   SERVICE_PORT=8090
+#   PROXY_PORT=8443                            (Caddy, for web.expose: proxy)
 #
 set -uo pipefail
 
@@ -56,6 +57,7 @@ VENV="${VENV:-/home/boneio/boneio/venv}"
 SERVICE_CONFIG="${SERVICE_CONFIG:-/home/boneio/boneio/config.yaml}"
 HARNESS_PORT="${HARNESS_PORT:-8099}"
 SERVICE_PORT="${SERVICE_PORT:-8090}"
+PROXY_PORT="${PROXY_PORT:-8443}"
 HARNESS_DIR="/tmp/boneio_webui_harness_$$"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -184,9 +186,25 @@ phase_deps() {
 # green through a socket that refused every connection, a migration chain
 # stopped six short, and a panel with no entities in it: none of those are
 # reachable without the real application running on a real device.
+# Where the panel answers from here: its own port, or — with web.expose: proxy,
+# the default since the PWA, where boneIO listens on localhost only — Caddy's.
+# Empty while neither does.
+_service_base() {
+  local base
+  for base in "http://$REMOTE_HOST:$SERVICE_PORT" "https://$REMOTE_HOST:$PROXY_PORT"; do
+    if curl -kfsS -o /dev/null --max-time 5 "$base/api/init" 2>/dev/null; then
+      echo "$base"
+      return
+    fi
+  done
+}
+
 phase_verify() {
-  section "verify → the live service on $REMOTE_HOST:$SERVICE_PORT"
+  local base
+  base="$(_service_base)"
+  section "verify → the live service at ${base:-$REMOTE_HOST (not answering)}"
   local args=("$REMOTE_HOST" --port "$SERVICE_PORT")
+  [ "${base%%:*}" = https ] && args=("$REMOTE_HOST" --port "$PROXY_PORT" --tls)
   [ -n "${DEV_USER:-}" ] && args+=(--user "$DEV_USER")
   if [ -z "${DEV_PASSWORD:-}" ]; then
     info "DEV_USER/DEV_PASSWORD unset — the socket and migration checks will be skipped"
@@ -457,15 +475,17 @@ phase_live() {
   info "this interrupts the running device for a few seconds"
   "${SSH[@]}" "$REMOTE" "sudo -n /usr/bin/systemctl restart boneio" \
     && ok "restart issued" || { bad "restart failed"; return; }
-  local base="http://$REMOTE_HOST:$SERVICE_PORT" up=""
+  local base="" up=""
   # A cold start on a BBB imports a lot before the real server replaces the
   # loading screen; allow for that plus a slow first .pyc pass after an rsync.
+  # The first start of new code also applies its migrations, a few seconds each.
   for _ in $(seq 1 120); do
-    if curl -fsS -o /dev/null --max-time 5 "$base/api/init" 2>/dev/null; then up=1; break; fi
+    base="$(_service_base)"
+    if [ -n "$base" ]; then up=1; break; fi
     sleep 1
   done
   if [ -z "$up" ]; then
-    bad "service did not answer on $base after restart"
+    bad "service did not answer on :$SERVICE_PORT or :$PROXY_PORT after restart"
     # Print why, instead of leaving the reader to go and look. A crash loop is
     # the usual cause and the traceback says so in one line.
     info "restart count: $("${SSH[@]}" "$REMOTE" 'systemctl show boneio -p NRestarts --value' 2>/dev/null | tr -d '\r')"
@@ -477,9 +497,9 @@ phase_live() {
   fi
   ok "service is back up"
   local ver auth need
-  ver=$(curl -fsS "$base/api/init" | _json version)
-  auth=$(curl -fsS "$base/api/init" | _json auth_required)
-  need=$(curl -fsS "$base/api/init" | _json needs_onboarding)
+  ver=$(curl -kfsS "$base/api/init" | _json version)
+  auth=$(curl -kfsS "$base/api/init" | _json auth_required)
+  need=$(curl -kfsS "$base/api/init" | _json needs_onboarding)
   info "live /api/init → version=$ver auth_required=$auth needs_onboarding=$need"
   case "$ver" in
     1.6.*) ok "running the 1.6 line" ;;
@@ -489,7 +509,10 @@ phase_live() {
 
 phase_smoke() {
   section "smoke → live /api/init"
-  curl -fsS "http://$REMOTE_HOST:$SERVICE_PORT/api/init" | sed 's/^/      /' || bad "no response"
+  local base
+  base="$(_service_base)"
+  [ -n "$base" ] || { bad "no response on :$SERVICE_PORT or :$PROXY_PORT"; return; }
+  curl -kfsS "$base/api/init" | sed 's/^/      /' || bad "no response"
   echo
 }
 
