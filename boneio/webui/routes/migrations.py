@@ -84,7 +84,9 @@ async def get_migration_status(
             "applied": [],
             "last_error": None,
         }
-    return runner.get_status_dict()
+    # The first call after a restart runs the v2 helper's selftest under sudo,
+    # ~4 s on a BeagleBone; on the loop it held every other request that long.
+    return await asyncio.to_thread(runner.get_status_dict)
 
 
 @router.post("/bootstrap")
