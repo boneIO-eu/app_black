@@ -2292,10 +2292,13 @@ def _docker_images() -> list[dict] | None:
         containers = docker("ps", "-aq")
         used = set(docker("inspect", "--format", "{{.Image}}", *containers)) if containers else set()
         images = []
-        for line in docker("image", "inspect", "--format", "{{.Id}} {{.Size}} {{json .RepoTags}}", *ids):
-            image_id, size, tags = line.split(" ", 2)
+        template = "{{.Id}} {{.Size}} {{json .RepoTags}} {{json .RepoDigests}}"
+        for line in docker("image", "inspect", "--format", template, *ids):
+            image_id, size, tags, digests = line.split(" ", 3)
+            # An image pinned by digest, as Caddy is, has no tag to show.
+            names = json.loads(tags) or [d[:d.index("@") + 20] for d in json.loads(digests) or []]
             images.append({
-                "tags": json.loads(tags) or [],
+                "tags": names,
                 "size": int(size),
                 "in_use": image_id in used,
             })

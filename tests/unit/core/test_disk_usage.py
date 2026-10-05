@@ -47,8 +47,9 @@ def test_images_are_reported_in_bytes_with_whether_they_are_used(helper, monkeyp
         ("image", "ls"): "sha256:new\nsha256:old\n",
         ("ps", "-aq"): "c1\n",
         ("inspect", "--format"): "sha256:new\n",
-        ("image", "inspect"): 'sha256:new 300000000 ["nodered/node-red:4.1.15-22-minimal"]\n'
-                              'sha256:old 290000000 ["nodered/node-red:4.1.2-22-minimal"]\n',
+        ("image", "inspect"): 'sha256:new 300000000 ["nodered/node-red:4.1.15-22-minimal"] []\n'
+                              'sha256:old 290000000 ["nodered/node-red:4.1.2-22-minimal"] []\n'
+                              'sha256:cad 50000000 [] ["caddy@sha256:6aeddd44c3078b0f9a35206472a1"]\n',
     }
 
     def fake_run(argv, **kwargs):
@@ -62,6 +63,7 @@ def test_images_are_reported_in_bytes_with_whether_they_are_used(helper, monkeyp
     assert report["images"] == [
         {"tags": ["nodered/node-red:4.1.15-22-minimal"], "size": 300000000, "in_use": True},
         {"tags": ["nodered/node-red:4.1.2-22-minimal"], "size": 290000000, "in_use": False},
+        {"tags": ["caddy@sha256:6aeddd44c307"], "size": 50000000, "in_use": False},
     ]
     assert report["journal"] == report["apt_cache"] == 1234
 
