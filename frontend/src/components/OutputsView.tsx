@@ -91,6 +91,8 @@ export default function OutputsView({error}: {error: string | null}) {
 
   // Fetch hardware errors count
   useEffect(() => {
+    // The route is admin-only, so a read-only account neither asks nor sees it.
+    if (!isAdmin) return;
     const fetchHardwareErrors = async () => {
       try {
         const { data } = await axios.get('/api/hardware/errors');
@@ -104,7 +106,7 @@ export default function OutputsView({error}: {error: string | null}) {
     // Poll every 30 seconds
     const interval = setInterval(fetchHardwareErrors, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   // Get translated category labels
   const getCategoryLabel = (category: OutputCategory): string => {
@@ -745,7 +747,7 @@ export default function OutputsView({error}: {error: string | null}) {
       {outputError && <div className='toast'><div className="alert alert-error">{outputError}</div></div>}
       
       {/* Hardware Errors Toast */}
-      {hardwareErrorsCount > 0 && (
+      {isAdmin && hardwareErrorsCount > 0 && (
         <div className="toast toast-top toast-center z-50">
           <div className="alert alert-error shadow-lg">
             <FaExclamationTriangle />
@@ -755,9 +757,9 @@ export default function OutputsView({error}: {error: string | null}) {
                 {hardwareErrorsCount} {t('outputs.hardware_errors_found')}
               </div>
             </div>
-            <a href="/system" className="btn btn-sm btn-outline">
+            <button className="btn btn-sm btn-outline" onClick={() => navigate('/settings/hardware_errors')}>
               {t('outputs.view_details')}
-            </a>
+            </button>
           </div>
         </div>
       )}

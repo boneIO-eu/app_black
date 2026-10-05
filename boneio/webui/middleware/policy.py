@@ -68,6 +68,8 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/logs",
     "/api/i2c",
     "/api/can",
+    # Which expanders and sensors failed to start, and on which address.
+    "/api/hardware",
     # Recovery mode (boneio.webui.recovery): the error, the raw config files
     # and the log, served while the controller cannot start normally.
     "/api/recovery",
