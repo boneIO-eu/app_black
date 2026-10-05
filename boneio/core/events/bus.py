@@ -372,8 +372,14 @@ class EventBus:
         return listener_job
 
     def remove_event_listener(self, event_type: str | None = None, entity_id: str | None = None, listener_id: str | None = None) -> None:
-        """Remove event listener. Can remove by event_type, listener_id, or both."""
-        if listener_id and listener_id in self._listener_id_index:
+        """Remove event listener. Can remove by event_type, listener_id, or both.
+
+        A ``listener_id`` the bus does not know removes nothing; it never
+        widens to every listener of ``event_type``.
+        """
+        if listener_id:
+            if listener_id not in self._listener_id_index:
+                return
             # Remove by listener_id
             for evt_type, ent_id in self._listener_id_index[listener_id]:
                 if event_type and evt_type != event_type:

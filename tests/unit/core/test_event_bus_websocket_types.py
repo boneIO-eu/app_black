@@ -24,3 +24,21 @@ def test_every_websocket_event_type_can_be_listened_to() -> None:
             event_type=event_type, entity_id="", listener_id=f"ws_{event_type}_global", target=_noop
         )
         bus.remove_event_listener(event_type=event_type, listener_id=f"ws_{event_type}_global")
+
+
+def test_removing_an_unregistered_listener_leaves_the_others() -> None:
+    """A panel socket that closes before its listeners were added still runs
+    the cleanup. Removing an id the bus never had must not take every other
+    listener of that type with it — the input manager among them, after
+    which a click is detected and logged but no action runs."""
+    bus = EventBus(loop=asyncio.new_event_loop())
+    for event_type in ("output", "group", "cover", "input", "modbus_device", "sensor", "schedule"):
+        bus.add_event_listener(event_type=event_type, entity_id="", listener_id="manager", target=_noop)
+        bus.add_event_listener(event_type=event_type, entity_id="x", listener_id="per_entity", target=_noop)
+
+    for event_type in ("output", "group", "cover", "input", "modbus_device", "sensor", "schedule"):
+        bus.remove_event_listener(event_type=event_type, listener_id=f"ws_{event_type}_global")
+
+    for event_type in ("output", "group", "cover", "input", "modbus_device", "sensor", "schedule"):
+        assert "manager" in bus._event_listeners[event_type][""]
+        assert "per_entity" in bus._event_listeners[event_type]["x"]
