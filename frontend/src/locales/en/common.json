@@ -2731,7 +2731,8 @@
     "ssh_password_notice": "This password also becomes the SSH password. Over SSH you always log in as boneio — the username entered here is for the panel only. The boneio user can become root. Changing the panel password later does not change the SSH one — the SSH login card under Accounts, or passwd over SSH, does.",
     "ssh_set": "The SSH password is now the same as your panel password. Over SSH you log in as {{username}}, not with your panel account name.",
     "ssh_kept": "The SSH password was left as it is — somebody had already set one, and it is not the wizard's to replace. Over SSH you log in as boneio.",
-    "ssh_failed": "The SSH password could not be set. Logging in over SSH with a password stays closed."
+    "ssh_failed": "The SSH password could not be set. Logging in over SSH with a password stays closed.",
+    "cloud_timeout_at": "The switch could not be confirmed from this browser. The panel may already have moved to {{url}} — with the PWA on, the old address can stop answering. Try opening it."
   },
   "accounts": {
     "title": "User accounts",

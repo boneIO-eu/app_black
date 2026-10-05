@@ -102,6 +102,32 @@ describe('useCloudSwitch', () => {
     expect(result.current).toEqual({ phase: 'unreachable', url: URL_CLOUD, error: null });
   });
 
+  it('asks the new name directly once the old origin stays silent', async () => {
+    // With expose: proxy the address the wizard was opened on never comes back.
+    polls({ serving: false, url: URL_CLOUD });
+    get.mockRejectedValue(new Error('Network Error'));
+    fetchMock.mockResolvedValue({ type: 'opaque' });
+
+    const { result } = renderHook(() => useCloudSwitch(true));
+    await tick(0);
+    for (let i = 0; i < 9; i++) await tick();
+    expect(fetchMock).not.toHaveBeenCalled();
+    for (let i = 0; i < 3; i++) await tick();
+
+    expect(result.current).toEqual({ phase: 'ready', url: URL_CLOUD, error: null });
+  });
+
+  it('keeps the new address on a timeout so the wizard can still offer it', async () => {
+    polls({ serving: false, url: URL_CLOUD });
+    get.mockRejectedValue(new Error('Network Error'));
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const { result } = renderHook(() => useCloudSwitch(true));
+    await tick(181_000);
+
+    expect(result.current).toMatchObject({ phase: 'timeout', url: URL_CLOUD });
+  });
+
   it('gives up after three minutes and passes the backend error on', async () => {
     get.mockResolvedValue({ data: { serving: false, url: null, last_error: 'DNS registration failed' } });
 

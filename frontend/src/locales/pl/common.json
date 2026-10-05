@@ -2730,7 +2730,8 @@
     "ssh_password_notice": "To hasło będzie też hasłem SSH. Po SSH logujesz się zawsze jako boneio — nazwa użytkownika wpisana tutaj dotyczy tylko panelu. Z konta boneio da się zostać rootem. Późniejsza zmiana hasła w panelu nie zmieni hasła SSH — do tego służy karta logowania SSH w Kontach albo passwd po SSH.",
     "ssh_set": "Hasło SSH jest teraz takie samo jak hasło do panelu. Po SSH logujesz się jako {{username}}, nie nazwą konta z panelu.",
     "ssh_kept": "Hasło SSH zostało bez zmian — ktoś ustawił je już wcześniej, więc nie jest to rola kreatora. Po SSH logujesz się jako boneio.",
-    "ssh_failed": "Nie udało się ustawić hasła SSH. Logowanie hasłem po SSH pozostaje zablokowane."
+    "ssh_failed": "Nie udało się ustawić hasła SSH. Logowanie hasłem po SSH pozostaje zablokowane.",
+    "cloud_timeout_at": "Nie udało się potwierdzić przełączenia z tej przeglądarki. Panel mógł się już przenieść pod {{url}} — przy włączonym PWA stary adres może przestać odpowiadać. Spróbuj go otworzyć."
   },
   "accounts": {
     "title": "Konta użytkowników",

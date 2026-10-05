@@ -98,15 +98,15 @@ function CloudSwitchNotice({ cloud }: { cloud: CloudSwitch }) {
           message={t('onboarding.cloud_unreachable', { url: cloud.url ?? '' })}
         />
       );
-    case 'timeout':
+    case 'timeout': {
+      const message = cloud.url ? t('onboarding.cloud_timeout_at', { url: cloud.url }) : t('onboarding.cloud_timeout');
       return (
         <NoticeCallout
           variant="warning"
-          message={cloud.error
-            ? `${t('onboarding.cloud_timeout')} ${cloud.error}`
-            : t('onboarding.cloud_timeout')}
+          message={cloud.error ? `${message} ${cloud.error}` : message}
         />
       );
+    }
     default:
       return null;
   }
@@ -460,8 +460,10 @@ export default function OnboardingWizard() {
   const finish = () => {
     if (newAddress) {
       // Another origin, so another localStorage: the token stays behind and
-      // the panel there asks for the password once. The notice says so.
-      window.location.assign(newAddress);
+      // the panel there asks for the password once. The notice says so. A new
+      // tab, so a browser that offers to install the PWA does it on a fresh
+      // load of the address it will keep.
+      window.open(newAddress, '_blank', 'noopener');
       return;
     }
     // A restored config is only live after a restart, and the rest of the app
@@ -1010,7 +1012,11 @@ export default function OnboardingWizard() {
                 {isEnablingCloud && <span className="loading loading-spinner loading-sm" />}
                 {t('onboarding.cloud_enable')}
               </button>
-              <button className="btn btn-outline flex-1" onClick={() => goTo('done')}>
+              <button
+                className="btn btn-outline flex-1"
+                onClick={() => goTo('done')}
+                disabled={cloudSwitchPending}
+              >
                 {cloudDone ? t('onboarding.next') : t('onboarding.cloud_skip')}
               </button>
             </div>
@@ -1088,8 +1094,8 @@ export default function OnboardingWizard() {
                   {t('onboarding.cloud_stay_here')}
                 </button>
               )}
-              {cloudSwitch.phase === 'unreachable' && cloudSwitch.url && (
-                <a className="btn btn-outline flex-1" href={cloudSwitch.url} rel="noopener noreferrer">
+              {(cloudSwitch.phase === 'unreachable' || cloudSwitch.phase === 'timeout') && cloudSwitch.url && (
+                <a className="btn btn-outline flex-1" href={cloudSwitch.url} target="_blank" rel="noopener noreferrer">
                   {t('onboarding.cloud_open_anyway', { host: hostOf(cloudSwitch.url) })}
                 </a>
               )}

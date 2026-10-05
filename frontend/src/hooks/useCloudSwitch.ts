@@ -14,6 +14,11 @@
  * tries the name itself, and only a name it reached is offered as the place
  * to go. The probe waits for `serving` on purpose — asking earlier can leave
  * a failed lookup in the resolver's cache for minutes.
+ *
+ * With `web.expose: proxy` the address this page came from does not come back
+ * at all: the cloud template is the only way in. So once the status endpoint
+ * has been silent for a while, the browser asks the new name directly instead
+ * of waiting out the timeout on an origin that is gone.
  */
 
 import { useEffect, useState } from 'react';
@@ -51,6 +56,8 @@ const POLL_MS = 3_000;
 const GIVE_UP_MS = 180_000;
 const PROBE_ATTEMPTS = 4;
 const PROBE_TIMEOUT_MS = 5_000;
+/** Silence from the old origin after which the new name is asked directly. */
+const DIRECT_PROBE_AFTER_MS = 30_000;
 
 /**
  * Whether this browser can open `url` at all: name resolves, TLS completes.
@@ -102,23 +109,39 @@ export function useCloudSwitch(active: boolean): CloudSwitch {
       const deadline = Date.now() + GIVE_UP_MS;
       let status: CloudStatus | null = null;
       let lastError: string | null = null;
+      // Known before the switch: the backend reports it as soon as the domain
+      // is registered, while this origin still answers.
+      let knownUrl: string | null = null;
+      let silentSince: number | null = null;
 
       while (!cancelled && Date.now() < deadline) {
         try {
           const { data } = await axios.get<CloudStatus>('/api/cloud/status', { timeout: POLL_MS * 2 });
           lastError = data?.last_error ?? null;
+          knownUrl = data?.url ?? knownUrl;
+          silentSince = null;
           if (data?.serving && data.url) {
             status = data;
             break;
           }
         } catch {
-          // The proxy this request went through is being recreated.
+          // The proxy this request went through is being recreated — or, with
+          // expose: proxy, is gone for good and the panel lives at knownUrl.
+          silentSince ??= Date.now();
+          if (
+            knownUrl && !isCurrentOrigin(knownUrl)
+            && Date.now() - silentSince >= DIRECT_PROBE_AFTER_MS
+            && await probeReachable(knownUrl)
+          ) {
+            if (!cancelled) setState({ phase: 'ready', url: knownUrl, error: null });
+            return;
+          }
         }
         await sleep(POLL_MS);
       }
       if (cancelled) return;
       if (!status?.url) {
-        setState({ phase: 'timeout', url: null, error: lastError });
+        setState({ phase: 'timeout', url: knownUrl, error: lastError });
         return;
       }
 
