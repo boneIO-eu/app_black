@@ -751,6 +751,7 @@ def _fetch_docker_hub_tags() -> list[dict]:
                         [image.get("architecture"), image.get("variant")]
                         for image in t.get("images") or []
                     ],
+                    "size_here": _size_here(t.get("images") or []),
                 }
                 for t in results
             ]
@@ -822,6 +823,33 @@ def _runs_here(tag: dict) -> bool:
         image_arch == architecture and (variant is None or image_variant == variant)
         for image_arch, image_variant in tag.get("platforms") or []
     )
+
+
+def _size_here(images: list[dict]) -> int | None:
+    """Compressed size in bytes of the image Docker would pull on this machine."""
+    wanted = _DOCKER_PLATFORMS.get(platform.machine().lower())
+    if wanted is None:
+        return None
+    architecture, variant = wanted
+    for image in images:
+        if image.get("architecture") == architecture and (
+            variant is None or image.get("variant") == variant
+        ):
+            return image.get("size")
+    return None
+
+
+#: Docker keeps its images on ``/``. Unpacked they take roughly three times the
+#: compressed size, and the old image stays until the new one is in place.
+_PULL_MIN_FREE_MB = 500
+_PULL_MARGIN_MB = 100
+
+
+def _space_needed_mb(compressed_bytes: int | None) -> int:
+    """Free space on ``/`` a pull of an image this size must find first."""
+    if not compressed_bytes:
+        return _PULL_MIN_FREE_MB
+    return max(_PULL_MIN_FREE_MB, 4 * compressed_bytes // (1024 * 1024) + _PULL_MARGIN_MB)
 
 
 @router.get("/update/check", response_model=UpdateCheckResponse)
@@ -932,7 +960,19 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
                     return
                 target_version = res.latest_version
 
-            # 2. Automatic Backup
+            # 2. Room for the image: a pull that fills / takes the whole
+            # controller down, not only Node-RED.
+            tags = await _fetch_docker_hub_tags_async()
+            size = next((t.get("size_here") for t in tags if t["name"] == target_version), None)
+            needed_mb = _space_needed_mb(size)
+            free_mb = shutil.disk_usage("/").free // (1024 * 1024)
+            if free_mb < needed_mb:
+                raise Exception(
+                    f"not enough disk space for Node-RED {target_version}: "
+                    f"needs {needed_mb} MB free, {free_mb} MB available"
+                )
+
+            # 3. Automatic Backup
             _update_progress(20, "Creating automatic backup before update...", "Backing up flows")
             try:
                 await create_backup()
@@ -941,7 +981,7 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
                 # We can proceed even if backup fails, but warn the log
                 _update_status["log"].append(f"Warning: Automatic backup failed: {e}. Proceeding with update.")
 
-            # 3. Modify docker-compose.yaml image tag
+            # 4. Modify docker-compose.yaml image tag
             _update_progress(40, f"Updating docker-compose.yaml to version {target_version}...", f"Setting tag to {target_version}")
             
             # The compose file is not written here any more. It is what
@@ -962,7 +1002,7 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
 
             recreating = False
             try:
-                # 4. Pull new image
+                # 5. Pull new image
                 _update_progress(60, "Pulling new Node-RED Docker image...", "docker compose pull")
                 pull_result = await loop.run_in_executor(None, containers.pull_nodered)
                 if not pull_result.ok:
@@ -970,7 +1010,7 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
                         f"docker compose pull failed: {pull_result.stderr.strip()}"
                     )
 
-                # 5. Restart Node-RED container
+                # 6. Restart Node-RED container
                 _update_progress(80, "Restarting Node-RED container...", "docker compose up -d")
                 recreating = True
                 up_result = await loop.run_in_executor(None, containers.start_nodered)
@@ -987,7 +1027,7 @@ async def perform_update(background_tasks: BackgroundTasks, target_version: str 
             finally:
                 _STATUS_CACHE["checked_at"] = 0.0
 
-            # 6. Verify and complete
+            # 7. Verify and complete
             _update_status["status"] = "success"
             _update_progress(100, "Update complete!", f"Node-RED updated successfully to {target_version}.")
             

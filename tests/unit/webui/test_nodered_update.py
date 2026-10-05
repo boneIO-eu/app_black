@@ -8,6 +8,8 @@ while the editor, still on the old container, said 4.1.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from boneio.core import containers
@@ -138,6 +140,16 @@ def helper(monkeypatch, tmp_path):
         return None
 
     monkeypatch.setattr(nodered, "create_backup", no_backup)
+
+    async def fetch():
+        return [{"name": "4.1.15-22-minimal", "size_here": state["image_bytes"]}]
+
+    monkeypatch.setattr(nodered, "_fetch_docker_hub_tags_async", fetch)
+    monkeypatch.setattr(
+        nodered.shutil, "disk_usage",
+        lambda path: SimpleNamespace(free=state["free_mb"] << 20),
+    )
+    state.update(image_bytes=112 << 20, free_mb=25_000)
     nodered._reset_update_status()
     return calls, state
 
@@ -172,3 +184,26 @@ class TestTheUpdate:
         await _update()
         assert calls == [("set", "4.1.15-22-minimal"), ("pull", None), ("up", None)]
         assert nodered._update_status["status"] == "success"
+
+    async def test_too_little_room_stops_it_before_anything_changes(self, helper):
+        calls, state = helper
+        state["free_mb"] = 400  # a 112 MB image needs 548 MB
+        await _update()
+        assert calls == []
+        assert nodered._update_status["status"] == "error"
+        assert "needs 548 MB free, 400 MB available" in nodered._update_status["error"]
+
+    async def test_an_unknown_size_still_asks_for_the_minimum(self, helper):
+        calls, state = helper
+        state.update(image_bytes=None, free_mb=499)
+        await _update()
+        assert calls == []
+
+
+def test_the_size_is_taken_for_this_machine(monkeypatch):
+    monkeypatch.setattr(nodered.platform, "machine", lambda: "armv7l")
+    images = [
+        {"architecture": "amd64", "variant": None, "size": 1},
+        {"architecture": "arm", "variant": "v7", "size": 2},
+    ]
+    assert nodered._size_here(images) == 2
