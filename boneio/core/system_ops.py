@@ -379,3 +379,13 @@ def os_update_log(timeout: int = 30) -> Result:
 def os_autoupdate_set(enabled: bool, timeout: int = 60) -> Result:
     """Switch automatic security updates on or off. Never reboots either way."""
     return run("os-autoupdate-set", "on" if enabled else "off", timeout=timeout)
+
+
+def disk_usage(timeout: int = 120) -> Result:
+    """Docker images, the journal and the apt cache, in bytes, as JSON."""
+    return run("disk-usage", timeout=timeout)
+
+
+def disk_clean(target: str, timeout: int = 360) -> Result:
+    """Free space in ``docker`` (unused images) or ``apt`` (the package cache)."""
+    return run("disk-clean", target, timeout=timeout)

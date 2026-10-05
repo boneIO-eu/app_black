@@ -16,6 +16,7 @@ import CANHelper from './CANHelper';
 import CANNetwork from './CANNetwork';
 import { I2CSection, CANNotSupported } from './Tools';
 import SupportSection from './SupportSection';
+import DiskSection from './DiskSection';
 import { useState } from 'react';
 
 /**
@@ -128,6 +129,10 @@ export default function DiagnosticsView() {
         ) : activeSection === 'support' ? (
           <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <SupportSection />
+          </div>
+        ) : activeSection === 'disk' ? (
+          <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <DiskSection />
           </div>
         ) : (
           <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">

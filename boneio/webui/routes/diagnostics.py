@@ -18,14 +18,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import shutil
 import time
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from boneio.core import system_ops
 from boneio.core.config.yaml_util import load_yaml_file
 from boneio.core.diagnostics.collect import build
+from boneio.webui.routes.nodered import BACKUP_DIR as NODERED_BACKUP_DIR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -257,3 +262,53 @@ async def get_bundle():
         media_type="application/gzip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+_DISK_UNSUPPORTED = (
+    "The installed system helper cannot measure the disk yet. "
+    "Apply the pending system migrations (1.6.40) and try again."
+)
+
+
+def _folder_bytes(path: str) -> tuple[int, int]:
+    """Total size and number of files directly in *path*."""
+    try:
+        sizes = [entry.stat().st_size for entry in os.scandir(path) if entry.is_file()]
+    except OSError:
+        return 0, 0
+    return sum(sizes), len(sizes)
+
+
+@router.get("/disk")
+async def get_disk():
+    """What fills ``/``: the filesystem, Docker images, journal, apt cache, backups."""
+    usage = shutil.disk_usage("/")
+    backups, backup_count = await asyncio.to_thread(_folder_bytes, NODERED_BACKUP_DIR)
+    response = {
+        "root": {"total": usage.total, "used": usage.used, "free": usage.free},
+        "nodered_backups": {"size": backups, "count": backup_count},
+        "supported": await asyncio.to_thread(system_ops.helper_supports, "disk-usage"),
+    }
+    if not response["supported"]:
+        return {**response, "message": _DISK_UNSUPPORTED}
+    result = await asyncio.to_thread(system_ops.disk_usage)
+    measured = result.json() if result.ok else None
+    if measured is None:
+        detail = (result.stderr or result.stdout).strip() or "Could not measure the disk"
+        raise HTTPException(status_code=500, detail=detail)
+    return {**response, **measured}
+
+
+@router.post("/disk/clean/{target}")
+async def clean_disk(target: Literal["apt", "docker"]):
+    """Remove unused Docker images, or empty the apt package cache."""
+    if not await asyncio.to_thread(system_ops.helper_supports, "disk-clean"):
+        raise HTTPException(status_code=409, detail=_DISK_UNSUPPORTED)
+    before = shutil.disk_usage("/").free
+    result = await asyncio.to_thread(system_ops.disk_clean, target)
+    if not result.ok:
+        detail = (result.stderr or result.stdout).strip() or f"Could not clean {target}"
+        raise HTTPException(status_code=500, detail=detail)
+    freed = max(shutil.disk_usage("/").free - before, 0)
+    _LOGGER.info("Disk clean-up from the panel: %s freed %d MB", target, freed >> 20)
+    return {"target": target, "freed": freed}

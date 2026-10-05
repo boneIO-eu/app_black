@@ -33,7 +33,7 @@ export interface DiagnosticsSectionDef {
  * are places you go, the same as a settings section, so they are entries in a
  * sidebar now and the nesting is gone.
  */
-export type DiagnosticsGroup = 'log' | 'buses';
+export type DiagnosticsGroup = 'log' | 'system' | 'buses';
 
 /**
  * Groups in the order they appear.
@@ -43,12 +43,15 @@ export type DiagnosticsGroup = 'log' | 'buses';
  */
 export const DIAGNOSTICS_GROUPS: { name: DiagnosticsGroup; icon: string; titleKey: string }[] = [
   { name: 'log', icon: '📜', titleKey: 'diagnostics.group_log' },
+  { name: 'system', icon: '💾', titleKey: 'diagnostics.group_system' },
   { name: 'buses', icon: '🔍', titleKey: 'diagnostics.group_buses' },
 ];
 
 export const DIAGNOSTICS_SECTIONS: DiagnosticsSectionDef[] = [
   { name: 'log', icon: '📜', titleKey: 'diagnostics.section_log', descriptionKey: 'diagnostics.section_log_desc', group: 'log', width: 'full' },
   { name: 'support', icon: '🛟', titleKey: 'diagnostics.section_support', descriptionKey: 'diagnostics.section_support_desc', group: 'log' },
+
+  { name: 'disk', icon: '💾', titleKey: 'diagnostics.section_disk', descriptionKey: 'diagnostics.section_disk_desc', group: 'system' },
 
   { name: 'modbus', icon: '🔌', titleKey: 'diagnostics.section_modbus', descriptionKey: 'diagnostics.section_modbus_desc', group: 'buses' },
   { name: 'i2c', icon: '🧩', titleKey: 'diagnostics.section_i2c', descriptionKey: 'diagnostics.section_i2c_desc', group: 'buses' },

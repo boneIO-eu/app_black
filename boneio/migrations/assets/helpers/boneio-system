@@ -326,6 +326,7 @@ VERBS = (
     "service-password-state", "service-password-init", "service-password-change",
     "os-update-state", "os-update-start", "os-update-run", "os-update-log",
     "os-autoupdate-set",
+    "disk-usage", "disk-clean",
 )
 
 
@@ -2250,6 +2251,81 @@ def _autoupdate_state() -> dict:
     }
 
 
+#: What ``disk-clean`` may run, by name. Nothing the caller sends reaches argv.
+#: ``image prune -a`` keeps every image a container still refers to, stopped
+#: ones included, so Node-RED and Caddy keep theirs.
+DISK_CLEAN: dict[str, tuple[list[str], int]] = {
+    "docker": (["docker", "image", "prune", "-a", "-f"], 300),
+    "apt": (["apt-get", "clean"], 120),
+}
+
+
+def _bytes_in(path: str) -> int | None:
+    """Bytes under *path* on its own filesystem, or None if du cannot say."""
+    try:
+        out = subprocess.run(
+            ["du", "-sxb", path], capture_output=True, text=True, timeout=60
+        ).stdout
+        return int(out.split()[0])
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        return None
+
+
+def _docker_images() -> list[dict] | None:
+    """Every image with its size and whether a container uses it.
+
+    ``docker image inspect`` gives sizes in bytes; ``docker system df`` only
+    gives them rounded for a person to read. None when Docker is not there.
+    """
+    def docker(*args: str) -> list[str]:
+        result = subprocess.run(
+            ["docker", *args], capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            raise OSError(result.stderr.strip())
+        return [line for line in result.stdout.splitlines() if line.strip()]
+
+    try:
+        ids = docker("image", "ls", "-q", "--no-trunc")
+        if not ids:
+            return []
+        containers = docker("ps", "-aq")
+        used = set(docker("inspect", "--format", "{{.Image}}", *containers)) if containers else set()
+        images = []
+        for line in docker("image", "inspect", "--format", "{{.Id}} {{.Size}} {{json .RepoTags}}", *ids):
+            image_id, size, tags = line.split(" ", 2)
+            images.append({
+                "tags": json.loads(tags) or [],
+                "size": int(size),
+                "in_use": image_id in used,
+            })
+        return images
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def _disk_usage() -> int:
+    """Print what takes room on ``/`` that the app cannot read itself.
+
+    Returns:
+        0, with a JSON object on stdout. Changes nothing.
+    """
+    print(json.dumps({
+        "images": _docker_images(),
+        "journal": _bytes_in("/var/log/journal"),
+        "apt_cache": _bytes_in("/var/cache/apt/archives"),
+    }))
+    return 0
+
+
+def _disk_clean(target: str | None) -> int:
+    """Free space in one of the fixed places in :data:`DISK_CLEAN`."""
+    if target not in DISK_CLEAN:
+        raise Refused(f"disk-clean takes one of {', '.join(DISK_CLEAN)}")
+    argv, timeout = DISK_CLEAN[target]
+    return _run(argv, timeout=timeout)
+
+
 def _os_autoupdate_set(argument: str | None) -> int:
     """Switch automatic security updates on or off.
 
@@ -2429,6 +2505,14 @@ def main(argv: list[str] | None = None) -> int:
             return _os_update_log()
         if args.verb == "os-autoupdate-set":
             return _os_autoupdate_set(args.argument)
+        if args.verb == "disk-usage":
+            if args.argument is not None:
+                raise Refused("disk-usage takes no arguments")
+            return _disk_usage()
+        if args.verb == "disk-clean":
+            if args.value is not None:
+                raise Refused("disk-clean takes one argument")
+            return _disk_clean(args.argument)
         raise Refused(f"unknown verb {args.verb!r}. Allowed: {', '.join(VERBS)}")
     except Refused as exc:
         _LOGGER.error("REFUSED: %s", exc)
