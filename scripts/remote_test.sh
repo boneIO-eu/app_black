@@ -43,7 +43,7 @@
 #   REMOTE=boneio@192.168.50.220
 #   REMOTE_APP=app_black                       (path under the remote home)
 #   SERVICE_CONFIG=/home/boneio/boneio/config.yaml
-#   VENV=/home/boneio/venv
+#   VENV=/home/boneio/boneio/venv
 #   HARNESS_PORT=8099
 #   SERVICE_PORT=8090
 #
@@ -52,7 +52,7 @@ set -uo pipefail
 REMOTE="${REMOTE:-boneio@192.168.50.220}"
 REMOTE_HOST="${REMOTE##*@}"
 REMOTE_APP="${REMOTE_APP:-app_black}"
-VENV="${VENV:-/home/boneio/venv}"
+VENV="${VENV:-/home/boneio/boneio/venv}"
 SERVICE_CONFIG="${SERVICE_CONFIG:-/home/boneio/boneio/config.yaml}"
 HARNESS_PORT="${HARNESS_PORT:-8099}"
 SERVICE_PORT="${SERVICE_PORT:-8090}"
