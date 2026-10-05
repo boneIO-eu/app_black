@@ -150,7 +150,8 @@ class VirtualEnergySensor:
 
     def start_tracking(self):
         """Start tracking consumption (called when output turns ON)."""
-        self._last_on_timestamp = time.time()
+        if self._last_on_timestamp is None:  # ON while already on keeps the stretch
+            self._last_on_timestamp = time.time()
         if self._virtual_sensors_task is not None and not self._virtual_sensors_task.done():
             return  # Already running
         self._virtual_sensors_task = self._loop.create_task(self._tracking_loop())
@@ -188,7 +189,9 @@ class VirtualEnergySensor:
     def _update_consumption(self):
         """Update consumption counters based on elapsed time."""
         now = time.time()
-        if self._output.state == ON and self._last_on_timestamp is not None:
+        # Not the output's state: by the time OFF is handled it is already
+        # off, and the stretch since the last update would be lost.
+        if self._last_on_timestamp is not None:
             elapsed = now - self._last_on_timestamp
 
             if self._sensor_type == "power" and self._power_usage is not None:

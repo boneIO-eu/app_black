@@ -55,3 +55,25 @@ async def test_slow_broker_does_not_reset_the_counter(monkeypatch):
     # Stored total plus ~0.2 s at 3600 W (1 Wh per second) — not zero.
     assert 16429.1 < energy < 16430
     sensor.stop_tracking()
+
+
+async def test_switching_off_counts_the_last_stretch():
+    bus = _Bus()
+    bus.subscribed.set()
+    output = MagicMock(id="out_01", state=ON)
+    sensor = VirtualEnergySensor(
+        id="lamp", name="Lamp", output=output, message_bus=bus, event_bus=MagicMock(),
+        loop=asyncio.get_running_loop(), topic_prefix="boneio/x", sensor_type="power", power_usage=3600.0,
+    )
+    await asyncio.sleep(0)
+    await bus.listeners["boneio/x/energy/lamp"]("boneio/x/energy/lamp", json.dumps({"energy": 100.0}))
+    sensor.start_tracking()
+    await asyncio.sleep(0.1)
+    sensor.start_tracking()  # ON again, e.g. a repeated command: must not restart the stretch
+    await asyncio.sleep(0.1)
+
+    output.state = "OFF"  # the event arrives after the output has switched
+    sensor.stop_tracking()
+
+    # 0.2 s at 3600 W is 0.2 Wh; the 30 s loop never got to publish it.
+    assert bus.sent[-1][1]["energy"] >= 100.19
