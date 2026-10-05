@@ -44,6 +44,9 @@ interface AppInitData {
   /** The device was set up under a pre-1.6 release, so it already has a
    *  configuration: the wizard drops the steps that assume a blank one. */
   configured_before?: boolean;
+  /** The card did not say which controller this is (boneio.txt DEVICE_TYPE):
+   *  it runs an outputless configuration and the wizard asks for the type. */
+  board_type_required?: boolean;
   pwa_name: string | null;
   pwa_default: string | null;
   pwa_max_length: number;

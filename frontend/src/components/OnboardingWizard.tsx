@@ -6,6 +6,7 @@ import {
   FaEyeSlash,
   FaFileArchive,
   FaFileImport,
+  FaMicrochip,
   FaRocket,
   FaSlidersH,
   FaUserShield,
@@ -24,6 +25,7 @@ import {
   stepAfterImport,
   stepAfterDevices,
   stepAfterAccount,
+  stepAfterBoard,
 } from '@/utils/onboardingSteps';
 import { checkImportFile, interpretRestoreResponse } from '@/utils/onboardingImport';
 import {
@@ -124,10 +126,17 @@ interface BindingTargets {
   available_modes: InputMode[];
 }
 
+/** The controllers the board step offers, as boneio.txt DEVICE_TYPE names them. */
+const BOARD_TYPES = ['32x10', '24x16', 'cover', 'cover_mix'] as const;
+type BoardType = (typeof BOARD_TYPES)[number];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** The chip each step's header carries. `done` draws its own checkmark. */
 const STEP_ICONS: Record<Exclude<Step, 'done'>, ReactNode> = {
   welcome: <FaRocket />,
   account: <FaUserShield />,
+  board: <FaMicrochip />,
   import: <FaFileImport />,
   devices: <FaSlidersH />,
   cloud: <FaCloud />,
@@ -210,7 +219,13 @@ export default function OnboardingWizard() {
   // Latched as the wizard opens. /api/init is polled, and enabling cloud on
   // the cloud step would otherwise make that step vanish from under the user.
   const [cloudEnabled] = useState(() => initData?.cloud?.enabled ?? false);
-  const steps = stepsFor(configuredBefore, cloudEnabled);
+  // Latched too: choosing the type clears the flag, and the step must not
+  // vanish from the progress bar the moment it is done.
+  const [boardTypeRequired] = useState(() => initData?.board_type_required ?? false);
+  const [boardType, setBoardType] = useState<BoardType | null>(null);
+  const [isSettingBoard, setIsSettingBoard] = useState(false);
+  const [boardError, setBoardError] = useState<string | null>(null);
+  const steps = stepsFor(configuredBefore, cloudEnabled, boardTypeRequired);
   const stepIndex = steps.indexOf(step);
 
   // Shown under the password field once there is something to judge. The
@@ -243,7 +258,7 @@ export default function OnboardingWizard() {
 
   const accountIncomplete = !username || !password || !confirmPassword;
 
-  const previousStep = previousStepFor(step, importDone, configuredBefore, cloudEnabled);
+  const previousStep = previousStepFor(step, importDone, configuredBefore, cloudEnabled, boardTypeRequired);
 
   // On a phone the step's primary buttons already fill the row, so the back
   // button drops onto its own line underneath rather than squeezing them into
@@ -304,7 +319,7 @@ export default function OnboardingWizard() {
       setPassword('');
       setConfirmPassword('');
       // On an upgraded device there is nothing to import and nothing to wire.
-      goTo(stepAfterAccount(configuredBefore, cloudEnabled));
+      goTo(stepAfterAccount(configuredBefore, cloudEnabled, boardTypeRequired));
     } catch (err: unknown) {
       if ((err as ApiError)?.response?.status === 409) {
         // Somebody else finished the wizard between page load and submit.
@@ -314,6 +329,37 @@ export default function OnboardingWizard() {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSetBoard = async () => {
+    if (!boardType) return;
+    setBoardError(null);
+    setIsSettingBoard(true);
+    try {
+      const { data } = await axios.post('/api/onboarding/board-type', { type: boardType }, { timeout: 30_000 });
+      if (data?.restarting) {
+        // boneIO restarts on the new configuration. Give the old process time
+        // to go, then wait for the API itself: while it starts, port 8090
+        // answers with an HTML loading page, which is not the panel back.
+        await sleep(3_000);
+        const deadline = Date.now() + 180_000;
+        for (;;) {
+          try {
+            const res = await axios.get('/api/init', { timeout: 5_000 });
+            if (res.data && typeof res.data === 'object') break;
+          } catch {
+            // Still restarting.
+          }
+          if (Date.now() > deadline) throw new Error(t('onboarding.board_restart_slow'));
+          await sleep(2_000);
+        }
+      }
+      goTo(stepAfterBoard(configuredBefore, cloudEnabled));
+    } catch (err: unknown) {
+      setBoardError(errorMessage(err, t('onboarding.board_failed')));
+    } finally {
+      setIsSettingBoard(false);
     }
   };
 
@@ -765,6 +811,47 @@ export default function OnboardingWizard() {
               </button>
             </div>
           </form>
+        )}
+
+        {step === 'board' && (
+          <div className={`flex-1 flex flex-col gap-4 ${stepEnter}`}>
+            {stepHeader('board', t('onboarding.board_intro'))}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup" aria-label={t('onboarding.heading_board')}>
+              {BOARD_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  role="radio"
+                  aria-checked={boardType === type}
+                  disabled={isSettingBoard}
+                  onClick={() => setBoardType(type)}
+                  className={`stg-inset text-left p-3.5 rounded-xl border-2 transition-colors ${
+                    boardType === type ? 'border-primary' : 'border-transparent hover:border-base-content/20'
+                  }`}
+                >
+                  <span className="block font-semibold">{t(`onboarding.board_${type}`)}</span>
+                  <span className="block mt-0.5 text-xs text-base-content/70">{t(`onboarding.board_${type}_desc`)}</span>
+                </button>
+              ))}
+            </div>
+
+            {isSettingBoard && (
+              <NoticeCallout variant="info" message={t('onboarding.board_restarting')} />
+            )}
+            {boardError && <NoticeCallout variant="error" message={boardError} />}
+
+            <div className="flex flex-wrap gap-2 mt-auto">
+              <button
+                className="btn btn-primary flex-1"
+                disabled={!boardType || isSettingBoard}
+                onClick={handleSetBoard}
+              >
+                {isSettingBoard && <span className="loading loading-spinner loading-sm" />}
+                {t('onboarding.board_apply')}
+              </button>
+            </div>
+          </div>
         )}
 
         {step === 'import' && (

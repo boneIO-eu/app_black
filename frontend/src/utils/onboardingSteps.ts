@@ -6,10 +6,10 @@
  * the configuration it already had.
  */
 
-export type Step = 'welcome' | 'account' | 'import' | 'devices' | 'cloud' | 'done';
+export type Step = 'welcome' | 'account' | 'board' | 'import' | 'devices' | 'cloud' | 'done';
 
 export const STEP_ORDER: Step[] = [
-  'welcome', 'account', 'import', 'devices', 'cloud', 'done',
+  'welcome', 'account', 'board', 'import', 'devices', 'cloud', 'done',
 ];
 
 /**
@@ -30,13 +30,19 @@ export const STEP_ORDER: Step[] = [
  *
  * @param configuredBefore - Whether this device was set up under an earlier
  *   release, reported by /api/init.
+ * The board step is there only when the card did not say which controller
+ * this is (boneio.txt DEVICE_TYPE): a controller from the production station
+ * arrives configured and is never asked.
+ *
  * @param cloudEnabled - Whether web.cloud is already enabled, the `cloud`
  *   section of /api/init.
+ * @param boardTypeRequired - Whether /api/init reports board_type_required.
  */
-export function stepsFor(configuredBefore: boolean, cloudEnabled = false): Step[] {
+export function stepsFor(configuredBefore: boolean, cloudEnabled = false, boardTypeRequired = false): Step[] {
   return STEP_ORDER.filter((s) => {
     if (configuredBefore && (s === 'import' || s === 'devices')) return false;
     if (cloudEnabled && s === 'cloud') return false;
+    if (!boardTypeRequired && s === 'board') return false;
     return true;
   });
 }
@@ -47,7 +53,8 @@ export function stepsFor(configuredBefore: boolean, cloudEnabled = false): Step[
  * The step before this one on the way the user actually came, with one rule
  * on top: nothing leads back to the account step. The account exists once it
  * is left, and going back there offered to create it a second time, which the
- * server refuses — so the step right after it has no back button at all.
+ * server refuses — so the step right after it has no back button at all. The
+ * board step is the same: the type is set once it is left.
  *
  * @param step - The step being shown.
  * @param importRestored - Whether the import step actually restored a config.
@@ -56,20 +63,22 @@ export function stepsFor(configuredBefore: boolean, cloudEnabled = false): Step[
  *   user never saw.
  * @param configuredBefore - Whether the device was already configured.
  * @param cloudEnabled - Whether cloud registration was already on.
+ * @param boardTypeRequired - Whether the board step is shown.
  */
 export function previousStepFor(
   step: Step,
   importRestored: boolean,
   configuredBefore = false,
   cloudEnabled = false,
+  boardTypeRequired = false,
 ): Step | undefined {
-  const walked = stepsFor(configuredBefore, cloudEnabled).filter(
+  const walked = stepsFor(configuredBefore, cloudEnabled, boardTypeRequired).filter(
     (s) => !(importRestored && (s === 'devices' || s === 'cloud')),
   );
   const index = walked.indexOf(step);
   if (index <= 0) return undefined;
   const previous = walked[index - 1];
-  return previous === 'account' ? undefined : previous;
+  return previous === 'account' || previous === 'board' ? undefined : previous;
 }
 
 /**
@@ -107,8 +116,20 @@ export function stepAfterDevices(cloudEnabled = false): Step {
  *
  * @param configuredBefore - Whether the device was already configured.
  * @param cloudEnabled - Whether cloud registration was already on.
+ * @param boardTypeRequired - Whether the board step comes next.
  */
-export function stepAfterAccount(configuredBefore: boolean, cloudEnabled = false): Step {
-  const steps = stepsFor(configuredBefore, cloudEnabled);
+export function stepAfterAccount(configuredBefore: boolean, cloudEnabled = false, boardTypeRequired = false): Step {
+  const steps = stepsFor(configuredBefore, cloudEnabled, boardTypeRequired);
   return steps[steps.indexOf('account') + 1] ?? 'done';
+}
+
+/**
+ * Where the board step goes once the type is set.
+ *
+ * @param configuredBefore - Whether the device was already configured.
+ * @param cloudEnabled - Whether cloud registration was already on.
+ */
+export function stepAfterBoard(configuredBefore: boolean, cloudEnabled = false): Step {
+  const steps = stepsFor(configuredBefore, cloudEnabled, true);
+  return steps[steps.indexOf('board') + 1] ?? 'done';
 }

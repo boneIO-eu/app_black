@@ -854,6 +854,7 @@ def init_app(
 
     set_user_store(user_store)
     onboarding_module.set_user_store(user_store)
+    onboarding_module.set_config_dir(os.path.dirname(os.path.abspath(yaml_config_file)))
     onboarding_module.set_legacy_migration(migration_info)
 
     # Explicit opt-out of authentication. Never exposed in the UI: see the note

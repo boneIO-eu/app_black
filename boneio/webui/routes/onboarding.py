@@ -16,15 +16,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import re
+import shutil
+from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from boneio.core.auth.models import Role
 from boneio.core import system_ops
 from boneio.core.auth.store import UserStore, UserStoreError
+from boneio.core.config.provenance import FACTORY_TEMPLATE_DIR
+from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 from boneio.version import __version__
 from boneio.webui.middleware.auth import issue_token
+from boneio.webui.services.logs import is_running_as_service
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +46,14 @@ _legacy_migration: dict | None = None
 #: presence of a ``web.auth`` block, which the factory configuration does not
 #: ship. The wizard uses it to drop the steps that assume a blank device.
 _configured_before: bool = False
+#: The directory holding config.yaml. Set by init_app.
+_config_dir: Path | None = None
+
+#: Left beside config.yaml by the image's first-boot board setup, holding the
+#: board revision, when the card did not say which controller this is. The
+#: controller then runs an outputless configuration until the wizard is told.
+BOARD_TYPE_PENDING = ".board-type-pending"
+_REVISION = re.compile(r"^\d+\.\d+$")
 
 
 def set_user_store(store: UserStore) -> None:
@@ -58,6 +74,33 @@ def set_configured_before(value: bool) -> None:
     """
     global _configured_before
     _configured_before = value
+
+
+def set_config_dir(path: str | os.PathLike[str]) -> None:
+    """Record where config.yaml lives.
+
+    Args:
+        path: The configuration directory.
+    """
+    global _config_dir
+    _config_dir = Path(path)
+
+
+def pending_board_revision() -> str | None:
+    """The board revision, while the wizard still has to ask for the type.
+
+    Returns:
+        The revision the first-boot setup detected, or None once the type is
+        known (or on an image that never asks).
+    """
+    if _config_dir is None:
+        return None
+    try:
+        revision = (_config_dir / BOARD_TYPE_PENDING).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    # It becomes a path below; only a revision number may.
+    return revision if _REVISION.match(revision) else None
 
 
 def get_configured_before() -> bool:
@@ -129,6 +172,7 @@ async def onboarding_status():
         # true: the device already has a configuration, and offering to import
         # one reads as "yours is gone".
         "configured_before": _configured_before,
+        "board_type_required": pending_board_revision() is not None,
     }
 
 
@@ -217,3 +261,84 @@ def _set_service_password(password: str) -> str:
         return "failed"
     _LOGGER.info("The first administrator's password is now the SSH password (was %s)", state)
     return "set"
+
+
+class BoardTypeRequest(BaseModel):
+    """Which controller this is, as the first-run wizard asks."""
+
+    type: Literal["32x10", "24x16", "cover", "cover_mix"]
+
+
+def _install_board_config(template: Path, config_dir: Path) -> None:
+    """Replace the outputless stand-in with the configuration for this board.
+
+    secrets.yaml stays: the broker password in it was drawn for this device at
+    its first boot, and the template's is the factory placeholder.
+
+    Args:
+        template: ``~/.cache/boneio_configs/<revision>/<type>``.
+        config_dir: The directory holding config.yaml.
+    """
+    with CONFIG_WRITE_LOCK:
+        for path in config_dir.iterdir():
+            if not path.is_file() or path.name == "secrets.yaml":
+                continue
+            if path.suffix == ".yaml" or path.name.endswith(".cache.pkl") or path.name == "state.json":
+                path.unlink()
+        for path in template.iterdir():
+            if path.name == "secrets.yaml" and (config_dir / "secrets.yaml").exists():
+                continue
+            if path.suffix == ".yaml" or path.name.endswith(".cache.pkl"):
+                shutil.copy2(path, config_dir / path.name)
+        (config_dir / BOARD_TYPE_PENDING).unlink(missing_ok=True)
+
+
+async def _restart() -> None:
+    """Exit for systemd to start boneIO on the new configuration."""
+    await asyncio.sleep(0.1)
+    # Held, never released, as in /api/restart: no save starts after this.
+    await asyncio.to_thread(CONFIG_WRITE_LOCK.acquire)
+    os._exit(0)
+
+
+@router.post("/board-type")
+async def set_board_type(
+    payload: BoardTypeRequest, request: Request, background_tasks: BackgroundTasks
+):
+    """Configure the controller as the type the owner picked, and restart.
+
+    Only while the first-boot setup left the question open, and only for an
+    administrator: this replaces the configuration, and the routes under
+    /api/onboarding take no token by default.
+
+    Args:
+        payload: The controller type.
+        request: For the caller's role.
+        background_tasks: Where the restart is queued, after the reply.
+
+    Returns:
+        The type, the board revision, and whether boneIO is restarting.
+
+    Raises:
+        HTTPException: 403 without an administrator's token, 409 when the type
+            is already known or the image has no configuration for it.
+    """
+    if getattr(request.state, "role", None) != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Sign in as an administrator.")
+    revision = pending_board_revision()
+    if revision is None or _config_dir is None:
+        raise HTTPException(status_code=409, detail="The controller type is already set.")
+    template = FACTORY_TEMPLATE_DIR / revision / payload.type
+    if not (template / "config.yaml").is_file():
+        raise HTTPException(
+            status_code=409,
+            detail=f"This system image has no {payload.type} configuration for board {revision}.",
+        )
+
+    await asyncio.to_thread(_install_board_config, template, _config_dir)
+    _LOGGER.info("First-run wizard configured the controller as %s (board %s)", payload.type, revision)
+
+    restarting = is_running_as_service()
+    if restarting:
+        background_tasks.add_task(_restart)
+    return {"type": payload.type, "revision": revision, "restarting": restarting}

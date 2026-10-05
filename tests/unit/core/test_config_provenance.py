@@ -90,3 +90,15 @@ def test_web_auth_alone_still_proves_it(device):
 def test_a_fresh_device_still_gets_the_full_wizard(device):
     config, templates = device
     assert was_configured_before(config, had_legacy_auth=False, template_dir=templates) is False
+
+
+def test_templates_kept_per_board_revision_count_too(tmp_path):
+    """One image serves every board: <revision>/<variant>/ since then."""
+    templates = tmp_path / "boneio_configs"
+    (templates / "0.8" / "base").mkdir(parents=True)
+    (templates / "0.8" / "base" / "config.yaml").write_text(FACTORY)
+    config = tmp_path / "config.yaml"
+    config.write_text(FACTORY)
+    assert looks_factory_fresh(config, templates) is True
+    config.write_text(OWNERS)
+    assert looks_factory_fresh(config, templates) is False

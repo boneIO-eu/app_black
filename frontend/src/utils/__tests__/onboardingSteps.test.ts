@@ -6,6 +6,7 @@ import {
   stepAfterImport,
   stepAfterDevices,
   stepAfterAccount,
+  stepAfterBoard,
 } from '../onboardingSteps';
 
 /** Every device the wizard can open on: configured before × cloud already on. */
@@ -15,7 +16,8 @@ const DEVICES = [false, true].flatMap((configured) =>
 
 describe('stepsFor', () => {
   it('shows every step on a device being set up for the first time', () => {
-    expect(stepsFor(false)).toEqual(STEP_ORDER);
+    // The board step only when the card did not name the controller; see below.
+    expect(stepsFor(false)).toEqual(STEP_ORDER.filter((s) => s !== 'board'));
   });
 
   it('drops import and devices on a device that already has a configuration', () => {
@@ -132,5 +134,25 @@ describe('stepAfterAccount', () => {
     for (const { configured, cloud } of DEVICES) {
       expect(stepsFor(configured, cloud)).toContain(stepAfterAccount(configured, cloud));
     }
+  });
+});
+
+describe('the board step', () => {
+  it('is shown only when the card did not say which controller this is', () => {
+    expect(stepsFor(false)).not.toContain('board');
+    expect(stepsFor(false, false, true)).toEqual(
+      ['welcome', 'account', 'board', 'import', 'devices', 'cloud', 'done'],
+    );
+  });
+
+  it('comes straight after the account and leads on to import', () => {
+    expect(stepAfterAccount(false, false, true)).toBe('board');
+    expect(stepAfterBoard(false)).toBe('import');
+    expect(stepAfterBoard(true, true)).toBe('done');
+  });
+
+  it('is never walked back to: the type is set once it is left', () => {
+    expect(previousStepFor('import', false, false, false, true)).toBeUndefined();
+    expect(previousStepFor('board', false, false, false, true)).toBeUndefined();
   });
 });

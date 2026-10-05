@@ -75,9 +75,12 @@ def looks_factory_fresh(
         return True
 
     root = Path(template_dir) if template_dir is not None else FACTORY_TEMPLATE_DIR
-    try:
-        variants = sorted(p for p in root.iterdir() if p.is_dir())
-    except OSError:
+    # <variant>/ on older images, <revision>/<variant>/ since one image serves
+    # every board.
+    variants = sorted(
+        p.parent for p in [*root.glob("*/config.yaml"), *root.glob("*/*/config.yaml")]
+    )
+    if not variants:
         # No templates to compare against: the honest answer is "cannot tell",
         # and the safe reading of that is "assume it has been configured".
         _LOGGER.debug("No factory templates under %s — assuming configured", root)
@@ -85,7 +88,7 @@ def looks_factory_fresh(
 
     for variant in variants:
         if current == _digest(variant / "config.yaml"):
-            _LOGGER.debug("Configuration matches the %s template", variant.name)
+            _LOGGER.debug("Configuration matches the %s template", variant.relative_to(root))
             return True
 
     return False

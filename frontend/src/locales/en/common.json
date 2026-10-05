@@ -2732,7 +2732,21 @@
     "ssh_set": "The SSH password is now the same as your panel password. Over SSH you log in as {{username}}, not with your panel account name.",
     "ssh_kept": "The SSH password was left as it is — somebody had already set one, and it is not the wizard's to replace. Over SSH you log in as boneio.",
     "ssh_failed": "The SSH password could not be set. Logging in over SSH with a password stays closed.",
-    "cloud_timeout_at": "The switch could not be confirmed from this browser. The panel may already have moved to {{url}} — with the PWA on, the old address can stop answering. Try opening it."
+    "cloud_timeout_at": "The switch could not be confirmed from this browser. The panel may already have moved to {{url}} — with the PWA on, the old address can stop answering. Try opening it.",
+    "heading_board": "Which controller is this?",
+    "board_intro": "The card did not say which controller this is, so no outputs are configured yet. Pick the model and the controller restarts with its configuration.",
+    "board_32x10": "32x10A",
+    "board_32x10_desc": "32 relays, 10 A",
+    "board_24x16": "24x16A",
+    "board_24x16_desc": "24 outputs, 16 A",
+    "board_cover": "Cover",
+    "board_cover_desc": "Cover control",
+    "board_cover_mix": "Cover Mix",
+    "board_cover_mix_desc": "Covers and plain outputs",
+    "board_apply": "Apply",
+    "board_restarting": "The controller is restarting with the new configuration. This takes up to a minute.",
+    "board_failed": "The controller type could not be set.",
+    "board_restart_slow": "The controller is taking longer than usual to start. Reload the page in a moment."
   },
   "accounts": {
     "title": "User accounts",

@@ -2731,7 +2731,21 @@
     "ssh_set": "Hasło SSH jest teraz takie samo jak hasło do panelu. Po SSH logujesz się jako {{username}}, nie nazwą konta z panelu.",
     "ssh_kept": "Hasło SSH zostało bez zmian — ktoś ustawił je już wcześniej, więc nie jest to rola kreatora. Po SSH logujesz się jako boneio.",
     "ssh_failed": "Nie udało się ustawić hasła SSH. Logowanie hasłem po SSH pozostaje zablokowane.",
-    "cloud_timeout_at": "Nie udało się potwierdzić przełączenia z tej przeglądarki. Panel mógł się już przenieść pod {{url}} — przy włączonym PWA stary adres może przestać odpowiadać. Spróbuj go otworzyć."
+    "cloud_timeout_at": "Nie udało się potwierdzić przełączenia z tej przeglądarki. Panel mógł się już przenieść pod {{url}} — przy włączonym PWA stary adres może przestać odpowiadać. Spróbuj go otworzyć.",
+    "heading_board": "Jaki to sterownik?",
+    "board_intro": "Karta nie podała typu sterownika, więc na razie nie ma skonfigurowanych wyjść. Wybierz model, a sterownik uruchomi się z jego konfiguracją.",
+    "board_32x10": "32x10A",
+    "board_32x10_desc": "32 przekaźniki 10 A",
+    "board_24x16": "24x16A",
+    "board_24x16_desc": "24 wyjścia 16 A",
+    "board_cover": "Cover",
+    "board_cover_desc": "Sterowanie roletami",
+    "board_cover_mix": "Cover Mix",
+    "board_cover_mix_desc": "Rolety i zwykłe wyjścia",
+    "board_apply": "Zastosuj",
+    "board_restarting": "Sterownik uruchamia się z nową konfiguracją. To potrwa do minuty.",
+    "board_failed": "Nie udało się ustawić typu sterownika.",
+    "board_restart_slow": "Sterownik uruchamia się dłużej niż zwykle. Odśwież stronę za chwilę."
   },
   "accounts": {
     "title": "Konta użytkowników",
