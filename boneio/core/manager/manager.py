@@ -1494,11 +1494,12 @@ class Manager:
 
         _LOGGER.info("Reloading remote devices configuration")
         # Clean up old remote inputs and outputs before reload
+        await self.inputs._remote_registrar.stop()
         self.inputs.unregister_remote_inputs()
         self.unregister_remote_outputs()
         await self.remote_devices.reload(remote_devices_config)
         # Re-register remote inputs and outputs from config
-        self.register_remote_inputs()
+        await self.register_remote_inputs()
         self.register_remote_outputs()
         # Broadcast all input states so frontend picks up new/removed remote inputs
         self.inputs._broadcast_all_input_states()
@@ -1515,13 +1516,12 @@ class Manager:
         # previous callbacks would run the old actions alongside the new ones.
         await self.inputs._remote_registrar.stop()
         self.inputs.unregister_remote_inputs()
-        self.register_remote_inputs()
-        await self.inputs._remote_registrar.start()
+        await self.register_remote_inputs()
         # Broadcast all input states so frontend picks up new/removed remote inputs
         self.inputs._broadcast_all_input_states()
         _LOGGER.info("Remote inputs configuration reloaded successfully")
 
-    def register_remote_inputs(self) -> None:
+    async def register_remote_inputs(self) -> None:
         """Register remote inputs from the ``remote_inputs`` config section.
 
         Delegates to :meth:`InputManager.register_remote_inputs`.
@@ -1530,6 +1530,11 @@ class Manager:
         config = self._config_helper.get_config()
         remote_inputs_config = config.get("remote_inputs", [])
         self.inputs.register_remote_inputs(self.remote_devices, remote_inputs_config)
+        # Subscribe here rather than wait for the next MQTT connect: at startup
+        # the broker is usually connected long before remote inputs register,
+        # and the inputs would stay deaf until the connection dropped. Before
+        # the connect the bus only records the listener and subscribes it then.
+        await self.inputs._remote_registrar.start()
 
     # Keep backward-compatible alias
     register_esphome_binary_sensors = register_remote_inputs

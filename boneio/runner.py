@@ -510,7 +510,7 @@ async def async_run(
         # entities down, not this controller.
         try:
             await manager.remote_devices.initialize(delay_seconds=0.0 if waited_for_web else 10.0)
-            manager.register_esphome_binary_sensors()
+            await manager.register_esphome_binary_sensors()
         except asyncio.CancelledError:
             raise
         except Exception:

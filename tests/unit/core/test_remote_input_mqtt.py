@@ -288,3 +288,36 @@ async def test_one_failing_subscription_does_not_stop_the_others(caplog):
     with caplog.at_level("ERROR"):
         await registrar.start()
     assert done == ["p/input/in_02"]
+
+
+@pytest.mark.asyncio
+async def test_registering_after_the_broker_connected_still_subscribes():
+    """At startup remote inputs register seconds after MQTT connects, so the
+    on-connect start() has already run with nothing to subscribe; registering
+    must subscribe on its own or the input stays deaf until a reconnect."""
+    from boneio.core.manager.manager import Manager
+    from boneio.core.manager.remote_input_registrar import RemoteInputRegistrar
+
+    bus_manager = MagicMock()
+    bus_manager.parse_actions.return_value = {}
+    subscribed: list = []
+
+    async def subscribe(topic, handler, *, retain_aware=False):
+        subscribed.append(topic)
+
+    bus_manager.message_bus.subscribe_and_listen = subscribe
+    registrar = RemoteInputRegistrar(manager=bus_manager)
+    await registrar.start()  # the connect, before anything is registered
+
+    manager = MagicMock()
+    manager._config_helper.get_config.return_value = {"remote_inputs": [
+        {"id": "peer_in01", "remote_source": "mqtt", "device_id": "blk_peer", "input_id": "in_01"}
+    ]}
+    manager.remote_devices.get_device.return_value = MagicMock(spec=[])
+    manager.inputs._remote_registrar = registrar
+    manager.inputs.register_remote_inputs = lambda devices, config: registrar.register_all(
+        {}, devices, config
+    )
+    await Manager.register_remote_inputs(manager)
+
+    assert subscribed == ["blk_peer/input/in_01"]
