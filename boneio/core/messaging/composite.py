@@ -97,3 +97,7 @@ class CompositeMessageBus(MessageBus):
         """Unsubscribe from a topic and stop listening on all buses."""
         for bus in self._buses:
             await bus.unsubscribe_and_stop_listen(topic)
+
+    async def wait_until_subscribed(self) -> None:
+        """Wait for every bus: one being up says nothing about another."""
+        await asyncio.gather(*(bus.wait_until_subscribed() for bus in self._buses))

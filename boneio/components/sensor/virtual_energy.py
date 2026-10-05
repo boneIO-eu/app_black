@@ -25,6 +25,10 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# How long to wait, once the broker has the subscription, for a stored total.
+# None arriving means the counter has never been published.
+RESTORE_GRACE_SECONDS = 15.0
+
 
 class VirtualEnergySensor:
     """Virtual energy/water sensor linked to an output.
@@ -72,6 +76,7 @@ class VirtualEnergySensor:
         self._area = area
 
         self._virtual_sensors_task = None
+        self._restore_task: asyncio.Task | None = None
 
         # Counters
         self._energy_consumed_Wh = 0.0
@@ -169,20 +174,9 @@ class VirtualEnergySensor:
     async def _tracking_loop(self):
         """Periodically update and send state every 30 seconds while output is ON."""
         try:
-            # Wait for state restore before sending any state.
-            # This prevents overwriting the retained MQTT value with 0.
-            # Timeout of 5s ensures we don't hang if MQTT is down.
-            try:
-                await asyncio.wait_for(self._restore_done.wait(), timeout=5.0)
-            except TimeoutError:
-                _LOGGER.warning(
-                    "State restore timeout for %s, starting with energy=%.4f Wh", self._id, self._energy_consumed_Wh
-                )
-                self._restore_done.set()
-
-            # Reset on_timestamp after restore so we don't count
-            # the time elapsed during the restore wait.
-            self._last_on_timestamp = time.time()
+            # Publishing before the stored total is known would replace it
+            # with what was counted since boot.
+            await self._restore_done.wait()
 
             while self._output.state == ON:
                 self._update_consumption()
@@ -215,14 +209,17 @@ class VirtualEnergySensor:
         """
 
         async def on_message(_topic, payload):
+            if self._restore_done.is_set():
+                return  # Late, after giving up: the counter is already published.
             try:
                 data = json.loads(payload)
                 if isinstance(data, dict):
+                    # Added, not assigned: the output may have been on since boot.
                     if "energy" in data:
-                        self._energy_consumed_Wh = float(data["energy"])
+                        self._energy_consumed_Wh += float(data["energy"])
                         _LOGGER.info("Restored energy state for %s: %.4f Wh", self._id, self._energy_consumed_Wh)
                     if "water" in data:
-                        self._water_consumed_L = float(data["water"])
+                        self._water_consumed_L += float(data["water"])
                         _LOGGER.info("Restored water state for %s: %.4f L", self._id, self._water_consumed_L)
             except Exception as e:
                 _LOGGER.warning("Failed to restore state for %s: %s", self._id, e)
@@ -230,8 +227,20 @@ class VirtualEnergySensor:
                 self._restore_done.set()
                 await self._message_bus.unsubscribe_and_stop_listen(self._sensor_topic)
 
+        async def restore():
+            await self._message_bus.subscribe_and_listen(self._sensor_topic, on_message)
+            # The grace starts once the broker has the subscription, not at
+            # boot: connecting can take longer than any fixed timeout.
+            await self._message_bus.wait_until_subscribed()
+            try:
+                await asyncio.wait_for(self._restore_done.wait(), timeout=RESTORE_GRACE_SECONDS)
+            except TimeoutError:
+                _LOGGER.info("No stored state for %s, counting from boot", self._id)
+                self._restore_done.set()
+                await self._message_bus.unsubscribe_and_stop_listen(self._sensor_topic)
+
         if self._message_bus is not None:
-            asyncio.create_task(self._message_bus.subscribe_and_listen(self._sensor_topic, on_message))
+            self._restore_task = asyncio.create_task(restore())
 
     def get_current_power(self) -> float:
         """Get current power usage in W (0 if output is OFF)."""

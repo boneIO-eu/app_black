@@ -76,6 +76,7 @@ class MQTTClient(MessageBus):
         self.asyncio_client = self.create_client()
         self.reconnect_interval = 1
         self._connection_established = False
+        self._subscribed = asyncio.Event()
         self.publish_queue: UniqueQueue = UniqueQueue()
         self._mqtt_energy_listeners: dict[str, Callable[..., Awaitable[None]]] = {}
         # Listeners that are told whether a message is a retained replay.
@@ -226,6 +227,10 @@ class MQTTClient(MessageBus):
         # Subscribe immediately if already connected
         if self._connection_established:
             await self.subscribe(topics=[topic])
+
+    @override
+    async def wait_until_subscribed(self) -> None:
+        await self._subscribed.wait()
 
     @override
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
@@ -476,6 +481,7 @@ class MQTTClient(MessageBus):
 
                 topics = self._topics + list(self._mqtt_energy_listeners.keys()) + self._discovery_topics
                 await self.subscribe(topics=topics)
+                self._subscribed.set()
                 # Connected: the next outage starts the backoff from scratch
                 # instead of waiting as long as the worst one before it.
                 self.reconnect_interval = 1

@@ -78,3 +78,9 @@ class MessageBus(ABC):
         """Unsubscribe from a topic and stop listening."""
         pass
 
+    async def wait_until_subscribed(self) -> None:
+        """Return once the broker holds this bus's subscriptions.
+
+        Until then a retained message cannot have arrived yet, so its absence
+        means nothing. Buses without a broker return at once.
+        """
