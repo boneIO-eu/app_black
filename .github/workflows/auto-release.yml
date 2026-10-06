@@ -17,7 +17,7 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Full history for changelog generation
 
@@ -128,7 +128,7 @@ jobs:
           cat changelog.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag_info.outputs.tag }}
           name: ${{ steps.tag_info.outputs.tag }}
