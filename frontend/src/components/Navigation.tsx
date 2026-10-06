@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece, FaEllipsisH, FaChevronRight } from 'react-icons/fa';
+import { FaStethoscope, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaProjectDiagram, FaPuzzlePiece, FaEllipsisH, FaChevronRight, FaBars } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect, useState } from 'react';
@@ -265,6 +265,27 @@ function Menu() {
 }
 
 /**
+ * True once the boneIO Dashboard add-on, which shows this app in an iframe,
+ * answers our hello: its device list then opens from a slot in our bottom
+ * bar instead of a button floating over it. Plain HA ingress is an iframe
+ * too but never answers, so nothing shows there.
+ */
+function useDashboardMenu() {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    if (window.parent === window) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.source === window.parent && e.data?.type === 'boneio-dashboard:menu') setAvailable(true);
+    };
+    window.addEventListener('message', onMessage);
+    window.parent.postMessage({ type: 'boneio:hello' }, '*');
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+  const open = () => window.parent.postMessage({ type: 'boneio:open-menu' }, '*');
+  return { available, open };
+}
+
+/**
  * Bottom navigation below xl: the four everyday views under the thumb, the
  * rest in a "More" sheet. It is the column's last flex child and sticky, so
  * the content above ends where it starts instead of scrolling underneath —
@@ -277,13 +298,16 @@ export function BottomNav() {
   const location = useLocation();
   const { menuItems, isActive } = useMenuItems();
   const [moreOpen, setMoreOpen] = useState(false);
+  const dashboardMenu = useDashboardMenu();
+  // The dashboard's menu slot (leftmost) makes room by moving Sensors under "More".
+  const isPrimary = (item: MenuItem) => item.primary && !(dashboardMenu.available && item.path === '/sensors');
 
   const primaryItems = menuItems
-    .filter((item) => item.primary)
+    .filter(isPrimary)
     .map((item, i) => ({ item, key: item.mobileOrder ?? i }))
     .sort((a, b) => a.key - b.key)
     .map(({ item }) => item);
-  const moreItems = menuItems.filter((item) => !item.primary);
+  const moreItems = menuItems.filter((item) => !isPrimary(item));
   const helpActive = location.pathname === '/help';
   const moreActive = helpActive || moreItems.some((item) => isActive(item));
 
@@ -312,7 +336,8 @@ export function BottomNav() {
 
   return (
     <nav className="xl:hidden bottom-0 safe-area-bottom z-30 sticky bg-base-200 border-base-content/10 border-t">
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${primaryItems.length + 1}, minmax(0, 1fr))` }}>
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${primaryItems.length + (dashboardMenu.available ? 2 : 1)}, minmax(0, 1fr))` }}>
+        {dashboardMenu.available && slot('dashboard-menu', t('navigation.devices'), FaBars, false, dashboardMenu.open)}
         {primaryItems.map((item) => slot(item.path, item.label, item.icon, !!isActive(item), () => go(item.path)))}
         {slot('more', t('navigation.more'), FaEllipsisH, moreActive, () => setMoreOpen(true))}
       </div>

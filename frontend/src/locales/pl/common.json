@@ -16,6 +16,7 @@
     "irrigation": "Nawadnianie",
     "diagnostics": "Diagnostyka",
     "more": "Więcej",
+    "devices": "Urządzenia",
     "version": "Wersja",
     "serial": "Numer seryjny",
     "serial_override": "przedstawia się jako {{serial}}",
