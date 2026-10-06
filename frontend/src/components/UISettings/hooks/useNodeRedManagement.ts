@@ -44,6 +44,7 @@ export const useNodeRedManagement = () => {
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const [isUploadingRestore, setIsUploadingRestore] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [updateSucceeded, setUpdateSucceeded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -237,6 +238,7 @@ export const useNodeRedManagement = () => {
 
   const performUpdate = useCallback(async (version?: string) => {
     setIsUpdating(true);
+    setUpdateSucceeded(false);
     setError(null);
     try {
       const params = version ? `?target_version=${encodeURIComponent(version)}` : '';
@@ -259,6 +261,7 @@ export const useNodeRedManagement = () => {
         if (progress.status === 'success') {
           clearInterval(interval);
           setIsUpdating(false);
+          setUpdateSucceeded(true);
           await fetchStatus();
           await fetchBackups();
           await checkUpdates();
@@ -295,6 +298,7 @@ export const useNodeRedManagement = () => {
     isRestoringBackup,
     isUploadingRestore,
     isUpdating,
+    updateSucceeded,
     error,
     setError,
     fetchStatus,

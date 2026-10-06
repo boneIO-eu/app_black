@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FaExclamationTriangle,
   FaSpinner,
@@ -45,6 +46,7 @@ export default function NodeRedManagement() {
     isRestoringBackup,
     isUploadingRestore,
     isUpdating,
+    updateSucceeded,
     error,
     setError,
     createBackup,
@@ -315,6 +317,19 @@ export default function NodeRedManagement() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* The old image stays on the disk after a pull; the Disk section frees it. */}
+          {updateSucceeded && !isUpdating && (
+            <NoticeCallout
+              variant="success"
+              message={t('nodered_management.update_done_cleanup')}
+              action={
+                <Link to="/diagnostics/disk" className="btn btn-ghost btn-xs">
+                  {t('nodered_management.open_disk_cleanup')}
+                </Link>
+              }
+            />
           )}
         </div>
       </SettingsCard>

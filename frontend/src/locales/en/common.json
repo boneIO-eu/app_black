@@ -2601,6 +2601,8 @@
     "up_to_date": "Up to date",
     "check_for_updates": "Check for Updates",
     "update_now": "Update Now",
+    "update_done_cleanup": "Node-RED updated. The previous image still takes up disk space — we recommend removing unused images in Diagnostics → Disk.",
+    "open_disk_cleanup": "Open Disk",
     "update_in_progress": "Update in progress...",
     "update_warning": "Node-RED will be temporarily unavailable during update. A backup will be created automatically.",
     "confirm_update": "Are you sure you want to update Node-RED? A backup will be created automatically before updating.",

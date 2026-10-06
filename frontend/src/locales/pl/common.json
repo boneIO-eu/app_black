@@ -2600,6 +2600,8 @@
     "up_to_date": "Oprogramowanie aktualne",
     "check_for_updates": "Sprawdź aktualizacje",
     "update_now": "Aktualizuj teraz",
+    "update_done_cleanup": "Node-RED zaktualizowany. Poprzedni obraz nadal zajmuje miejsce na dysku — zalecamy usunięcie nieużywanych obrazów w Diagnostyka → Dysk.",
+    "open_disk_cleanup": "Otwórz Dysk",
     "update_in_progress": "Aktualizacja w toku...",
     "update_warning": "Podczas aktualizacji Node-RED będzie tymczasowo niedostępny. Kopia zapasowa zostanie utworzona automatycznie.",
     "confirm_update": "Czy na pewno chcesz zaktualizować Node-RED? Przed aktualizacją zostanie automatycznie utworzona kopia zapasowa.",
