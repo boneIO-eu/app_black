@@ -434,6 +434,8 @@
     "boneio_output_required": "boneIO Output is required",
     "cover_fields_required": "Open relay, close relay, open time and close time are required",
     "delete_item": "Delete Item",
+    "duplicate_item": "Duplicate item",
+    "ha_dashboard": "Home Assistant dashboard",
     "details": "Details",
     "edit_area": "Edit Area",
     "edit_item": "Edit Item",

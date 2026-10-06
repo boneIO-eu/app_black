@@ -434,6 +434,8 @@
     "boneio_output_required": "boneIO Output jest wymagany",
     "cover_fields_required": "Open relay, close relay, open time i close time są wymagane",
     "delete_item": "Usuń element",
+    "duplicate_item": "Duplikuj element",
+    "ha_dashboard": "Panel Home Assistant",
     "details": "Szczegóły",
     "edit_area": "Edytuj strefę",
     "edit_item": "Edytuj element",

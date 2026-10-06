@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaEdit, FaCopy, FaTrash, FaFileExport } from 'react-icons/fa';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface MobileCardField {
   label: string;
@@ -45,6 +46,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
   onClick,
   children,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className={`stg-inset card card-compact ${onClick ? 'cursor-pointer' : ''}`}>
       <div className="card-body p-3">
@@ -64,7 +66,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
             <button
               onClick={onEdit}
               className="btn btn-ghost btn-sm btn-square"
-              title="Edit"
+              title={t('array_table_widget.edit_item')}
             >
               <FaEdit className="w-4 h-4" />
             </button>
@@ -72,7 +74,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
               <button
                 onClick={onDashboard}
                 className="btn btn-ghost btn-sm btn-square text-info"
-                title="HA Dashboard"
+                title={t('array_table_widget.ha_dashboard')}
               >
                 <FaFileExport className="w-4 h-4" />
               </button>
@@ -81,7 +83,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
               <button
                 onClick={onDuplicate}
                 className="btn btn-ghost btn-sm btn-square"
-                title="Duplicate"
+                title={t('array_table_widget.duplicate_item')}
               >
                 <FaCopy className="w-4 h-4" />
               </button>
@@ -89,7 +91,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
             <button
               onClick={onDelete}
               className="btn btn-ghost btn-sm btn-square text-error"
-              title="Delete"
+              title={t('array_table_widget.delete_item')}
             >
               <FaTrash className="w-4 h-4" />
             </button>

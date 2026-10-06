@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaEdit, FaCopy, FaTrash, FaFileExport } from 'react-icons/fa';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface TableActionsProps {
   onEdit: () => void;
@@ -20,17 +21,18 @@ const TableActions: React.FC<TableActionsProps> = ({
   onDelete,
   onDuplicate,
   onDashboard,
-  editTitle = 'Edit',
-  deleteTitle = 'Delete',
-  duplicateTitle = 'Duplicate',
-  dashboardTitle = 'HA Dashboard',
+  editTitle,
+  deleteTitle,
+  duplicateTitle,
+  dashboardTitle,
 }) => {
+  const { t } = useTranslation();
   return (
     <div className="stg-row-actions flex space-x-1">
       <button
         onClick={onEdit}
         className="btn btn-ghost btn-xs"
-        title={editTitle}
+        title={editTitle ?? t('array_table_widget.edit_item')}
       >
         <FaEdit />
       </button>
@@ -38,7 +40,7 @@ const TableActions: React.FC<TableActionsProps> = ({
         <button
           onClick={onDuplicate}
           className="btn btn-ghost btn-xs"
-          title={duplicateTitle}
+          title={duplicateTitle ?? t('array_table_widget.duplicate_item')}
         >
           <FaCopy />
         </button>
@@ -47,7 +49,7 @@ const TableActions: React.FC<TableActionsProps> = ({
         <button
           onClick={onDashboard}
           className="btn btn-ghost btn-xs text-info"
-          title={dashboardTitle}
+          title={dashboardTitle ?? t('array_table_widget.ha_dashboard')}
         >
           <FaFileExport />
         </button>
@@ -55,7 +57,7 @@ const TableActions: React.FC<TableActionsProps> = ({
       <button
         onClick={onDelete}
         className="btn btn-ghost btn-xs text-error"
-        title={deleteTitle}
+        title={deleteTitle ?? t('array_table_widget.delete_item')}
       >
         <FaTrash />
       </button>
