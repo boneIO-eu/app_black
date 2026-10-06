@@ -1,0 +1,208 @@
+## Default config for event entities.
+# Event entities send single, double and long messages to Home Assistant and have bunlded in actions for those in the app.
+# PINs are shared between event.yaml and binary_sensor.yaml.
+# Don't duplicate PINs.
+
+- name: IN_01
+  boneio_input: IN_01
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_01
+    double:
+      - action: output
+        boneio_output: OUT_01
+- name: IN_02
+  boneio_input: IN_02
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_01
+    double:
+      - action: output
+        boneio_output: OUT_01
+- name: IN_03
+  boneio_input: IN_03
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_03
+    double:
+      - action: output
+        boneio_output: OUT_03
+    long:
+      - action: output
+        boneio_output: OUT_03
+- name: IN_04
+  boneio_input: IN_04
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_04
+- name: IN_05
+  boneio_input: IN_05
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_05
+- name: IN_06
+  boneio_input: IN_06
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_06
+- name: IN_07
+  boneio_input: IN_07
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_07
+- name: IN_08
+  boneio_input: IN_08
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_08
+- name: IN_09
+  boneio_input: IN_09
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_09
+- name: IN_10
+  boneio_input: IN_10
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_10
+- name: IN_11
+  boneio_input: IN_11
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_11
+- name: IN_12
+  boneio_input: IN_12
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_12
+- name: IN_13
+  boneio_input: IN_13
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_13
+- name: IN_14
+  boneio_input: IN_14
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_14
+
+- name: IN_15
+  boneio_input: IN_15
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_15
+- name: IN_16
+  boneio_input: IN_16
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_16
+- name: IN_17
+  boneio_input: IN_17
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_17
+- name: IN_18
+  boneio_input: IN_18
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_18
+- name: IN_19
+  boneio_input: IN_19
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_19
+- name: IN_20
+  boneio_input: IN_20
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_20
+- name: IN_21
+  boneio_input: IN_21
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_21
+- name: IN_22
+  boneio_input: IN_22
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_22
+- name: IN_23
+  boneio_input: IN_23
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_23
+- name: IN_24
+  boneio_input: IN_24
+  actions:
+    single:
+      - action: output
+        boneio_output: OUT_24
+- name: IN_25
+  boneio_input: IN_25
+- name: IN_26
+  boneio_input: IN_26
+- name: IN_27
+  boneio_input: IN_27
+- name: IN_28
+  boneio_input: IN_28
+- name: IN_29
+  boneio_input: IN_29
+- name: IN_30
+  boneio_input: IN_30
+- name: IN_31
+  boneio_input: IN_31
+- name: IN_32
+  boneio_input: IN_32
+- name: IN_33
+  boneio_input: IN_33
+- name: IN_34
+  boneio_input: IN_34
+- name: IN_35
+  boneio_input: IN_35
+- name: IN_36
+  boneio_input: IN_36
+- name: IN_37
+  boneio_input: IN_37
+- name: IN_38
+  boneio_input: IN_38
+- name: IN_39
+  boneio_input: IN_39
+- name: IN_40
+  boneio_input: IN_40
+- name: IN_41
+  boneio_input: IN_41
+- name: IN_42
+  boneio_input: IN_42
+- name: IN_43
+  boneio_input: IN_43
+- name: IN_44
+  boneio_input: IN_44
+- name: IN_45
+  boneio_input: IN_45
+- name: IN_46
+  boneio_input: IN_46
+- name: IN_47
+  boneio_input: IN_47

@@ -1,0 +1,128 @@
+# config to Relay board 32x10 v0.4
+- name: OUT 01
+  boneio_output: OUT_01
+  output_type: light
+
+- name: OUT 02
+  boneio_output: OUT_02
+  output_type: light
+
+- name: OUT 03
+  boneio_output: OUT_03
+  output_type: light
+
+- name: OUT 04
+  boneio_output: OUT_04
+  output_type: light
+
+- name: OUT 05
+  boneio_output: OUT_05
+  output_type: light
+
+- name: OUT 06
+  boneio_output: OUT_06
+  output_type: light
+
+- name: OUT 07
+  boneio_output: OUT_07
+  output_type: light
+
+- name: OUT 08
+  boneio_output: OUT_08
+  output_type: light
+
+- name: OUT 09
+  boneio_output: OUT_09
+  output_type: light
+
+- name: OUT 10
+  boneio_output: OUT_10
+  output_type: light
+
+- name: OUT 11
+  boneio_output: OUT_11
+  output_type: light
+
+- name: OUT 12
+  boneio_output: OUT_12
+  output_type: light
+
+- name: OUT 13
+  boneio_output: OUT_13
+  output_type: light
+
+- name: OUT 14
+  boneio_output: OUT_14
+  output_type: light
+
+- name: OUT 15
+  boneio_output: OUT_15
+  output_type: light
+
+- name: OUT 16
+  boneio_output: OUT_16
+  output_type: light
+
+- name: OUT 17
+  boneio_output: OUT_17
+  output_type: light
+
+- name: OUT 18
+  boneio_output: OUT_18
+  output_type: light
+
+- name: OUT 19
+  boneio_output: OUT_19
+  output_type: light
+
+- name: OUT 20
+  boneio_output: OUT_20
+  output_type: light
+
+- name: OUT 21
+  boneio_output: OUT_21
+  output_type: light
+
+- name: OUT 22
+  boneio_output: OUT_22
+  output_type: light
+
+- name: OUT 23
+  boneio_output: OUT_23
+  output_type: light
+
+- name: OUT 24
+  boneio_output: OUT_24
+  output_type: light
+
+- name: OUT 25
+  boneio_output: OUT_25
+  output_type: light
+
+- name: OUT 26
+  boneio_output: OUT_26
+  output_type: light
+
+- name: OUT 27
+  boneio_output: OUT_27
+  output_type: light
+
+- name: OUT 28
+  boneio_output: OUT_28
+  output_type: light
+
+- name: OUT 29
+  boneio_output: OUT_29
+  output_type: light
+
+- name: OUT 30
+  boneio_output: OUT_30
+  output_type: light
+
+- name: OUT 31
+  boneio_output: OUT_31
+  output_type: light
+
+- name: OUT 32
+  boneio_output: OUT_32
+  output_type: light

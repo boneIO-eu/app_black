@@ -1,0 +1,17 @@
+## Default config for binary sensor entities.
+# Binary sensor entities send on/off message to Home Assistant and run on pressed and released action.
+# PINs are shared between event.yaml and binary_sensor.yaml.
+# Don't duplicate PINs.
+
+- name: IN_48
+  boneio_input: in_48
+  actions:
+    pressed:
+      - action: output
+        boneio_output: OUT_01
+- name: IN_49
+  boneio_input: in_49
+  actions:
+    pressed:
+      - action: output
+        boneio_output: OUT_02

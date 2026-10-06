@@ -65,6 +65,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
       const { data } = await axios.get('/api/factory_reset/hardware_versions');
       setHardwareVersions(data.versions || []);
       setHardwareSensors(data.sensors || {});
+      if (data.current) setSelectedHardwareVersion(data.current);
     } catch (err) {
       console.error('Error fetching hardware versions:', err);
     }

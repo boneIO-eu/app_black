@@ -1,7 +1,7 @@
 """A factory reset keeps the device's connection to its own broker.
 
 Images draw the MQTT password per device at first boot, while the example
-configs a reset copies say "boneio123". Copied as they were, a reset left
+configs a reset copied said "boneio123". Copied as they were, a reset left
 boneIO unable to reach its broker — the failure first seen on a PC-built dev15
 card, reached a second way.
 """
@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from boneio.core.config.yaml_util import load_yaml_file
+from boneio.factory_config import FACTORY_CONFIG_DIR
 from boneio.webui.routes import update
 
 
@@ -62,6 +63,8 @@ def test_the_password_is_read_and_written_as_yaml(home, written, value):
     assert _password_after(home) == value
 
 
-def test_without_mqtt_yaml_the_example_is_kept_as_it_was(home):
+def test_without_mqtt_yaml_the_template_is_kept_as_it_was(home):
     _reset()
-    assert "password: !secret" not in (home / "boneio" / "mqtt.yaml").read_text()
+    template = FACTORY_CONFIG_DIR / update.HARDWARE_VERSIONS[-1] / "32x10"
+    for name in ("mqtt.yaml", "secrets.yaml"):
+        assert (home / "boneio" / name).read_text() == (template / name).read_text()

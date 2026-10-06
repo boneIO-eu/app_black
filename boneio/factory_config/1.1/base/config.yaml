@@ -1,0 +1,42 @@
+mqtt: !include mqtt.yaml
+
+oled:
+  enabled: yes
+  screens:
+    - uptime
+    - network
+    - cpu
+    - disk
+    - memory
+    - swap
+    - web
+
+lm75:
+  - id: Board temperature
+    address: 0x48
+ina226:
+  - address: 0x40
+
+
+
+boneio:
+  config_version: 7
+  name: "boneIO Black"
+  version: 1.1
+
+modbus:
+  uart: uart4
+
+logger:
+  default: info
+
+web:
+  # Panel nie jest wystawiony po czystym HTTP na sieć lokalną.
+  #
+  # Wchodzisz na https://<adres_ip>:8443 (certyfikat self-signed, przeglądarka
+  # ostrzeże raz) albo po kablu USB na http://192.168.7.2:8090.
+  # Żeby wrócić do starego zachowania: expose: all
+  #
+  # Port nie jest tu powtórzony — domyślnie i tak jest to 8090.
+  expose: proxy
+# adc: !include adc.yaml

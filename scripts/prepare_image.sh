@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to prepare different BoneIO Black image versions
-# Usage: ./prepare_image.sh <mount_point> <device_type>
+# Usage: ./prepare_image.sh <mount_point> <device_type> [board_version, default 1.1]
 # Example: ./prepare_image.sh /mnt/boneio "Cover Mix"
 
 set -e
@@ -30,7 +30,7 @@ print_error() {
 # Validate arguments
 if [ -z "$MOUNT_POINT" ]; then
     print_error "Mount point not provided!"
-    echo "Usage: $0 <mount_point> <device_type>"
+    echo "Usage: $0 <mount_point> <device_type> [board_version]"
     echo "Device types: 32x10A (default), Cover, Cover Mix, 24x16A"
     exit 1
 fi
@@ -105,7 +105,7 @@ fi
 # Get the script directory (where this script is located)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-SOURCE_CONFIG_DIR="$PROJECT_ROOT/boneio/example_config/$CONFIG_DIR"
+SOURCE_CONFIG_DIR="$PROJECT_ROOT/boneio/factory_config/${3:-1.1}/$CONFIG_DIR"
 
 if [ ! -d "$SOURCE_CONFIG_DIR" ]; then
     print_error "Source config directory not found: $SOURCE_CONFIG_DIR"

@@ -19,7 +19,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from boneio.core.atomic_file import write_atomically
-from boneio.core.config.yaml_util import load_config_from_file, load_yaml_file, normalize_board_name
+from boneio.core.config.yaml_util import (
+    load_config_from_file,
+    load_yaml_file,
+    normalize_board_name,
+    normalize_version,
+)
+from boneio.factory_config import OLDEST_REVISION, template_dir, type_folder
 from boneio.version import __version__
 from boneio.webui.routes.system import get_config_helper
 from boneio.webui.services.logs import is_running_as_service
@@ -723,6 +729,28 @@ HARDWARE_SENSORS = {
 HARDWARE_VERSIONS = list(HARDWARE_SENSORS.keys())
 
 
+def _current_board_version() -> str | None:
+    """The board revision config.yaml names, if it is one a reset knows."""
+    try:
+        config = load_yaml_file(os.path.expanduser("~/boneio/config.yaml")) or {}
+        version = normalize_version(config.get("boneio", {}).get("version"))
+    except Exception:  # noqa: BLE001 — no readable config, no current version
+        return None
+    return version if version in HARDWARE_VERSIONS else None
+
+
+def _factory_templates(device_type: str, version: str):
+    """Where a reset copies from, and whether config.yaml still needs fitting.
+
+    Revisions with templates of their own are copied as they are; older ones
+    get the oldest templates, fitted by _adjust_config_for_hardware_version.
+    """
+    own = template_dir(device_type, version)
+    if own is not None:
+        return own, False
+    return template_dir(device_type, OLDEST_REVISION), True
+
+
 @router.get("/factory_reset/hardware_versions")
 async def get_hardware_versions():
     """
@@ -734,6 +762,7 @@ async def get_hardware_versions():
     return {
         "versions": HARDWARE_VERSIONS,
         "sensors": HARDWARE_SENSORS,
+        "current": _current_board_version(),
     }
 
 
@@ -751,7 +780,7 @@ async def get_device_types():
 class FactoryResetRequest(BaseModel):
     """Request model for factory reset endpoint."""
     device_type: str
-    version: str = "0.8"  # Hardware version, default to latest
+    version: str | None = None  # Hardware version; None: the one config.yaml names
 
 
 class PartialResetRequest(BaseModel):
@@ -778,7 +807,7 @@ async def partial_factory_reset(request: PartialResetRequest):
     files_to_replace = request.files_to_replace
     
     # Normalize device type
-    normalized_type = normalize_board_name(device_type)
+    normalized_type = type_folder(normalize_board_name(device_type))
     
     if normalized_type not in DEVICE_TYPES:
         return {
@@ -792,15 +821,13 @@ async def partial_factory_reset(request: PartialResetRequest):
             "message": "No files selected for replacement"
         }
     
-    # Find example config directory (relative to this file: boneio/webui/routes/update.py)
-    boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    example_config_dir = os.path.join(boneio_path, "example_config", normalized_type)
-    
-    if not os.path.isdir(example_config_dir):
+    templates, _ = _factory_templates(normalized_type, _current_board_version() or OLDEST_REVISION)
+    if templates is None:
         return {
             "status": "error",
-            "message": f"Example config not found for device type: {device_type}"
+            "message": f"Factory config not found for device type: {device_type}"
         }
+    example_config_dir = str(templates)
     
     # User config directory
     config_dir = os.path.expanduser("~/boneio")
@@ -966,9 +993,10 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
     
     # Update boneio version in config
     config_content = re.sub(
-        r'(boneio:\s*\n\s*name:[^\n]*\n\s*)version:[^\n]*\n',
-        f'\\1version: {version}\n',
-        config_content
+        r'(^boneio:[ \t]*\n(?:[ \t]+[^\n]*\n)*?[ \t]+)version:[^\n]*\n',
+        f'\\g<1>version: {version}\n',
+        config_content,
+        flags=re.MULTILINE,
     )
     
     return config_content
@@ -1064,7 +1092,7 @@ async def factory_reset(request: FactoryResetRequest):
         Status response.
     """
     device_type = request.device_type.lower()
-    version = request.version
+    version = request.version or _current_board_version() or OLDEST_REVISION
     
     if device_type not in DEVICE_TYPES:
         return {
@@ -1078,15 +1106,13 @@ async def factory_reset(request: FactoryResetRequest):
             "message": f"Invalid hardware version: {version}. Available: {', '.join(HARDWARE_VERSIONS)}"
         }
     
-    # Find example config directory (relative to this file: boneio/webui/routes/update.py)
-    boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    example_config_dir = os.path.join(boneio_path, "example_config", device_type)
-    
-    if not os.path.isdir(example_config_dir):
+    templates, needs_fitting = _factory_templates(device_type, version)
+    if templates is None:
         return {
             "status": "error",
-            "message": f"Example config not found for device type: {device_type}"
+            "message": f"Factory config not found for device type: {device_type}"
         }
+    example_config_dir = str(templates)
     
     # User config directory
     config_dir = os.path.expanduser("~/boneio")
@@ -1143,8 +1169,13 @@ async def factory_reset(request: FactoryResetRequest):
             filename = os.path.basename(example_file)
             dest_path = os.path.join(config_dir, filename)
             
-            # For config.yaml, adjust sensors based on hardware version
-            if filename == "config.yaml":
+            # secrets.yaml stays: it holds this device's credentials, and the
+            # template's is the factory placeholder.
+            if filename == "secrets.yaml" and os.path.exists(dest_path):
+                continue
+
+            # An older revision's config.yaml: fit the sensors to it
+            if filename == "config.yaml" and needs_fitting:
                 with open(example_file) as f:
                     content = f.read()
                 adjusted_content = _adjust_config_for_hardware_version(content, version, device_type)

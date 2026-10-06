@@ -1,0 +1,6 @@
+host: localhost
+username: boneio
+password: !secret mqtt_password
+topic_prefix: boneio
+ha_discovery:
+  enabled: yes

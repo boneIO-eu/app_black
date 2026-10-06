@@ -1,0 +1,81 @@
+# config to Cover board v0.4
+- name: cover_01_up
+  boneio_output: 01_up
+- name: cover_01_down
+  boneio_output: 01_down
+- name: cover_02_up
+  boneio_output: 02_up
+- name: cover_02_down
+  boneio_output: 02_down
+- name: cover_03_up
+  boneio_output: 03_up
+- name: cover_03_down
+  boneio_output: 03_down
+- name: cover_04_up
+  boneio_output: 04_up
+- name: cover_04_down
+  boneio_output: 04_down
+- name: cover_05_up
+  boneio_output: 05_up
+- name: cover_05_down
+  boneio_output: 05_down
+- name: cover_06_up
+  boneio_output: 06_up
+- name: cover_06_down
+  boneio_output: 06_down
+- name: cover_07_up
+  boneio_output: 07_up
+- name: cover_07_down
+  boneio_output: 07_down
+- name: cover_08_up
+  boneio_output: 08_up
+- name: cover_08_down
+  boneio_output: 08_down
+- name: OUT 17
+  boneio_output: OUT_17
+  output_type: light
+- name: OUT 18
+  boneio_output: OUT_18
+  output_type: light
+- name: OUT 19
+  boneio_output: OUT_19
+  output_type: light
+- name: OUT 20
+  boneio_output: OUT_20
+  output_type: light
+- name: OUT 21
+  boneio_output: OUT_21
+  output_type: light
+- name: OUT 22
+  boneio_output: OUT_22
+  output_type: light
+- name: OUT 23
+  boneio_output: OUT_23
+  output_type: light
+- name: OUT 24
+  boneio_output: OUT_24
+  output_type: light
+- name: OUT 25
+  boneio_output: OUT_25
+  output_type: light
+- name: OUT 26
+  boneio_output: OUT_26
+  output_type: light
+- name: OUT 27
+  boneio_output: OUT_27
+  output_type: light
+- name: OUT 28
+  boneio_output: OUT_28
+  output_type: light
+- name: OUT 29
+  boneio_output: OUT_29
+  output_type: light
+- name: OUT 30
+  boneio_output: OUT_30
+  output_type: light
+- name: OUT 31
+  boneio_output: OUT_31
+  output_type: light
+- name: OUT 32
+  boneio_output: OUT_32
+  output_type: light

@@ -20,7 +20,7 @@ import pytest
 from boneio.core.config import yaml_util
 from boneio.core.config.migrations import CURRENT_SCHEMA_VERSION
 
-EXAMPLE = Path(yaml_util.__file__).resolve().parents[2] / "example_config" / "32x10"
+EXAMPLE = Path(yaml_util.__file__).resolve().parents[2] / "factory_config" / "1.1" / "32x10"
 
 
 @pytest.fixture(autouse=True)

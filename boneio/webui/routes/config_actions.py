@@ -35,6 +35,7 @@ from boneio.core.config.input_bindings import (
 from boneio.core.manager import Manager
 from boneio.core.utils import TimePeriod
 from boneio.exceptions import ConfigurationException
+from boneio.factory_config import OLDEST_REVISION, template_dir, type_folder
 from boneio.webui.action_validation import (
     ACTION_ALLOWED_FIELDS,
     SHARED_FIELDS,
@@ -115,12 +116,13 @@ async def validate_device_type_change(request: dict = Body(...)):
                     }
                 )
 
-    boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    example_folder_name = normalized_type.replace("_", "x")
-    example_dir = os.path.join(boneio_path, "example_config", example_folder_name)
+    templates = template_dir(type_folder(normalized_type), normalized_version) or template_dir(
+        type_folder(normalized_type), OLDEST_REVISION
+    )
+    example_dir = str(templates) if templates else ""
 
     available_example_files = []
-    if os.path.isdir(example_dir):
+    if templates is not None:
         for filename in os.listdir(example_dir):
             if filename.endswith(".yaml"):
                 base_name = filename.replace(".yaml", "")
