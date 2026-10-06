@@ -88,6 +88,14 @@ you can — the output of `journalctl -u boneio -b`.
 
 ## Since dev33
 
+**Virtual energy counters keep their totals.** A counter whose output was on
+at boot could overwrite its stored total with 0 when MQTT connected slowly;
+it now waits for the broker and adds what it counted meanwhile. Energy used
+since the last 30 s update is no longer dropped when the output switches
+off. If a counter of yours dropped to 0 after a restart, restore its
+total by hand: stop boneIO, publish `{"energy": <Wh>}` retained to
+`<prefix>/energy/<id>`, start it again.
+
 **Updating Node-RED no longer fails on a slow pull.** Pulling a new Node-RED
 image onto a BeagleBone took longer than the two minutes every container
 command was given, so the update was rolled back to the old tag. Pulls now

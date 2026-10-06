@@ -11,6 +11,20 @@ All notable changes to boneIO Black are documented in this file.
 A pre-release, now open for testing on real installations. See
 RELEASE_NOTES.md before updating.
 
+### ⚡ Virtual energy counters keep their totals
+
+- **A counter no longer resets to 0 when MQTT is slow at boot.** A counter
+  whose output was on at boot waited 5 s for its stored total, then
+  published what it had — 0 — with retain. On a busy BeagleBone the broker
+  connection often takes longer, so the stored total could be overwritten.
+  The wait now starts once the broker holds the subscription, nothing is
+  published until the total is known, and the time counted while waiting
+  is added to it instead of dropped. Checked on a controller under load.
+- **Switching off counts the last stretch.** Energy since the last 30 s
+  update was dropped on every switch-off, so a light on for 10 s counted
+  nothing; a repeated ON while already on restarted the stretch the same
+  way. Checked on a controller.
+
 ### 🐳 Node-RED updates survive a slow pull
 
 - **Pulling a new Node-RED image is no longer cut off after two minutes.**
