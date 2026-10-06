@@ -1070,7 +1070,9 @@
     "builtin_proxy_title": "HTTPS już działa",
     "builtin_proxy": "To urządzenie ma własne reverse proxy, które serwuje panel po HTTPS na porcie 8443. W sekcji Bezpieczeństwo zobaczysz adres przekazany Home Assistantowi oraz ten, który warto podawać ludziom.",
     "expose_proxy": "Osiągalny tylko przez proxy",
-    "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada na loopbacku, na mostku Dockera i na kablu USB, czyli przez HTTPS, przez tunel SSH albo po podłączeniu komputera do urządzenia. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie."
+    "expose_proxy_help": "Wyłączone — panel odpowiada też na własnym porcie na każdym interfejsie sieciowym, bez TLS. Włączone — odpowiada na loopbacku, na mostku Dockera i na kablu USB, czyli przez HTTPS, przez tunel SSH albo po podłączeniu komputera do urządzenia. Zapis zostanie odrzucony, jeśli proxy jeszcze nie serwuje panelu, więc urządzenie nie może zostać odcięte. Działa po restarcie.",
+    "map_tiles": "Mapa na stronie Lokalizacja",
+    "map_tiles_help": "Pozwala wybrać współrzędne z mapy OpenStreetMap na stronie Lokalizacja. Kafelki pobiera Twoja przeglądarka, a nagłówek CSP panelu dopuszcza serwery kafelków OpenStreetMap w img-src — adres obrazka może wynieść dane z panelu, dlatego domyślnie jest wyłączone. Działa po restarcie."
   },
   "common": {
     "group_by_area": "Grupuj wg obszarów",
@@ -3122,7 +3124,7 @@
     "map_zoom_in": "Przybliż",
     "map_zoom_out": "Oddal",
     "map_unavailable": "Nie udało się pobrać kafelków mapy. Przeglądarka, z której otwierasz panel, potrzebuje dostępu do internetu — sam sterownik nie.",
-    "map_disabled": "Mapa jest wyłączona. Włącza ją opcja web.security.map_tiles, która dopuszcza serwery kafelków OpenStreetMap w nagłówku CSP panelu. Bez niej wpisz współrzędne ręcznie albo uzupełnij je ze strefy czasowej."
+    "map_disabled": "Mapa jest wyłączona. Włączysz ją w Ustawienia → Serwer Web (przełącznik dopuszcza serwery kafelków OpenStreetMap w nagłówku CSP panelu i działa po restarcie). Bez niej wpisz współrzędne ręcznie albo uzupełnij je ze strefy czasowej."
   },
   "schedule": {
     "actions": "Akcje",

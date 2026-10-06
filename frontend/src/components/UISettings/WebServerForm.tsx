@@ -12,6 +12,10 @@ interface WebServerFormData {
   [key: string]: unknown;
   port?: number;
   expose?: string;
+  security?: {
+    [key: string]: unknown;
+    map_tiles?: boolean;
+  };
   cloud?: {
     [key: string]: unknown;
     enabled?: boolean;
@@ -26,7 +30,7 @@ interface WebServerFormProps {
 
 /**
  * Custom form for Web Server section configuration.
- * Fields: port, exposure, cloud registration, PWA name.
+ * Fields: port, exposure, location map, cloud registration, PWA name.
  *
  * The reverse proxy port is deliberately not among them. It only ever set the
  * port in the link Home Assistant shows, the built-in proxy is on 8443 either
@@ -143,6 +147,21 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
           <span className="label-text font-medium">{t('webserver.expose_proxy')}</span>
         </label>
         <HelpLabel className="pt-0">{t('webserver.expose_proxy_help')}</HelpLabel>
+      </div>
+
+      <div className="form-control flex flex-col gap-2">
+        <label className="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            className="toggle toggle-primary shrink-0"
+            checked={!!data?.security?.map_tiles}
+            onChange={(e) =>
+              handleChange('security', { ...data?.security, map_tiles: e.target.checked })
+            }
+          />
+          <span className="label-text font-medium">{t('webserver.map_tiles')}</span>
+        </label>
+        <HelpLabel className="pt-0">{t('webserver.map_tiles_help')}</HelpLabel>
       </div>
 
       {/* Where the username/password fields used to be, so nobody hunts for

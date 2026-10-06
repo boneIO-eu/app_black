@@ -1070,7 +1070,9 @@
     "builtin_proxy_title": "HTTPS is already being served",
     "builtin_proxy": "This device runs its own reverse proxy, which serves the panel over HTTPS on port 8443. The Security section shows the address Home Assistant is given and the one worth handing to people.",
     "expose_proxy": "Only reachable through the proxy",
-    "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers on the loopback, the Docker bridge and the USB cable — reachable over HTTPS, through an SSH tunnel, or by plugging a computer into the device. Saving this is refused if the proxy is not already serving the panel, so it cannot end up unreachable. Takes effect after a restart."
+    "expose_proxy_help": "Off, the panel also answers on its own port on every network interface, without TLS. On, it answers on the loopback, the Docker bridge and the USB cable — reachable over HTTPS, through an SSH tunnel, or by plugging a computer into the device. Saving this is refused if the proxy is not already serving the panel, so it cannot end up unreachable. Takes effect after a restart.",
+    "map_tiles": "Show a map on the Location page",
+    "map_tiles_help": "Lets the Location page show an OpenStreetMap map to pick coordinates from. The tiles are loaded by your browser, and the panel's Content-Security-Policy gains the OpenStreetMap tile servers in img-src — an image URL can carry data out of the panel, so this is off by default. Takes effect after a restart."
   },
   "common": {
     "group_by_area": "Group by area",
@@ -3123,7 +3125,7 @@
     "map_zoom_in": "Zoom in",
     "map_zoom_out": "Zoom out",
     "map_unavailable": "Map tiles could not be loaded. The browser you open the panel from needs internet access — the controller itself does not.",
-    "map_disabled": "The map is switched off. Enable it with web.security.map_tiles, which allows the OpenStreetMap tile servers in the panel's CSP. Without it, type the coordinates or fill them from the timezone."
+    "map_disabled": "The map is switched off. Enable it in Settings → Web server (the switch allows the OpenStreetMap tile servers in the panel's CSP and takes effect after a restart). Without it, type the coordinates or fill them from the timezone."
   },
   "schedule": {
     "actions": "Actions",
