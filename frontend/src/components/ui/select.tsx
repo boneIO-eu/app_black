@@ -95,10 +95,18 @@ function Select({
 const SelectLabelContext = React.createContext<Record<string, string>>({})
 
 function SelectGroup({
+  className,
   children,
   ...props
 }: React.ComponentProps<typeof BaseSelect.Group>) {
-  return <BaseSelect.Group {...props}>{children}</BaseSelect.Group>
+  return (
+    <BaseSelect.Group
+      className={cn("[&+&]:mt-1 [&+&]:border-t [&+&]:border-base-300 [&+&]:pt-1", className)}
+      {...props}
+    >
+      {children}
+    </BaseSelect.Group>
+  )
 }
 
 function SelectValue({
@@ -160,6 +168,7 @@ function SelectContent({
       />
       <BaseSelect.Positioner
         sideOffset={4}
+        align="start"
         alignItemWithTrigger={false}
         className="z-50 outline-none max-sm:!fixed max-sm:!inset-x-0 max-sm:!bottom-0 max-sm:!top-auto max-sm:!transform-none max-sm:!flex max-sm:!flex-col max-sm:!justify-end max-sm:!w-full"
       >
@@ -184,15 +193,22 @@ function SelectContent({
   )
 }
 
+/** A group's heading. `hint` is a line under it saying what the group holds. */
 function SelectLabel({
   className,
+  children,
+  hint,
   ...props
-}: React.ComponentProps<typeof BaseSelect.GroupLabel>) {
+}: React.ComponentProps<typeof BaseSelect.GroupLabel> & { hint?: React.ReactNode }) {
   return (
     <BaseSelect.GroupLabel
-      className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}
+      className={cn("px-2 pt-2 pb-1", className)}
       {...props}
-    />
+    >
+      <span className="block text-xs font-semibold uppercase tracking-wide opacity-70">{children}</span>
+      {/* w-0 min-w-full: wraps to the list's width instead of widening it */}
+      {hint && <span className="mt-0.5 block w-0 min-w-full text-xs font-normal opacity-60 whitespace-normal">{hint}</span>}
+    </BaseSelect.GroupLabel>
   )
 }
 

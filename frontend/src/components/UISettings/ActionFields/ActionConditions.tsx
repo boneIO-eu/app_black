@@ -14,6 +14,7 @@ import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import { useConfig } from '@/contexts/ConfigContext';
 import { resolveId } from '../helpers/slugifyId';
+import { SUN_EVENT_GROUPS } from '../helpers/scheduleTrigger';
 import { validateCondition } from './helpers';
 import type { ActionCondition, ActionDef, ActionInput, ActionUpdate } from './types';
 
@@ -49,37 +50,6 @@ interface ActionConditionsProps {
 }
 
 const CONDITION_TYPES = ['time', 'date', 'state', 'sun'] as const;
-
-/**
- * Sun anchors, grouped the way someone shopping for one thinks about them.
- *
- * Eighteen names in one flat list is unusable; four of them name the same two
- * instants as their neighbours (the blue hour ends exactly where the golden
- * hour begins) and belong next to each other.
- */
-const SUN_ANCHOR_GROUPS: { label: string; anchors: string[] }[] = [
-  {
-    label: 'event_form.condition_sun_group_basic',
-    anchors: ['sunrise', 'sunset', 'solar_noon', 'solar_midnight'],
-  },
-  {
-    label: 'event_form.condition_sun_group_twilight',
-    anchors: [
-      'civil_dawn', 'civil_dusk',
-      'nautical_dawn', 'nautical_dusk',
-      'astronomical_dawn', 'astronomical_dusk',
-    ],
-  },
-  {
-    label: 'event_form.condition_sun_group_photographic',
-    anchors: [
-      'golden_hour_morning_start', 'golden_hour_morning_end',
-      'golden_hour_evening_start', 'golden_hour_evening_end',
-      'blue_hour_morning_start', 'blue_hour_morning_end',
-      'blue_hour_evening_start', 'blue_hour_evening_end',
-    ],
-  },
-];
 
 const SUN_PHASES = [
   'day', 'civil_twilight', 'nautical_twilight', 'astronomical_twilight',
@@ -539,10 +509,10 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
                 <SelectValue placeholder={t('event_form.condition_sun_anchor')} />
               </SelectTrigger>
               <SelectContent>
-                {SUN_ANCHOR_GROUPS.map((group) => (
+                {SUN_EVENT_GROUPS.map((group) => (
                   <SelectGroup key={group.label}>
-                    <SelectLabel>{t(group.label)}</SelectLabel>
-                    {group.anchors.map((anchor) => (
+                    <SelectLabel hint={t(`${group.label}_hint`)}>{t(group.label)}</SelectLabel>
+                    {group.events.map((anchor) => (
                       <SelectItem key={anchor} value={anchor}>
                         {t(`sun.anchor_${anchor}`)}
                       </SelectItem>

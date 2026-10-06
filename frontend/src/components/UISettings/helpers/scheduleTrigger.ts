@@ -5,7 +5,8 @@
  * project's vitest runs in node with no DOM.
  */
 
-/** Sun anchors, grouped the way someone shopping for one thinks about them. */
+/** Sun anchors, grouped the way someone shopping for one thinks about them.
+ * Each label has a `<label>_hint` translation saying what its group is. */
 export const SUN_EVENT_GROUPS: { label: string; events: string[] }[] = [
   { label: 'event_form.condition_sun_group_basic', events: ['sunrise', 'sunset', 'solar_noon', 'solar_midnight'] },
   {

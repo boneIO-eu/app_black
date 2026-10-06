@@ -215,7 +215,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
                 <SelectContent>
                   {SUN_EVENT_GROUPS.map((group) => (
                     <SelectGroup key={group.label}>
-                      <SelectLabel>{t(group.label)}</SelectLabel>
+                      <SelectLabel hint={t(`${group.label}_hint`)}>{t(group.label)}</SelectLabel>
                       {group.events.map((event) => (
                         <SelectItem key={event} value={event}>{t(`sun.anchor_${event}`)}</SelectItem>
                       ))}
