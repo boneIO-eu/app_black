@@ -276,6 +276,26 @@ class TestPortsTheProxyNeeds:
     def test_an_ordinary_port_passes(self, env_file):
         config_core._check_web_port_free({"port": 8090}, {"port": 8095})
 
+    def test_a_device_already_on_a_reserved_port_can_save_the_rest(self, env_file):
+        config_core._check_web_port_free({"port": 8091}, {"port": 8091, "expose": "proxy"})
+
+    def test_a_cold_cache_reads_the_previous_port_from_the_config(self, monkeypatch):
+        class Helper:
+            @staticmethod
+            def get_section(name):
+                return {"port": 8091}
+
+        class State:
+            manager = type("M", (), {"config_helper": Helper})()
+
+        monkeypatch.setitem(config_core._config_cache, "data", None)
+        monkeypatch.setattr(config_core, "_get_app_state", lambda: State)
+
+        previous = asyncio.run(config_core._stored_web_section())
+
+        assert previous == {"port": 8091}
+        config_core._check_web_port_free(previous, {"port": 8091, "expose": "proxy"})
+
 
 def test_the_caddy_journal_appears_once_in_native_mode(monkeypatch):
     from boneio.core.diagnostics import collect
@@ -289,6 +309,3 @@ def test_the_caddy_journal_appears_once_in_native_mode(monkeypatch):
     monkeypatch.setattr(collect.containers, "run", run)
     report = collect._docker_report()
     assert report.count("log of caddy") == 1
-
-    def test_a_device_already_on_a_reserved_port_can_save_the_rest(self, env_file):
-        config_core._check_web_port_free({"port": 8091}, {"port": 8091, "expose": "proxy"})

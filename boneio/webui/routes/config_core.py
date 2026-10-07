@@ -712,6 +712,25 @@ async def _stored_section(section: str) -> list | None:
     return stored if isinstance(stored, list) else []
 
 
+async def _stored_web_section() -> object:
+    """The ``web`` section as last saved: the cache, else the config itself.
+
+    Every save empties the cache until the next read, so a second save without
+    a GET in between must not take "no previous port" for a port change.
+    """
+    cached = (_config_cache["data"] or {}).get("web")
+    if cached is not None:
+        return cached
+    try:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, _get_app_state().manager.config_helper.get_section, "web"
+        )
+    except Exception as err:  # noqa: BLE001 - without a baseline the guard is stricter, not broken
+        _LOGGER.warning("Could not read stored web section: %s", err)
+        return None
+
+
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
@@ -765,7 +784,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             )
 
     if section == "web":
-        _check_web_port_free((_config_cache["data"] or {}).get("web"), data)
+        _check_web_port_free(await _stored_web_section(), data)
 
     # Strip empty string values from data to prevent cerberus coercion failures
     # (e.g. bounce_time: '' instead of being omitted).
