@@ -1,0 +1,17 @@
+// Installed by boneIO migration 1.6.42. Managed by boneIO.
+//
+// Automatic updates also take Caddy, once the controller runs the packaged
+// one: it is the program facing the network, and its fixes matter as much as
+// Debian's. The 2.11.* pin in /etc/apt/preferences.d/caddy still holds, so
+// this brings patch releases, never a new series.
+//
+// Read after 52boneio-unattended and adds to its origins; it must never clear
+// the list, or the Debian-Security ones go with it. The panel's switch for
+// automatic updates turns this off too: it flips 52boneio-periodic, which
+// decides whether unattended-upgrades runs at all.
+//
+// Values from the repository's Release file: Origin cloudsmith/caddy/stable,
+// Codename any-version.
+Unattended-Upgrade::Origins-Pattern {
+        "origin=cloudsmith/caddy/stable,codename=any-version";
+};

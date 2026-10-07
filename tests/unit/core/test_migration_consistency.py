@@ -675,3 +675,205 @@ def test_1_6_37_takes_boneio_out_of_kmem_after_the_helper_learns_to():
     def test_the_1_6_4_drop_in_is_left_alone(self):
         dsts = {action.dst for action in self._plan()}
         assert "/etc/ssh/sshd_config.d/10-boneio-hardening.conf" not in dsts
+
+
+class TestNativeCaddyStaging:
+    """1.6.42 puts the packaged Caddy's files in place without switching."""
+
+    @staticmethod
+    def _actions() -> list[dict]:
+        from boneio.migrations.versions import v1_6_42_native_caddy_staging as migration
+
+        return [a.to_dict() for a in migration.plan()]
+
+    @staticmethod
+    def _containers():
+        from importlib.machinery import SourceFileLoader
+
+        return SourceFileLoader(
+            "boneio_containers_1_6_42", str(ASSETS_DIR / "helpers/boneio-containers")
+        ).load_module()
+
+    def test_every_prefix_is_a_state_a_controller_can_be_left_in(self):
+        """A failed action stops the run and leaves the finished prefix in
+        place until the retry, so the order is the guarantee: the system helper that survives a broken
+        Caddy repository before the source list, the key before the list that
+        needs it, each pristine copy before its live copy, the drop-in before the
+        reload that reads it, the helper before the unit that runs it."""
+        steps = [a.get("dst") or a["action"] + (":" + a["unit"] if "unit" in a else "")
+                 for a in self._actions()]
+        assert steps == [
+            "/usr/lib/boneio/trusted/boneio-system",
+            "/usr/sbin/boneio-system",
+            "/usr/share/keyrings/caddy-stable-archive-keyring.gpg",
+            "/etc/apt/preferences.d/caddy",
+            "/etc/apt/sources.list.d/caddy-stable.list",
+            "/usr/share/boneio/proxy/502.html",
+            "/usr/lib/boneio/trusted/boneio-proxy-config",
+            "/usr/lib/boneio/proxy-config",
+            "/etc/systemd/system/caddy.service.d/boneio.conf",
+            "systemctl_daemon_reload",
+            "/usr/lib/boneio/trusted/docker-compose-native-proxy.yaml",
+            "/usr/lib/boneio/trusted/boneio-containers",
+            "/usr/sbin/boneio-containers",
+            "/etc/systemd/system/boneio-proxy-recover.service",
+            "systemctl_daemon_reload",
+            "systemctl_enable:boneio-proxy-recover.service",
+            "/etc/apt/apt.conf.d/53boneio-caddy",
+            "/usr/lib/boneio/trusted/boneio-helpers-heal",
+            "/usr/sbin/boneio-helpers-heal",
+        ]
+
+    def test_root_scripts_are_root_owned_and_compiled_first(self):
+        scripts = [a for a in self._actions() if a.get("mode") == 0o755]
+        assert {a["src"] for a in scripts} == {
+            "helpers/boneio-proxy-config", "helpers/boneio-system", "helpers/boneio-containers",
+            "helpers/boneio-helpers-heal",
+        }
+        for action in scripts:
+            assert (action["owner"], action["group"], action["validate"]) == (
+                "root", "root", "python",
+            )
+
+    def test_nothing_starts_or_stops_a_proxy(self):
+        """Staging only: the switch is a separate, deliberate step."""
+        kinds = {a["action"] for a in self._actions()}
+        assert kinds == {"install_file", "systemctl_daemon_reload", "systemctl_enable"}
+        assert "ConditionPathExists=/etc/boneio/proxy-native" in (
+            ASSETS_DIR / "systemd/caddy-boneio.conf"
+        ).read_text()
+
+    def test_the_helper_it_installs_has_the_verbs(self):
+        verbs = self._containers().ALL_VERBS
+        for verb in ("proxy-switch-start", "proxy-switch-recover", "caddy-root-ca"):
+            assert verb in verbs
+
+    def test_the_recovery_unit_runs_a_verb_the_helper_has(self):
+        unit = (ASSETS_DIR / "systemd/boneio-proxy-recover.service").read_text()
+        assert "ExecStart=/usr/sbin/boneio-containers proxy-switch-recover" in unit
+
+    def test_the_system_helper_it_installs_survives_a_broken_caddy_repo(self):
+        assert "CADDY_APT_LIST" in (ASSETS_DIR / "helpers/boneio-system").read_text()
+
+    def test_automatic_updates_add_caddy_without_clearing_the_rest(self):
+        """apt.conf.d is read in order: a #clear here would erase the
+        Debian-Security origins 52boneio-unattended sets."""
+        text = (ASSETS_DIR / "apt/53boneio-caddy").read_text()
+        assert "#clear" not in text
+        assert '"origin=cloudsmith/caddy/stable,codename=any-version";' in text
+
+
+class TestHelpersHeal:
+    """boneio-helpers-heal restores only from a pristine copy that is there."""
+
+    @staticmethod
+    def _heal():
+        from importlib.machinery import SourceFileLoader
+
+        return SourceFileLoader(
+            "boneio_helpers_heal", str(ASSETS_DIR / "helpers/boneio-helpers-heal")
+        ).load_module()
+
+    @staticmethod
+    def _trusted_installs() -> list[tuple[str, int, str]]:
+        """(version, index in its plan, pristine-copy name) for every install there."""
+        prefix = "/usr/lib/boneio/trusted/"
+        return [
+            (mod.VERSION, i, action.dst.removeprefix(prefix))
+            for mod in MODULES
+            for i, action in enumerate(mod.plan())
+            if isinstance(action, InstallFile) and action.dst.startswith(prefix)
+        ]
+
+    def test_every_required_entry_is_there_before_heal_is(self):
+        """Heal refuses to restore anything while a required entry's pristine
+        copy is missing, so each one has to land no later than the first
+        migration that installs heal, and ahead of it within that migration."""
+        def version_key(version: str) -> tuple[int, ...]:
+            return tuple(int(part) for part in version.split("."))
+
+        heal = self._heal()
+        installs = [
+            (mod.VERSION, i)
+            for mod in MODULES
+            for i, action in enumerate(mod.plan())
+            if isinstance(action, InstallFile)
+            and action.dst == "/usr/sbin/boneio-helpers-heal"
+        ]
+        first = min(installs, key=lambda vi: (version_key(vi[0]), vi[1]))
+        trusted = self._trusted_installs()
+        for name, _, _ in heal.RESTORE:
+            if name in heal.OPTIONAL:
+                continue
+            assert any(
+                (version_key(v), i) < (version_key(first[0]), first[1])
+                for v, i, n in trusted
+                if n == name
+            ), f"{name} reaches the pristine copy after heal is installed"
+
+    def test_every_optional_entry_reaches_the_pristine_copy_before_heal_is_reinstalled(self):
+        heal = self._heal()
+        from boneio.migrations.versions import v1_6_42_native_caddy_staging as migration
+
+        dsts = [a.dst for a in migration.plan() if isinstance(a, InstallFile)]
+        for name in heal.OPTIONAL:
+            assert name in [n for n, _, _ in heal.RESTORE]
+            assert dsts.index(f"/usr/lib/boneio/trusted/{name}") < dsts.index(
+                "/usr/sbin/boneio-helpers-heal"
+            )
+
+    @pytest.fixture
+    def trusted(self, tmp_path, monkeypatch):
+        """A full pristine copy, every file counted as root-owned, restoring
+        into an empty directory instead of the system."""
+        heal = self._heal()
+        live = tmp_path / "live"
+        live.mkdir()
+        for name, _, _ in heal.RESTORE:
+            (tmp_path / name).write_text(name)
+        monkeypatch.setattr(heal, "TRUSTED_DIR", tmp_path)
+        monkeypatch.setattr(
+            heal, "RESTORE", tuple((n, live / d.name, m) for n, d, m in heal.RESTORE)
+        )
+        monkeypatch.setattr(heal.os, "geteuid", lambda: 0)
+        monkeypatch.setattr(heal, "_root_owned", lambda p: p.is_file() and "untrusted" not in p.read_text())
+        return heal, tmp_path
+
+    def test_a_missing_generator_does_not_stop_the_rest(self, trusted, capsys):
+        heal, directory = trusted
+        (directory / "boneio-proxy-config").unlink()
+        assert heal.main(["--check"]) == 0
+        out = capsys.readouterr().out
+        assert "live/boneio-migrate-v2" in out
+        assert "proxy-config" not in out
+
+    def test_a_present_generator_is_restored(self, trusted, capsys):
+        heal, _ = trusted
+        assert heal.main(["--check"]) == 0
+        assert "live/proxy-config" in capsys.readouterr().out
+
+    def test_an_untrusted_generator_refuses_everything(self, trusted):
+        heal, directory = trusted
+        (directory / "boneio-proxy-config").write_text("untrusted")
+        assert heal.main(["--check"]) == 1
+
+    def test_a_dangling_link_for_the_generator_refuses_everything(self, tmp_path, monkeypatch):
+        """A name that exists but is no root-owned file is tampering, not a
+        copy that has not arrived yet. The real _root_owned decides here, so
+        the list is cut down to the generator: every other file in tmp_path
+        belongs to the test user and would be refused for that alone."""
+        heal = self._heal()
+        monkeypatch.setattr(heal, "TRUSTED_DIR", tmp_path)
+        monkeypatch.setattr(heal.os, "geteuid", lambda: 0)
+        monkeypatch.setattr(heal, "RESTORE", (
+            ("boneio-proxy-config", tmp_path / "live" / "proxy-config", 0o755),
+        ))
+        # Absent: skipped, nothing refused.
+        assert heal.main(["--check"]) == 0
+        (tmp_path / "boneio-proxy-config").symlink_to(tmp_path / "nowhere")
+        assert heal.main(["--check"]) == 1
+
+    def test_a_missing_helper_still_refuses_everything(self, trusted):
+        heal, directory = trusted
+        (directory / "boneio-system").unlink()
+        assert heal.main(["--check"]) == 1

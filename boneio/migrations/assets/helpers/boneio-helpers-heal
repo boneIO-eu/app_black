@@ -44,8 +44,16 @@ RESTORE: tuple[tuple[str, Path, int], ...] = (
     ("boneio-migrate-v2", Path("/usr/sbin/boneio-migrate-v2"), 0o755),
     ("boneio-containers", Path("/usr/sbin/boneio-containers"), 0o755),
     ("boneio-system", Path("/usr/sbin/boneio-system"), 0o755),
+    ("boneio-proxy-config", Path("/usr/lib/boneio/proxy-config"), 0o755),
     ("sudoers-boneio-helpers", Path("/etc/sudoers.d/boneio-helpers"), 0o440),
 )
+
+#: Entries whose pristine copy arrives with a later migration than this script.
+#: 1.6.5 installs the script with the whole list above, and a device whose
+#: migrations stop before that later one must still get its trust chain
+#: restored. So an entry named here is skipped while its pristine copy does not
+#: exist at all; one that exists but is not root-owned is refused like any other.
+OPTIONAL: frozenset[str] = frozenset({"boneio-proxy-config"})
 
 logging.basicConfig(
     level=logging.INFO, format="boneio-helpers-heal: %(levelname)s %(message)s"
@@ -163,7 +171,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    missing = [name for name, _, _ in RESTORE if not _root_owned(TRUSTED_DIR / name)]
+    restore = [
+        entry for entry in RESTORE
+        if entry[0] not in OPTIONAL or os.path.lexists(TRUSTED_DIR / entry[0])
+    ]
+    for name, _, _ in RESTORE:
+        if name in OPTIONAL and not os.path.lexists(TRUSTED_DIR / name):
+            _LOGGER.info("%s is not in the pristine copy yet; skipping it", name)
+    missing = [name for name, _, _ in restore if not _root_owned(TRUSTED_DIR / name)]
     if missing:
         _LOGGER.error(
             "the pristine copy is incomplete (missing or not root-owned: %s). "
@@ -174,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
 
     pending = [
         (TRUSTED_DIR / name, destination, mode)
-        for name, destination, mode in RESTORE
+        for name, destination, mode in restore
         if _needs_restore(TRUSTED_DIR / name, destination)
     ]
 
