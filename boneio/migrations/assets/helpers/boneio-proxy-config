@@ -48,6 +48,7 @@ import logging
 import os
 import shutil
 import socket
+import ssl
 import stat
 import subprocess
 import sys
@@ -96,6 +97,8 @@ class Ports(NamedTuple):
 
 
 _PORT_NAMES = {"WEB_PORT": "web", "HTTP_PORT": "http", "HTTPS_PORT": "https"}
+#: Node-RED's port on the loopback, which the proxy cannot also listen on.
+NODERED_PORT = 1880
 
 
 def read_ports(env_text: str) -> Ports:
@@ -105,6 +108,10 @@ def read_ports(env_text: str) -> Ports:
     panel writes: ``export`` and matching quotes are accepted, and the last
     assignment wins. Only ASCII digits are a number here — ``int()`` alone
     would also take ``+80``, ``8_0`` and other scripts' digits.
+
+    The two ports Caddy listens on must also be bindable and free: the unit
+    grants no capabilities, so nothing below 1024, and neither may be the
+    other, the panel's or Node-RED's. A collision would stop Caddy starting.
 
     Args:
         env_text: The file's contents.
@@ -124,14 +131,26 @@ def read_ports(env_text: str) -> Ports:
         value = value.strip()
         if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
             value = value[1:-1]
-        if value.isascii() and value.isdigit() and 1 <= int(value) <= 65535:
+        # The length first: int() refuses more than 4300 digits with an error
+        # this file does not expect.
+        if len(value) <= 5 and value.isascii() and value.isdigit() and 1 <= int(value) <= 65535:
             found[field] = int(value)
         else:
             # The value itself is not logged: the file belongs to another
             # account, and what it holds is not root's to repeat.
             _LOGGER.warning("%s is not a port; using the default", name.strip())
             found.pop(field, None)
-    return Ports(**found)
+    asked = Ports(**found)
+    http, https = asked.http, asked.https
+    if http < 1024 or http in (asked.web, NODERED_PORT, asked.https):
+        _LOGGER.warning("HTTP_PORT cannot be listened on; using the default")
+        http = Ports().http
+    # Against what was asked and what HTTP fell back to, so that neither
+    # fallback lands on the other listener.
+    if https < 1024 or https in (asked.web, NODERED_PORT, asked.http, http):
+        _LOGGER.warning("HTTPS_PORT cannot be listened on; using the default")
+        https = Ports().https
+    return asked._replace(http=http, https=https)
 
 
 def _open_nofollow(path: Path, flags: int) -> int:
@@ -196,6 +215,28 @@ def _read_small(path: Path, limit: int = MAX_PEM) -> bytes | None:
         _LOGGER.warning("%s is larger than %d bytes; ignored", path, limit)
         return None
     return data
+
+
+def _loads(pair: tuple[bytes, bytes]) -> bool:
+    """Whether TLS can actually serve *pair*: whole, matching, unencrypted.
+
+    The headers alone pass a key that belongs to another certificate, or a
+    file cut short by a write that was still in progress — and Caddy refuses
+    to start on either. Checked in a directory only root can read, before
+    anything is copied where Caddy looks.
+    """
+    with tempfile.TemporaryDirectory(prefix="boneio-proxy-pair.") as scratch:
+        cert, key = Path(scratch) / "cert.pem", Path(scratch) / "key.pem"
+        cert.write_bytes(pair[0])
+        key.write_bytes(pair[1])
+        try:
+            # An empty password makes an encrypted key fail instead of prompting.
+            ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER).load_cert_chain(
+                cert, key, password=b""
+            )
+        except (ssl.SSLError, ValueError):
+            return False
+    return True
 
 
 def _is_cert(data: bytes) -> bool:
@@ -425,6 +466,12 @@ def _write_config(run_dir: Path) -> None:
     cloud = read_pem_pair(
         CLOUD_DIR / "fullchain.pem", CLOUD_DIR / "privkey.pem"
     ) if cloud_on else None
+    if custom is not None and not _loads(custom):
+        _LOGGER.warning("The uploaded certificate does not load; serving the device's own")
+        custom = None
+    if cloud is not None and not _loads(cloud):
+        _LOGGER.warning("The wildcard certificate does not load; the cloud site is left out")
+        cloud = None
     if cloud_on and cloud is None:
         _LOGGER.warning("No wildcard certificate yet; the cloud site is left out")
 
@@ -502,6 +549,7 @@ def _follow_hostname() -> None:
             _LOGGER.warning("Hostname changed to %s; the local authority is renewed", current)
             _remove_tree(CADDY_DATA, "pki")
             _remove_tree(CADDY_DATA / "certificates", "local")
+            _unlink(state, "root.crt")
         _write(state, "last_hostname", f"{current}\n".encode(), 0o644)
     finally:
         os.close(state)

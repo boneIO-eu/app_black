@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tls_material import encrypted_key, make_ca, make_leaf
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 HELPER = REPO_ROOT / "boneio" / "migrations" / "assets" / "helpers" / "boneio-proxy-config"
 
@@ -74,8 +76,34 @@ def test_port_that_is_not_plain_digits_falls_back(helper, value):
 
 
 def test_ports_accept_export_quotes_crlf_and_last_wins(helper):
-    text = "# comment\r\nexport WEB_PORT=\"9001\"\r\nHTTP_PORT='81'\nWEB_PORT=9002\n"
-    assert helper.read_ports(text) == helper.Ports(9002, 81, 8443)
+    text = "# comment\r\nexport WEB_PORT=\"9001\"\r\nHTTP_PORT='8081'\nWEB_PORT=9002\n"
+    assert helper.read_ports(text) == helper.Ports(9002, 8081, 8443)
+
+
+def test_a_port_too_long_for_int_falls_back(helper):
+    # int() refuses more than 4300 digits with ValueError, not OSError.
+    assert helper.read_ports("WEB_PORT=" + "9" * 5000 + "\n").web == 8090
+    assert helper.read_ports("HTTPS_PORT=008443\n").https == 8443
+
+
+def test_a_privileged_listen_port_falls_back(helper):
+    # The unit has no capabilities: Caddy cannot bind below 1024.
+    assert helper.read_ports("HTTPS_PORT=443\n").https == 8443
+    assert helper.read_ports("HTTP_PORT=80\n").http == 8091
+    # The panel itself may still be anywhere.
+    assert helper.read_ports("WEB_PORT=80\n").web == 80
+
+
+def test_colliding_listen_ports_fall_back(helper):
+    assert helper.read_ports("HTTP_PORT=9000\nHTTPS_PORT=9000\n") == helper.Ports(
+        8090, 8091, 8443
+    )
+    assert helper.read_ports("HTTPS_PORT=1880\n").https == 8443
+    assert helper.read_ports("WEB_PORT=9000\nHTTPS_PORT=9000\n").https == 8443
+    # The fallback must not land on the other listener.
+    assert helper.read_ports("HTTP_PORT=80\nHTTPS_PORT=8091\n") == helper.Ports(
+        8090, 8091, 8443
+    )
 
 
 # ---------------------------------------------------------------- pem pairs
@@ -250,12 +278,23 @@ def test_main_writes_config_and_exports_root(helper, device):
     assert (device["state"] / "last_hostname").read_text().strip() == "boneio-new"
 
 
-def test_main_copies_custom_pair(helper, device):
-    (device["custom"] / "fullchain.pem").write_bytes(CERT)
-    (device["custom"] / "privkey.pem").write_bytes(KEY)
+@pytest.fixture(scope="module")
+def real():
+    """Two independent, genuine certificate pairs."""
+    ca = make_ca()
+    return make_leaf(ca, ("boneio",)), make_leaf(ca, ("x.black.boneio.app",))
+
+
+def _place(directory, cert, key):
+    (directory / "fullchain.pem").write_bytes(cert)
+    (directory / "privkey.pem").write_bytes(key)
+
+
+def test_main_copies_custom_pair(helper, device, real):
+    _place(device["custom"], real[0].cert, real[0].key)
     assert helper.main([]) == 0
     tls = device["run"] / "tls"
-    assert (tls / "custom.key").read_bytes() == KEY
+    assert (tls / "custom.key").read_bytes() == real[0].key
     assert (tls / "custom.key").stat().st_mode & 0o777 == 0o640
     assert f"tls {tls}/custom.crt" in (device["run"] / "Caddyfile").read_text()
 
@@ -266,15 +305,42 @@ def test_main_copies_custom_pair(helper, device):
     assert "on_demand" in (device["run"] / "Caddyfile").read_text()
 
 
-def test_main_cloud_needs_the_marker(helper, device):
-    (device["ssl"] / "fullchain.pem").write_bytes(CERT)
-    (device["ssl"] / "privkey.pem").write_bytes(KEY)
+def test_main_cloud_needs_the_marker(helper, device, real):
+    _place(device["ssl"], real[1].cert, real[1].key)
     assert helper.main([]) == 0
     assert "black.boneio.app" not in (device["run"] / "Caddyfile").read_text()
     device["marker"].touch()
     assert helper.main([]) == 0
     assert "*.black.boneio.app" in (device["run"] / "Caddyfile").read_text()
-    assert (device["run"] / "tls" / "cloud.key").read_bytes() == KEY
+    assert (device["run"] / "tls" / "cloud.key").read_bytes() == real[1].key
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        lambda a, b: (a.cert, b.key),  # crossed: each half is genuine
+        lambda a, b: (a.cert[: len(a.cert) // 2], a.key),  # cut off mid-write
+        lambda a, b: (a.cert, encrypted_key(a)),  # would need a passphrase
+    ],
+    ids=["crossed", "truncated", "encrypted"],
+)
+def test_a_pair_caddy_cannot_load_is_not_served(helper, device, real, broken):
+    tls = device["run"] / "tls"
+    _place(device["custom"], real[0].cert, real[0].key)
+    assert helper.main([]) == 0
+    assert (tls / "custom.key").exists()
+
+    _place(device["custom"], *broken(real[0], real[1]))
+    assert helper.main([]) == 0
+    text = (device["run"] / "Caddyfile").read_text()
+    assert "custom.crt" not in text and "on_demand" in text
+    assert not (tls / "custom.key").exists()
+
+    device["marker"].touch()
+    _place(device["ssl"], *broken(real[1], real[0]))
+    assert helper.main([]) == 0
+    assert "black.boneio.app" not in (device["run"] / "Caddyfile").read_text()
+    assert not (tls / "cloud.key").exists()
 
 
 def test_main_refuses_a_symlinked_tls_directory(helper, device, tmp_path):
@@ -292,9 +358,12 @@ def test_main_refuses_a_symlinked_tls_directory(helper, device, tmp_path):
 def test_hostname_change_forgets_the_local_authority(helper, device):
     device["state"].mkdir(parents=True)
     (device["state"] / "last_hostname").write_text("boneio-old\n")
+    (device["state"] / "root.crt").write_bytes(CERT)
     assert helper.main([]) == 0
     assert not (device["data"] / "pki").exists()
     assert not (device["data"] / "certificates" / "local").exists()
+    # The root that was offered for download is gone with it.
+    assert not (device["state"] / "root.crt").exists()
 
 
 def test_first_run_keeps_the_authority(helper, device):
