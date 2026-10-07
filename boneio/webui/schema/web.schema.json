@@ -37,7 +37,7 @@
           "examples": [
             "all"
           ],
-          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise.",
+          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise. The proxy reaches the panel over the loopback when Caddy runs as a system service, or over the Docker bridge when it runs in a container; Node-RED always uses the bridge.",
           "title": "Expose"
         },
         "cloud": {
