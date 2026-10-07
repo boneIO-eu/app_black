@@ -784,7 +784,8 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             )
 
     if section == "web":
-        _check_web_port_free(await _stored_web_section(), data)
+        # It reads the compose .env: off the event loop.
+        await asyncio.to_thread(_check_web_port_free, await _stored_web_section(), data)
 
     # Strip empty string values from data to prevent cerberus coercion failures
     # (e.g. bounce_time: '' instead of being omitted).
