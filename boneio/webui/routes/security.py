@@ -32,7 +32,7 @@ from boneio.core.config.yaml_patch import (
 from boneio.core.config.yaml_util import load_yaml_file
 from boneio.core import containers, system_ops
 from boneio.core.security import certificate as certs, framing
-from boneio.core.security.certificate import ROOT_CA, device_addresses
+from boneio.core.security.certificate import device_addresses
 from boneio.core.system.monitor import get_network_info
 from boneio.core.security.posture import Posture, evaluate
 from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
@@ -649,7 +649,7 @@ def get_certificate():
         # where somebody is already looking at how it is served, rather than
         # only as a finding that disappears once it is dealt with.
         "exposed_on_lan": web.get("expose") != "proxy",
-        "root_ca_available": certs.ROOT_CA.exists(),
+        "root_ca_available": certs.root_ca() is not None,
     }
 
 
@@ -765,8 +765,10 @@ async def delete_certificate():
 async def _restart_proxy() -> bool:
     """Restart Caddy so it reads the certificate that is there now.
 
-    The configuration is written by the container's start script, so a reload
-    would re-read a file that has not changed. Only a restart regenerates it.
+    The configuration is written by the container's start script (or, for the
+    packaged Caddy, by the generator on its start), so a reload would re-read a
+    file that has not changed. Only a restart regenerates it; the helper's verb
+    does that in both modes.
 
     Returns:
         True when the restart succeeded.
@@ -802,16 +804,15 @@ def download_root_ca():
     Raises:
         HTTPException: If the proxy has not created one yet.
     """
-    try:
-        body = ROOT_CA.read_bytes()
-    except OSError as err:
+    body = certs.root_ca()
+    if body is None:
         raise HTTPException(
             status_code=404,
             detail=(
                 "This device has no certificate authority of its own yet. It "
                 "is created the first time the proxy starts."
             ),
-        ) from err
+        )
 
     return Response(
         content=body,

@@ -22,6 +22,8 @@ from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 
+from boneio.core import containers
+
 _LOGGER = logging.getLogger(__name__)
 
 #: Refuse anything larger. A certificate chain is a few kilobytes; a megabyte
@@ -230,6 +232,27 @@ ROOT_CA = (
     / "docker" / "nodered" / "caddy" / "data" / "caddy" / "pki"
     / "authorities" / "local" / "root.crt"
 )
+
+
+def root_ca() -> bytes | None:
+    """Caddy's root certificate in whichever mode runs it.
+
+    Asked of the root helper, the only reader of the packaged Caddy's data. An
+    old helper that lacks the verb leaves the container mode reading the file
+    itself, as it always did; the packaged mode has no such fallback because
+    the data directory is not the application's to read.
+
+    Returns:
+        The PEM, or None when there is none yet.
+    """
+    pem = containers.root_ca()
+    if pem is not None or containers.proxy_mode() == "native":
+        return pem
+    try:
+        return ROOT_CA.read_bytes()
+    except OSError:
+        return None
+
 
 #: The key is a secret, and it is written by the account the panel runs as.
 KEY_MODE = 0o600

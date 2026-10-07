@@ -303,3 +303,45 @@ class TestServing:
                 await cloud_reg._switch_to_cloud_config()
 
             assert cloud_reg._switching is False
+
+
+class TestNativeMode:
+    """The packaged Caddy has no compose file or init script: a marker says it all."""
+
+    @pytest.fixture
+    def native(self, tmp_path, monkeypatch):
+        from boneio.core import containers as real
+
+        marker = tmp_path / "proxy-cloud"
+        monkeypatch.setattr(real, "proxy_mode", lambda: "native")
+        monkeypatch.setattr(real, "CLOUD_MARKER", marker)
+        return marker
+
+    def test_the_marker_is_the_template(self, cloud_reg, native):
+        assert cloud_reg.is_cloud_config_active() is False
+        native.write_text("")
+        assert cloud_reg.is_cloud_config_active() is True
+
+    def test_no_init_script_is_deployed(self, cloud_reg, native, tmp_path):
+        with patch("boneio.core.cloud.registration.CADDY_CONFIG_DIR", tmp_path):
+            cloud_reg._ensure_cloud_script()
+        assert not (tmp_path / "init-certs-cloud.sh").exists()
+
+    def test_container_mode_still_deploys_the_script(self, cloud_reg, tmp_path):
+        with (
+            patch("boneio.core.cloud.registration.containers.proxy_mode", return_value="container"),
+            patch("boneio.core.cloud.registration.CADDY_CONFIG_DIR", tmp_path),
+        ):
+            cloud_reg._ensure_cloud_script()
+        assert (tmp_path / "init-certs-cloud.sh").exists()
+
+    @pytest.mark.asyncio
+    async def test_switching_asks_the_helper(self, cloud_reg, native):
+        with patch.object(cloud_reg, "_check_compose_ownership", return_value=True):
+            with patch("boneio.core.containers.apply_cloud_template") as apply, patch(
+                "boneio.core.containers.start_caddy"
+            ) as start:
+                apply.return_value = _ok()
+                start.return_value = _ok()
+                assert await cloud_reg._switch_to_cloud_config() is True
+                apply.assert_called_once()

@@ -465,6 +465,12 @@ def caddy_image_apply(timeout: int = 1300) -> Result:
 NATIVE_MARKER = Path("/etc/boneio/proxy-native")
 
 
+#: Present while the cloud wildcard block is wanted by the packaged Caddy.
+#: Created and removed by the root helper's cloud-template verbs, which is the
+#: whole of what "the cloud template" means once there is no compose file.
+CLOUD_MARKER = Path("/etc/boneio/proxy-cloud")
+
+
 def proxy_mode() -> str:
     """``"native"`` once Caddy runs as the package, else ``"container"``."""
     try:
@@ -490,6 +496,22 @@ def proxy_switch_state(timeout: int = 30) -> Result:
 def proxy_switch_recover(timeout: int = 300) -> Result:
     """Undo a switch that was cut short; a no-op for anything else."""
     return run("proxy-switch-recover", timeout=timeout)
+
+
+def root_ca(timeout: int = 30) -> bytes | None:
+    """The PEM of Caddy's local root certificate, read by the helper.
+
+    One path for both modes: the helper knows where each keeps it, and in the
+    packaged one the data directory is not readable by the application.
+
+    Returns:
+        The certificate, or None when the helper is missing or too old to know
+        the verb, or Caddy has not created one yet.
+    """
+    result = run("caddy-root-ca", timeout=timeout)
+    if not result.ok or not result.stdout.strip():
+        return None
+    return result.stdout.encode()
 
 
 def remove_cloud_template(timeout: int = 60) -> Result:
@@ -578,6 +600,9 @@ def cloud_template_is_live() -> bool:
         cannot be read — the local template is the safe assumption, being the
         one that needs nothing from outside the device.
     """
+    if proxy_mode() == "native":
+        # No compose file to ask: the helper's marker is the template.
+        return CLOUD_MARKER.exists()
     try:
         body = COMPOSE_FILE.read_text()
     except OSError as err:

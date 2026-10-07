@@ -521,6 +521,9 @@ class CloudRegistration:
         This ensures the script is always up-to-date after a pip upgrade,
         even if the user never re-clones the full repo.
         """
+        if containers.proxy_mode() == "native":
+            # The generator writes the cloud block itself; no script is mounted.
+            return
         dest = CADDY_CONFIG_DIR / "init-certs-cloud.sh"
         try:
             src = files("boneio.core.cloud.data").joinpath("init-certs-cloud.sh")
@@ -661,19 +664,15 @@ class CloudRegistration:
 
     def is_cloud_config_active(self) -> bool:
         """
-        Check if cloud init-certs script is active in docker-compose.
+        Check if the cloud template is the one in use.
+
+        Asked of the compose file in container mode and of the helper's marker
+        for the packaged Caddy, which has no compose file.
 
         Returns:
             True if cloud config is active
         """
-        try:
-            compose_file = _DOCKER_DIR / "docker-compose.yaml"
-            if not compose_file.exists():
-                return False
-            content = compose_file.read_text()
-            return "init-certs-cloud.sh" in content
-        except Exception:
-            return False
+        return containers.cloud_template_is_live()
 
 
 async def set_enabled(config_helper, enabled: bool, local_ip: str | None = None) -> str:

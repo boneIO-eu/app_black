@@ -154,3 +154,53 @@ def test_the_addresses_a_device_is_reached_by():
         "192.168.1.5",
     ]
     assert device_addresses(None, "192.168.1.5") == ["192.168.1.5"]
+
+
+class TestRootCa:
+    """The root certificate comes from the helper in both modes."""
+
+    def test_the_helper_answer_is_used(self, monkeypatch):
+        from boneio.core.security import certificate as certs
+
+        monkeypatch.setattr(certs.containers, "root_ca", lambda: b"PEM")
+        assert certs.root_ca() == b"PEM"
+
+    def test_container_mode_falls_back_to_the_file_for_an_old_helper(
+        self, monkeypatch, tmp_path
+    ):
+        from boneio.core.security import certificate as certs
+
+        path = tmp_path / "root.crt"
+        path.write_bytes(b"FILE")
+        monkeypatch.setattr(certs.containers, "root_ca", lambda: None)
+        monkeypatch.setattr(certs.containers, "proxy_mode", lambda: "container")
+        monkeypatch.setattr(certs, "ROOT_CA", path)
+        assert certs.root_ca() == b"FILE"
+
+    def test_native_mode_never_reads_the_file(self, monkeypatch, tmp_path):
+        from boneio.core.security import certificate as certs
+
+        path = tmp_path / "root.crt"
+        path.write_bytes(b"FILE")
+        monkeypatch.setattr(certs.containers, "root_ca", lambda: None)
+        monkeypatch.setattr(certs.containers, "proxy_mode", lambda: "native")
+        monkeypatch.setattr(certs, "ROOT_CA", path)
+        assert certs.root_ca() is None
+
+    def test_the_wrapper_reads_the_helper_verb(self, monkeypatch):
+        from boneio.core import containers
+        from types import SimpleNamespace
+
+        seen = []
+
+        def run(verb, argument=None, timeout=0):
+            seen.append(verb)
+            return SimpleNamespace(ok=True, stdout="-----BEGIN CERTIFICATE-----\n")
+
+        monkeypatch.setattr(containers, "run", run)
+        assert containers.root_ca().startswith(b"-----BEGIN")
+        assert seen == ["caddy-root-ca"]
+        monkeypatch.setattr(
+            containers, "run", lambda *a, **k: SimpleNamespace(ok=False, stdout="")
+        )
+        assert containers.root_ca() is None
