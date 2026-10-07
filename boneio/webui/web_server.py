@@ -175,7 +175,11 @@ class WebServer:
 
         # Configure hypercorn (moved from __init__ for lazy loading)
         self._hypercorn_config = Config()
-        self._hypercorn_config.bind = binds_for(self._expose, self._port)
+        # Off the loop: with expose 'proxy' this can wait up to a minute for
+        # Docker to bring up its bridge, and inputs must keep being read.
+        self._hypercorn_config.bind = await asyncio.to_thread(
+            binds_for, self._expose, self._port
+        )
         self._hypercorn_config.use_reloader = False
         self._hypercorn_config.worker_class = "asyncio"
 

@@ -19,6 +19,7 @@ from boneio.webui.bind import Exposure, binds_for
 def bridges(monkeypatch):
     def use(addresses):
         monkeypatch.setattr(bind, "docker_bridge_addresses", lambda: list(addresses))
+        monkeypatch.setattr(bind, "_default_bridge_up", lambda: bool(addresses))
 
     return use
 
@@ -82,6 +83,7 @@ def test_a_bridge_that_arrives_late_is_still_used(monkeypatch):
     """
     answers = [[], [], ["172.17.0.1"]]
     monkeypatch.setattr(bind, "docker_bridge_addresses", lambda: answers.pop(0) if answers else [])
+    monkeypatch.setattr(bind, "_default_bridge_up", lambda: True)
     monkeypatch.setattr(bind, "_BRIDGE_POLL_SECONDS", 0)
 
     assert binds_for(Exposure.PROXY, 8090, wait=5) == [
@@ -96,8 +98,34 @@ def test_waiting_does_not_delay_the_usual_case(monkeypatch):
     monkeypatch.setattr(
         bind, "docker_bridge_addresses", lambda: calls.append(1) or ["172.17.0.1"]
     )
+    monkeypatch.setattr(bind, "_default_bridge_up", lambda: True)
     binds_for(Exposure.PROXY, 8090, wait=60)
     assert len(calls) == 1, "polled again when the answer was there the first time"
+
+
+def test_a_compose_bridge_alone_is_not_enough(monkeypatch):
+    """dockerd can bring up a compose project's bridge before docker0.
+
+    Caddy arrives through host-gateway, which is docker0. Binding the moment
+    the compose bridge appeared left 8443 answering 502 until boneIO was
+    restarted — seen on a cold boot of a 0.8 board.
+    """
+    answers = [
+        (["172.19.0.1"], False),
+        (["172.19.0.1"], False),
+        (["172.17.0.1", "172.19.0.1"], True),
+    ]
+    state = {}
+
+    def addresses():
+        state["now"] = answers.pop(0) if answers else state["now"]
+        return state["now"][0]
+
+    monkeypatch.setattr(bind, "docker_bridge_addresses", addresses)
+    monkeypatch.setattr(bind, "_default_bridge_up", lambda: state["now"][1])
+    monkeypatch.setattr(bind, "_BRIDGE_POLL_SECONDS", 0)
+
+    assert "172.17.0.1:8090" in binds_for(Exposure.PROXY, 8090, wait=5)
 
 
 def test_all_never_waits_for_docker(monkeypatch):

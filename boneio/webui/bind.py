@@ -63,6 +63,19 @@ class Exposure:
     PROXY = "proxy"
 
 
+def _default_bridge_up() -> bool:
+    """Whether ``docker0`` has its address yet.
+
+    That is where ``host-gateway`` points, so it is the bridge the proxy arrives
+    on. dockerd can bring a compose project's ``br-<id>`` up first; binding at
+    that moment misses the proxy for as long as the application runs.
+
+    Returns:
+        True once the default bridge has an IPv4 address.
+    """
+    return bool(_addresses_of(("docker0",)))
+
+
 def docker_bridge_addresses() -> list[str]:
     """IPv4 addresses of the host's Docker bridges.
 
@@ -161,7 +174,7 @@ def _wait_for_a_bridge(timeout: float) -> list[str]:
     waited = False
     while True:
         found = docker_bridge_addresses()
-        if found or time.monotonic() >= deadline:
+        if (found and _default_bridge_up()) or time.monotonic() >= deadline:
             if waited and found:
                 _LOGGER.info("Docker bridge appeared; binding the panel to it.")
             return found
