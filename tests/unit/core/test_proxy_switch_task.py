@@ -11,6 +11,11 @@ from boneio.core import containers, proxy_switch
 from boneio.core.containers import Result
 
 
+@pytest.fixture(autouse=True)
+def _fresh_recovery(monkeypatch):
+    monkeypatch.setattr(proxy_switch, "_recovered_at", object())
+
+
 class Helper:
     """A stand-in for the root helper and the network."""
 
@@ -63,7 +68,7 @@ def test_it_starts_and_waits_until_the_run_ends(monkeypatch):
 
 def test_three_failed_runs_are_enough(monkeypatch):
     helper = Helper(monkeypatch, {"state": "failed", "running": False, "attempts": 3, "error": "x"})
-    assert asyncio.run(proxy_switch.attempt_switch()) is False
+    assert asyncio.run(proxy_switch.attempt_switch()) is True
     assert helper.calls == []
 
 
@@ -82,13 +87,13 @@ def test_offline_it_does_not_start(monkeypatch):
 @pytest.mark.parametrize("state", [{"state": "done", "running": False, "attempts": 1}, {"running": True}])
 def test_a_finished_or_running_switch_is_left_alone(monkeypatch, state):
     helper = Helper(monkeypatch, state)
-    assert asyncio.run(proxy_switch.attempt_switch()) is False
+    assert asyncio.run(proxy_switch.attempt_switch()) is (not state.get("running"))
     assert helper.calls == []
 
 
 def test_native_is_left_alone(monkeypatch):
     helper = Helper(monkeypatch, native=True)
-    assert asyncio.run(proxy_switch.attempt_switch()) is False
+    assert asyncio.run(proxy_switch.attempt_switch()) is True
     assert helper.calls == []
 
 
@@ -124,3 +129,43 @@ def test_nothing_starts_before_five_minutes(monkeypatch):
         asyncio.run(proxy_switch.run())
     assert sleeps[0] == 300
     assert helper.calls == ["start"]
+
+
+def test_a_unit_stopped_by_hand_during_the_watch_is_undone_at_once(monkeypatch):
+    """The poll loop ends on an interrupted record; nothing else may wait for a reboot."""
+    helper = Helper(monkeypatch, {"state": None, "running": False, "attempts": 2, "error": None})
+    real_start = helper._start
+
+    def start(timeout=60):
+        real_start()
+        helper.state = {**helper.state, "running": False, "state": "failed",
+                        "error": "interrupted", "attempts": 3, "at": "t1"}
+        return Result(0, "{}", "", True)
+
+    monkeypatch.setattr(containers, "proxy_switch_start", start)
+    assert asyncio.run(proxy_switch.attempt_switch()) is True
+    assert helper.calls == ["start", "recover"]
+
+
+def test_one_interrupted_record_is_undone_once(monkeypatch):
+    state = {"state": "failed", "running": False, "attempts": 1, "error": "interrupted", "at": "t1"}
+    helper = Helper(monkeypatch, state, online=False)
+    # The helper keeps reporting the same record (e.g. the undo changed nothing).
+    monkeypatch.setattr(helper, "_recover", lambda timeout=300: helper.calls.append("recover") or Result(0, "", "", True))
+    monkeypatch.setattr(containers, "proxy_switch_recover", helper._recover)
+    asyncio.run(proxy_switch.attempt_switch())
+    asyncio.run(proxy_switch.attempt_switch())
+    assert helper.calls == ["recover"]
+    helper.state = {**state, "at": "t2"}
+    asyncio.run(proxy_switch.attempt_switch())
+    assert helper.calls == ["recover", "recover"]
+
+
+def test_the_task_ends_when_attempts_are_used_up(monkeypatch):
+    Helper(monkeypatch, {"state": "failed", "running": False, "attempts": 3, "error": "x"})
+
+    async def fake_sleep(seconds):
+        pass
+
+    monkeypatch.setattr(proxy_switch.asyncio, "sleep", fake_sleep)
+    asyncio.run(proxy_switch.run())

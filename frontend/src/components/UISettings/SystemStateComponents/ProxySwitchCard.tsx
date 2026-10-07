@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FaExchangeAlt, FaSpinner, FaSync } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
+import { keepPolling } from './proxySwitchPolling';
 import { SettingsCard, FormActions, NoticeCallout, StatGrid } from '../ui';
 
 interface SwitchRecord {
@@ -37,11 +38,13 @@ export const ProxySwitchCard: React.FC = () => {
   const [showLog, setShowLog] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [kick, setKick] = useState(0);
+  const lastRunning = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
       const { data } = await axios.get<ProxyState>('/api/proxy/state', { timeout: 30_000 });
       setState(data);
+      lastRunning.current = data.switch?.running === true;
       return data;
     } catch {
       return null; // Expected while Caddy is being switched.
@@ -52,7 +55,7 @@ export const ProxySwitchCard: React.FC = () => {
     let cancelled = false;
     const tick = async () => {
       const data = await refresh();
-      if (!cancelled && (data === null ? kick > 0 : data.switch?.running === true)) {
+      if (!cancelled && keepPolling(data, lastRunning.current, kick > 0)) {
         timer.current = setTimeout(tick, POLL_MS);
       }
     };

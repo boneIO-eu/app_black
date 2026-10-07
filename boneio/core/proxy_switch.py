@@ -24,6 +24,9 @@ START_DELAY = 300
 #: Between looks when a condition was not met (offline, helper not updated).
 RECHECK = 1800
 POLL = 10
+#: A switch that runs longer than this (30 minutes of polls) is left to the
+#: next look rather than watched for ever.
+MAX_POLLS = 180
 MAX_ATTEMPTS = 3
 #: Where the package comes from; no point starting the move without it.
 REPO_HOST = "dl.cloudsmith.io"
@@ -55,45 +58,58 @@ def read_state() -> dict | None:
     return state if isinstance(state, dict) else None
 
 
+#: The ``at`` of the interrupted record already undone, so one record is not
+#: undone twice; a later interrupted run has a new ``at``.
+_recovered_at: object = object()
+
+
 def _recover_if_cut_short(state: dict) -> dict | None:
     """Undo a run the helper reports as interrupted, and read the record again.
 
     The helper shows a ``running`` record with no unit as ``failed`` with the
     error ``interrupted``; the record itself still says ``running`` until the
     undo has run, which is what puts a stopped unit's container back. Covers
-    ``systemctl stop`` of the unit without a reboot (a boot unit covers that).
-    Idempotent, so a record it cannot change costs one cheap call.
+    ``systemctl stop`` of the unit while boneIO keeps running (a boot unit
+    covers a reboot). Once per interrupted record.
     """
+    global _recovered_at
+    if state.get("running") or state.get("error") != "interrupted":
+        return state
+    if state.get("at") == _recovered_at:
+        return state
     _LOGGER.warning("Proxy switch was interrupted; undoing it")
+    _recovered_at = state.get("at")
     containers.proxy_switch_recover()
     return read_state()
 
 
-async def attempt_switch(recovered: bool = False) -> bool:
+def _finished(state: dict) -> bool:
+    """Whether no further automatic attempt is due."""
+    attempts = state.get("attempts")
+    return state.get("state") == "done" or (isinstance(attempts, int) and attempts >= MAX_ATTEMPTS)
+
+
+async def attempt_switch() -> bool:
     """One look: start the switch if every condition holds, and wait for it.
 
-    Args:
-        recovered: Whether the interrupted-run undo was already tried.
-
     Returns:
-        Whether a switch was started.
+        Whether the automatic task is finished: Caddy is the package, or the
+        attempts are used up. False when it should look again later.
     """
     if not await asyncio.to_thread(containers.helper_supports, "proxy-switch-start"):
-        return False
-    if await asyncio.to_thread(containers.proxy_mode) == "native":
         return False
     state = await asyncio.to_thread(read_state)
     if state is None:
         return False
-    if not recovered and not state.get("running") and state.get("error") == "interrupted":
-        state = await asyncio.to_thread(_recover_if_cut_short, state)
-        if state is None:
-            return False
-    if state.get("running") or state.get("state") == "done":
+    state = await asyncio.to_thread(_recover_if_cut_short, state)
+    if state is None:
         return False
-    attempts = state.get("attempts")
-    if isinstance(attempts, int) and attempts >= MAX_ATTEMPTS:
+    if await asyncio.to_thread(containers.proxy_mode) == "native":
+        return True
+    if state.get("running"):
         return False
+    if _finished(state):
+        return True
     if not await asyncio.to_thread(has_default_route):
         return False
     if not await asyncio.to_thread(repo_resolves):
@@ -104,27 +120,30 @@ async def attempt_switch(recovered: bool = False) -> bool:
         _LOGGER.warning("Proxy switch did not start: %s", (started.stderr or started.stdout).strip())
         return False
     _LOGGER.info("Proxy switch started")
-    while True:
+    for _ in range(MAX_POLLS):
         await asyncio.sleep(POLL)
         state = await asyncio.to_thread(read_state)
         if state is not None and not state.get("running"):
             break
+    if state is None:
+        return False
     _LOGGER.info("Proxy switch finished: %s", state.get("state"))
-    return True
+    # A unit stopped by hand ends here as interrupted; undo it now rather than
+    # at the next look, which may never come if the panel is what it broke.
+    state = await asyncio.to_thread(_recover_if_cut_short, state) or state
+    return _finished(state)
 
 
 async def run() -> None:
     """Background task: look 5 minutes after start, then every half hour.
 
-    Ends once Caddy is the package. A failed run is looked at again later, up
-    to MAX_ATTEMPTS runs in all.
+    Ends once Caddy is the package or the automatic attempts are used up.
     """
     await asyncio.sleep(START_DELAY)
-    recovered = False
-    while await asyncio.to_thread(containers.proxy_mode) != "native":
+    while True:
         try:
-            await attempt_switch(recovered)
+            if await attempt_switch():
+                return
         except Exception:  # noqa: BLE001 - a failed look must not end the task
             _LOGGER.exception("Proxy switch check failed")
-        recovered = True
         await asyncio.sleep(RECHECK)
