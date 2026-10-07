@@ -26,6 +26,9 @@ which one it is talking to; in the native mode none of them runs compose, since
 the project no longer has a Caddy in it. Every Caddy verb, and ``up`` and
 ``down``, holds /run/boneio-proxy.lock, the lock the switch between the modes
 holds for its whole run, so no verb acts on the mode the switch is leaving.
+The switch itself is ``proxy-switch-start``: it runs ``proxy-switch-run`` in a
+unit of its own, which puts the container back if the package does not answer;
+``proxy-switch-recover``, run at boot, does the same for a switch cut short.
 
 Usage:
     boneio-containers <verb> [argument]
@@ -42,18 +45,25 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import datetime
 import fcntl
+import http.client
 import json
 import logging
 import logging.handlers
 import os
+import pwd
 import re
 import shutil
+import socket
+import ssl
 import stat
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 LOG_FILE = "/var/log/boneio-containers.log"
@@ -91,6 +101,53 @@ PROXY_LOCK_TIMEOUT = 20.0
 #: Larger than any real root certificate, small enough that a planted file
 #: cannot make root read the disk.
 _MAX_ROOT_CA = 64 * 1024
+
+#: The compose file once Caddy is the package: Node-RED alone.
+COMPOSE_NATIVE_TEMPLATE = TRUSTED_DIR / "docker-compose-native-proxy.yaml"
+#: The ports the panel chose; the container publishes HTTPS_PORT, and the
+#: packaged Caddy listens on it.
+ENV_FILE = PROJECT_DIR / ".env"
+#: The container's authority, in a tree the ``boneio`` account can write.
+OLD_CA = PROJECT_DIR / "caddy" / "data" / "caddy" / "pki" / "authorities" / "local"
+#: The files an authority is; Caddy recreates everything else under pki.
+CA_FILES = ("root.crt", "root.key", "intermediate.crt", "intermediate.key")
+#: This helper's own path: the switch unit runs it again, as root, outside
+#: boneio.service, whose restart must not kill the switch halfway.
+HELPER_SELF = "/usr/sbin/boneio-containers"
+#: A fixed name, so systemd itself refuses a second switch while one runs.
+SWITCH_UNIT = "boneio-proxy-switch.service"
+SWITCH_DIR = Path("/var/lib/boneio/proxy")
+SWITCH_STATE = SWITCH_DIR / "switch.json"
+SWITCH_LOG = SWITCH_DIR / "switch.log"
+SWITCH_LOG_TAIL = 200
+#: The container's compose file, kept so a failed switch can put it back.
+COMPOSE_BEFORE = SWITCH_DIR / "compose.before"
+#: What the generator compares the hostname with before keeping the authority.
+HOSTNAME_FILE = SWITCH_DIR / "last_hostname"
+#: The root generator, which also validates with the real Caddy.
+PROXY_CONFIG = "/usr/lib/boneio/proxy-config"
+#: What a migration installs before the switch may run. The drop-in above all:
+#: without its condition the package's postinst starts a stock Caddy on :80.
+SWITCH_PREREQUISITES = (
+    Path("/etc/systemd/system/caddy.service.d/boneio.conf"),
+    Path(PROXY_CONFIG),
+    Path("/etc/apt/sources.list.d/caddy-stable.list"),
+    Path("/usr/share/keyrings/caddy-stable-archive-keyring.gpg"),
+    Path("/etc/apt/preferences.d/caddy"),
+)
+#: How long a proxy has to answer after it was started, and how often it is
+#: asked.
+PROBE_TIMEOUT = 90.0
+PROBE_INTERVAL = 2.0
+#: A clean environment for every command of the switch, as for the system
+#: update: nothing of the caller's is passed through.
+APT_ENV = {
+    "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+    "LC_ALL": "C",
+    "DEBIAN_FRONTEND": "noninteractive",
+    "NEEDRESTART_MODE": "l",
+    "APT_LISTCHANGES_FRONTEND": "none",
+}
 
 _MAX_LOG_LINES = 2000
 
@@ -246,14 +303,22 @@ CADDY_VERBS = {
 #: rewrites the compose file the switch replaces.
 LOCKED_VERBS = CADDY_VERBS | {"up", "down", "set-nodered-image"}
 
-ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS | COMPOSITE_VERBS)
+#: The move from the Caddy container to the package. Not in LOCKED_VERBS: they
+#: take the lock themselves where they need it, the run for its whole length.
+SWITCH_VERBS = {
+    "proxy-switch-start", "proxy-switch-run", "proxy-switch-state", "proxy-switch-recover",
+}
+
+ALL_VERBS = sorted(
+    set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS | COMPOSITE_VERBS | SWITCH_VERBS
+)
 
 #: Verbs that only read. They are allowed to run even when the compose file is
 #: not yet root-owned, because refusing them would leave the UI unable to say
 #: what is wrong.
 READ_ONLY_VERBS = {
     "status", "ps", "names", "logs-caddy", "logs-nodered", "logs-container",
-    "caddy-image-state", "caddy-root-ca",
+    "caddy-image-state", "caddy-root-ca", "proxy-switch-state",
 }
 
 
@@ -473,7 +538,7 @@ def _back_up_if_customised(replacement: str) -> None:
         return
 
     known = []
-    for template in (COMPOSE_TEMPLATE, COMPOSE_CLOUD_TEMPLATE):
+    for template in (COMPOSE_TEMPLATE, COMPOSE_CLOUD_TEMPLATE, COMPOSE_NATIVE_TEMPLATE):
         try:
             known.append(template.read_text(encoding="utf-8"))
         except OSError:
@@ -770,6 +835,15 @@ def _proxy_lock():
         os.close(fd)
 
 
+def _touch(path: Path) -> None:
+    """Create an empty marker, never through a link."""
+    path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+    # Whatever the caller's umask: the panel reads it as boneio.
+    os.fchmod(fd, 0o644)
+    os.close(fd)
+
+
 def _set_cloud_marker(present: bool) -> int:
     """Have the packaged Caddy serve the cloud's certificate, or stop.
 
@@ -780,13 +854,7 @@ def _set_cloud_marker(present: bool) -> int:
         The reload's exit status.
     """
     if present:
-        CLOUD_MARKER.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
-        fd = os.open(
-            CLOUD_MARKER, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644
-        )
-        # Whatever the caller's umask: the panel reads it as boneio.
-        os.fchmod(fd, 0o644)
-        os.close(fd)
+        _touch(CLOUD_MARKER)
     else:
         with contextlib.suppress(FileNotFoundError):
             CLOUD_MARKER.unlink()
@@ -949,6 +1017,661 @@ def _caddy_root_ca() -> int:
     return 0
 
 
+# ---------------------------------------------------------------- the switch
+#
+# Moving a controller from the Caddy container to the package. The order is
+# what makes it safe: nothing the running proxy depends on changes until the
+# package is installed and its configuration has passed the real Caddy's
+# validation; from the moment the compose file is replaced, any failure puts
+# the container back. The package then stays installed, so a later attempt
+# does not download it again.
+
+
+def _now() -> str:
+    return datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
+
+
+def _switch_load() -> dict:
+    """The last switch's record, or an empty dict when none has run."""
+    try:
+        data = json.loads(SWITCH_STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _switch_save(state: dict) -> None:
+    """Write the record atomically, readable by the panel."""
+    SWITCH_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+    _write_root_file(SWITCH_STATE, json.dumps(state, indent=1))
+
+
+def _write_root_file(path: Path, data: str) -> None:
+    """Replace *path* atomically and durably with *data*, as root:root 0644.
+
+    Mode and owner are set on the descriptor: the compose project's directory
+    belongs to ``boneio``, who could put a link where the temporary file was.
+    Durably, because a power loss is exactly what the switch's record and
+    compose.before exist for: without the syncs, ext4 can bring back a new
+    name with no data behind it.
+    """
+    with tempfile.NamedTemporaryFile(
+        dir=path.parent, delete=False, suffix=".tmp", mode="w", encoding="utf-8"
+    ) as tmp:
+        os.fchmod(tmp.fileno(), 0o644)
+        if os.geteuid() == 0:
+            os.fchown(tmp.fileno(), 0, 0)
+        tmp.write(data)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = tmp.name
+    try:
+        os.replace(tmp_path, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def _open_switch_log(append: bool):
+    """The switch's log, opened without following a link, readable by all."""
+    SWITCH_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(SWITCH_LOG, flags | (os.O_APPEND if append else os.O_TRUNC), 0o644)
+    os.fchmod(fd, 0o644)
+    return os.fdopen(fd, "w", encoding="utf-8")
+
+
+def _read_own(path: Path, limit: int | None = _MAX_ROOT_CA) -> str:
+    """A file only this helper's owner can have written, read without links.
+
+    Raises:
+        OSError: If it cannot be opened that way.
+        ValueError: If it is not a plain file of root's, or is too large.
+    """
+    fd = _open_nofollow(path, os.O_RDONLY | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as handle:
+        st = os.fstat(handle.fileno())
+        if (
+            not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
+            or st.st_mode & 0o022
+        ):
+            raise ValueError(f"{path} is not a plain file of root's")
+        data = handle.read() if limit is None else handle.read(limit + 1)
+    if limit is not None and len(data) > limit:
+        raise ValueError(f"{path} is too large")
+    return data.decode("utf-8", "replace")
+
+
+def _switch_unit_active() -> bool:
+    """Whether a switch is running right now."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", SWITCH_UNIT],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.stdout.strip() in ("active", "activating", "reloading")
+
+
+def _in_switch_unit() -> bool:
+    """Whether this process runs inside the switch's own unit."""
+    try:
+        cgroup = Path("/proc/self/cgroup").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    # In the system slice: a user's own unit of the same name is not it.
+    return f"/system.slice/{SWITCH_UNIT}" in cgroup
+
+
+def _switch_cmd(argv: list[str], log, timeout: int = 900) -> int:
+    """Run one command of the switch, its output going straight to the log.
+
+    Returns:
+        Its exit status; 1 when it cannot run or runs out of time.
+    """
+    log.write(f"\n$ {' '.join(argv)}\n")
+    log.flush()
+    cwd = str(PROJECT_DIR) if argv[0] == "docker" else "/"
+    try:
+        return subprocess.run(
+            argv, cwd=cwd, stdout=log, stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL, env={**APT_ENV, "HOME": "/root"},
+            timeout=timeout, check=False,
+        ).returncode
+    except subprocess.TimeoutExpired:
+        log.write(f"\n=== killed after {timeout}s\n")
+    except OSError as exc:
+        log.write(f"\n=== cannot run {argv[0]}: {exc}\n")
+    return 1
+
+
+def _https_port() -> int:
+    """The HTTPS port in the compose ``.env``, by the generator's rules.
+
+    The file is ``boneio``'s, so it is opened as the root certificate is. Only
+    the generator's per-value rules are repeated here; a port it refuses for
+    colliding with another one makes the probe fail, and the switch roll back.
+    """
+    port = 8443
+    try:
+        fd = _open_nofollow(ENV_FILE, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError:
+        return port
+    with os.fdopen(fd, "rb") as handle:
+        regular = stat.S_ISREG(os.fstat(handle.fileno()).st_mode)
+        data = handle.read(_MAX_ROOT_CA + 1) if regular else b""
+    if len(data) > _MAX_ROOT_CA:
+        return port
+    for line in data.decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
+        name, sep, value = line.partition("=")
+        if not sep or name.strip() != "HTTPS_PORT":
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        valid = len(value) <= 5 and value.isascii() and value.isdigit()
+        port = int(value) if valid and 1024 <= int(value) <= 65535 else 8443
+    return port
+
+
+def _status(port: int, path: str) -> int | None:
+    """The HTTP status of one request to the local proxy, None for no answer."""
+    context = ssl.create_default_context()
+    # The device's own authority, which root has no reason to trust.
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=context)
+    )
+    try:
+        with opener.open(f"https://127.0.0.1:{port}{path}", timeout=5) as reply:
+            return reply.status
+    except urllib.error.HTTPError as exc:
+        exc.close()
+        return exc.code
+    except (OSError, http.client.HTTPException, ValueError):
+        return None
+
+
+def _proxy_answers(port: int) -> bool:
+    """Whether the proxy on *port* serves both of its routes.
+
+    ``/nodered-status`` is answered by Caddy itself, whatever boneIO is doing.
+    ``/api/init`` goes to the panel and only has to come back as HTTP: the
+    starting page while boneIO restarts still proves the route.
+    """
+    return _status(port, "/nodered-status") == 200 and _status(port, "/api/init") is not None
+
+
+def _wait_for_proxy(port: int) -> bool:
+    """Ask the proxy until it answers or :data:`PROBE_TIMEOUT` has passed."""
+    deadline = time.monotonic() + PROBE_TIMEOUT
+    while True:
+        if _proxy_answers(port):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(PROBE_INTERVAL)
+
+
+def _shape(text: str) -> str:
+    """*text* with the two lines this helper changes for the panel blanked."""
+    text = _NODERED_IMAGE_RE.sub(lambda m: f"{m['prefix']}*{m['suffix']}", text, count=1)
+    return _CADDY_IMAGE_RE.sub(lambda m: f"{m['prefix']}*{m['suffix']}", text, count=1)
+
+
+def _template_shapes() -> list[str]:
+    """The root-owned Caddy templates, as :func:`_shape` sees them."""
+    return [
+        _shape(template.read_text(encoding="utf-8"))
+        for template in (COMPOSE_TEMPLATE, COMPOSE_CLOUD_TEMPLATE)
+        if _root_owned(template)
+    ]
+
+
+def _switch_preconditions() -> tuple[str, str, bool, str]:
+    """What the switch starts from, or why it cannot start.
+
+    The live compose file must be root's and one of the two Caddy templates,
+    up to the Node-RED version and the Caddy image, which this helper itself
+    changes on the panel's behalf. Anything else is a file somebody edited,
+    and replacing it would discard that. The Node-RED version is carried into
+    the native compose file, so the switch does not also update Node-RED.
+
+    Returns:
+        The live compose file, the native one to install in its place,
+        whether the live one is the cloud variant, and the Node-RED tag.
+
+    Raises:
+        Refused: If the switch must not run.
+    """
+    if _proxy_native():
+        raise Refused("Caddy is already the package")
+    _assert_compose_trustworthy()
+    missing = [
+        str(path) for path in (*SWITCH_PREREQUISITES, COMPOSE_NATIVE_TEMPLATE)
+        if not _root_owned(path)
+    ]
+    if missing:
+        raise Refused("not installed by a migration yet: " + ", ".join(missing))
+    live = COMPOSE_FILE.read_text(encoding="utf-8")
+    if _shape(live) not in _template_shapes():
+        raise Refused(
+            f"{COMPOSE_FILE} is not one of the Caddy templates; it is left as it is"
+        )
+    tag = _NODERED_IMAGE_RE.search(live)
+    native = COMPOSE_NATIVE_TEMPLATE.read_text(encoding="utf-8")
+    if tag is None or not _TAG_RE.match(tag["tag"]) or not _NODERED_IMAGE_RE.search(native):
+        raise Refused("the Node-RED image cannot be carried over")
+    native = _NODERED_IMAGE_RE.sub(
+        lambda m: f"{m['prefix']}{tag['tag']}{m['suffix']}", native, count=1
+    )
+    # The init script is what differs between the two, as the panel tells them.
+    return live, native, "init-certs-cloud.sh" in live, tag["tag"]
+
+
+def _read_old_ca() -> dict[str, bytes]:
+    """The container's authority, if every file of it is one root can vouch for.
+
+    The tree is ``boneio``'s, so each file is opened without following a link
+    anywhere, must be a single-named regular file under the size cap and look
+    like what its name says. Nothing else under pki is read.
+
+    Raises:
+        ValueError: Naming the first file that is missing or unacceptable.
+    """
+    found: dict[str, bytes] = {}
+    for name in CA_FILES:
+        try:
+            fd = _open_nofollow(OLD_CA / name, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError as exc:
+            raise ValueError(f"{name}: {exc.strerror}") from None
+        with os.fdopen(fd, "rb") as handle:
+            st = os.fstat(handle.fileno())
+            if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+                raise ValueError(f"{name} is not a plain file")
+            data = handle.read(_MAX_ROOT_CA + 1)
+        if len(data) > _MAX_ROOT_CA:
+            raise ValueError(f"{name} is too large")
+        if name.endswith(".crt"):
+            ok = data.lstrip().startswith(b"-----BEGIN CERTIFICATE-----") and b"PRIVATE KEY" not in data
+        else:
+            ok = data.lstrip().startswith(b"-----BEGIN") and b"PRIVATE KEY-----" in data
+        if not ok:
+            raise ValueError(f"{name} is not what its name says")
+        found[name] = data
+    return found
+
+
+def _carry_over_ca(log) -> None:
+    """Give the packaged Caddy the container's authority, unless it has one.
+
+    People installed that authority's root; a new one would make every browser
+    warn again. All four files or none: half an authority stops Caddy. The tree
+    is built beside its destination and renamed into place, so an interrupted
+    copy never leaves a ``pki`` that the next attempt would then keep.
+    """
+    pki = CADDY_DATA / "pki"
+    if os.path.lexists(pki):
+        log.write("=== the packaged Caddy has an authority already; it is kept\n")
+        return
+    try:
+        files = _read_old_ca()
+    except ValueError as exc:
+        log.write(f"=== the container's authority is not carried over ({exc}); Caddy creates a new one\n")
+        return
+    owner = None
+    if os.geteuid() == 0:
+        entry = pwd.getpwnam("caddy")
+        owner = (entry.pw_uid, entry.pw_gid)
+
+    # The package creates Caddy's home; the data directories below it appear
+    # on its first start, which has not happened.
+    missing = []
+    directory = CADDY_DATA
+    while not os.path.lexists(directory):
+        missing.append(directory)
+        directory = directory.parent
+    staging = CADDY_DATA / ".pki.boneio"
+    shutil.rmtree(staging, ignore_errors=True)
+    local = staging / "authorities" / "local"
+    for directory in [*reversed(missing), staging, staging / "authorities", local]:
+        os.mkdir(directory, 0o700)
+        if owner:
+            os.chown(directory, *owner, follow_symlinks=False)
+    for name, data in files.items():
+        mode = 0o600 if name.endswith(".key") else 0o644
+        fd = os.open(
+            local / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, mode
+        )
+        with os.fdopen(fd, "wb") as handle:
+            os.fchmod(fd, mode)
+            if owner:
+                os.fchown(fd, *owner)
+            handle.write(data)
+    os.rename(staging, pki)
+    log.write("=== the container's authority is carried over\n")
+
+
+def _mirror_cloud_marker(cloud: bool) -> bool:
+    """Make the cloud marker say what the compose file says.
+
+    A marker left by an earlier attempt would otherwise have a plain device
+    serve the cloud's certificate.
+
+    Returns:
+        True when this created it.
+    """
+    existed = os.path.lexists(CLOUD_MARKER)
+    if cloud:
+        _touch(CLOUD_MARKER)
+        return not existed
+    with contextlib.suppress(FileNotFoundError):
+        CLOUD_MARKER.unlink()
+    return False
+
+
+def _container_compose(state: dict, log) -> str:
+    """The container's compose file to put back.
+
+    compose.before when it is root's, not empty and still one of the Caddy
+    templates. Otherwise - a power loss can leave it empty - it is rebuilt
+    from the root-owned template the run recorded, with its Node-RED version.
+
+    Raises:
+        Refused: If neither is available.
+    """
+    try:
+        before = _read_own(COMPOSE_BEFORE)
+        if before.strip() and _shape(before) in _template_shapes():
+            return before
+        log.write(f"=== {COMPOSE_BEFORE} is not a Caddy template\n")
+    except (OSError, ValueError) as exc:
+        log.write(f"=== {COMPOSE_BEFORE} cannot be used: {exc}\n")
+    template = COMPOSE_CLOUD_TEMPLATE if state.get("cloud") else COMPOSE_TEMPLATE
+    if not _root_owned(template):
+        raise Refused(f"template {template} is missing or not root-owned")
+    text = template.read_text(encoding="utf-8")
+    tag = state.get("nodered_tag")
+    if isinstance(tag, str) and _TAG_RE.match(tag):
+        text = _NODERED_IMAGE_RE.sub(
+            lambda m: f"{m['prefix']}{tag}{m['suffix']}", text, count=1
+        )
+    log.write(f"=== the compose file is rebuilt from {template.name}\n")
+    return text
+
+
+def _switch_rollback(log, state: dict, port: int) -> list[str]:
+    """Put the container back. Every step is tried whatever the last one did.
+
+    Returns:
+        What went wrong; empty when the container answers again.
+    """
+    problems = []
+    log.write("\n=== rollback\n")
+    if _switch_cmd(["systemctl", "disable", "--now", "caddy"], log, 300) != 0:
+        problems.append("the packaged Caddy could not be stopped")
+    created_cloud = bool(state.get("created_cloud"))
+    for marker in (NATIVE_MARKER, CLOUD_MARKER) if created_cloud else (NATIVE_MARKER,):
+        try:
+            marker.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            problems.append(f"{marker} could not be removed: {exc.strerror}")
+    try:
+        _write_root_file(COMPOSE_FILE, _container_compose(state, log))
+    except Exception as exc:  # noqa: BLE001 - the rest must still be tried
+        problems.append(f"the compose file could not be restored: {exc}")
+    if _switch_cmd(_compose("up", "-d"), log) != 0:
+        problems.append("docker compose up failed")
+    elif not _wait_for_proxy(port):
+        problems.append(f"the container did not answer on {port} within {PROBE_TIMEOUT:g} s")
+    log.write(f"=== rollback {'incomplete: ' + '; '.join(problems) if problems else 'done'}\n")
+    return problems
+
+
+def _switch_steps(state: dict, log) -> None:
+    """The switch itself, recording each step in *state*."""
+    def step(name: str) -> None:
+        state["step"] = name
+        _switch_save(state)
+        log.write(f"\n=== {name}\n")
+        log.flush()
+
+    def run(argv: list[str], timeout: int = 900) -> None:
+        rc = _switch_cmd(argv, log, timeout)
+        if rc != 0:
+            raise Refused(f"{state['step']}: {' '.join(argv)} failed (rc={rc})")
+
+    port = 8443
+    try:
+        step("preconditions")
+        live, native, cloud, tag = _switch_preconditions()
+        port = _https_port()
+        step("apt-update")
+        # Only Caddy's list: the rest is the system update's business, and a
+        # broken Debian mirror must not stop this.
+        run([
+            # Without it an unreachable repository is only a warning, and the
+            # install then fails less clearly, or installs a stale list's.
+            "apt-get", "update", "--error-on=any",
+            "-o", "Dir::Etc::sourcelist=sources.list.d/caddy-stable.list",
+            "-o", "Dir::Etc::sourceparts=-",
+            "-o", "APT::Get::List-Cleanup=0",
+            "-o", "DPkg::Lock::Timeout=300",
+        ])
+        step("apt-install")
+        # The drop-in's condition keeps the postinst from starting Caddy.
+        run([
+            "apt-get", "install", "-y", "--no-install-recommends",
+            "-o", "DPkg::Lock::Timeout=300", "caddy",
+        ])
+        step("carry-over")
+        _carry_over_ca(log)
+        # The device's name now, not the one the container recorded (its
+        # default is "boneio"): a different name makes the generator discard
+        # the authority just carried over.
+        _write_root_file(HOSTNAME_FILE, f"{socket.gethostname()}\n")
+        # Recorded at once: recovery after a power loss removes the marker
+        # only if this run made it.
+        state["created_cloud"] = _mirror_cloud_marker(cloud)
+        # What a rollback rebuilds the container's compose file from, should
+        # compose.before itself not survive.
+        state["cloud"], state["nodered_tag"] = cloud, tag
+        _switch_save(state)
+        step("check")
+        run([PROXY_CONFIG, "--check"], 300)
+
+        step("compose")
+        _write_root_file(COMPOSE_BEFORE, live)
+        # From here on a failure, or the boot after an interruption, rolls
+        # back; compose.before is this run's, not an older attempt's.
+        state["replaced"] = True
+        _switch_save(state)
+        _write_root_file(COMPOSE_FILE, native)
+        # Removes the Caddy container, which frees 8091 and 8443.
+        run(_compose("up", "-d", "--remove-orphans"))
+        step("start")
+        _touch(NATIVE_MARKER)
+        run(["systemctl", "daemon-reload"], 120)
+        run(["systemctl", "enable", "--now", "caddy"], 300)
+        step("probe")
+        if not _wait_for_proxy(port):
+            raise Refused(
+                f"probe: the packaged Caddy did not answer on {port} within {PROBE_TIMEOUT:g} s"
+            )
+        # Caddy creates its authority on the first start; the reload has the
+        # generator export the root. Missing it costs only the download.
+        if _switch_cmd(["systemctl", "reload", "caddy"], log, 120) != 0:
+            log.write("=== the root certificate is exported on the next start instead\n")
+        state["state"] = "done"
+    # Any error at all: past the compose file, the rollback is what stands
+    # between a failure and a controller with no proxy.
+    except Exception as exc:  # noqa: BLE001
+        state["error"] = str(exc) or type(exc).__name__
+        log.write(f"\n=== FAILED: {state['error']}\n")
+        _switch_undo(state, log, port)
+        _LOGGER.error("proxy switch: %s", state["error"])
+
+
+def _switch_undo(state: dict, log, port: int) -> None:
+    """Undo what *state* records a failed or interrupted run as having done.
+
+    Once the compose file was replaced, that is the whole rollback; before
+    that, only a cloud marker the run created is left to remove.
+    """
+    if state.get("replaced"):
+        try:
+            problems = _switch_rollback(log, state, port)
+        except Exception as exc:  # noqa: BLE001 - the record must say so
+            problems = [f"stopped: {exc}"]
+        state["state"] = "rolled_back"
+        if problems:
+            state["error"] += "; rollback: " + "; ".join(problems)
+    else:
+        state["state"] = "failed"
+        if state.get("created_cloud"):
+            with contextlib.suppress(OSError):
+                CLOUD_MARKER.unlink()
+
+
+def _undo_interrupted(state: dict, log) -> None:
+    """Undo the run *state* records as cut short, and record that."""
+    log.write("\n=== the last switch was interrupted; undoing it\n")
+    state["error"] = "interrupted"
+    _switch_undo(state, log, _https_port())
+    state["at"] = _now()
+    _switch_save(state)
+    _LOGGER.error("proxy switch: %s", state["error"])
+
+
+def _switch_recover() -> None:
+    """Undo a switch that was cut short; the caller holds the proxy lock.
+
+    A record saying ``running`` with no unit running it is a switch killed
+    or powered off halfway, possibly in the moment when neither Caddy runs.
+    Anything else is left alone, so this can run on every boot.
+    """
+    state = _switch_load()
+    if state.get("state") != "running" or _switch_unit_active():
+        return
+    with _open_switch_log(append=True) as log:
+        _undo_interrupted(state, log)
+
+
+def _switch_run() -> int:
+    """Move Caddy from the container to the package. Only inside its unit.
+
+    Holds the proxy lock from the first step to the last, so no Caddy verb acts
+    on the mode being left; everything in here therefore calls the unlocked
+    internals.
+
+    Raises:
+        Refused: When called any other way.
+    """
+    if not _in_switch_unit():
+        raise Refused(f"proxy-switch-run only runs inside {SWITCH_UNIT}; use proxy-switch-start")
+    with _proxy_lock(), _open_switch_log(append=False) as log:
+        previous = _switch_load()
+        if previous.get("state") == "running":
+            # This unit is the only one that runs a switch, and it is this
+            # one: a record saying running is a run that was cut short.
+            _undo_interrupted(previous, log)
+        attempts = previous.get("attempts")
+        state = {
+            "state": "running", "step": None, "error": None,
+            "attempts": (attempts if isinstance(attempts, int) else 0) + 1, "at": _now(),
+            "created_cloud": False, "replaced": False,
+        }
+        _switch_save(state)
+        try:
+            _switch_steps(state, log)
+        finally:
+            state["at"] = _now()
+            _switch_save(state)
+    _LOGGER.info("proxy switch: %s", state["state"])
+    return 0 if state["state"] == "done" else 1
+
+
+def _switch_start() -> int:
+    """Start the switch in its own unit, and return.
+
+    Not here: this process is a child of boneio.service, and the switch must
+    survive boneIO restarting. The fixed unit name means systemd itself
+    refuses a second switch while one runs.
+
+    An interrupted switch is undone by the run, inside the unit, before it
+    starts again; it may have left the native marker behind.
+
+    Raises:
+        Refused: While a switch runs, or once Caddy is the package.
+    """
+    if _switch_unit_active():
+        raise Refused("the switch to the packaged Caddy is already running")
+    if _proxy_native() and _switch_load().get("state") != "running":
+        raise Refused("Caddy is already the package")
+    rc = _run([
+        "systemd-run", "--unit", SWITCH_UNIT, "--collect", "--no-block", "--quiet",
+        "--description", "boneIO switch to the packaged Caddy",
+        # boneIO runs at CPUWeight=1000; the switch must not starve it.
+        "--property", "CPUWeight=50", "--property", "IOWeight=50",
+        HELPER_SELF, "proxy-switch-run",
+    ])
+    if rc == 0:
+        print(json.dumps({"started": True}))
+    return rc
+
+
+def _switch_state() -> int:
+    """Print the last switch's record and the end of its log. Changes nothing.
+
+    A record still saying ``running`` with no unit left is a switch that was
+    killed or lost power halfway; it is shown as failed, or the panel would
+    wait for it forever.
+    """
+    state = {"state": None, "step": None, "error": None, "attempts": 0, "at": None}
+    state.update(_switch_load())
+    running = _switch_unit_active()
+    if state["state"] == "running" and not running:
+        state["state"], state["error"] = "failed", "interrupted"
+    try:
+        lines = _read_own(SWITCH_LOG, limit=None).splitlines()
+    except (OSError, ValueError):
+        lines = []
+    print(json.dumps({
+        **state, "running": running, "native": _proxy_native(),
+        "log": "\n".join(lines[-SWITCH_LOG_TAIL:]),
+    }))
+    return 0
+
+
+def _switch(verb: str, argument: str | None) -> int:
+    if argument is not None:
+        raise Refused(f"verb {verb!r} takes no argument")
+    if verb == "proxy-switch-start":
+        return _switch_start()
+    if verb == "proxy-switch-run":
+        return _switch_run()
+    if verb == "proxy-switch-recover":
+        # Waiting for the lock is pointless while the switch itself runs.
+        if not _switch_unit_active():
+            with _proxy_lock():
+                _switch_recover()
+        return 0
+    return _switch_state()
+
+
 def selftest() -> int:
     """Check the helper can do its job, changing nothing.
 
@@ -1082,6 +1805,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"unknown verb {args.verb!r}. Allowed: {', '.join(ALL_VERBS)}"
             )
 
+        if args.verb in SWITCH_VERBS:
+            # Before the compose check: a run refused for its preconditions
+            # must still record why.
+            return _switch(args.verb, args.argument)
         if args.verb in LOCKED_VERBS:
             with _proxy_lock():
                 return _dispatch(args.verb, args.argument)

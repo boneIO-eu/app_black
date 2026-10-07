@@ -1,0 +1,24 @@
+# Put the Caddy container back after a switch to the packaged Caddy that was
+# cut short. Between replacing the compose file and starting the package there
+# is a moment when neither Caddy runs; a power loss or a stop there leaves the
+# controller with no HTTPS at all, and so with no panel, until somebody repairs
+# it over SSH. The switch records "running" until it ends, so a record still
+# saying so at boot is a switch that never finished.
+#
+# The condition keeps this free on a healthy boot: the helper is not started
+# unless the record says the switch was running.
+[Unit]
+Description=boneIO: undo an interrupted switch to the packaged Caddy
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecCondition=/bin/grep -qF "\"state\": \"running\"" /var/lib/boneio/proxy/switch.json
+ExecStart=/usr/sbin/boneio-containers proxy-switch-recover
+CPUWeight=50
+# docker compose and the 90 s probe are slow on a BeagleBone.
+TimeoutStartSec=20min
+
+[Install]
+WantedBy=multi-user.target

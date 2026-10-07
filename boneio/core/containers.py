@@ -92,6 +92,11 @@ _HELPER_ONLY = {
     "caddy-image-apply",
     # Root reads Caddy's own copy; without the helper the panel reads it itself.
     "caddy-root-ca",
+    # Installs a package and starts it as root, in a unit of its own.
+    "proxy-switch-start",
+    "proxy-switch-run",
+    "proxy-switch-state",
+    "proxy-switch-recover",
 }
 
 
