@@ -19,6 +19,14 @@ Two things make this worth doing rather than granting ``sudo docker compose``:
     command. The only caller-supplied values are a log line count and a domain
     name, both validated.
 
+Caddy runs either as the ``caddy`` service of that project or, once
+/etc/boneio/proxy-native exists, as the apt package under systemd. The Caddy
+verbs keep their names in both modes, so the application does not need to know
+which one it is talking to; in the native mode none of them runs compose, since
+the project no longer has a Caddy in it. Every Caddy verb, and ``up`` and
+``down``, holds /run/boneio-proxy.lock, the lock the switch between the modes
+holds for its whole run, so no verb acts on the mode the switch is leaving.
+
 Usage:
     boneio-containers <verb> [argument]
     boneio-containers --list-verbs
@@ -33,15 +41,19 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import json
 import logging
 import logging.handlers
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 LOG_FILE = "/var/log/boneio-containers.log"
@@ -60,6 +72,25 @@ COMPOSE_CLOUD_TEMPLATE = TRUSTED_DIR / "docker-compose-cloud.yaml"
 
 CADDY_SERVICE = "caddy"
 NODERED_SERVICE = "node-red"
+
+#: Present when Caddy is the apt package rather than a container. Root-owned,
+#: created only by the switch, so the caller cannot pick the mode.
+NATIVE_MARKER = Path("/etc/boneio/proxy-native")
+#: Present when the packaged Caddy should serve the cloud's certificate; read by
+#: the root generator /usr/lib/boneio/proxy-config on every start and reload.
+CLOUD_MARKER = Path("/etc/boneio/proxy-cloud")
+#: The packaged Caddy's data directory, holding its local authority.
+CADDY_DATA = Path("/var/lib/caddy/.local/share/caddy")
+#: Shared with the switch, which holds it from the first step to the last.
+#: In /run, which only root can write, not the world-writable /run/lock: there
+#: another account could create it first and stall every Caddy verb.
+PROXY_LOCK = Path("/run/boneio-proxy.lock")
+#: Seconds a locked verb waits for the switch before refusing. Shorter than
+#: the application's own 30 s, so the caller hears why rather than a timeout.
+PROXY_LOCK_TIMEOUT = 20.0
+#: Larger than any real root certificate, small enough that a planted file
+#: cannot make root read the disk.
+_MAX_ROOT_CA = 64 * 1024
 
 _MAX_LOG_LINES = 2000
 
@@ -140,6 +171,14 @@ VERBS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+#: What the lifecycle verbs mean for the packaged Caddy. Reload goes through
+#: systemd so the root generator rewrites the configuration first.
+NATIVE_VERBS: dict[str, tuple[str, ...]] = {
+    "start-caddy": ("systemctl", "start", "caddy"),
+    "restart-caddy": ("systemctl", "restart", "caddy"),
+    "reload-caddy": ("systemctl", "reload", "caddy"),
+}
+
 #: Verbs that talk to the docker daemon rather than to a compose project.
 DAEMON_VERBS: dict[str, tuple[str, ...]] = {
     "ps": ("ps", "-a", "--format", "json"),
@@ -193,8 +232,19 @@ PARAMETERISED_VERBS = {
     "logs-container",
 }
 
-#: Verbs that take no argument but do more than one compose command.
-COMPOSITE_VERBS = {"caddy-image-state", "caddy-image-apply"}
+#: Verbs that take no argument and are not one fixed compose command.
+COMPOSITE_VERBS = {"caddy-image-state", "caddy-image-apply", "caddy-root-ca"}
+
+#: Verbs whose meaning depends on the mode.
+CADDY_VERBS = {
+    "start-caddy", "restart-caddy", "reload-caddy", "logs-caddy",
+    "apply-cloud-template", "remove-cloud-template",
+    "caddy-image-state", "caddy-image-apply", "caddy-root-ca",
+}
+#: Verbs that wait for the switch: the Caddy verbs, the two that would
+#: recreate or remove the Caddy container in the middle of it, and the one that
+#: rewrites the compose file the switch replaces.
+LOCKED_VERBS = CADDY_VERBS | {"up", "down", "set-nodered-image"}
 
 ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS | COMPOSITE_VERBS)
 
@@ -203,7 +253,7 @@ ALL_VERBS = sorted(set(VERBS) | set(DAEMON_VERBS) | PARAMETERISED_VERBS | COMPOS
 #: what is wrong.
 READ_ONLY_VERBS = {
     "status", "ps", "names", "logs-caddy", "logs-nodered", "logs-container",
-    "caddy-image-state",
+    "caddy-image-state", "caddy-root-ca",
 }
 
 
@@ -259,9 +309,12 @@ def _run(argv: list[str], timeout: int = 120) -> int:
         Process exit status; output is passed through.
     """
     _LOGGER.info("RUN: %s", " ".join(argv))
+    # Only compose needs the project directory; systemd's tools must not fail
+    # because it is missing.
+    cwd = str(PROJECT_DIR) if argv[0] == "docker" else "/"
     try:
         result = subprocess.run(
-            argv, cwd=str(PROJECT_DIR), capture_output=True, text=True, timeout=timeout
+            argv, cwd=cwd, capture_output=True, text=True, timeout=timeout
         )
     except subprocess.TimeoutExpired:
         _LOGGER.error("timed out after %ds: %s", timeout, " ".join(argv))
@@ -278,6 +331,52 @@ def _run(argv: list[str], timeout: int = 120) -> int:
     return result.returncode
 
 
+def _capture(argv: list[str], timeout: int = 30) -> tuple[int, str]:
+    """Run a fixed command and return its output instead of passing it on.
+
+    ``LC_ALL=C`` because sudo keeps the caller's locale, and apt translates the
+    words that are parsed here.
+
+    Args:
+        argv: The command to run.
+        timeout: Seconds to allow.
+
+    Returns:
+        ``(exit status, stdout)``; status 1 and no output when it cannot run.
+    """
+    cwd = str(PROJECT_DIR) if argv[0] == "docker" else "/"
+    try:
+        result = subprocess.run(
+            argv, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        _LOGGER.error("cannot run %s: %s", " ".join(argv), exc)
+        return 1, ""
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+    return result.returncode, result.stdout
+
+
+def _line_count(argument: str | None) -> int:
+    """A log tail length from the caller.
+
+    Raises:
+        Refused: If the line count is not a sane integer.
+    """
+    if argument is None:
+        return 200
+    # isascii: "²".isdigit() is true, and int() would then raise.
+    if (
+        not (argument.isascii() and argument.isdigit())
+        or not 1 <= int(argument) <= _MAX_LOG_LINES
+    ):
+        raise Refused(
+            f"log line count must be an integer between 1 and {_MAX_LOG_LINES}"
+        )
+    return int(argument)
+
+
 def _logs(service: str, argument: str | None) -> int:
     """Show the tail of a service's log.
 
@@ -291,14 +390,16 @@ def _logs(service: str, argument: str | None) -> int:
     Raises:
         Refused: If the line count is not a sane integer.
     """
-    lines = 200
-    if argument is not None:
-        if not argument.isdigit() or not 1 <= int(argument) <= _MAX_LOG_LINES:
-            raise Refused(
-                f"log line count must be an integer between 1 and {_MAX_LOG_LINES}"
-            )
-        lines = int(argument)
+    lines = _line_count(argument)
     return _run(_compose("logs", "--tail", str(lines), "--no-color", service), timeout=60)
+
+
+def _journal_caddy(lines: int) -> int:
+    """The packaged Caddy's log, which systemd keeps."""
+    return _run(
+        ["journalctl", "-u", "caddy", "-n", str(lines), "--no-pager", "-o", "short-iso"],
+        timeout=60,
+    )
 
 
 def _install_compose(source: Path) -> int:
@@ -416,6 +517,9 @@ def _logs_container(argument: str | None) -> int:
     """
     if not argument or not _CONTAINER_NAME_RE.match(argument):
         raise Refused(f"not a valid container name: {argument!r}")
+    if argument == CADDY_SERVICE and _proxy_native():
+        # ``names`` lists the packaged Caddy too, so Diagnostics asks for it.
+        return _journal_caddy(_CONTAINER_LOG_LINES)
 
     listing = subprocess.run(
         ["docker", *DAEMON_VERBS["names"]],
@@ -622,6 +726,229 @@ def _remove_cloud_template(argument: str | None) -> int:
     return _install_compose(COMPOSE_TEMPLATE)
 
 
+def _proxy_native() -> bool:
+    """Whether Caddy is the apt package rather than a container."""
+    return NATIVE_MARKER.exists()
+
+
+@contextlib.contextmanager
+def _proxy_lock():
+    """Hold the lock the switch between the modes holds, or refuse.
+
+    The file is opened without following a link and used only if it is a
+    regular file of root's own, so nothing planted in its place can have root
+    create or lock a file elsewhere.
+
+    Raises:
+        Refused: If the lock is unusable, or still held after the wait.
+    """
+    try:
+        fd = os.open(
+            PROXY_LOCK, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600
+        )
+    except OSError as exc:
+        raise Refused(f"cannot open {PROXY_LOCK}: {exc.strerror}") from None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
+            raise Refused(f"{PROXY_LOCK} is not a regular file of root's own")
+        deadline = time.monotonic() + PROXY_LOCK_TIMEOUT
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise Refused(
+                        f"{PROXY_LOCK} is still held after {PROXY_LOCK_TIMEOUT:g} s: "
+                        "Caddy is being switched between the container and the "
+                        "package. Try again when the switch has finished."
+                    ) from None
+                time.sleep(0.1)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _set_cloud_marker(present: bool) -> int:
+    """Have the packaged Caddy serve the cloud's certificate, or stop.
+
+    The marker is the whole switch: the root generator reads it when
+    ``systemctl reload`` runs it, and nothing from the caller reaches it.
+
+    Returns:
+        The reload's exit status.
+    """
+    if present:
+        CLOUD_MARKER.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+        fd = os.open(
+            CLOUD_MARKER, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644
+        )
+        # Whatever the caller's umask: the panel reads it as boneio.
+        os.fchmod(fd, 0o644)
+        os.close(fd)
+    else:
+        with contextlib.suppress(FileNotFoundError):
+            CLOUD_MARKER.unlink()
+    _LOGGER.info("cloud marker %s", "set" if present else "cleared")
+    return _run(list(NATIVE_VERBS["reload-caddy"]))
+
+
+def _native_image_state() -> int:
+    """Print the installed and the candidate Caddy package. Changes nothing.
+
+    A package removed with its configuration kept still has a version in dpkg,
+    so only an ``installed`` one counts.
+
+    Returns:
+        0, with JSON on stdout.
+    """
+    rc, out = _capture(["dpkg-query", "-W", "--showformat=${db:Status-Status} ${Version}", "caddy"])
+    status, _, version = out.strip().partition(" ")
+    installed = version if rc == 0 and status == "installed" and version else None
+    candidate = None
+    _, out = _capture(["apt-cache", "policy", "caddy"])
+    for line in out.splitlines():
+        key, _, value = line.strip().partition(":")
+        if key == "Candidate" and value.strip() not in ("", "(none)"):
+            candidate = value.strip()
+    print(json.dumps({"mode": "native", "installed": installed, "candidate": candidate}))
+    return 0
+
+
+def _native_caddy(verb: str, argument: str | None) -> int:
+    """A Caddy verb, for the packaged Caddy. Never compose.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: On an argument the verb does not take, and on image apply.
+    """
+    if verb == "logs-caddy":
+        return _journal_caddy(_line_count(argument))
+    if argument is not None:
+        raise Refused(f"verb {verb!r} takes no argument")
+    if verb in NATIVE_VERBS:
+        return _run(list(NATIVE_VERBS[verb]))
+    if verb in ("apply-cloud-template", "remove-cloud-template"):
+        return _set_cloud_marker(verb == "apply-cloud-template")
+    if verb == "caddy-image-state":
+        return _native_image_state()
+    if verb == "caddy-image-apply":
+        raise Refused("Caddy comes from apt; update it with the system update")
+    if verb == "caddy-root-ca":
+        return _caddy_root_ca()
+    raise Refused(f"verb {verb!r} has no meaning for the packaged Caddy")
+
+
+def _caddy_entry() -> dict:
+    """The packaged Caddy, shaped like Docker's entry for a container.
+
+    The application finds a service by ``Service`` or ``Name`` and checks
+    ``State`` for ``running``, so these keys keep it working unchanged.
+    """
+    _, out = _capture(["systemctl", "is-active", "caddy"])
+    word = out.strip() or "unknown"
+    return {
+        "Name": CADDY_SERVICE, "Names": CADDY_SERVICE, "Service": CADDY_SERVICE,
+        "State": "running" if word in ("active", "reloading") else "exited",
+        "Status": f"caddy.service {word}",
+    }
+
+
+def _with_native_caddy(verb: str) -> int:
+    """Docker's answer to status, ps or names, with the packaged Caddy added.
+
+    Compose prints either one JSON array or one object per line, depending on
+    its version; the entry joins whichever form came back.
+
+    Returns:
+        Docker's exit status.
+    """
+    rc, out = _capture(_argv_for(verb), timeout=120)
+    if verb == "names":
+        extra = CADDY_SERVICE
+    else:
+        try:
+            parsed = json.loads(out) if out.strip() else None
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, list):
+            out, extra = "", json.dumps(parsed + [_caddy_entry()])
+        else:
+            extra = json.dumps(_caddy_entry())
+    if out and not out.endswith("\n"):
+        out += "\n"
+    sys.stdout.write(out + extra + "\n")
+    return rc
+
+
+def _open_nofollow(path: Path, flags: int) -> int:
+    """Open *path* without following a symlink at any component.
+
+    ``O_NOFOLLOW`` alone covers only the last one: a directory swapped for a
+    link would still lead root wherever it points.
+
+    Returns:
+        The open file descriptor.
+    """
+    parts = Path(path).parts
+    fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        for name in parts[1:-1]:
+            child = os.open(
+                name,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=fd,
+            )
+            os.close(fd)
+            fd = child
+        return os.open(parts[-1], flags | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+    finally:
+        os.close(fd)
+
+
+def _caddy_root_ca() -> int:
+    """Print the root certificate of Caddy's local authority.
+
+    Read straight from Caddy's own data in both modes. In the container mode
+    that is under /home/boneio, which the caller can write, so it is opened
+    without following a link anywhere, non-blocking against a FIFO, and printed
+    only if it is a small single-named regular file holding certificates and no
+    key.
+
+    Returns:
+        0, with the PEM on stdout.
+
+    Raises:
+        Refused: If there is no certificate yet, or the file is not one.
+    """
+    base = CADDY_DATA if _proxy_native() else PROJECT_DIR / "caddy" / "data" / "caddy"
+    path = base / "pki" / "authorities" / "local" / "root.crt"
+    try:
+        fd = _open_nofollow(path, os.O_RDONLY | os.O_NONBLOCK)
+    except FileNotFoundError:
+        raise Refused(f"{path} does not exist yet; Caddy creates it on its first start") from None
+    except OSError as exc:
+        raise Refused(f"{path} cannot be opened safely: {exc.strerror}") from None
+    with os.fdopen(fd, "rb") as handle:
+        st = os.fstat(handle.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+            raise Refused(f"{path} is not a plain file")
+        data = handle.read(_MAX_ROOT_CA + 1)
+    if (
+        len(data) > _MAX_ROOT_CA
+        or not data.lstrip().startswith(b"-----BEGIN CERTIFICATE-----")
+        or b"PRIVATE KEY" in data
+    ):
+        raise Refused(f"{path} is not a certificate")
+    sys.stdout.flush()
+    sys.stdout.buffer.write(data)
+    sys.stdout.flush()
+    return 0
+
+
 def selftest() -> int:
     """Check the helper can do its job, changing nothing.
 
@@ -640,6 +967,10 @@ def selftest() -> int:
     for template in (COMPOSE_TEMPLATE, COMPOSE_CLOUD_TEMPLATE):
         if not _root_owned(template):
             problems.append(f"template {template} is missing or not root-owned")
+    if _proxy_native() and shutil.which("caddy") is None:
+        problems.append(
+            f"{NATIVE_MARKER} says Caddy is the package, but caddy is not installed"
+        )
 
     for problem in problems:
         _LOGGER.error("selftest: %s", problem)
@@ -647,6 +978,57 @@ def selftest() -> int:
         return 1
     _LOGGER.info("selftest: %d verbs available, compose file trusted.", len(ALL_VERBS))
     return 0
+
+
+def _dispatch(verb: str, argument: str | None) -> int:
+    """Run one allowed verb, taking no lock.
+
+    :func:`main` holds :func:`_proxy_lock` around this for :data:`LOCKED_VERBS`;
+    code that already holds the lock calls this directly, since a second
+    ``flock`` from the same process would wait on the first. The mode is read
+    here, so under the lock it cannot change in between.
+
+    Returns:
+        Process exit status.
+
+    Raises:
+        Refused: If the request cannot be carried out safely.
+    """
+    native = _proxy_native()
+    if native and verb in CADDY_VERBS:
+        return _native_caddy(verb, argument)
+
+    if verb not in READ_ONLY_VERBS:
+        _assert_compose_trustworthy()
+
+    if verb == "logs-caddy":
+        return _logs(CADDY_SERVICE, argument)
+    if verb == "logs-nodered":
+        return _logs(NODERED_SERVICE, argument)
+    if verb == "logs-container":
+        return _logs_container(argument)
+    if verb == "set-nodered-image":
+        return _set_nodered_image(argument)
+    if verb in COMPOSITE_VERBS and argument is not None:
+        raise Refused(f"verb {verb!r} takes no argument")
+    if verb == "caddy-image-state":
+        return _caddy_image_state()
+    if verb == "caddy-image-apply":
+        return _caddy_image_apply()
+    if verb == "caddy-root-ca":
+        return _caddy_root_ca()
+    if verb == "apply-cloud-template":
+        return _apply_cloud_template(argument)
+    if verb == "remove-cloud-template":
+        return _remove_cloud_template(argument)
+
+    if argument is not None:
+        raise Refused(f"verb {verb!r} takes no argument")
+    if native and verb in ("status", "ps", "names"):
+        return _with_native_caddy(verb)
+    # Pulling an image onto a BeagleBone takes minutes, as for Caddy above.
+    timeout = 900 if VERBS.get(verb, ("",))[0] == "pull" else 120
+    return _run(_argv_for(verb), timeout=timeout)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -700,33 +1082,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"unknown verb {args.verb!r}. Allowed: {', '.join(ALL_VERBS)}"
             )
 
-        if args.verb not in READ_ONLY_VERBS:
-            _assert_compose_trustworthy()
-
-        if args.verb == "logs-caddy":
-            return _logs(CADDY_SERVICE, args.argument)
-        if args.verb == "logs-nodered":
-            return _logs(NODERED_SERVICE, args.argument)
-        if args.verb == "logs-container":
-            return _logs_container(args.argument)
-        if args.verb == "set-nodered-image":
-            return _set_nodered_image(args.argument)
-        if args.verb in COMPOSITE_VERBS and args.argument is not None:
-            raise Refused(f"verb {args.verb!r} takes no argument")
-        if args.verb == "caddy-image-state":
-            return _caddy_image_state()
-        if args.verb == "caddy-image-apply":
-            return _caddy_image_apply()
-        if args.verb == "apply-cloud-template":
-            return _apply_cloud_template(args.argument)
-        if args.verb == "remove-cloud-template":
-            return _remove_cloud_template(args.argument)
-
-        if args.argument is not None:
-            raise Refused(f"verb {args.verb!r} takes no argument")
-        # Pulling an image onto a BeagleBone takes minutes, as for Caddy above.
-        timeout = 900 if VERBS.get(args.verb, ("",))[0] == "pull" else 120
-        return _run(_argv_for(args.verb), timeout=timeout)
+        if args.verb in LOCKED_VERBS:
+            with _proxy_lock():
+                return _dispatch(args.verb, args.argument)
+        return _dispatch(args.verb, args.argument)
     except Refused as exc:
         _LOGGER.error("REFUSED: %s", exc)
         return 2 if "not owned by root" in str(exc) else 1

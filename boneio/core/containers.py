@@ -90,6 +90,8 @@ _HELPER_ONLY = {
     # Read the root-owned template and rewrite the compose file's Caddy line.
     "caddy-image-state",
     "caddy-image-apply",
+    # Root reads Caddy's own copy; without the helper the panel reads it itself.
+    "caddy-root-ca",
 }
 
 

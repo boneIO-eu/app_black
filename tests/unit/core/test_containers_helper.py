@@ -58,6 +58,12 @@ def project(tmp_path, helper, monkeypatch):
         helper, "COMPOSE_CLOUD_TEMPLATE", trusted / "docker-compose-cloud.yaml"
     )
     monkeypatch.setattr(helper, "_assert_root", lambda: None)
+    etc = tmp_path / "etc-boneio"
+    etc.mkdir()
+    monkeypatch.setattr(helper, "NATIVE_MARKER", etc / "proxy-native")
+    monkeypatch.setattr(helper, "CLOUD_MARKER", etc / "proxy-cloud")
+    monkeypatch.setattr(helper, "PROXY_LOCK", tmp_path / "boneio-proxy.lock")
+    monkeypatch.setattr(helper, "CADDY_DATA", tmp_path / "caddy-data")
     # The suite is not root, so nothing on disk is root-owned; ownership itself
     # is covered separately.
     monkeypatch.setattr(
@@ -178,7 +184,7 @@ def test_a_log_tail_defaults_without_an_argument(helper, project, ran):
     assert "200" in ran[0]
 
 
-@pytest.mark.parametrize("argument", ["0", "99999", "-1", "10; id", "abc", "1e3"])
+@pytest.mark.parametrize("argument", ["0", "99999", "-1", "10; id", "abc", "1e3", "²", "٣"])
 def test_a_bad_log_line_count_is_refused(helper, project, ran, argument):
     assert helper.main(["logs-caddy", argument]) == 1
     assert ran == []
@@ -438,3 +444,353 @@ def test_an_image_pull_gets_minutes_not_the_default(helper, project, monkeypatch
     monkeypatch.setattr(helper, "_run", lambda argv, timeout=120: seen.append(timeout) or 0)
     assert helper.main([verb]) == 0
     assert seen == [timeout]
+
+
+# ------------------------------------------------------------ packaged Caddy
+#
+# With /etc/boneio/proxy-native present, Caddy is the apt package under
+# systemd. The verbs keep their names so the application does not change, and
+# none of them may reach compose: there is no caddy service there any more.
+
+CERT = b"-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+
+
+@pytest.fixture
+def native(project, helper):
+    """The marker the switch leaves behind."""
+    helper.NATIVE_MARKER.touch()
+    return helper.NATIVE_MARKER
+
+
+@pytest.fixture
+def asked(helper, monkeypatch):
+    """Answers for what the native verbs ask the system, and a record of it."""
+    answers = {
+        "systemctl": (0, "active\n"),
+        "dpkg-query": (0, "installed 2.10.2-1"),
+        "apt-cache": (
+            0, "caddy:\n  Installed: 2.10.2-1\n  Candidate: 2.10.3-1\n  Version table:\n"
+        ),
+        "docker": (0, ""),
+    }
+    calls: list[list[str]] = []
+
+    def _fake(argv, timeout=30):
+        calls.append(list(argv))
+        return answers[argv[0]]
+
+    monkeypatch.setattr(helper, "_capture", _fake)
+    return answers, calls
+
+
+@pytest.mark.parametrize(("verb", "action"), [
+    ("start-caddy", "start"), ("restart-caddy", "restart"), ("reload-caddy", "reload"),
+])
+def test_native_lifecycle_verbs_drive_the_unit(helper, native, ran, verb, action):
+    assert helper.main([verb]) == 0
+    assert ran == [["systemctl", action, "caddy"]]
+
+
+def test_native_caddy_log_comes_from_the_journal(helper, native, ran):
+    assert helper.main(["logs-caddy", "50"]) == 0
+    assert ran == [["journalctl", "-u", "caddy", "-n", "50", "--no-pager", "-o", "short-iso"]]
+
+
+def test_native_caddy_log_still_checks_the_line_count(helper, native, ran):
+    assert helper.main(["logs-caddy", "10; id"]) == 1
+    assert ran == []
+
+
+def test_native_cloud_template_sets_the_marker_and_reloads(helper, native, project, ran):
+    before = (project / "docker-compose.yaml").read_bytes()
+    assert helper.main(["apply-cloud-template"]) == 0
+    assert helper.CLOUD_MARKER.is_file()
+    assert helper.CLOUD_MARKER.stat().st_mode & 0o777 == 0o644
+    assert ran == [["systemctl", "reload", "caddy"]]
+    assert (project / "docker-compose.yaml").read_bytes() == before
+
+
+def test_native_cloud_template_still_takes_no_argument(helper, native, ran):
+    assert helper.main(["apply-cloud-template", "boneio.example.com"]) == 1
+    assert not helper.CLOUD_MARKER.exists()
+    assert ran == []
+
+
+def test_native_cloud_template_removal_clears_the_marker_and_reloads(helper, native, ran):
+    helper.CLOUD_MARKER.touch()
+    assert helper.main(["remove-cloud-template"]) == 0
+    assert not helper.CLOUD_MARKER.exists()
+    assert ran == [["systemctl", "reload", "caddy"]]
+
+
+def test_native_cloud_template_removal_without_a_marker_is_fine(helper, native, ran):
+    assert helper.main(["remove-cloud-template"]) == 0
+    assert ran == [["systemctl", "reload", "caddy"]]
+
+
+def test_native_image_state_reports_the_package(helper, native, asked, capsys):
+    """The template pins no Caddy any more; that must not make this refuse."""
+    assert helper.main(["caddy-image-state"]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "mode": "native", "installed": "2.10.2-1", "candidate": "2.10.3-1",
+    }
+
+
+def test_native_image_state_without_the_package(helper, native, asked, capsys):
+    answers, _ = asked
+    answers["dpkg-query"] = (1, "")
+    answers["apt-cache"] = (0, "caddy:\n  Installed: (none)\n  Candidate: (none)\n")
+    assert helper.main(["caddy-image-state"]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "mode": "native", "installed": None, "candidate": None,
+    }
+
+
+def test_native_image_state_ignores_a_removed_package(helper, native, asked, capsys):
+    """``rc``: removed, configuration kept — dpkg still knows a version."""
+    answers, _ = asked
+    answers["dpkg-query"] = (0, "config-files 2.10.2-1")
+    assert helper.main(["caddy-image-state"]) == 0
+    assert json.loads(capsys.readouterr().out)["installed"] is None
+
+
+def test_native_dispatch_does_not_fall_through_to_the_root_ca(
+    helper, native, capsysbinary
+):
+    """A Caddy verb the native mode does not handle is refused, not the CA."""
+    _root_native(helper).parent.mkdir(parents=True)
+    _root_native(helper).write_bytes(CERT)
+    with pytest.raises(helper.Refused):
+        helper._native_caddy("some-future-caddy-verb", None)
+    assert capsysbinary.readouterr().out == b""
+
+
+def test_native_image_apply_is_refused(helper, native, ran, caplog):
+    assert helper.main(["caddy-image-apply"]) == 1
+    assert ran == []
+    assert "Caddy comes from apt; update it with the system update" in caplog.text
+
+
+# --------------------------------------------------------------- root CA
+
+
+def _root_in_container(helper) -> Path:
+    return helper.PROJECT_DIR / "caddy/data/caddy/pki/authorities/local/root.crt"
+
+
+def _root_native(helper) -> Path:
+    return helper.CADDY_DATA / "pki/authorities/local/root.crt"
+
+
+@pytest.mark.parametrize("mode", ["container", "native"])
+def test_the_root_ca_is_printed_in_both_modes(helper, project, capsysbinary, mode):
+    if mode == "native":
+        helper.NATIVE_MARKER.touch()
+        path = _root_native(helper)
+    else:
+        path = _root_in_container(helper)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(CERT)
+    assert helper.main(["caddy-root-ca"]) == 0
+    assert capsysbinary.readouterr().out == CERT
+
+
+def test_native_root_ca_is_read_from_caddys_data_not_the_export(helper, native, capsysbinary):
+    """The export lags until Caddy's second start; its own copy does not."""
+    assert helper.main(["caddy-root-ca"]) == 1
+    _root_native(helper).parent.mkdir(parents=True)
+    _root_native(helper).write_bytes(CERT)
+    assert helper.main(["caddy-root-ca"]) == 0
+
+
+def test_a_root_ca_symlink_is_not_followed(helper, project, tmp_path, capsysbinary):
+    secret = tmp_path / "secret.pem"
+    secret.write_bytes(CERT)
+    path = _root_in_container(helper)
+    path.parent.mkdir(parents=True)
+    path.symlink_to(secret)
+    assert helper.main(["caddy-root-ca"]) == 1
+    assert capsysbinary.readouterr().out == b""
+
+
+def test_a_root_ca_directory_symlink_is_not_followed(helper, project, tmp_path, capsysbinary):
+    """O_NOFOLLOW on the last component alone would let this through."""
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "local").mkdir(parents=True)
+    (elsewhere / "local" / "root.crt").write_bytes(CERT)
+    path = _root_in_container(helper)
+    path.parent.parent.mkdir(parents=True)
+    path.parent.symlink_to(elsewhere / "local")
+    assert helper.main(["caddy-root-ca"]) == 1
+    assert capsysbinary.readouterr().out == b""
+
+
+@pytest.mark.parametrize("content", [
+    b"root:x:0:0:root:/root:/bin/bash\n",
+    CERT + b"-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n",
+    CERT + b"A" * (64 * 1024),
+])
+def test_a_root_ca_that_is_not_just_a_certificate_is_refused(
+    helper, project, capsysbinary, content
+):
+    path = _root_in_container(helper)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    assert helper.main(["caddy-root-ca"]) == 1
+    assert capsysbinary.readouterr().out == b""
+
+
+def test_the_root_ca_takes_no_argument(helper, project):
+    assert helper.main(["caddy-root-ca", "/etc/shadow"]) == 1
+
+
+def test_the_root_ca_is_listed_and_read_only(helper):
+    assert "caddy-root-ca" in helper.ALL_VERBS
+    assert "caddy-root-ca" in helper.READ_ONLY_VERBS
+
+
+# ------------------------------------------------- the app sees a "caddy" anyway
+
+
+def _app_result(out: str):
+    from boneio.core.containers import Result
+
+    return Result(returncode=0, stdout=out, stderr="", via_helper=True)
+
+
+@pytest.mark.parametrize("docker_out", [
+    '{"Service": "node-red", "Name": "nodered-node-red-1", "State": "running"}\n',
+    '[{"Service": "node-red", "Name": "nodered-node-red-1", "State": "running"}]\n',
+    "",
+])
+def test_native_status_lists_a_virtual_caddy(helper, native, asked, capsys, docker_out):
+    """containers.service_status("caddy") matches on Service, as for compose."""
+    answers, _ = asked
+    answers["docker"] = (0, docker_out)
+    assert helper.main(["status"]) == 0
+    items = _app_result(capsys.readouterr().out).json()
+    items = items if isinstance(items, list) else [items]
+    by_service = {item.get("Service"): item for item in items}
+    assert by_service["caddy"]["State"] == "running"
+    if docker_out:
+        assert by_service["node-red"]["State"] == "running"
+
+
+def test_native_status_reports_a_stopped_caddy(helper, native, asked, capsys):
+    answers, _ = asked
+    answers["systemctl"] = (3, "failed\n")
+    assert helper.main(["status"]) == 0
+    caddy = _app_result(capsys.readouterr().out).json()
+    assert caddy["State"] != "running"
+    assert "failed" in caddy["Status"]
+
+
+def test_native_ps_and_names_list_caddy(helper, native, asked, capsys):
+    answers, _ = asked
+    answers["docker"] = (0, "nodered-node-red-1\n")
+    assert helper.main(["names"]) == 0
+    assert capsys.readouterr().out.split() == ["nodered-node-red-1", "caddy"]
+    answers["docker"] = (0, '{"Names": "nodered-node-red-1", "State": "running"}\n')
+    assert helper.main(["ps"]) == 0
+    names = [i["Names"] for i in _app_result(capsys.readouterr().out).json()]
+    assert names == ["nodered-node-red-1", "caddy"]
+
+
+def test_container_status_has_no_virtual_caddy(helper, project, ran):
+    assert helper.main(["status"]) == 0
+    assert ran == [helper._argv_for("status")]
+
+
+def test_native_caddy_container_log_comes_from_the_journal(helper, native, ran):
+    """Diagnostics asks for a log of every name ``names`` returned."""
+    assert helper.main(["logs-container", "caddy"]) == 0
+    assert ran == [["journalctl", "-u", "caddy", "-n", "200", "--no-pager", "-o", "short-iso"]]
+
+
+CADDY_VERBS = [
+    ["start-caddy"], ["restart-caddy"], ["reload-caddy"], ["logs-caddy", "20"],
+    ["apply-cloud-template"], ["remove-cloud-template"], ["caddy-image-state"],
+    ["caddy-image-apply"], ["caddy-root-ca"], ["logs-container", "caddy"],
+]
+
+
+@pytest.mark.parametrize("argv", CADDY_VERBS, ids=lambda a: a[0])
+def test_native_mode_never_touches_compose_for_caddy(
+    helper, native, project, asked, monkeypatch, argv
+):
+    _, calls = asked
+    monkeypatch.setattr(helper, "_run", lambda a, timeout=120: calls.append(list(a)) or 0)
+    monkeypatch.setattr(
+        helper.subprocess, "run",
+        lambda a, **k: calls.append(list(a)) or helper.subprocess.CompletedProcess(a, 0, "", ""),
+    )
+    before = (project / "docker-compose.yaml").read_bytes()
+    helper.main(argv)
+    assert not [c for c in calls if c[0] == "docker"], calls
+    assert (project / "docker-compose.yaml").read_bytes() == before
+
+
+# ------------------------------------------------------------------ the lock
+
+
+@pytest.fixture
+def held_lock(helper, project, monkeypatch):
+    """The switch holding the proxy lock (a second open file description
+    conflicts exactly as another process would)."""
+    import fcntl
+
+    monkeypatch.setattr(helper, "PROXY_LOCK_TIMEOUT", 0.1)
+    fd = os.open(helper.PROXY_LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    yield fd
+    os.close(fd)
+
+
+@pytest.mark.parametrize("mode", ["container", "native"])
+@pytest.mark.parametrize("argv", CADDY_VERBS[:-1] + [["up"], ["down"], ["set-nodered-image", "4.2.0"]], ids=lambda a: a[0])
+def test_caddy_verbs_wait_for_the_switch_lock(
+    helper, held_lock, asked, ran, caplog, mode, argv
+):
+    if mode == "native":
+        helper.NATIVE_MARKER.touch()
+    assert helper.main(argv) == 1
+    assert ran == []
+    assert "boneio-proxy.lock" in caplog.text
+
+
+def test_the_lock_is_released_after_a_verb(helper, native, ran):
+    assert helper.main(["reload-caddy"]) == 0
+    assert helper.main(["reload-caddy"]) == 0
+    assert len(ran) == 2
+
+
+@pytest.mark.parametrize("verb", ["status", "ps", "names", "pull"])
+def test_status_and_pull_do_not_wait_for_the_lock(helper, held_lock, ran, verb):
+    """The switch holds it through an apt install; the UI must still answer."""
+    assert helper.main([verb]) == 0
+
+
+def test_the_lock_lives_where_only_root_can_create_it(helper):
+    """/run/lock is world-writable: anyone could create it first and hold it."""
+    assert str(helper.PROXY_LOCK) == "/run/boneio-proxy.lock"
+
+
+def test_the_lock_wait_is_shorter_than_the_apps_timeout(helper):
+    assert helper.PROXY_LOCK_TIMEOUT < 30
+
+
+def test_a_symlinked_lock_file_is_refused(helper, project, ran, tmp_path):
+    """Root must not create or lock a file a link points to."""
+    target = tmp_path / "planted"
+    helper.PROXY_LOCK.symlink_to(target)
+    assert helper.main(["reload-caddy"]) == 1
+    assert ran == []
+    assert not target.exists()
+
+
+def test_selftest_in_native_mode_wants_the_packaged_caddy(helper, native, monkeypatch, caplog):
+    monkeypatch.setattr(
+        helper.shutil, "which", lambda name: None if name == "caddy" else f"/usr/bin/{name}"
+    )
+    assert helper.selftest() == 1
+    assert "caddy" in caplog.text
