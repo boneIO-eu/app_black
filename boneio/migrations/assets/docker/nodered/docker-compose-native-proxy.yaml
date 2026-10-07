@@ -1,0 +1,23 @@
+services:
+  node-red:
+    image: nodered/node-red:4.1.2-22-minimal
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1880:1880"
+    environment:
+      TZ: Europe/Warsaw
+    volumes:
+      - ./node-red/data:/data
+      - ./node-red/settings.js:/data/settings.js:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - edge
+
+networks:
+  edge:
