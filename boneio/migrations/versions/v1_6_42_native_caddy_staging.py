@@ -1,9 +1,11 @@
 """Stage the packaged Caddy on every controller; nothing switches to it yet.
 
-Everything the move from the Caddy container to Debian's ``caddy`` package
-needs goes in place here, so that the switch itself — started from the panel,
-run by ``boneio-containers proxy-switch-start`` — installs one package and
-swaps one compose file instead of carrying files of its own:
+Everything the move from the Caddy container to the ``caddy`` package from
+Caddy's own apt repository (Cloudsmith) needs goes in place here, so that the
+switch itself — which the controller starts by itself (``boneio.core.proxy_switch``),
+with the panel's button as the fallback, and ``boneio-containers
+proxy-switch-start`` runs — installs one package and swaps one compose file
+instead of carrying files of its own:
 
   * the Caddy apt repository: its signing key, a pin to the 2.11 series, and the
     source list, in that order — a source list without its key makes every
