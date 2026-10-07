@@ -15,6 +15,7 @@ import HardwareErrors from './HardwareErrors';
 import { UpdateSafetyNotice } from './SystemStateComponents/UpdateSafetyNotice';
 import { OsUpdateCard } from './SystemStateComponents/OsUpdateCard';
 import { CaddyUpdateCard } from './SystemStateComponents/CaddyUpdateCard';
+import { ProxySwitchCard } from './SystemStateComponents/ProxySwitchCard';
 
 /** Which block of the old System page to render. */
 export type SystemSection = 'update' | 'tools' | 'hardware_errors';
@@ -687,6 +688,9 @@ const SystemState: React.FC<SystemStateProps> = ({ section = 'tools' }) => {
 
         {/* Caddy, which serves the panel over HTTPS, pinned per release. */}
         <CaddyUpdateCard />
+
+        {/* Whether Caddy runs as a container or as the system service. */}
+        <ProxySwitchCard />
 
         {/* Available versions / rollback */}
         <SettingsCard

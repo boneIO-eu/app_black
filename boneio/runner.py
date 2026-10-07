@@ -626,6 +626,12 @@ async def async_run(
         ensure_admin_auth(_config_helper.proxy_port or DEFAULT_PROXY_PORT)
     )
 
+    # Moves Caddy to the package by itself once the controller has settled.
+    # Like the two above, outside the main gather: it ends on its own.
+    from boneio.core import proxy_switch
+
+    proxy_switch_task = asyncio.create_task(proxy_switch.run())
+
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
@@ -679,6 +685,7 @@ async def async_run(
         _LOGGER.info("Cleaning up resources...")
         stable_task.cancel()
         nodered_task.cancel()
+        proxy_switch_task.cancel()
 
         # Cancel pending deferred state saves and write final state synchronously.
         # This MUST happen before event_bus.stop() which may trigger sigterm

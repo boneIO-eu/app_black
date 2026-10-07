@@ -74,6 +74,7 @@ from boneio.webui.routes import (
     nodered_router,
     onboarding_router,
     os_update_router,
+    proxy_router,
     mqtt_reference_router,
     mqtt_tls_router,
     outputs_router,
@@ -197,6 +198,7 @@ app.include_router(diagnostics_router)
 app.include_router(nodered_router)
 app.include_router(onboarding_router)
 app.include_router(os_update_router)
+app.include_router(proxy_router)
 app.include_router(can_router)
 app.include_router(remote_devices_router)
 app.include_router(templates_router)

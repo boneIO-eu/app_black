@@ -3341,6 +3341,24 @@
     "current": "Używana wersja",
     "release": "Wersja z wydania boneIO"
   },
+  "proxy_switch": {
+    "title": "Caddy: kontener czy usługa systemowa",
+    "description": "Caddy, który obsługuje panel po HTTPS, przenosi się z kontenera do usługi systemowej samodzielnie kilka minut po starcie sterownika. Tu widać, jak poszło.",
+    "mode": "Caddy działa jako",
+    "mode_container": "kontener",
+    "mode_native": "usługa systemowa",
+    "version": "Zainstalowana wersja",
+    "attempts": "Dotychczasowe próby",
+    "running": "Przełączanie…",
+    "running_hint": "Instalowanie i uruchamianie Caddy jako usługi systemowej. Panel przez HTTPS na chwilę zniknie — strona odświeży stan sama.",
+    "state_failed": "Przełączenie się nie powiodło; Caddy został, jak był.",
+    "state_rolled_back": "Przełączenie się nie powiodło i zostało cofnięte; Caddy znów działa jako kontener.",
+    "start": "Przełącz teraz",
+    "retry": "Spróbuj ponownie",
+    "confirm": "Przełączyć Caddy na usługę systemową?\n\nPanel przez HTTPS (i Node-RED przez Caddy) na chwilę zniknie. Jeśli coś pójdzie nie tak, kontener wróci na miejsce. Wyjścia i automatyki działają dalej.",
+    "start_failed": "Nie udało się uruchomić przełączenia.",
+    "log": "Log przełączenia"
+  },
   "entity_card": {
     "more": "Więcej opcji",
     "history": "Ostatnie zdarzenia",

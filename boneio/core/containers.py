@@ -460,6 +460,38 @@ def caddy_image_apply(timeout: int = 1300) -> Result:
     return run("caddy-image-apply", timeout=timeout)
 
 
+#: Present once Caddy is the apt package under systemd. Created only by the
+#: root helper's switch, and world-readable, so the application can look.
+NATIVE_MARKER = Path("/etc/boneio/proxy-native")
+
+
+def proxy_mode() -> str:
+    """``"native"`` once Caddy runs as the package, else ``"container"``."""
+    try:
+        return "native" if NATIVE_MARKER.exists() else "container"
+    except OSError:
+        return "container"
+
+
+def proxy_switch_start(timeout: int = 60) -> Result:
+    """Start the move from the Caddy container to the package, and return.
+
+    The helper runs it in a unit of its own, so it outlives a boneIO restart;
+    it refuses while one runs and once Caddy is already the package.
+    """
+    return run("proxy-switch-start", timeout=timeout)
+
+
+def proxy_switch_state(timeout: int = 30) -> Result:
+    """The last switch's record and log tail, as JSON on stdout. Read-only."""
+    return run("proxy-switch-state", timeout=timeout)
+
+
+def proxy_switch_recover(timeout: int = 300) -> Result:
+    """Undo a switch that was cut short; a no-op for anything else."""
+    return run("proxy-switch-recover", timeout=timeout)
+
+
 def remove_cloud_template(timeout: int = 60) -> Result:
     """Restore the plain compose template."""
     return run("remove-cloud-template", timeout=timeout)

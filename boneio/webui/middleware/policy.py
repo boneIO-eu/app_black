@@ -56,6 +56,8 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/security",
     # Which CA the device trusts and which certificate it presents.
     "/api/mqtt-tls",
+    # The switch log names paths, packages and why a step failed.
+    "/api/proxy",
     # The bundle is the whole configuration and the device log in one file.
     "/api/diagnostics",
     # The rest of the Diagnostics page. Its bus scans are not passive reads:
@@ -164,6 +166,9 @@ _REAUTH_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("POST", r"^/api/os-update/upgrade$"),
         ("POST", r"^/api/os-update/autoupdate$"),
         ("POST", r"^/api/os-update/caddy/apply$"),
+        # Moving Caddy from the container to the package replaces what serves
+        # the panel, so it is software change like the Caddy image apply.
+        ("POST", r"^/api/proxy/switch$"),
         # The certificate the panel is served with.
         ("POST", r"^/api/security/certificate$"),
         ("DELETE", r"^/api/security/certificate$"),

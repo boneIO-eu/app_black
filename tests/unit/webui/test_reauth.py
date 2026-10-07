@@ -106,6 +106,7 @@ def test_every_entry_guards_a_route_that_exists(app_routes):
         ("POST", "/api/os-update/upgrade"),
         ("POST", "/api/os-update/autoupdate"),
         ("POST", "/api/os-update/caddy/apply"),
+        ("POST", "/api/proxy/switch"),
         ("POST", "/api/security/certificate"),
         ("DELETE", "/api/security/certificate"),
     ],

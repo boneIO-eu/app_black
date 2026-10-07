@@ -3342,6 +3342,24 @@
     "current": "Version in use",
     "release": "Version in this boneIO release"
   },
+  "proxy_switch": {
+    "title": "Caddy: container or system service",
+    "description": "Caddy, which serves the panel over HTTPS, moves from a container to the system service by itself a few minutes after the controller starts. Here is how it went.",
+    "mode": "Caddy runs as",
+    "mode_container": "container",
+    "mode_native": "system service",
+    "version": "Installed version",
+    "attempts": "Attempts so far",
+    "running": "Switching…",
+    "running_hint": "Installing and starting Caddy as a system service. The HTTPS panel drops for a moment — this page refreshes the state by itself.",
+    "state_failed": "The switch failed; Caddy stayed as it was.",
+    "state_rolled_back": "The switch failed and was undone; Caddy runs as a container again.",
+    "start": "Switch now",
+    "retry": "Try again",
+    "confirm": "Switch Caddy to the system service?\n\nThe HTTPS panel (and Node-RED through Caddy) drops for a moment. If anything goes wrong, the container is put back. Outputs and automations keep running.",
+    "start_failed": "Could not start the switch.",
+    "log": "Switch log"
+  },
   "entity_card": {
     "more": "More options",
     "history": "Recent events",

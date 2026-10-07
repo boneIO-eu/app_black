@@ -166,6 +166,7 @@ def test_viewer_may_operate_the_device(path):
         "/api/os-update/upgrade",
         "/api/os-update/autoupdate",
         "/api/os-update/caddy/apply",
+        "/api/proxy/switch",
         "/api/caddy/config",
         "/api/can/send",
         "/api/migrations/apply",
