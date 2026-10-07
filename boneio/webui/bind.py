@@ -155,8 +155,8 @@ def docker_bridge_networks() -> list[ipaddress.IPv4Network]:
 #: and waiting for a container runtime to come up first is the wrong trade on a
 #: controller. So on a cold boot the panel can be ready before dockerd has
 #: created its bridge, and binding then would miss the address the proxy
-#: arrives on. The web server already shows a loading page on this port while
-#: it starts, so a short wait costs nothing visible.
+#: arrives on. Only :func:`binds_for` waits this long before binding; the
+#: panel itself binds the loopback at once and watches for the bridge after.
 BRIDGE_WAIT_SECONDS = 60.0
 _BRIDGE_POLL_SECONDS = 2.0
 
@@ -219,6 +219,53 @@ def binds_for(exposure: str, port: int, wait: float = BRIDGE_WAIT_SECONDS) -> li
             ", ".join(hosts),
         )
     return [f"{host}:{port}" for host in hosts]
+
+
+def immediate_binds(exposure: str, port: int) -> list[str]:
+    """What the panel can listen on right now, without waiting for Docker.
+
+    The loopback is always among them, so the panel answers on the device
+    from the moment it starts, however long dockerd takes.
+
+    Args:
+        exposure: One of :class:`Exposure`.
+        port: The port to listen on.
+
+    Returns:
+        Bind strings, never empty.
+    """
+    if exposure != Exposure.PROXY:
+        return [f"0.0.0.0:{port}"]
+    hosts = list(dict.fromkeys([LOOPBACK, *docker_bridge_addresses(), *usb_gadget_addresses()]))
+    _LOGGER.info("Panel bound to %s — off the LAN, reachable through the proxy.", ", ".join(hosts))
+    return [f"{host}:{port}" for host in hosts]
+
+
+def bridge_binds(port: int, wait: float, already: list[str]) -> list[str]:
+    """Bridge addresses that came up after the panel started.
+
+    Node-RED's editor login asks the panel through host.docker.internal, which
+    is docker0, so the panel has to answer there too, just not first.
+
+    Args:
+        port: The port to listen on.
+        wait: Seconds to wait for docker0.
+        already: Bind strings the panel is listening on already.
+
+    Returns:
+        The bind strings still missing, possibly none.
+    """
+    found = _wait_for_a_bridge(wait)
+    if not found:
+        # Docker is gone or never started. The loopback is still bound, so say
+        # how to get to it rather than leave a controller that looks dead.
+        _LOGGER.warning(
+            "web.expose is 'proxy' but no Docker bridge was found, so the "
+            "panel will answer only on %s. Reach it over TLS on the proxy "
+            "port, or with: ssh -L %d:%s:%d boneio@<device>",
+            ", ".join(already), port, LOOPBACK, port,
+        )
+    return [b for b in (f"{h}:{port}" for h in found) if b not in already]
 
 
 def proxy_is_serving(port: int = DEFAULT_PROXY_PORT, timeout: float = 5.0) -> tuple[bool, str]:

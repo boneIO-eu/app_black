@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import os
 from pathlib import Path
@@ -17,11 +18,39 @@ if TYPE_CHECKING:
 
 import contextlib
 
-from boneio.webui.bind import Exposure, binds_for
+from boneio.webui import bind
+from boneio.webui.bind import Exposure, immediate_binds
 from boneio.core.config import ConfigHelper
 from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
+
+#: How long the panel keeps watching for docker0 after it has started. Nothing
+#: waits on this any more, so it can outlast a slow cold boot of dockerd.
+LATE_BRIDGE_WAIT_SECONDS = bind.BRIDGE_WAIT_SECONDS * 5
+
+
+def _without_lifespan(app):
+    """The same application for a second listener, without starting it twice.
+
+    Hypercorn runs the lifespan protocol for every ``serve``. The first server
+    already started the application; this one answers the protocol itself and
+    passes everything else through.
+    """
+
+    async def wrapped(scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+        else:
+            await app(scope, receive, send)
+
+    return wrapped
 
 
 class WebServer:
@@ -175,10 +204,10 @@ class WebServer:
 
         # Configure hypercorn (moved from __init__ for lazy loading)
         self._hypercorn_config = Config()
-        # Off the loop: with expose 'proxy' this can wait up to a minute for
-        # Docker to bring up its bridge, and inputs must keep being read.
+        # Only what exists now: the panel answers on the loopback at once, and
+        # docker0 is added by a second listener when Docker brings it up.
         self._hypercorn_config.bind = await asyncio.to_thread(
-            binds_for, self._expose, self._port
+            immediate_binds, self._expose, self._port
         )
         self._hypercorn_config.use_reloader = False
         self._hypercorn_config.worker_class = "asyncio"
@@ -257,14 +286,67 @@ class WebServer:
                 shutdown_trigger=shutdown_trigger,
             )
         )
+        # Always in proxy mode, even when docker0 was there already: it can
+        # come up between the bind above and any check made here, and then
+        # nothing would ever bind it. When nothing is missing this ends quietly.
+        late_bridge = (
+            asyncio.create_task(self._serve_late_bridge(_announce_first_response))
+            if self._expose == Exposure.PROXY
+            else None
+        )
         self.manager.set_web_server_status(status=True, bind=self._port)
         try:
             _LOGGER.debug("Waiting for Hypercorn server to complete...")
             await server_task
+            if late_bridge:
+                # Stops on the same shutdown event; let it close gracefully.
+                await late_bridge
             _LOGGER.info("Hypercorn server task completed")
         except asyncio.CancelledError:
             _LOGGER.info("Hypercorn server task cancelled")
             pass  # Expected due to cancellation
+        finally:
+            if late_bridge:
+                late_bridge.cancel()
+
+    async def _serve_late_bridge(self, app) -> None:
+        """Answer on docker0 too, once Docker has brought it up.
+
+        Node-RED's editor login reaches the panel through host.docker.internal,
+        which is docker0, and on a cold boot dockerd brings it up well after the
+        panel is serving. The wait polls from the loop, one short check at a
+        time, so a shutdown ends it at once: a thread asleep for minutes would
+        hold the process exit for as long. A listener that cannot be bound is
+        logged and given up; the panel keeps answering where it already does.
+
+        Args:
+            app: The ASGI application the first server is serving.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + LATE_BRIDGE_WAIT_SECONDS
+        while loop.time() < deadline and not await asyncio.to_thread(bind._default_bridge_up):
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._shutdown_event.wait(), bind._BRIDGE_POLL_SECONDS)
+            if self._shutdown_event.is_set():
+                return
+        try:
+            from hypercorn.asyncio import serve
+
+            binds = await asyncio.to_thread(
+                bind.bridge_binds, self._port, 0, list(self._hypercorn_config.bind)
+            )
+            if not binds or self._shutdown_event.is_set():
+                return
+            config = copy.copy(self._hypercorn_config)
+            config.bind = binds
+            _LOGGER.info("Docker bridge up; the panel now also answers on %s", ", ".join(binds))
+            await serve(
+                cast("Framework", _without_lifespan(app)),
+                config,
+                shutdown_trigger=self._shutdown_event.wait,
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("The panel could not also listen on the Docker bridge: %s", err)
 
     async def trigger_shutdown(self) -> None:
         """Signal the web server to start its shutdown sequence."""

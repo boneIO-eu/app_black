@@ -9,6 +9,8 @@ and 8443 would answer 502. These tests are mostly about that.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from boneio.webui import bind
@@ -221,3 +223,37 @@ def test_the_gadget_interface_is_matched_by_name(monkeypatch):
         },
     )
     assert bind.usb_gadget_addresses() == ["192.168.6.2", "192.168.7.2"]
+
+
+# ------------------------------------------- loopback first, the bridge later
+
+
+def test_proxy_binds_the_loopback_without_waiting(monkeypatch):
+    monkeypatch.setattr(bind, "docker_bridge_addresses", lambda: [])
+    monkeypatch.setattr(bind, "usb_gadget_addresses", lambda: [])
+    started = time.monotonic()
+    assert bind.immediate_binds(Exposure.PROXY, 8090) == ["127.0.0.1:8090"]
+    assert time.monotonic() - started < 0.5
+
+
+def test_the_late_bridge_brings_only_what_was_missing(monkeypatch):
+    answers = [["172.19.0.1"], ["172.17.0.1", "172.19.0.1"]]
+    monkeypatch.setattr(bind, "docker_bridge_addresses", lambda: answers.pop(0) if answers else ["172.17.0.1", "172.19.0.1"])
+    monkeypatch.setattr(bind, "_default_bridge_up", lambda: not answers)
+    monkeypatch.setattr(bind, "_BRIDGE_POLL_SECONDS", 0)
+    assert bind.bridge_binds(8090, wait=5, already=["127.0.0.1:8090", "172.19.0.1:8090"]) == ["172.17.0.1:8090"]
+
+
+def test_no_bridge_at_all_says_how_to_reach_the_panel(bridges, caplog):
+    """Docker removed for good: the panel stays on the loopback, and the log
+    says how to get to it."""
+    bridges([])
+    assert bind.bridge_binds(8090, wait=0, already=["127.0.0.1:8090"]) == []
+    assert "ssh -L" in caplog.text
+
+
+def test_all_listens_everywhere_at_once(monkeypatch):
+    monkeypatch.setattr(
+        bind, "docker_bridge_addresses", lambda: pytest.fail("looked for a bridge")
+    )
+    assert bind.immediate_binds(Exposure.ALL, 8090) == ["0.0.0.0:8090"]
