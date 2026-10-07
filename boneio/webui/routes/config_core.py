@@ -541,6 +541,42 @@ async def _guard_expose_change(previous: object, current: object) -> None:
         )
 
 
+#: Ports the proxy's generator falls back to (and Node-RED's). If the panel took
+#: one, the fallback would collide with it and Caddy could not bind.
+_PROXY_FALLBACK_PORTS = frozenset({8091, 8443, 1880})
+
+
+def _reserved_proxy_ports() -> set[int]:
+    """Ports the panel may not use: the proxy's fallbacks and its configured ones."""
+    ports = set(_PROXY_FALLBACK_PORTS)
+    try:
+        lines = containers.ENV_FILE.read_text().splitlines()
+    except OSError:
+        return ports
+    for line in lines:
+        name, _, value = line.removeprefix("export ").partition("=")
+        if name.strip() in ("HTTP_PORT", "HTTPS_PORT") and value.strip().isdigit():
+            ports.add(int(value.strip()))
+    return ports
+
+
+def _check_web_port_free(data: object) -> None:
+    """Refuse a ``web.port`` that the reverse proxy needs for itself.
+
+    Raises:
+        HTTPException: 422 naming the port.
+    """
+    port = data.get("port") if isinstance(data, dict) else None
+    if isinstance(port, int) and port in _reserved_proxy_ports():
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Invalid web configuration",
+                "errors": [f"Port {port} is used by the reverse proxy or Node-RED; choose another."],
+            },
+        )
+
+
 async def _apply_web_port_change(previous: object, current: object) -> str | None:
     """Tell Caddy the panel's port when it moves.
 
@@ -574,6 +610,14 @@ async def _apply_web_port_change(previous: object, current: object) -> str | Non
     loop = asyncio.get_running_loop()
     if not await loop.run_in_executor(None, containers.set_project_env, "WEB_PORT", str(now)):
         return f"could not tell the proxy about port {now}"
+
+    # Packaged Caddy has no compose file to refresh: its unit regenerates the
+    # Caddyfile from .env on every start, so a restart is the whole change.
+    if await loop.run_in_executor(None, containers.proxy_mode) == "native":
+        outcome = await loop.run_in_executor(None, containers.restart_caddy)
+        if not outcome.ok:
+            return f"the proxy did not come back up on port {now}: {outcome.error or 'unknown reason'}"
+        return f"the proxy now forwards to port {now}"
 
     # Refresh the live compose file from the trusted template, because a device
     # updated from an earlier 1.6 still has the one that does not pass WEB_PORT
@@ -711,6 +755,9 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
                     "errors": [f"Invalid host: '{host}'. Use an IPv4 address or hostname."],
                 },
             )
+
+    if section == "web":
+        _check_web_port_free(data)
 
     # Strip empty string values from data to prevent cerberus coercion failures
     # (e.g. bounce_time: '' instead of being omitted).

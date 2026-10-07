@@ -166,6 +166,11 @@ async def get_caddy():
 @router.post("/caddy/apply")
 async def apply_caddy():
     """Move Caddy to the pinned image. Returns at once; poll GET /caddy."""
+    if await asyncio.to_thread(containers.proxy_mode) == "native":
+        raise HTTPException(
+            status_code=409,
+            detail="Caddy comes from the system packages: it is updated with the system update.",
+        )
     if not await asyncio.to_thread(containers.helper_supports, "caddy-image-apply"):
         raise HTTPException(
             status_code=409,

@@ -3340,7 +3340,10 @@
     "failed": "The Caddy update failed:",
     "done": "Caddy runs the version from this boneIO release.",
     "current": "Version in use",
-    "release": "Version in this boneIO release"
+    "release": "Version in this boneIO release",
+    "native_description": "Caddy serves the panel over HTTPS and is a system package. It is updated together with the system.",
+    "native_hint": "A newer Caddy is available. It comes with the system update (Updates card above).",
+    "candidate": "Version available"
   },
   "proxy_switch": {
     "title": "Caddy: container or system service",

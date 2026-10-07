@@ -219,3 +219,63 @@ class TestWhichTemplateIsLive:
         # Local needs nothing from outside the device, so it is the assumption
         # that cannot make things worse.
         assert containers.cloud_template_is_live() is False
+
+
+class TestWithThePackagedCaddy:
+    """No compose file to refresh: .env and a restart are the whole change."""
+
+    def test_the_env_is_written_and_caddy_restarted(self, monkeypatch):
+        calls: list[str] = []
+
+        class Outcome:
+            ok = True
+            error = None
+
+        monkeypatch.setattr(config_core.containers, "proxy_mode", lambda: "native")
+        monkeypatch.setattr(
+            config_core.containers, "set_project_env",
+            lambda name, value: calls.append(f"env:{name}={value}") or True,
+        )
+        for verb in ("apply_cloud_template", "remove_cloud_template", "start_caddy"):
+            monkeypatch.setattr(config_core.containers, verb, lambda v=verb: calls.append(v))
+        monkeypatch.setattr(
+            config_core.containers, "restart_caddy",
+            lambda: calls.append("restart_caddy") or Outcome(),
+        )
+
+        outcome = asyncio.run(_apply_web_port_change({"port": 8090}, {"port": 8095}))
+
+        assert calls == ["env:WEB_PORT=8095", "restart_caddy"]
+        assert "8095" in outcome
+
+
+class TestPortsTheProxyNeeds:
+    @pytest.mark.parametrize("port", [8091, 8443, 1880])
+    def test_the_fallbacks_are_refused(self, port, env_file):
+        with pytest.raises(config_core.HTTPException) as err:
+            config_core._check_web_port_free({"port": port})
+        assert err.value.status_code == 422
+
+    def test_ports_configured_in_env_are_refused(self, env_file):
+        env_file.parent.mkdir(parents=True)
+        env_file.write_text("HTTP_PORT=8080\nHTTPS_PORT=9443\n")
+        for port in (8080, 9443):
+            with pytest.raises(config_core.HTTPException):
+                config_core._check_web_port_free({"port": port})
+
+    def test_an_ordinary_port_passes(self, env_file):
+        config_core._check_web_port_free({"port": 8095})
+
+
+def test_the_bundle_carries_the_caddy_journal_when_it_is_a_service(monkeypatch):
+    from boneio.core.diagnostics import collect
+
+    monkeypatch.setattr(collect.containers, "helper_available", lambda: True)
+    monkeypatch.setattr(collect.containers, "proxy_mode", lambda: "native")
+    monkeypatch.setattr(collect.containers, "container_names", lambda: [])
+    monkeypatch.setattr(collect, "_describe", lambda result, what: what)
+    for verb in ("containers", "status"):
+        monkeypatch.setattr(collect.containers, verb, lambda: None)
+    monkeypatch.setattr(collect.containers, "logs", lambda service, lines: None)
+
+    assert "logs caddy" in collect._docker_report()

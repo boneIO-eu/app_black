@@ -152,3 +152,21 @@ def test_a_second_caddy_apply_is_a_conflict(client, caddy, monkeypatch):
     monkeypatch.setitem(os_update._caddy_task, "status", "running")
     assert client.post("/api/os-update/caddy/apply").status_code == 409
     assert caddy == []
+
+
+def test_native_caddy_is_updated_with_the_system(client, caddy, monkeypatch):
+    monkeypatch.setattr(os_update.containers, "proxy_mode", lambda: "native")
+    resp = client.post("/api/os-update/caddy/apply")
+    assert resp.status_code == 409
+    assert "system" in resp.json()["detail"]
+    assert caddy == []
+
+
+def test_native_caddy_state_passes_installed_and_candidate(client, caddy, monkeypatch):
+    monkeypatch.setattr(
+        os_update.containers, "caddy_image_state",
+        lambda timeout=30: Result(0, json.dumps(
+            {"mode": "native", "installed": "2.11.4", "candidate": "2.11.5"}), ""),
+    )
+    state = client.get("/api/os-update/caddy").json()
+    assert (state["mode"], state["installed"], state["candidate"]) == ("native", "2.11.4", "2.11.5")

@@ -16,6 +16,9 @@ interface CaddyState {
   pinned?: string;
   configured?: string | null;
   update_available?: boolean;
+  mode?: 'native';
+  installed?: string | null;
+  candidate?: string | null;
   task: CaddyTask;
 }
 
@@ -82,6 +85,33 @@ export const CaddyUpdateCard: React.FC = () => {
 
   if (!state || !state.supported) return null;
   const running = state.task.status === 'running';
+
+  // Packaged Caddy is updated by apt with the rest of the system: show what is
+  // installed and point there, with nothing to apply from here.
+  if (state.mode === 'native') {
+    const newer = !!state.candidate && state.candidate !== state.installed;
+    return (
+      <SettingsCard
+        icon={<FaLock />}
+        title={t('caddy_update.title')}
+        description={t('caddy_update.native_description')}
+        action={newer ? (
+          <span className="badge badge-success badge-sm font-semibold">{t('caddy_update.available')}</span>
+        ) : null}
+      >
+        <div className="space-y-4">
+          {newer && <NoticeCallout variant="info" message={t('caddy_update.native_hint')} />}
+          <StatGrid
+            columns={2}
+            items={[
+              { label: t('caddy_update.current'), mono: true, value: state.installed ?? '—' },
+              { label: t('caddy_update.candidate'), mono: true, value: state.candidate ?? '—' },
+            ]}
+          />
+        </div>
+      </SettingsCard>
+    );
+  }
 
   return (
     <SettingsCard

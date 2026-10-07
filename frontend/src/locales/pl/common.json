@@ -3339,7 +3339,10 @@
     "failed": "Aktualizacja Caddy nie powiodła się:",
     "done": "Caddy działa w wersji z tego wydania boneIO.",
     "current": "Używana wersja",
-    "release": "Wersja z wydania boneIO"
+    "release": "Wersja z wydania boneIO",
+    "native_description": "Caddy obsługuje panel przez HTTPS i jest pakietem systemowym. Aktualizuje się razem z systemem.",
+    "native_hint": "Dostępna jest nowsza wersja Caddy. Przychodzi z aktualizacją systemu (karta aktualizacji powyżej).",
+    "candidate": "Wersja dostępna"
   },
   "proxy_switch": {
     "title": "Caddy: kontener czy usługa systemowa",
