@@ -240,20 +240,30 @@ class TestWithThePackagedCaddy:
             monkeypatch.setattr(config_core.containers, verb, lambda v=verb: calls.append(v))
         monkeypatch.setattr(
             config_core.containers, "restart_caddy",
-            lambda: calls.append("restart_caddy") or Outcome(),
+            lambda: calls.append("restart_caddy") or containers.Result(0, "", "", True),
         )
 
         outcome = asyncio.run(_apply_web_port_change({"port": 8090}, {"port": 8095}))
 
         assert calls == ["env:WEB_PORT=8095", "restart_caddy"]
-        assert "8095" in outcome
+        assert outcome == "the proxy now forwards to port 8095"
+
+    def test_a_failed_restart_is_reported_not_raised(self, monkeypatch):
+        monkeypatch.setattr(config_core.containers, "proxy_mode", lambda: "native")
+        monkeypatch.setattr(config_core.containers, "set_project_env", lambda n, v: True)
+        monkeypatch.setattr(
+            config_core.containers, "restart_caddy",
+            lambda: containers.Result(1, "", "boom", True),
+        )
+        outcome = asyncio.run(_apply_web_port_change({"port": 8090}, {"port": 8095}))
+        assert outcome == "the proxy did not come back up on port 8095: boom"
 
 
 class TestPortsTheProxyNeeds:
     @pytest.mark.parametrize("port", [8091, 8443, 1880])
     def test_the_fallbacks_are_refused(self, port, env_file):
         with pytest.raises(config_core.HTTPException) as err:
-            config_core._check_web_port_free({"port": port})
+            config_core._check_web_port_free({"port": 8090}, {"port": port})
         assert err.value.status_code == 422
 
     def test_ports_configured_in_env_are_refused(self, env_file):
@@ -261,21 +271,24 @@ class TestPortsTheProxyNeeds:
         env_file.write_text("HTTP_PORT=8080\nHTTPS_PORT=9443\n")
         for port in (8080, 9443):
             with pytest.raises(config_core.HTTPException):
-                config_core._check_web_port_free({"port": port})
+                config_core._check_web_port_free({"port": 8090}, {"port": port})
 
     def test_an_ordinary_port_passes(self, env_file):
-        config_core._check_web_port_free({"port": 8095})
+        config_core._check_web_port_free({"port": 8090}, {"port": 8095})
 
 
-def test_the_bundle_carries_the_caddy_journal_when_it_is_a_service(monkeypatch):
+def test_the_caddy_journal_appears_once_in_native_mode(monkeypatch):
     from boneio.core.diagnostics import collect
 
     monkeypatch.setattr(collect.containers, "helper_available", lambda: True)
-    monkeypatch.setattr(collect.containers, "proxy_mode", lambda: "native")
-    monkeypatch.setattr(collect.containers, "container_names", lambda: [])
-    monkeypatch.setattr(collect, "_describe", lambda result, what: what)
-    for verb in ("containers", "status"):
-        monkeypatch.setattr(collect.containers, verb, lambda: None)
-    monkeypatch.setattr(collect.containers, "logs", lambda service, lines: None)
+    # The helper boundary: native `names` lists caddy and its log is the journal.
+    def run(verb, argument=None, timeout=30):
+        out = {"names": "caddy\nnodered-node-red-1\n", "logs-container": f"log of {argument}"}
+        return containers.Result(0, out.get(verb, ""), "", True)
 
-    assert "logs caddy" in collect._docker_report()
+    monkeypatch.setattr(collect.containers, "run", run)
+    report = collect._docker_report()
+    assert report.count("log of caddy") == 1
+
+    def test_a_device_already_on_a_reserved_port_can_save_the_rest(self, env_file):
+        config_core._check_web_port_free({"port": 8091}, {"port": 8091, "expose": "proxy"})

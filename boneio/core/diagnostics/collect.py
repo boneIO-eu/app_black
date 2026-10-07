@@ -325,10 +325,6 @@ def _docker_report() -> str:
         "$ containers status",
         _describe(containers.status(), "containers status"),
     ]
-    if containers.proxy_mode() == "native":
-        # Caddy is a system service here, so it is not among the containers.
-        parts.append("$ journalctl -u caddy (caddy.service)")
-        parts.append(_describe(containers.logs(containers.CADDY_SERVICE, 200), "logs caddy"))
     for name in _container_names():
         parts.append(f"$ container logs --tail 200 {name}")
         parts.append(_describe(containers.container_logs(name), f"logs {name}"))

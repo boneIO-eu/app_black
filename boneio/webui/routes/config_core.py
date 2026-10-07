@@ -560,14 +560,21 @@ def _reserved_proxy_ports() -> set[int]:
     return ports
 
 
-def _check_web_port_free(data: object) -> None:
-    """Refuse a ``web.port`` that the reverse proxy needs for itself.
+def _check_web_port_free(previous: object, data: object) -> None:
+    """Refuse moving ``web.port`` onto a port the reverse proxy needs for itself.
+
+    Only a change is refused: a device already sitting on such a port must
+    still be able to save the rest of the section.
 
     Raises:
         HTTPException: 422 naming the port.
     """
-    port = data.get("port") if isinstance(data, dict) else None
-    if isinstance(port, int) and port in _reserved_proxy_ports():
+    try:
+        port = int(data["port"]) if isinstance(data, dict) else None
+    except (KeyError, TypeError, ValueError):
+        return
+    was = previous.get("port") if isinstance(previous, dict) else None
+    if port != was and port in _reserved_proxy_ports():
         raise HTTPException(
             status_code=422,
             detail={
@@ -616,7 +623,8 @@ async def _apply_web_port_change(previous: object, current: object) -> str | Non
     if await loop.run_in_executor(None, containers.proxy_mode) == "native":
         outcome = await loop.run_in_executor(None, containers.restart_caddy)
         if not outcome.ok:
-            return f"the proxy did not come back up on port {now}: {outcome.error or 'unknown reason'}"
+            detail = (outcome.stderr or outcome.stdout).strip()[-200:]
+            return f"the proxy did not come back up on port {now}: {detail or 'unknown reason'}"
         return f"the proxy now forwards to port {now}"
 
     # Refresh the live compose file from the trusted template, because a device
@@ -757,7 +765,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             )
 
     if section == "web":
-        _check_web_port_free(data)
+        _check_web_port_free((_config_cache["data"] or {}).get("web"), data)
 
     # Strip empty string values from data to prevent cerberus coercion failures
     # (e.g. bounce_time: '' instead of being omitted).
