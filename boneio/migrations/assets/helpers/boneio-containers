@@ -1472,6 +1472,14 @@ def _switch_steps(state: dict, log) -> None:
             "-o", "DPkg::Lock::Timeout=300",
         ])
         step("apt-install")
+        # An earlier attempt cut off by a power loss mid-install leaves dpkg
+        # half-configured, and apt-get refuses every install until this runs.
+        # Not fatal: dpkg has no lock timeout, so an automatic update holding
+        # the lock fails it at once, while the install below waits for it —
+        # and fails clearly if dpkg really is broken.
+        rc = _switch_cmd(["dpkg", "--configure", "-a"], log, 600)
+        if rc != 0:
+            log.write(f"=== dpkg --configure -a failed (rc={rc}); installing anyway\n")
         # The drop-in's condition keeps the postinst from starting Caddy.
         run([
             "apt-get", "install", "-y", "--no-install-recommends",

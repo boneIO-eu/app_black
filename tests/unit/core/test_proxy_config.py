@@ -10,6 +10,7 @@ and that the Caddyfile it writes means what the container's did.
 from __future__ import annotations
 
 import importlib.util
+import logging
 import os
 import shutil
 import subprocess
@@ -366,6 +367,19 @@ def test_hostname_change_forgets_the_local_authority(helper, device):
     assert not (device["state"] / "root.crt").exists()
 
 
+def test_a_reload_keeps_the_authority_after_a_hostname_change(helper, device):
+    # Only a start follows the hostname: a reload (cloud on or off, the
+    # switch's export) must not pull the authority from under a running Caddy.
+    device["state"].mkdir(parents=True)
+    (device["state"] / "last_hostname").write_text("boneio-old\n")
+    assert helper.main(["--reload"]) == 0
+    assert (device["data"] / "pki").exists()
+    assert (device["data"] / "certificates" / "local").exists()
+    assert (device["state"] / "last_hostname").read_text() == "boneio-old\n"
+    assert (device["state"] / "root.crt").read_bytes() == CERT
+    assert (device["run"] / "Caddyfile").exists()
+
+
 def test_first_run_keeps_the_authority(helper, device):
     # No record means the CA was carried over from the container, not stale.
     assert helper.main([]) == 0
@@ -398,3 +412,36 @@ def test_unusable_state_does_not_cost_the_proxy(helper, device):
     device["state"].write_text("not a directory")
     assert helper.main([]) == 0
     assert (device["run"] / "Caddyfile").exists()
+
+
+# --------------------------------------------------------------- export only
+
+
+def test_export_root_only_exports(helper, device):
+    device["state"].mkdir(parents=True)
+    (device["state"] / "last_hostname").write_text("boneio-old\n")
+    assert helper.main(["--export-root"]) == 0
+    assert helper.main(["--export-root"]) == 0
+    exported = device["state"] / "root.crt"
+    assert exported.read_bytes() == CERT
+    assert exported.stat().st_mode & 0o777 == 0o644
+    # Neither the Caddyfile nor the hostname is touched.
+    assert not (device["run"] / "Caddyfile").exists()
+    assert (device["data"] / "pki").exists()
+    assert (device["state"] / "last_hostname").read_text() == "boneio-old\n"
+
+
+def test_export_root_without_a_root_succeeds_and_says_so(helper, device, monkeypatch, caplog):
+    monkeypatch.setattr(helper, "EXPORT_WAIT", 0)
+    (device["data"] / "pki" / "authorities" / "local" / "root.crt").unlink()
+    caplog.set_level(logging.INFO, logger="boneio-proxy-config")
+    assert helper.main(["--export-root"]) == 0
+    assert not (device["state"] / "root.crt").exists()
+    assert "No root certificate yet" in caplog.text
+
+
+def test_export_root_never_fails_the_unit(helper, device):
+    # A file where the state directory should be.
+    device["state"].parent.mkdir(parents=True, exist_ok=True)
+    device["state"].write_text("not a directory")
+    assert helper.main(["--export-root"]) == 0

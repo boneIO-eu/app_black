@@ -32,6 +32,20 @@ def test_dropin_gates_on_marker_and_drops_privileges() -> None:
     assert "ConditionPathExists=/etc/boneio/proxy-native" in dropin
     assert "\nAmbientCapabilities=\n" in dropin
     assert "\nUMask=0077\n" in dropin
+    assert "\nCapabilityBoundingSet=\n" in dropin
+
+
+def test_dropin_restarts_a_crashed_caddy() -> None:
+    dropin = _text("systemd/caddy-boneio.conf")
+    assert "\nRestart=on-failure\n" in dropin
+    assert "\nRestartSec=5s\n" in dropin
+
+
+def test_dropin_reload_skips_the_hostname_and_start_exports_the_root() -> None:
+    dropin = _text("systemd/caddy-boneio.conf")
+    assert "\nExecReload=+/usr/lib/boneio/proxy-config --reload\n" in dropin
+    # "-": a failed export must not fail, and so restart, a running Caddy.
+    assert "\nExecStartPost=-+/usr/lib/boneio/proxy-config --export-root\n" in dropin
 
 
 def test_apt_list_is_signed_and_https() -> None:

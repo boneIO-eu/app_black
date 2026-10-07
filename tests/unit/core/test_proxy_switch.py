@@ -177,6 +177,7 @@ def test_switch_happy_path_ends_native(helper, device):
     order = [
         "apt-get update --error-on=any -o Dir::Etc::sourcelist=sources.list.d/caddy-stable.list "
         "-o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 -o DPkg::Lock::Timeout=300",
+        "dpkg --configure -a",
         "apt-get install -y --no-install-recommends -o DPkg::Lock::Timeout=300 caddy",
         f"{helper.PROXY_CONFIG} --check",
         f"docker compose -f {device.compose} up -d --remove-orphans",
@@ -189,6 +190,14 @@ def test_switch_happy_path_ends_native(helper, device):
     assert calls[-1] == ["systemctl", "reload", "caddy"]
     assert all(device.lock_held), "every step must run under the proxy lock"
     assert helper.SWITCH_LOG.exists()
+
+
+def test_a_failed_dpkg_configure_does_not_stop_the_switch(helper, device):
+    """A held dpkg lock fails it at once; the install waits for the lock instead."""
+    device.fail = {"dpkg --configure"}
+    assert helper.main(["proxy-switch-run"]) == 0
+    assert _state(helper)["state"] == "done"
+    assert "installing anyway" in helper.SWITCH_LOG.read_text()
 
 
 def test_the_current_hostname_is_recorded_not_the_containers(helper, device):

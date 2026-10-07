@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """boneio-proxy-config — writes the packaged Caddy's configuration.
 
-``caddy.service`` runs it as root in ``ExecStartPre`` and ``ExecReload``;
-Caddy itself reads only what it leaves in /run/boneio-proxy. The Caddyfile is
+``caddy.service`` runs it as root in ``ExecStartPre``, ``ExecStartPost`` and
+``ExecReload``; Caddy itself reads only what it leaves in /run/boneio-proxy. The Caddyfile is
 the one ``init-certs.sh`` and ``init-certs-cloud.sh`` write for the proxy
 container — the same internal authority and lifetimes, redirect, starting page
 and routes — with the upstreams on the loopback and the admin API on a socket.
@@ -30,12 +30,18 @@ exclusively, then renamed into place. A compromised Caddy cannot turn them
 into root's writes somewhere else.
 
 Usage:
-    boneio-proxy-config            write the configuration (as root)
-    boneio-proxy-config --check    render to a temporary directory and have
-                                   Caddy validate it; nothing else changes
+    boneio-proxy-config               follow a hostname change, then write the
+                                      configuration and export the root (start)
+    boneio-proxy-config --reload      the same without the hostname: a reload
+                                      never discards the authority under a
+                                      running Caddy
+    boneio-proxy-config --export-root only export the root, waiting briefly
+                                      for Caddy to create it (after start)
+    boneio-proxy-config --check       render to a temporary directory and have
+                                      Caddy validate it; nothing else changes
 
 Exit codes:
-    0  written (or valid, under --check)
+    0  written (or valid, under --check); always, under --export-root
     1  it could not be written, or Caddy rejected it
 """
 
@@ -53,6 +59,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from string import Template
 from typing import NamedTuple
@@ -79,6 +86,9 @@ STATE_DIR = Path("/var/lib/boneio/proxy")
 CADDY_DATA = Path("/var/lib/caddy/.local/share/caddy")
 CADDY = "/usr/bin/caddy"
 PAGE_DIR = "/usr/share/boneio/proxy"
+#: How long --export-root waits for the authority. Caddy reports ready once its
+#: PKI app has created it, so this only covers a slow disk.
+EXPORT_WAIT = 10.0
 ADMIN_SOCKET = "/run/boneio-proxy/admin.sock"
 
 #: Larger than any real chain, small enough that a planted file cannot make a
@@ -555,20 +565,43 @@ def _follow_hostname() -> None:
         os.close(state)
 
 
-def _export_root() -> None:
+def _export_root() -> bool:
     """Publish the authority's root where the panel can offer it for download.
 
-    It is a certificate and nothing else, public by nature. On the very first
-    start Caddy has not created it yet; the next start or reload exports it.
+    It is a certificate and nothing else, public by nature. Before the very
+    first start Caddy has not created it yet; ``--export-root`` after the start
+    picks it up.
+
+    Returns:
+        Whether there was a root to export.
     """
     root = _read_small(CADDY_DATA / "pki" / "authorities" / "local" / "root.crt")
     if root is None or not _is_cert(root):
-        return
+        return False
     state = _open_dir(STATE_DIR)
     try:
         _write(state, "root.crt", root, 0o644)
     finally:
         os.close(state)
+    return True
+
+
+def _export_root_when_created() -> int:
+    """Export the root once Caddy has created it; never fails.
+
+    Caddy is already serving when this runs, and a missing download is no
+    reason to stop it. Neither the Caddyfile nor the hostname is touched.
+    """
+    deadline = time.monotonic() + EXPORT_WAIT
+    try:
+        while not _export_root():
+            if time.monotonic() >= deadline:
+                _LOGGER.info("No root certificate yet; the next start or reload exports it")
+                return 0
+            time.sleep(0.5)
+    except OSError as err:
+        _LOGGER.warning("The root certificate could not be exported: %s", err)
+    return 0
 
 
 def _check() -> int:
@@ -600,7 +633,7 @@ def _check() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Write the configuration, or check it.
+    """Write the configuration, export the root, or check the configuration.
 
     Args:
         argv: Command-line arguments, without the program name.
@@ -609,9 +642,14 @@ def main(argv: list[str] | None = None) -> int:
         The exit code.
     """
     parser = argparse.ArgumentParser(prog="boneio-proxy-config")
-    parser.add_argument("--check", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true")
+    mode.add_argument("--reload", action="store_true")
+    mode.add_argument("--export-root", action="store_true")
     args = parser.parse_args(argv)
-    if not args.check:
+    if args.export_root:
+        return _export_root_when_created()
+    if not (args.check or args.reload):
         # Both are best-effort: a full or read-only /var must not cost the
         # device its proxy, only a renewed authority or a fresh download.
         try:
