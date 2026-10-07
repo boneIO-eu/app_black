@@ -276,6 +276,10 @@ APT_OPTIONS = (
     "-o", "Dpkg::Options::=--force-confdef",
     "-o", "Dpkg::Options::=--force-confold",
 )
+#: Caddy's third-party apt repository. A bad or rotated key there must not stop
+#: the distribution's own updates, so the update step can run without it.
+APT_SOURCE_PARTS = Path("/etc/apt/sources.list.d")
+CADDY_APT_LIST = APT_SOURCE_PARTS / "caddy-stable.list"
 #: Automatic security updates: the switch the panel flips, and the timers that
 #: run them. The origin restriction and the no-reboot rule live in
 #: 52boneio-unattended, which this helper never writes.
@@ -2108,6 +2112,7 @@ def _os_update_run(mode: str | None) -> int:
         "mode": mode, "started": time.time(), "finished": None,
         "result": "running", "step": None, "message": None,
         "packages": [], "reboot_recommended": False, "kernel": None,
+        "warnings": [],
     }
     _os_update_save(state)
     OS_UPDATE_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -2124,6 +2129,31 @@ def _os_update_run(mode: str | None) -> int:
             if returncode != 0:
                 raise Refused(f"{name} failed (rc={returncode})")
             return output
+
+        def update_lists() -> None:
+            """apt-get update; a failing Caddy repository is left out, not fatal.
+
+            Later steps read the lists this downloads, so the retry only has to
+            refresh everything but Caddy. Any other failure still stops the run.
+            """
+            argv = ["apt-get", *APT_OPTIONS, "update"]
+            try:
+                step("update", argv, 900)
+                return
+            except Refused:
+                if not CADDY_APT_LIST.exists():
+                    raise
+            log.write("\n=== update: the Caddy repository failed; updating without it\n")
+            with tempfile.TemporaryDirectory(prefix="boneio-sourceparts-") as parts:
+                for entry in APT_SOURCE_PARTS.iterdir():
+                    if entry != CADDY_APT_LIST and entry.is_file():
+                        shutil.copy2(entry, parts)
+                step(
+                    "update",
+                    [*argv, "-o", f"Dir::Etc::sourceparts={parts}"],
+                    900,
+                )
+            state["warnings"].append("caddy-repo")
 
         def measure() -> None:
             """Record what the upgrade needs on /, as apt itself counts it."""
@@ -2151,7 +2181,7 @@ def _os_update_run(mode: str | None) -> int:
                 # An upgrade cut short by a power loss leaves dpkg half-done, and
                 # apt refuses to do anything until this has run.
                 step("dpkg-configure", ["dpkg", "--configure", "-a"], 1800)
-            step("update", ["apt-get", *APT_OPTIONS, "update"], 900)
+            update_lists()
             simulated = step(
                 "simulate", ["apt-get", *APT_OPTIONS, "-s", "dist-upgrade"], 600
             )

@@ -839,6 +839,81 @@ def test_a_failed_step_is_recorded(helper, os_update, monkeypatch, tmp_path):
     assert "no network" in (tmp_path / "update.log").read_text()
 
 
+def _caddy_repo_failing(helper, monkeypatch, tmp_path, second_rc=0):
+    """A sources.list.d with Caddy's repository whose first apt update fails."""
+    parts = tmp_path / "sources.list.d"
+    parts.mkdir()
+    (parts / "caddy-stable.list").write_text("deb https://dl.cloudsmith.io/x any-version main\n")
+    (parts / "docker.sources").write_text("Types: deb\n")
+    (parts / "other.list").write_text("deb http://example.org/ trixie main\n")
+    monkeypatch.setattr(helper, "APT_SOURCE_PARTS", parts)
+    monkeypatch.setattr(helper, "CADDY_APT_LIST", parts / "caddy-stable.list")
+    seen: list[list[str]] = []
+    updates: list[list[str]] = []
+    plain = helper._stream
+
+    def _fake(argv, log, timeout):
+        if "update" in argv:
+            updates.append(list(argv))
+            if len(updates) == 1:
+                msg = "W: GPG error: NO_PUBKEY ABC\nE: The repository is not signed.\n"
+                log.write(msg)
+                return 100, msg
+            opt = next(a for a in argv if a.startswith("Dir::Etc::sourceparts="))
+            seen.extend(sorted(p.name for p in Path(opt.split("=", 1)[1]).iterdir()))
+            return second_rc, ""
+        return plain(argv, log, timeout)
+
+    return updates, seen, _fake
+
+
+def test_a_broken_caddy_repository_does_not_stop_the_update(
+    helper, os_update, monkeypatch, tmp_path
+):
+    updates, seen, fake = _caddy_repo_failing(helper, monkeypatch, tmp_path)
+    monkeypatch.setattr(helper, "_stream", fake)
+    assert helper.main(["os-update-run", "check"]) == 0
+    assert len(updates) == 2
+    assert "Dir::Etc::sourceparts=" in " ".join(updates[1])
+    assert seen == ["docker.sources", "other.list"]
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["result"] == "success"
+    assert state["warnings"] == ["caddy-repo"]
+    assert "=== update: the Caddy repository failed; updating without it" in (
+        tmp_path / "update.log"
+    ).read_text()
+    # The temporary copy is gone.
+    opt = next(a for a in updates[1] if a.startswith("Dir::Etc::sourceparts="))
+    assert not Path(opt.split("=", 1)[1]).exists()
+
+
+def test_a_failing_retry_without_caddy_still_fails_the_update(
+    helper, os_update, monkeypatch, tmp_path
+):
+    updates, _, fake = _caddy_repo_failing(helper, monkeypatch, tmp_path, second_rc=100)
+    monkeypatch.setattr(helper, "_stream", fake)
+    assert helper.main(["os-update-run", "check"]) == 1
+    state = json.loads((tmp_path / "state.json").read_text())
+    assert state["result"] == "failed"
+    assert "warnings" not in state or state["warnings"] == []
+
+
+def test_a_failed_update_without_a_caddy_repository_is_not_retried(
+    helper, os_update, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(helper, "APT_SOURCE_PARTS", tmp_path / "none")
+    monkeypatch.setattr(helper, "CADDY_APT_LIST", tmp_path / "none" / "caddy-stable.list")
+    updates: list[list[str]] = []
+
+    def _fails(argv, log, timeout):
+        updates.append(list(argv))
+        return 100, ""
+
+    monkeypatch.setattr(helper, "_stream", _fails)
+    assert helper.main(["os-update-run", "check"]) == 1
+    assert len(updates) == 1
+
+
 # ------------------------------------------------------- kernel after upgrade
 
 
