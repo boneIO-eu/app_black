@@ -126,3 +126,19 @@ def test_warming_asks_nothing_where_the_helper_is_not_installed(monkeypatch):
     security_module.warm_system_state()
     time.sleep(0.05)
     assert called == []
+
+
+def test_warming_leaves_the_server_alone_while_it_starts(monkeypatch, tmp_path):
+    """Both reads are sudo calls on one core; started with the server they held
+    the first page back by over ten seconds on a BeagleBone."""
+    helper = tmp_path / "boneio-system"
+    helper.write_text("")
+    monkeypatch.setattr(security_module.system_ops, "HELPER_PATH", str(helper))
+    called = []
+    monkeypatch.setattr(security_module, "_service_password", _Refreshing("ssh", lambda: called.append("ssh"), 60))
+    monkeypatch.setattr(security_module, "_os_update", _Refreshing("os", lambda: called.append("os"), 60))
+    security_module.warm_system_state(delay=0.2)
+    time.sleep(0.05)
+    assert called == []
+    time.sleep(0.4)
+    assert sorted(called) == ["os", "ssh"]

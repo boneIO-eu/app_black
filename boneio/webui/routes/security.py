@@ -300,16 +300,32 @@ def _system_states() -> tuple[str | None, dict | None]:
         return ssh.result(), os_update.result()
 
 
-def warm_system_state() -> None:
+#: How long after the server starts the caches are filled. Both reads are sudo
+#: calls, one a deliberately slow yescrypt, and on a single core they held the
+#: first page back by over ten seconds when started together with the server.
+WARM_DELAY_SECONDS = 30.0
+
+
+def warm_system_state(delay: float = WARM_DELAY_SECONDS) -> None:
     """Fill both caches in the background, so the first page open does not wait.
 
     Only on a controller: where the helper is not installed (a development
     machine, the tests) there is nothing to ask.
+
+    Args:
+        delay: Seconds to leave the server alone first. A page that asks
+            sooner just reads the value itself, as it would without a cache.
     """
     if not os.path.exists(system_ops.HELPER_PATH):
         return
-    _service_password.refresh_in_background()
-    _os_update.refresh_in_background()
+
+    def warm() -> None:
+        _service_password.refresh_in_background()
+        _os_update.refresh_in_background()
+
+    timer = threading.Timer(delay, warm)
+    timer.daemon = True
+    timer.start()
 
 
 @router.get("/posture")
