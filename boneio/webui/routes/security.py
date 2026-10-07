@@ -649,7 +649,7 @@ def get_certificate():
         # where somebody is already looking at how it is served, rather than
         # only as a finding that disappears once it is dealt with.
         "exposed_on_lan": web.get("expose") != "proxy",
-        "root_ca_available": certs.root_ca() is not None,
+        "root_ca_available": certs.root_ca_exists(),
     }
 
 

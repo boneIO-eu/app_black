@@ -177,15 +177,36 @@ class TestRootCa:
         monkeypatch.setattr(certs, "ROOT_CA", path)
         assert certs.root_ca() == b"FILE"
 
-    def test_native_mode_never_reads_the_file(self, monkeypatch, tmp_path):
+    def test_native_mode_falls_back_to_the_public_export(self, monkeypatch, tmp_path):
         from boneio.core.security import certificate as certs
 
-        path = tmp_path / "root.crt"
-        path.write_bytes(b"FILE")
+        export = tmp_path / "export.crt"
+        export.write_bytes(b"EXPORT")
         monkeypatch.setattr(certs.containers, "root_ca", lambda: None)
         monkeypatch.setattr(certs.containers, "proxy_mode", lambda: "native")
-        monkeypatch.setattr(certs, "ROOT_CA", path)
-        assert certs.root_ca() is None
+        monkeypatch.setattr(certs, "ROOT_CA", tmp_path / "other.crt")
+        monkeypatch.setattr(certs, "ROOT_CA_EXPORT", export)
+        assert certs.root_ca() == b"EXPORT"
+
+    @pytest.mark.parametrize("mode", ["native", "container"])
+    def test_availability_is_a_file_check_without_the_helper(
+        self, monkeypatch, tmp_path, mode
+    ):
+        from boneio.core.security import certificate as certs
+
+        def boom():
+            raise AssertionError("no sudo for a status check")
+
+        monkeypatch.setattr(certs.containers, "root_ca", boom)
+        monkeypatch.setattr(certs.containers, "proxy_mode", lambda: mode)
+        present = tmp_path / "present.crt"
+        present.write_bytes(b"x")
+        wanted, other = ("ROOT_CA_EXPORT", "ROOT_CA") if mode == "native" else ("ROOT_CA", "ROOT_CA_EXPORT")
+        monkeypatch.setattr(certs, other, tmp_path / "absent.crt")
+        monkeypatch.setattr(certs, wanted, tmp_path / "absent.crt")
+        assert certs.root_ca_exists() is False
+        monkeypatch.setattr(certs, wanted, present)
+        assert certs.root_ca_exists() is True
 
     def test_the_wrapper_reads_the_helper_verb(self, monkeypatch):
         from boneio.core import containers

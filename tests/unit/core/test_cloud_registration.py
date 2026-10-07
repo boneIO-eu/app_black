@@ -345,3 +345,18 @@ class TestNativeMode:
                 start.return_value = _ok()
                 assert await cloud_reg._switch_to_cloud_config() is True
                 apply.assert_called_once()
+
+    def test_a_missing_compose_file_is_not_a_warning(self, cloud_reg, native):
+        assert cloud_reg.is_compose_writable is True
+
+    @pytest.mark.asyncio
+    async def test_restoring_asks_the_helper(self, cloud_reg, native):
+        native.write_text("")
+        with patch.object(cloud_reg, "_check_compose_ownership", return_value=True):
+            with patch("boneio.core.containers.remove_cloud_template") as remove, patch(
+                "boneio.core.containers.start_caddy"
+            ) as start:
+                remove.return_value = _ok()
+                start.return_value = _ok()
+                assert await cloud_reg._restore_local_config() is True
+                remove.assert_called_once()

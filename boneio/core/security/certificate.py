@@ -239,19 +239,33 @@ def root_ca() -> bytes | None:
 
     Asked of the root helper, the only reader of the packaged Caddy's data. An
     old helper that lacks the verb leaves the container mode reading the file
-    itself, as it always did; the packaged mode has no such fallback because
-    the data directory is not the application's to read.
+    itself, as it always did; the packaged mode reads the generator's public
+    export, since its data directory is not the application's to read.
 
     Returns:
         The PEM, or None when there is none yet.
     """
     pem = containers.root_ca()
-    if pem is not None or containers.proxy_mode() == "native":
+    if pem is not None:
         return pem
     try:
-        return ROOT_CA.read_bytes()
+        return (
+            ROOT_CA_EXPORT if containers.proxy_mode() == "native" else ROOT_CA
+        ).read_bytes()
     except OSError:
         return None
+
+
+#: The public copy of that certificate the packaged Caddy's generator writes
+#: on every start and reload, world-readable, so that asking whether one exists
+#: needs no sudo.
+ROOT_CA_EXPORT = Path("/var/lib/boneio/proxy/root.crt")
+
+
+def root_ca_exists() -> bool:
+    """Whether a root certificate is there to offer; a plain file check."""
+    path = ROOT_CA_EXPORT if containers.proxy_mode() == "native" else ROOT_CA
+    return path.exists()
 
 
 #: The key is a secret, and it is written by the account the panel runs as.

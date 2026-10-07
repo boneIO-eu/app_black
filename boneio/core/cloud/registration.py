@@ -119,7 +119,13 @@ class CloudRegistration:
 
     @property
     def is_compose_writable(self) -> bool:
-        """Check if docker-compose.yaml is writable without side effects."""
+        """Check if docker-compose.yaml is writable without side effects.
+
+        True for the packaged Caddy: there is no compose file to be writable,
+        and the panel warns when this is False.
+        """
+        if containers.proxy_mode() == "native":
+            return True
         compose_file = _DOCKER_DIR / "docker-compose.yaml"
         if not compose_file.exists():
             return False
