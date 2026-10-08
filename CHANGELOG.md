@@ -6,6 +6,17 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev37 (2026-10-08) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🖥️ Factory station
+
+- **The station notice actually shows.** dev36 looked for the station marker
+  in `/etc/boneio`, which only root can read, so boneIO never saw it and the
+  display went to sleep as usual. The marker now lives in `/var/lib/boneio`.
+
 ## v1.6.0.dev36 (2026-10-08) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md

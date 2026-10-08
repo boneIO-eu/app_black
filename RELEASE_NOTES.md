@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev36` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev37` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,21 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev37 — internal test build
+
+## Since dev36
+
+**The factory station notice shows on the display.** dev36 looked for the
+flasher's station marker in `/etc/boneio`, a directory only root can read,
+so boneIO, running as `boneio`, never found it: no station notice, and the
+display slept as on any controller. The marker is now in `/var/lib/boneio`;
+the flasher that writes it changes with it.
+
+No system migration was added and no plan changed since dev36; only the
+manifest was re-signed, because it names the release.
 
 ---
 
