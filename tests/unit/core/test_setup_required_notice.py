@@ -107,3 +107,27 @@ def test_no_display_is_fine(config_file):
     manager = MagicMock()
     manager.display.get_oled.return_value = None
     _show_setup_notice(manager, config_file, 8090)
+
+
+def test_station_boot_shows_the_tester_verdict(tmp_path):
+    """A factory station boot says so instead of asking for setup, then
+    shows what the tester wrote."""
+    from unittest.mock import MagicMock
+
+    from boneio import runner
+
+    marker, result = tmp_path / "flasher-station", tmp_path / "result"
+    manager = MagicMock()
+    with patch.object(runner, "STATION_MARKER", str(marker)), patch.object(
+        runner, "STATION_RESULT", str(result)
+    ):
+        assert runner._show_station_notice(manager) is False
+        marker.touch()
+        assert runner._show_station_notice(manager) is True
+        title, lines = manager.display.get_oled().show_notice.call_args.args[:2]
+        assert title == "Station mode"
+        assert "mode active" in lines()
+        result.write_text("passed\n")
+        assert lines() == ["Test completed", "successfully"]
+        result.write_text("failed")
+        assert lines()[0] == "Test FAILED"

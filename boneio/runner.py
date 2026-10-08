@@ -187,6 +187,45 @@ def _show_setup_notice(manager: Any, config_file: str, port: int) -> None:
     except Exception as err:  # noqa: BLE001 - never block boot on a notice
         _LOGGER.debug("Could not show the setup notice on the OLED: %s", err)
 
+# Written by the eMMC flasher on the SD card it boots in factory station mode.
+STATION_MARKER = "/etc/boneio/flasher-station"
+# The station's tester writes "passed" or "failed" here over SSH when it is done.
+STATION_RESULT = "/tmp/boneio-station-result"
+
+
+def _station_lines() -> list[str]:
+    try:
+        with open(STATION_RESULT) as f:
+            result = f.read().strip()
+    except OSError:
+        result = ""
+    if result == "passed":
+        return ["Test completed", "successfully"]
+    if result == "failed":
+        return ["Test FAILED", "see the station"]
+    return ["Flasher station", "mode active", "Waiting for tester"]
+
+
+def _show_station_notice(manager: Any) -> bool:
+    """On a factory station boot, keep the station's state on the OLED.
+
+    That system has no administrator and needs none, so the setup notice
+    would only mislead whoever stands at the station.
+
+    Returns:
+        Whether this is a station boot.
+    """
+    if not os.path.exists(STATION_MARKER):
+        return False
+    try:
+        oled = manager.display.get_oled()
+        if oled is not None:
+            oled.show_notice("Station mode", _station_lines, still_needed=lambda: True)
+    except Exception as err:  # noqa: BLE001 - never block boot on a notice
+        _LOGGER.debug("Could not show the station notice on the OLED: %s", err)
+    return True
+
+
 def _draw_startup_status(device: Any | None, message: str) -> None:
     """Draw a startup status message on the OLED display.
 
@@ -415,7 +454,9 @@ async def async_run(
 
     # --- Start web server EARLY (before MQTT/discovery) for fast UI access ---
     _draw_startup_status(early_oled_device, "Starting web server...")
-    if _warn_if_setup_required(early_oled_device, config_file, web_config):
+    if not _show_station_notice(manager) and _warn_if_setup_required(
+        early_oled_device, config_file, web_config
+    ):
         _show_setup_notice(manager, config_file, web_config.get("port", 8090))
     if web_active:
         _LOGGER.info("Starting Web server.")
