@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev34` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev35` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,59 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev35 — internal test build
+
+## Since dev34
+
+**Caddy is a system package now, and the controller moves to it by itself.**
+The proxy on :8443 ran in a Docker container, which made every cold start wait
+for Docker. It is now Caddy from the official Caddy apt repository, pinned to
+2.11.*. Five minutes after start, when the controller is online and the
+repository resolves, boneIO moves from the container to the package and
+watches it finish. It takes about 3-4 minutes and the panel is off for
+40-90 s, once. If anything fails, including a proxy that does not answer
+within 90 s, the container is brought back; a switch cut short by a power loss
+is undone at the next boot. The container's local authority is carried over,
+so a root certificate you installed stays valid. The panel shows the mode,
+the installed version and the log of the last run, and an administrator can
+start the switch again. Three failed runs end the automatic attempts.
+
+On an SD card the page "boneIO is starting" now appears about 73 s after
+power-on instead of 136 s, and the panel about 105 s instead of 136 s. The
+page itself is new: it says boneIO is starting and refreshes every 3 s.
+
+**The panel answers at once on the loopback.** With the proxy on, it waited
+for Docker's bridge before binding anything; it now binds the loopback at
+start and adds docker0 when Docker brings it up. This also fixes a race in
+which another bridge came up first and 8443 returned 502 until boneIO was
+restarted. The security caches are filled 30 s after start, and log2ram copies
+the logs with `cp` instead of rsync, which ends it about 17 s earlier (from
+the next boot).
+
+**Around the package.** Uploaded and cloud certificates, updates and
+Diagnostics work with it; Caddy is updated by apt. The panel's port cannot be
+moved onto 8091, 8443, 1880 or the proxy's own ports. A broken Caddy
+repository no longer stops the system update; it is skipped and recorded.
+
+**A factory reset gives the board its own configuration.** Reset used to leave
+a 1.0 or 1.1 board saying 0.8 and dropped `web.expose: proxy`. Templates for
+each revision now ship with the app and are copied as they are, keeping
+`secrets.yaml`.
+
+Smaller: the Web server settings switch the Location map on; inside the
+boneIO Dashboard add-on the bottom bar opens its device list; the sun event
+list explains its groups; table buttons have tooltips in the panel's
+language; after a Node-RED update the panel suggests freeing the old image in
+Diagnostics > Disk; the input type pill no longer wraps, and the cloud
+switch's "open anyway" link gets its own row.
+
+Three system migrations are new, 1.6.41, 1.6.42 and 1.6.43. Several plans were
+re-signed where they pin the updated system helper or the new page, and all
+of them carry the new release number; the manifest names the release, so it
+is re-signed as always.
 
 ---
 

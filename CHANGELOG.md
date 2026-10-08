@@ -6,6 +6,115 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev35 (2026-10-08) — 1.6.x security series
+
+A pre-release, now open for testing on real installations. See
+RELEASE_NOTES.md before updating.
+
+### 🚀 Caddy moves from a Docker container to a system package
+
+- **The proxy on :8443 becomes Caddy from the official Caddy apt
+  repository**, version-pinned to 2.11.*, instead of a container. On an SD
+  card the page "boneIO is starting" appears at ~73 s after power-on instead
+  of ~136 s, and the panel at ~105 s instead of ~136 s (measured on a
+  BeagleBone, SD card).
+- **Controllers switch by themselves.** Five minutes after start, when the
+  helper knows the switch, the controller is online and the package
+  repository resolves, boneIO asks the helper to move Caddy and watches it
+  finish. The switch takes ~3-4 minutes and the panel is off for ~40-90 s,
+  once. Three failed runs end the automatic attempts.
+- **A failed switch is undone.** From the moment the compose file is
+  replaced, any failure - including a proxy that does not answer within
+  90 s - disables the package and brings the container back. A run cut short
+  by a power loss is undone at the next boot (`boneio-proxy-recover.service`)
+  or before the next run. The container's local authority is carried over, so
+  the root certificate people installed stays valid.
+- **The panel shows how it went.** A card shows the mode, the installed
+  version, the last run and its log; an administrator can start the switch
+  again with the password confirmed.
+- **The packaged Caddy restarts on failure** (backing off from 5 s to 2 min,
+  as Docker did), and exports its root certificate right after the first
+  start, so the panel offers it without a restart. A reload no longer
+  discards the authority after a rename; only a start does.
+- **The configuration is written from what boneIO already keeps** by
+  `boneio-proxy-config`, run as root before every start and reload. Ports,
+  certificates and paths from files the `boneio` account writes are
+  validated: a certificate pair must load in the TLS library (an encrypted or
+  mismatched key is not used), HTTP/HTTPS ports must be at least 1024 and
+  distinct from each other, the panel's and Node-RED's. The admin API is a
+  socket in `/run/boneio-proxy`, not a TCP port.
+- **Uploaded and cloud certificates, updates and Diagnostics work with the
+  package.** Caddy is updated by apt (the card shows installed and
+  candidate); a panel port change needs only `.env` and a restart; the
+  diagnostics bundle carries Caddy's journal; the certificate status check
+  needs no sudo.
+- **The panel's port may not collide with the proxy's.** 8091, 8443, 1880
+  and the configured HTTP/HTTPS ports are refused when the port is *moved
+  onto* them; saving other settings on a device already there still works.
+  The check runs off the event loop.
+- **A broken Caddy repository no longer stops the OS update.** `apt-get
+  update` returning rc=100 for a rotated key now retries without
+  `caddy-stable.list` and records a `caddy-repo` warning; any other failure
+  still stops the run.
+- Migrations **1.6.41** (the new starting page; 1.4.4 re-signed to follow it),
+  **1.6.42** (stages the repository, pin, drop-in, generator, switch verbs and
+  recovery unit; nothing switches until the switch creates
+  `/etc/boneio/proxy-native`) and **1.6.43** (below). Plans 1.6.5, 1.6.21,
+  1.6.39 and 1.6.42 were re-signed because the helper's pinned digests moved.
+
+### ⚡ Faster start
+
+- **After a power cut the page says "boneIO is starting"** (en/pl), refreshes
+  itself every 3 s and loads nothing external, instead of a Service
+  Unavailable page that needed a manual Retry. Migration 1.6.41.
+- **The panel answers on the loopback at once.** With `web.expose: proxy` it
+  waited up to a minute for docker0 before binding anything, so it did not
+  answer even on 127.0.0.1 until Docker was up. It now binds the loopback,
+  any bridge already there and the USB link immediately, and adds docker0 by
+  a second listener when dockerd brings it up, without running startup again.
+- **No more permanent 502 after a restart.** The wait took any Docker bridge,
+  but Caddy arrives through docker0; when a compose project's `br-<id>` came
+  up first, 8443 returned 502 until boneIO was restarted. It now waits for
+  docker0 itself, off the event loop.
+- **The security caches fill 30 s after start**, not together with the web
+  server, where two sudo calls (one a slow yescrypt check) held the first
+  page back by over ten seconds on a single core.
+- **log2ram copies the logs with `cp`, not rsync.** Its start-up rsync grew
+  with the journal (~1 s per MB) and every service waits for log2ram; it now
+  ends ~17 s earlier. Takes effect at the next boot. Migration 1.6.43.
+
+### 🏭 Board templates ship with the app
+
+- **A factory reset gives the board its own revision's configuration.** The
+  reset used to copy `example_config` and patch it, which left a 1.0 or 1.1
+  board saying version 0.8 (no buzzer on 1.1, no inverted MCPs on 1.0), dropped
+  `web.expose: proxy` and wrote `config_version` 4. Templates for 0.8, 1.0 and
+  1.1 (48x4 added to each) now live in `boneio/factory_config/`; the image
+  installs from the package and a reset copies them as they are. The reset
+  keeps `secrets.yaml` and defaults to the board's revision.
+
+### 🖥️ Panel
+
+- **Web server settings switch the Location map on** (`web.security.map_tiles`
+  needed the YAML before), saying what it allows in the CSP.
+- **Inside the boneIO Dashboard add-on the bottom bar gets a "Devices" slot**
+  that opens the dashboard's device list; Sensors moves under "More". Plain
+  Home Assistant ingress is unchanged.
+- **The sun event list says what its groups are**: opens aligned to the field,
+  group headings read as headings, each group has a line on what it holds.
+- **Table action buttons have tooltips in the panel's language**, on rows and
+  on the phone's cards.
+- **After a Node-RED update the panel suggests freeing the old image** in
+  Diagnostics > Disk (about 350 MB for a minimal arm/v7 tag).
+- **The input type pill stays on one line**, and the cloud switch's "open
+  anyway" link gets its own row instead of wrapping over the buttons.
+
+### 🧰 Project
+
+- The README describes the controller and the app instead of a manual setup.
+- CI actions moved off Node 20 (checkout, upload-artifact, action-gh-release,
+  codecov).
+
 ## v1.6.0.dev34 (2026-10-05) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
