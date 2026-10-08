@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev35` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev36` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,29 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev36 — internal test build
+
+## Since dev35
+
+**Boards 0.x no longer switch every relay on after a state file from a 1.x
+board.** The MCP23017 driver took its polarity from the stored application
+state when the board template did not name one. A state file carried over from
+a 1.x board (active-low) made a 0.8 drive every latch high for "off": all 32
+relays on and the board at 75 °C. Every 0.x board is active-high, so its
+templates now say so, and the configuration wins over anything stored or
+guessed.
+
+**The display shows the factory station state.** On a flasher station the OLED
+used to show the setup notice, which makes no sense on a system that has no
+administrator. It now shows "Station mode" and "Flasher station mode active"
+while the tester works, then the verdict: "Test completed successfully" or
+"Test FAILED". Controllers in normal use are not affected.
+
+No system migration was added and no plan changed since dev35; only the
+manifest was re-signed, because it names the release.
 
 ---
 

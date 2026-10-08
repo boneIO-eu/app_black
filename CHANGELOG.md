@@ -6,6 +6,25 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev36 (2026-10-08) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🔌 Relay boards 0.x
+
+- **0.x boards no longer power up with every relay on.** Their templates now
+  declare the MCP23017 as active-high (`inverted: false`), so a polarity left
+  in the stored state by a 1.x board can no longer flip it. The configuration
+  wins over the stored or guessed value.
+
+### 🖥️ Factory station
+
+- **The OLED shows the station state instead of the setup notice** on a
+  flasher station: "Flasher station mode active" while the tester works, then
+  "Test completed successfully" or "Test FAILED". Normal controllers are
+  unchanged.
+
 ## v1.6.0.dev35 (2026-10-08) — 1.6.x security series
 
 A pre-release, now open for testing on real installations. See
