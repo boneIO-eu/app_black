@@ -1,8 +1,10 @@
 mcp23017:
   - id: mcp_left
     address: 0x20
+    inverted: false
   - id: mcp_right
     address: 0x21
+    inverted: false
 
 output_mapping:
   out_01:
