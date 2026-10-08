@@ -188,7 +188,7 @@ def _show_setup_notice(manager: Any, config_file: str, port: int) -> None:
         _LOGGER.debug("Could not show the setup notice on the OLED: %s", err)
 
 # Written by the eMMC flasher on the SD card it boots in factory station mode.
-STATION_MARKER = "/etc/boneio/flasher-station"
+STATION_MARKER = "/var/lib/boneio/flasher-station"
 # The station's tester writes "passed" or "failed" here over SSH when it is done.
 STATION_RESULT = "/tmp/boneio-station-result"
 
