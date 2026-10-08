@@ -152,8 +152,8 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                   label: t('common.type'),
                   value: (() => {
                     const itemType = item._type || item.mode;
-                    if (itemType === 'binary_sensor') return <span className="badge badge-warning badge-xs">{t('sections.binary_sensor')}</span>;
-                    if (itemType === 'event') return <span className="badge badge-primary badge-xs">{t('sections.event')}</span>;
+                    if (itemType === 'binary_sensor') return <span className="badge whitespace-nowrap badge-warning badge-xs">{t('sections.binary_sensor')}</span>;
+                    if (itemType === 'event') return <span className="badge whitespace-nowrap badge-primary badge-xs">{t('sections.event')}</span>;
                     return '–';
                   })(),
                 }] : []),
@@ -219,8 +219,8 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                       <Td>
                         {(() => {
                           const itemType = item._type || item.mode;
-                          if (itemType === 'binary_sensor') return <span className="badge badge-warning badge-sm">{t('sections.binary_sensor')}</span>;
-                          if (itemType === 'event') return <span className="badge badge-primary badge-sm">{t('sections.event')}</span>;
+                          if (itemType === 'binary_sensor') return <span className="badge whitespace-nowrap badge-warning badge-sm">{t('sections.binary_sensor')}</span>;
+                          if (itemType === 'event') return <span className="badge whitespace-nowrap badge-primary badge-sm">{t('sections.event')}</span>;
                           return null;
                         })()}
                       </Td>

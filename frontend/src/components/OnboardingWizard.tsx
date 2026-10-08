@@ -1182,7 +1182,7 @@ export default function OnboardingWizard() {
                 </button>
               )}
               {(cloudSwitch.phase === 'unreachable' || cloudSwitch.phase === 'timeout') && cloudSwitch.url && (
-                <a className="btn btn-outline flex-1" href={cloudSwitch.url} target="_blank" rel="noopener noreferrer">
+                <a className="btn btn-outline basis-full order-first h-auto min-h-10 py-2 whitespace-normal wrap-break-word" href={cloudSwitch.url} target="_blank" rel="noopener noreferrer">
                   {t('onboarding.cloud_open_anyway', { host: hostOf(cloudSwitch.url) })}
                 </a>
               )}
