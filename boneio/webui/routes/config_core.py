@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import logging
 import os
@@ -24,6 +25,8 @@ from boneio.core.config.yaml_util import (
     load_config_from_file,
     load_yaml_file,
     merge_board_config,
+    CustomValidator,
+    _get_schema,
     update_config_section,
 )
 from boneio.core.manager import Manager
@@ -413,9 +416,19 @@ def _web_changed_apart_from_cloud(previous: object, current: object) -> bool:
     Returns:
         True when some other setting changed, so a restart is still needed.
     """
-    before = {k: v for k, v in previous.items() if k != "cloud"} if isinstance(previous, dict) else {}
-    after = {k: v for k, v in current.items() if k != "cloud"} if isinstance(current, dict) else {}
-    return before != after
+    def rest(section: object) -> dict:
+        if not isinstance(section, dict):
+            return {}
+        # Both sides normalised by the validator that loads config.yaml: the
+        # previous section comes from the loaded config, defaults filled in down
+        # to ``security.map_tiles``, while the panel sends its section with the
+        # defaults stripped. Compared raw, every save looked like a change.
+        doc = CustomValidator({"web": _get_schema()["web"]}, purge_unknown=True).normalized(
+            {"web": copy.deepcopy(section)}, always_return_document=True
+        )
+        return {k: v for k, v in ((doc or {}).get("web") or {}).items() if k != "cloud"}
+
+    return rest(previous) != rest(current)
 
 
 #: The keys of the ``mqtt`` section the running client can adopt in place.

@@ -83,6 +83,14 @@ def test_a_cloud_only_change_is_recognised():
     assert _web_changed_apart_from_cloud(before, after) is False
 
 
+def test_a_default_dropped_by_the_panel_is_no_change():
+    """The file said port: 8090; the panel strips defaults before it saves."""
+    before = {"expose": "proxy", "port": 8090, "cloud": {"enabled": True},
+              "security": {"map_tiles": False}, "auth": {"allow_anonymous": False}}
+    after = {"expose": "proxy", "cloud": {"enabled": False}}
+    assert _web_changed_apart_from_cloud(before, after) is False
+
+
 def test_another_setting_alongside_it_still_needs_a_restart():
     """The port is read once, when the server binds."""
     before = {"port": 8090, "cloud": {"enabled": False}}

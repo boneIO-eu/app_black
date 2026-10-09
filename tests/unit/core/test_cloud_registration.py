@@ -230,6 +230,42 @@ class TestOneCaddyStartPerTemplateSwap:
             containers.restart_caddy.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("to_cloud", [True, False])
+    async def test_the_packaged_caddy_is_not_started_again(self, cloud_reg, to_cloud):
+        """The helper's template verb has reloaded it; a start costs seconds of
+        a request the panel waits on (16 s turning cloud off on a BeagleBone)."""
+        with (
+            patch("boneio.core.cloud.registration.containers") as containers,
+            patch.object(cloud_reg, "_ensure_cloud_script"),
+            patch.object(cloud_reg, "_check_compose_ownership", return_value=True),
+            patch.object(cloud_reg, "is_cloud_config_active", return_value=not to_cloud),
+        ):
+            containers.proxy_mode.return_value = "native"
+            containers.apply_cloud_template.return_value = _ok()
+            containers.remove_cloud_template.return_value = _ok()
+
+            if to_cloud:
+                assert await cloud_reg._switch_to_cloud_config() is True
+            else:
+                assert await cloud_reg._restore_local_config() is True
+
+            containers.start_caddy.assert_not_called()
+            containers.restart_caddy.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_already_local_packaged_caddy_is_left_alone(self, cloud_reg):
+        """Turning cloud off in settings: /cloud/disable restored it first."""
+        with (
+            patch("boneio.core.cloud.registration.containers") as containers,
+            patch.object(cloud_reg, "_check_compose_ownership", return_value=True),
+            patch.object(cloud_reg, "is_cloud_config_active", return_value=False),
+        ):
+            containers.proxy_mode.return_value = "native"
+            assert await cloud_reg._restore_local_config() is True
+            containers.start_caddy.assert_not_called()
+            containers.restart_caddy.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_restoring_the_local_template_starts_caddy_once(self, cloud_reg):
         with (
             patch("boneio.core.cloud.registration.containers") as containers,

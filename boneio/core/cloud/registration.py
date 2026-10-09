@@ -600,7 +600,11 @@ class CloudRegistration:
             _LOGGER.error("Failed to switch to cloud config: %s", self._last_error)
             return False
 
-        _LOGGER.info("Switched docker-compose.yaml to the cloud template")
+        _LOGGER.info("Switched Caddy to the cloud template")
+        if containers.proxy_mode() == "native":
+            # The helper's verb has already reloaded the packaged Caddy with the
+            # certificate; starting it again only costs seconds of the request.
+            return True
         # The service definition changed, so ``up`` recreates the container
         # and it reads the certificate as it starts.
         return await self._recreate_caddy(restart=False)
@@ -615,7 +619,12 @@ class CloudRegistration:
             return False
 
         if not self.is_cloud_config_active():
-            _LOGGER.debug("docker-compose.yaml is already the local template")
+            _LOGGER.debug("Caddy is already on the local template")
+            if containers.proxy_mode() == "native":
+                # Nothing to redo: the packaged Caddy serves what its marker
+                # says. Restarting it here cost 15 s of the save that turns cloud
+                # off, after /cloud/disable had already put the local one back.
+                return True
             return await self._recreate_caddy()
 
         result = await asyncio.get_event_loop().run_in_executor(
@@ -626,7 +635,10 @@ class CloudRegistration:
             _LOGGER.error("Failed to restore local config: %s", self._last_error)
             return False
 
-        _LOGGER.info("Restored the local docker-compose.yaml template")
+        _LOGGER.info("Restored the local Caddy template")
+        if containers.proxy_mode() == "native":
+            # Reloaded by the helper's verb already, as above.
+            return True
         return await self._recreate_caddy(restart=False)
 
     async def _recreate_caddy(self, restart: bool = True) -> bool:

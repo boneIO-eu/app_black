@@ -991,7 +991,7 @@ export default function UISettings() {
         for (const key of changedKeys) {
           console.log(`📤 Saving composite key ${key}:`, buckets[key]);
           await axios.put(`/api/config/${key}`, buckets[key], {
-            timeout: 15000, // Large configs can take seconds on ARM
+            timeout: 30000, // Large configs can take seconds on ARM; the web section reloads Caddy
           });
         }
 
@@ -1041,7 +1041,7 @@ export default function UISettings() {
       console.log('📤 Sending to backend:', bodyData);
 
       const response = await axios.put<{ restart_required?: boolean }>(`/api/config/${sectionName}`, minimalConfig, {
-        timeout: 15000, // Large configs (e.g. WLED effects/palettes) can take seconds on ARM
+        timeout: 30000, // Large configs (e.g. WLED effects/palettes) take seconds on ARM; the web section reloads Caddy
       });
       const result = response.data;
 
