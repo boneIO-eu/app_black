@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev38` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev39` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,28 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev39 — internal test build
+
+## Since dev38
+
+**Caddy is installed from its GitHub release.** Caddy's own Debian repository
+on Cloudsmith started answering 402 Payment Required on 9 October, when the
+project ran out of transfer quota. With it listed, every `apt-get update`
+failed, the panel's system update reported an error, and a controller still
+on the Caddy container could not switch to the packaged Caddy. boneIO now
+downloads the armhf `.deb` from the Caddy release on GitHub and installs it
+only if its SHA-512 matches the one pinned in boneIO's signed helper (Caddy
+2.11.7, the same file the repository served). Migration 1.6.44 takes the
+repository, its key, its pin and the automatic-updates entry off.
+
+Caddy no longer updates by itself: a new Caddy comes with a boneIO release.
+Switch attempts that failed on the repository's 402 do not count against the
+three automatic ones.
+
+Migration 1.6.44 is new; the plans were re-signed.
 
 ---
 

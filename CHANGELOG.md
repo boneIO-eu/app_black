@@ -6,6 +6,22 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev39 (2026-10-09) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🔒 Caddy
+
+- **Caddy comes from its GitHub release, not from its apt repository.** Caddy's
+  Debian repository on Cloudsmith answers 402 Payment Required whenever the
+  project runs out of transfer quota, which broke every `apt-get update` and
+  the switch to the packaged Caddy. boneIO now installs the armhf `.deb` from
+  the GitHub release, pinned by version (2.11.7) and SHA-512 in its signed
+  helper. Migration 1.6.44 removes the repository, its key, pin and the
+  automatic-updates entry. Caddy moves only with a boneIO release now.
+- Automatic switch attempts lost to the repository's 402 no longer count.
+
 ## v1.6.0.dev38 (2026-10-09) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md
