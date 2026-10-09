@@ -168,6 +168,9 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'node',
       include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+      // Node's own localStorage (on by default since 25) warns on every read
+      // without --localstorage-file; the jsdom tests bring their own.
+      execArgv: ['--no-experimental-webstorage'],
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
       },

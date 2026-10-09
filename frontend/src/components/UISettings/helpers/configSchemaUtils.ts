@@ -423,11 +423,9 @@ const stripHiddenAndDefaultsValue = (
           const defaultMs = convertTimeperiodToMilliseconds(defaultValue);
           const fieldMs = convertTimeperiodToMilliseconds(fieldValue);
           if (defaultMs === fieldMs) {
-            console.log(`Skipping default timeperiod field: ${key} = ${fieldValue} (default: ${defaultValue})`);
             continue;
           }
         } else if (JSON.stringify(fieldValue) === JSON.stringify(defaultValue)) {
-          console.log(`Skipping default value field: ${key} = ${JSON.stringify(defaultValue)}`);
           continue;
         }
       }
