@@ -991,12 +991,11 @@ class RemoteDeviceManager:
         if data is None:
             return
 
-        if discovery_type == "outputs" and not device.outputs:
-            # Only update if device has no manually configured outputs
+        if discovery_type == "outputs" and not device.outputs_from_config:
             device.set_outputs(data)
             _LOGGER.info("Updated configured device %s with autodiscovered outputs: %d", device_id, len(data))
         elif discovery_type == "covers":
-            if not device.covers:
+            if not device.covers_from_config:
                 # No manually configured covers — use discovery data as-is
                 device.set_covers(data)
                 _LOGGER.info("Updated configured device %s with autodiscovered covers: %d", device_id, len(data))

@@ -68,6 +68,10 @@ class MQTTRemoteDevice(RemoteDevice):
             # For other devices, use id as-is
             self._topic_prefix = id
         
+        # Lists given in the config are the user's; discovery only fills the
+        # ones left empty, and keeps refilling them as the peer changes.
+        self.outputs_from_config = bool(outputs)
+        self.covers_from_config = bool(covers)
         if outputs:
             self.set_outputs(outputs)
         if covers:

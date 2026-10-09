@@ -482,3 +482,48 @@ class TestAutodiscoveryHandleCovers:
 
         result = autodiscovered.to_dict()
         assert result["mqtt"]["covers"][0]["supports_tilt"] is True
+
+
+# ==================== Configured Device Follows Discovery ====================
+
+
+class TestConfiguredDeviceFollowsDiscovery:
+    """A configured peer without its own lists keeps up with every discovery message."""
+
+    def _manager(self, device: MQTTRemoteDevice) -> RemoteDeviceManager:
+        mgr = RemoteDeviceManager(message_bus=MagicMock(), own_serial="blk_myself")
+        mgr._devices[device.id] = device
+        mgr._initialized = True
+        return mgr
+
+    def test_outputs_follow_every_message(self):
+        device = MQTTRemoteDevice(id="blk_remote", name="Remote")
+        mgr = self._manager(device)
+
+        mgr._update_configured_device_from_discovery(
+            "blk_remote", "outputs", json.dumps([{"id": "OUT_01"}, {"id": "OUT_02"}])
+        )
+        # OUT_01 and OUT_02 became cover relays on the peer.
+        mgr._update_configured_device_from_discovery("blk_remote", "outputs", json.dumps([{"id": "OUT_03"}]))
+
+        assert [o["id"] for o in device.outputs] == ["OUT_03"]
+
+    def test_covers_follow_every_message(self):
+        device = MQTTRemoteDevice(id="blk_remote", name="Remote")
+        mgr = self._manager(device)
+
+        mgr._update_configured_device_from_discovery("blk_remote", "covers", json.dumps([{"id": "cover_a"}]))
+        mgr._update_configured_device_from_discovery(
+            "blk_remote", "covers", json.dumps([{"id": "cover_a"}, {"id": "cover_b", "kind": "venetian"}])
+        )
+
+        assert [c["id"] for c in device.covers] == ["cover_a", "cover_b"]
+        assert device.covers[1]["supports_tilt"] is True
+
+    def test_configured_outputs_are_kept(self):
+        device = MQTTRemoteDevice(id="blk_remote", name="Remote", outputs=[{"id": "OUT_01"}])
+        mgr = self._manager(device)
+
+        mgr._update_configured_device_from_discovery("blk_remote", "outputs", json.dumps([{"id": "OUT_09"}]))
+
+        assert [o["id"] for o in device.outputs] == ["OUT_01"]
