@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev39` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev40` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,57 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev40 — internal test build
+
+## Since dev39
+
+**Turning cloud registration on in the first-run wizard works.** `/etc/boneio`
+was created with mode 0700 when the MQTT password was written there, on images
+since dev35 and at first boot. boneIO runs as `boneio` and could not read the
+proxy markers in that directory, so it took a controller on the packaged Caddy
+for one on the container and never saw the cloud configuration go live; the
+wizard waited three minutes and said it could not confirm the switch.
+Migration 1.6.45 makes the directory readable again (0755); the password file
+keeps its own 0600. The images create it that way from now on.
+
+The wizard also waited only 5 seconds for the save that turns registration
+on. That request starts the registration, which on a fresh controller takes
+5–8 seconds on a BeagleBone, so the wizard could say "could not turn cloud
+registration on" for a switch that went through. It now waits up to 30 seconds.
+
+Turning cloud registration off in Settings → Web server took 16 seconds,
+past the panel's 15-second limit for a save, so the panel showed the save as
+failed and the form stayed half-saved; it also asked for a restart that the
+toggle does not need, in both directions. The packaged Caddy is no longer
+restarted on top of the helper's reload, saves in Settings get 30 seconds, and
+the restart check compares the section the way it is stored. Off now saves in
+about a second, on in two.
+
+Settings could save before the configuration had arrived. Until then every
+section showed its defaults, and a failed or slow read (over 5 seconds) was
+even taken for an empty configuration; a save in those first seconds replaced
+the section with defaults — on the web server page that switched `expose:
+proxy` back off. Settings now show nothing to edit until the configuration is
+in, and a message with a retry when it cannot be read.
+
+A cloud registration that failed — the cloud API's rate limit, or no network
+for a moment — was tried again only after an hour. It is now tried again when
+the API says, or after five minutes.
+
+Checked end to end on a controller flashed from the dev39 image, before
+release, with scripts/browser_e2e.py. The wizard: from cloud off and Caddy on
+its self-signed certificate, the cloud step confirmed the new address after 15
+seconds, with the Let's Encrypt certificate served. Settings: off, then on, with
+the certificate following each save within seconds and no restart asked for.
+The settings guard by holding, then failing, GET /api/config in the browser;
+the retry by a real rate limit, which asked for 984 seconds and got them.
+
+Remote outputs: choosing "Cover" as the type locked the form on it. The type
+now follows the selected entity — an ESPHome cover can only be a cover — and
+ESPHome covers are listed as entities.
 
 ---
 

@@ -6,6 +6,46 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev40 (2026-10-09) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🔒 Caddy
+
+- **boneIO sees the packaged Caddy again.** `/etc/boneio` was created as 0700
+  together with the MQTT password file, so boneIO could not read the proxy
+  markers in it: a controller on the packaged Caddy looked like one on the
+  container, and turning cloud registration on in the first-run wizard ended
+  in "could not confirm the switch" after three minutes. Migration 1.6.45 makes
+  the directory 0755 again; the password file stays 0600. An unreadable marker
+  is now logged instead of silently read as absent.
+- **The wizard no longer reports a failed cloud switch that worked.** Turning
+  registration on is saved with a 30 s timeout instead of 5 s: the backend
+  starts registration inside that request, which on a fresh controller takes
+  5–8 s on a BeagleBone.
+- **Turning cloud registration off in Settings → Web server takes a second, not
+  16.** The packaged Caddy was restarted after the helper had already reloaded
+  it, past the panel's 15 s save timeout, so the save looked failed and the
+  form was left half-saved. Section saves in Settings now get 30 s.
+- **No restart prompt after toggling cloud registration.** The check compared
+  the saved section with defaults stripped against the loaded one with
+  defaults filled in, so every save looked like another setting had changed.
+- **Settings can no longer save defaults over the configuration.** Sections
+  were drawn, and could be saved, before the configuration had arrived — and
+  a failed read counted as an empty configuration. A save in the first
+  seconds on a slow controller replaced the section with defaults
+  (`web.expose: proxy` lost). Settings now wait for the configuration, and a
+  failed read shows a message with a retry.
+- **A failed cloud registration is retried in minutes.** It used to wait a full
+  hour, even when the cloud API asked for five minutes.
+
+### 🔌 Remote outputs
+
+- **The output type no longer gets stuck on Cover.** Picking "Cover" disabled
+  every other type; the lock now follows the selected entity, and ESPHome
+  covers are listed as entities, so the type is detected automatically.
+
 ## v1.6.0.dev39 (2026-10-09) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md
