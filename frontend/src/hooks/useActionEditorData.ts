@@ -96,7 +96,8 @@ export function useActionEditorData(enabled: boolean): { data: ActionEditorData;
     if (!enabled) return;
     let cancelled = false;
     (async () => {
-      const response = (await fetchConfig()) as { config?: Record<string, unknown> };
+      // Pickers only: without the configuration they offer nothing to pick.
+      const response = (await fetchConfig().catch(() => ({}))) as { config?: Record<string, unknown> };
       const config = response?.config || {};
       // A copy: the WLED enrichment writes into the devices, and the cache
       // object is shared with Settings.

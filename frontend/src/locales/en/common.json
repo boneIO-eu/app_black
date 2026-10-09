@@ -425,7 +425,9 @@
     "filter_clear": "Clear filter",
     "filter_empty": "Nothing matches.",
     "all_groups": "All groups",
-    "badge_restart_title": "Changing this requires an application restart"
+    "badge_restart_title": "Changing this requires an application restart",
+    "config_load_failed": "Could not read the configuration from the controller. Settings appear only once it is loaded, so that a save cannot overwrite them with defaults.",
+    "config_load_retry": "Try again"
   },
   "array_table_widget": {
     "address_and_model_required": "Address and model are required",

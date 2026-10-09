@@ -18,7 +18,7 @@ export function useAreas(): AreaEntity[] {
       const config = (response as { config?: { areas?: unknown } }).config;
       const list = Array.isArray(config?.areas) ? (config.areas as AreaEntity[]) : [];
       setAreas(list.filter((a) => a && typeof a.id === 'string'));
-    });
+    }).catch(() => {});
     return () => {
       cancelled = true;
     };

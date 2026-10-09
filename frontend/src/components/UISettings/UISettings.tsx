@@ -258,6 +258,11 @@ export default function UISettings() {
     return true;
   });
   const [schemaLoaded, setSchemaLoaded] = useState(false);
+  // Whether formData holds the loaded configuration. Until then a form shows
+  // its defaults, and a save replaced the whole section with them — on a
+  // slow controller, a click in the first seconds wiped `web.expose`.
+  const [formReady, setFormReady] = useState(false);
+  const [configLoadFailed, setConfigLoadFailed] = useState(false);
   const [loxFormValid, setLoxFormValid] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -453,6 +458,7 @@ export default function UISettings() {
    * Load configuration and schemas (lazy loading - config first, schema in background)
    */
   const loadConfiguration = useCallback(async () => {
+    setConfigLoadFailed(false);
     try {
       // Check restart status from backend (non-blocking)
       axios.get<{ restart_required?: boolean }>('/api/status/restart')
@@ -600,6 +606,7 @@ export default function UISettings() {
           const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
           setFormData(convertedFormData);
           setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
+          setFormReady(true);
 
           // Mark schema as loaded AFTER data conversion is complete
           setSchemaLoaded(true);
@@ -607,9 +614,16 @@ export default function UISettings() {
             console.debug('Schema derived for %d sections', loadedSections.length);
           }
         })
-        .catch(err => console.warn('Schema loading failed (non-critical):', err));
+        .catch(err => {
+          console.warn('Schema loading failed (non-critical):', err);
+          // The forms still get the configuration, only without type
+          // conversion; otherwise settings would wait for ever.
+          setFormData(configData);
+          setFormReady(true);
+        });
     } catch (error) {
       console.error('Error loading configuration:', error);
+      setConfigLoadFailed(true);
     }
   }, []);
 
@@ -825,6 +839,7 @@ export default function UISettings() {
    * Save a specific section
    */
   const saveSection = async (sectionName: string, dataOverride?: unknown) => {
+    if (!formReady) return;
     console.log('🔄 saveSection called for:', sectionName);
     console.log('📦 formData[sectionName]:', formData[sectionName]);
     console.log('📦 dataOverride:', dataOverride);
@@ -1391,7 +1406,16 @@ export default function UISettings() {
         )}
 
         {/* Content area */}
-        {activeSection === 'yaml_editor' ? (
+        {configLoadFailed ? (
+          /* Before the sections: they are built from the configuration, so
+             without it there is no section to show this in. */
+          <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+            <p className="text-base-content/70 max-w-md">{t('settings.config_load_failed')}</p>
+            <button className="btn btn-primary btn-sm" onClick={() => void loadConfiguration()}>
+              {t('settings.config_load_retry')}
+            </button>
+          </div>
+        ) : activeSection === 'yaml_editor' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
             <div className="flex-1 overflow-hidden h-full">
               {StandaloneComponent && <StandaloneComponent onRestartRequired={() => setRestartRequired(true)} />}
@@ -1456,7 +1480,7 @@ export default function UISettings() {
             {/* Grows to fill a short section, so the bar below stays at the
                 bottom edge; the padding keeps the last card off it. */}
             <div className="flex-1 pb-5">
-              <SectionContent
+              {formReady ? <SectionContent
                 activeSection={activeSection}
                 activeSectionData={activeSection_data}
                 formData={formData}
@@ -1467,11 +1491,15 @@ export default function UISettings() {
                 onSectionChange={handleSectionChange}
                 onSaveSection={saveSection}
                 onLoxValidationChange={setLoxFormValid}
-              />
+              /> : (
+                <div className="flex justify-center py-16">
+                  <span className="loading loading-spinner loading-lg text-primary" />
+                </div>
+              )}
             </div>
 
             {/* The one place a section is committed from, at every width. */}
-            {hasSectionSave && (
+            {hasSectionSave && formReady && (
               <SettingsActionBar
                 dirty={sectionDirty}
                 saving={saveStatus[activeSection] === 'saving'}

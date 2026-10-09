@@ -50,7 +50,9 @@ function doFetch(): Promise<Record<string, unknown>> {
   }
   const gen = cache.generation;
   cache.promise = axios
-    .get('/api/config')
+    // Not the default 5 s: ~1.5 s on a BeagleBone, but much more while it is
+    // busy starting, and a timeout used to read as an empty configuration.
+    .get('/api/config', { timeout: 30_000 })
     .then(({ data }) => {
       // Only write to cache if no newer invalidation happened while in flight
       if (cache.generation === gen) {
@@ -60,9 +62,11 @@ function doFetch(): Promise<Record<string, unknown>> {
       cache.promise = null;
       return data;
     })
-    .catch(() => {
+    .catch((err) => {
+      // Rejected, not an empty object: Settings drew every form with its
+      // defaults from that, and a save then replaced the section with them.
       cache.promise = null;
-      return {} as Record<string, unknown>;
+      throw err;
     });
   return cache.promise;
 }
@@ -76,7 +80,7 @@ export function prefetchConfig(): void {
   if (cache.data && Date.now() - cache.timestamp < CACHE_TTL) {
     return; // Already cached and fresh
   }
-  doFetch();
+  doFetch().catch(() => {});
 }
 
 /**
@@ -108,5 +112,5 @@ export function invalidateConfigCache(): void {
   cache.timestamp = 0;
   cache.generation++;
   // Immediately start background refetch so cache is warm for next access
-  doFetch();
+  doFetch().catch(() => {});
 }
