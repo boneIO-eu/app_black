@@ -568,7 +568,7 @@ def test_native_dispatch_does_not_fall_through_to_the_root_ca(
 def test_native_image_apply_is_refused(helper, native, ran, caplog):
     assert helper.main(["caddy-image-apply"]) == 1
     assert ran == []
-    assert "Caddy comes from apt; update it with the system update" in caplog.text
+    assert "Caddy is pinned by boneIO; it updates with boneIO" in caplog.text
 
 
 # --------------------------------------------------------------- root CA

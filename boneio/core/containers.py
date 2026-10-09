@@ -97,6 +97,8 @@ _HELPER_ONLY = {
     "proxy-switch-run",
     "proxy-switch-state",
     "proxy-switch-recover",
+    # The image build installs the pinned Caddy package with it.
+    "caddy-install",
 }
 
 

@@ -29,7 +29,11 @@ POLL = 10
 MAX_POLLS = 180
 MAX_ATTEMPTS = 3
 #: Where the package comes from; no point starting the move without it.
-REPO_HOST = "dl.cloudsmith.io"
+REPO_HOST = "github.com"
+#: Steps of the helper that installed Caddy from its apt repository on
+#: Cloudsmith. Attempts that failed there (402, quota spent) are not this
+#: controller's fault and do not use up the automatic ones.
+_CLOUDSMITH_STEPS = ("apt-update", "apt-install")
 
 
 def has_default_route() -> bool:
@@ -86,7 +90,11 @@ def _recover_if_cut_short(state: dict) -> dict | None:
 def _finished(state: dict) -> bool:
     """Whether no further automatic attempt is due."""
     attempts = state.get("attempts")
-    return state.get("state") == "done" or (isinstance(attempts, int) and attempts >= MAX_ATTEMPTS)
+    if state.get("state") == "done":
+        return True
+    if state.get("step") in _CLOUDSMITH_STEPS:
+        return False
+    return isinstance(attempts, int) and attempts >= MAX_ATTEMPTS
 
 
 async def attempt_switch() -> bool:

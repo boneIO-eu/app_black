@@ -63,3 +63,20 @@ def test_502_copies_are_identical() -> None:
         _A.joinpath("caddy/502.html").read_bytes()
         == _A.joinpath("docker/nodered/caddy/502.html").read_bytes()
     )
+
+
+def test_the_cloudsmith_repository_is_taken_off_again() -> None:
+    """1.6.44: an apt source that answers 402 fails every apt-get update."""
+    from boneio.migrations.versions import v1_6_44_caddy_from_github as m
+
+    actions = [a.to_dict() for a in m.plan()]
+    removed = {a["path"] for a in actions if a["action"] == "remove_file"}
+    assert removed == {
+        "/etc/apt/apt.conf.d/53boneio-caddy",
+        "/etc/apt/sources.list.d/caddy-stable.list",
+        "/etc/apt/preferences.d/caddy",
+        "/usr/share/keyrings/caddy-stable-archive-keyring.gpg",
+    }
+    # The helper that installs from GitHub goes in first, pristine copy included.
+    installs = [a["dst"] for a in actions[:2]]
+    assert installs == ["/usr/lib/boneio/trusted/boneio-containers", "/usr/sbin/boneio-containers"]

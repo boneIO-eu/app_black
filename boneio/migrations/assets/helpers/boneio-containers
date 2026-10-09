@@ -47,6 +47,7 @@ import argparse
 import contextlib
 import datetime
 import fcntl
+import hashlib
 import http.client
 import json
 import logging
@@ -131,10 +132,25 @@ PROXY_CONFIG = "/usr/lib/boneio/proxy-config"
 SWITCH_PREREQUISITES = (
     Path("/etc/systemd/system/caddy.service.d/boneio.conf"),
     Path(PROXY_CONFIG),
-    Path("/etc/apt/sources.list.d/caddy-stable.list"),
-    Path("/usr/share/keyrings/caddy-stable-archive-keyring.gpg"),
-    Path("/etc/apt/preferences.d/caddy"),
 )
+#: The Caddy boneIO installs: the release's armhf .deb from GitHub, pinned by
+#: the SHA-512 in that release's checksums file. This helper is signed with the
+#: migrations, so the hash is what vouches for the package, and a new Caddy is
+#: a new boneIO release. Not Caddy's apt repository on Cloudsmith: it answers
+#: 402 whenever the project runs out of transfer quota. Nor Debian's caddy,
+#: 2.6.2, which lacks what the generated Caddyfile uses.
+CADDY_VERSION = "2.11.7"
+CADDY_DEB_URL = (
+    f"https://github.com/caddyserver/caddy/releases/download/v{CADDY_VERSION}/"
+    f"caddy_{CADDY_VERSION}_linux_armv7.deb"
+)
+CADDY_DEB_SHA512 = (
+    "9c41e47815b2b26b16318683884e08e67456a3407e295114ef58d823c037d57a"
+    "8732ca63ebdbaab05745376aec29d1e58eda2f9ff78268755d6208dad2a1c507"
+)
+#: Root-only. A .deb here with the pinned hash is not downloaded again; the
+#: image build puts it here, fetched on the PC.
+CADDY_CACHE = Path("/var/cache/boneio")
 #: How long a proxy has to answer after it was started, and how often it is
 #: asked.
 PROBE_TIMEOUT = 90.0
@@ -307,6 +323,7 @@ LOCKED_VERBS = CADDY_VERBS | {"up", "down", "set-nodered-image"}
 #: take the lock themselves where they need it, the run for its whole length.
 SWITCH_VERBS = {
     "proxy-switch-start", "proxy-switch-run", "proxy-switch-state", "proxy-switch-recover",
+    "caddy-install",
 }
 
 ALL_VERBS = sorted(
@@ -862,6 +879,91 @@ def _set_cloud_marker(present: bool) -> int:
     return _run(list(NATIVE_VERBS["reload-caddy"]))
 
 
+def _caddy_installed_version() -> str | None:
+    """The installed Caddy package's version, or None.
+
+    A package removed with its configuration kept still has a version in dpkg,
+    so only an ``installed`` one counts.
+    """
+    rc, out = _capture(["dpkg-query", "-W", "--showformat=${db:Status-Status} ${Version}", "caddy"])
+    status, _, version = out.strip().partition(" ")
+    return version if rc == 0 and status == "installed" and version else None
+
+
+def _sha512(path: Path) -> str:
+    digest = hashlib.sha512()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _fetch_caddy(log) -> Path:
+    """The pinned Caddy .deb, downloaded unless the cache already holds it.
+
+    Streamed to disk, not memory: the board has half a gigabyte of RAM.
+
+    Raises:
+        Refused: When it cannot be downloaded or is not the pinned file.
+    """
+    CADDY_CACHE.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # Root installs what it hashed here, so nobody else may be able to swap the
+    # file in between: a directory that is a link, not root's, or writable by
+    # group or others is refused, whoever made it.
+    info = os.lstat(CADDY_CACHE)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+        raise Refused(f"{CADDY_CACHE} must be a directory only root can write")
+    deb = CADDY_CACHE / CADDY_DEB_URL.rsplit("/", 1)[1]
+    if deb.is_file() and _sha512(deb) == CADDY_DEB_SHA512:
+        log.write(f"=== {deb} is already here\n")
+        return deb
+    log.write(f"=== downloading {CADDY_DEB_URL}\n")
+    log.flush()
+    fd, part = tempfile.mkstemp(dir=CADDY_CACHE, suffix=".part")
+    try:
+        with os.fdopen(fd, "wb") as out, urllib.request.urlopen(CADDY_DEB_URL, timeout=60) as resp:
+            shutil.copyfileobj(resp, out, 1 << 20)
+        got = _sha512(Path(part))
+        if got != CADDY_DEB_SHA512:
+            raise Refused(f"{CADDY_DEB_URL} has SHA-512 {got[:16]}…, not the pinned one")
+        os.replace(part, deb)
+    except OSError as exc:
+        raise Refused(f"cannot download {CADDY_DEB_URL}: {exc}") from exc
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(part)
+    return deb
+
+
+def _install_caddy(log) -> None:
+    """Put the pinned Caddy package in place; nothing to do when it is.
+
+    Raises:
+        Refused: When the package cannot be had or installed.
+    """
+    if _caddy_installed_version() == CADDY_VERSION:
+        log.write(f"=== caddy {CADDY_VERSION} is already installed\n")
+        return
+    deb = _fetch_caddy(log)
+    # An earlier attempt cut off by a power loss mid-install leaves dpkg
+    # half-configured, and apt-get refuses every install until this runs.
+    # Not fatal: dpkg has no lock timeout, so an automatic update holding
+    # the lock fails it at once, while the install below waits for it —
+    # and fails clearly if dpkg really is broken.
+    rc = _switch_cmd(["dpkg", "--configure", "-a"], log, 600)
+    if rc != 0:
+        log.write(f"=== dpkg --configure -a failed (rc={rc}); installing anyway\n")
+    # apt-get rather than dpkg -i, so a missing dependency is fetched, not left
+    # broken. The drop-in's condition keeps the postinst from starting Caddy.
+    argv = [
+        "apt-get", "install", "-y", "--no-install-recommends",
+        "-o", "DPkg::Lock::Timeout=300", str(deb),
+    ]
+    rc = _switch_cmd(argv, log)
+    if rc != 0:
+        raise Refused(f"{' '.join(argv)} failed (rc={rc})")
+
+
 def _native_image_state() -> int:
     """Print the installed and the candidate Caddy package. Changes nothing.
 
@@ -871,9 +973,7 @@ def _native_image_state() -> int:
     Returns:
         0, with JSON on stdout.
     """
-    rc, out = _capture(["dpkg-query", "-W", "--showformat=${db:Status-Status} ${Version}", "caddy"])
-    status, _, version = out.strip().partition(" ")
-    installed = version if rc == 0 and status == "installed" and version else None
+    installed = _caddy_installed_version()
     candidate = None
     _, out = _capture(["apt-cache", "policy", "caddy"])
     for line in out.splitlines():
@@ -904,7 +1004,7 @@ def _native_caddy(verb: str, argument: str | None) -> int:
     if verb == "caddy-image-state":
         return _native_image_state()
     if verb == "caddy-image-apply":
-        raise Refused("Caddy comes from apt; update it with the system update")
+        raise Refused("Caddy is pinned by boneIO; it updates with boneIO")
     if verb == "caddy-root-ca":
         return _caddy_root_ca()
     raise Refused(f"verb {verb!r} has no meaning for the packaged Caddy")
@@ -1459,32 +1559,8 @@ def _switch_steps(state: dict, log) -> None:
         step("preconditions")
         live, native, cloud, tag = _switch_preconditions()
         port = _https_port()
-        step("apt-update")
-        # Only Caddy's list: the rest is the system update's business, and a
-        # broken Debian mirror must not stop this.
-        run([
-            # Without it an unreachable repository is only a warning, and the
-            # install then fails less clearly, or installs a stale list's.
-            "apt-get", "update", "--error-on=any",
-            "-o", "Dir::Etc::sourcelist=sources.list.d/caddy-stable.list",
-            "-o", "Dir::Etc::sourceparts=-",
-            "-o", "APT::Get::List-Cleanup=0",
-            "-o", "DPkg::Lock::Timeout=300",
-        ])
-        step("apt-install")
-        # An earlier attempt cut off by a power loss mid-install leaves dpkg
-        # half-configured, and apt-get refuses every install until this runs.
-        # Not fatal: dpkg has no lock timeout, so an automatic update holding
-        # the lock fails it at once, while the install below waits for it —
-        # and fails clearly if dpkg really is broken.
-        rc = _switch_cmd(["dpkg", "--configure", "-a"], log, 600)
-        if rc != 0:
-            log.write(f"=== dpkg --configure -a failed (rc={rc}); installing anyway\n")
-        # The drop-in's condition keeps the postinst from starting Caddy.
-        run([
-            "apt-get", "install", "-y", "--no-install-recommends",
-            "-o", "DPkg::Lock::Timeout=300", "caddy",
-        ])
+        step("install-caddy")
+        _install_caddy(log)
         step("carry-over")
         _carry_over_ca(log)
         # The device's name now, not the one the container recorded (its
@@ -1671,6 +1747,11 @@ def _switch(verb: str, argument: str | None) -> int:
         return _switch_start()
     if verb == "proxy-switch-run":
         return _switch_run()
+    if verb == "caddy-install":
+        # The image build's way in; it has no switch to run.
+        with _proxy_lock():
+            _install_caddy(sys.stdout)
+        return 0
     if verb == "proxy-switch-recover":
         # Waiting for the lock is pointless while the switch itself runs.
         if not _switch_unit_active():

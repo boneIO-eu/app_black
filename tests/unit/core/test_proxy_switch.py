@@ -76,7 +76,7 @@ def device(tmp_path, helper, monkeypatch):
     # What the container recorded: its own hostname, not the device's.
     (project / "caddy" / "data" / "last_hostname").write_text("boneio\n")
     prerequisites = []
-    for name in ("boneio.conf", "proxy-config", "caddy-stable.list", "keyring.gpg", "caddy.pref"):
+    for name in ("boneio.conf", "proxy-config"):
         (etc / name).write_text("x\n")
         prerequisites.append(etc / name)
 
@@ -99,6 +99,7 @@ def device(tmp_path, helper, monkeypatch):
         "COMPOSE_BEFORE": state / "compose.before",
         "HOSTNAME_FILE": state / "last_hostname",
         "SWITCH_PREREQUISITES": tuple(prerequisites),
+        "CADDY_CACHE": tmp_path / "var-cache-boneio",
         "PROBE_TIMEOUT": 0.0,
         "PROBE_INTERVAL": 0.0,
     }
@@ -119,6 +120,7 @@ def device(tmp_path, helper, monkeypatch):
         fail: set[str] = set()
         probes: list[bool] = []
         lock_held: list[bool] = []
+        online = True
 
     dev = Device()
     dev.calls, dev.fail, dev.probes, dev.lock_held = [], set(), [], []
@@ -140,7 +142,15 @@ def device(tmp_path, helper, monkeypatch):
         dev.probes.append(answer)
         return answer
 
+    def fake_fetch(log):
+        if not dev.online:
+            raise helper.Refused(f"cannot download {helper.CADDY_DEB_URL}: no route")
+        return dev.deb
+
+    dev.deb = tmp_path / "var-cache-boneio" / "caddy_2.11.7_linux_armv7.deb"
     dev.probe = lambda port: True
+    monkeypatch.setattr(helper, "_fetch_caddy", fake_fetch)
+    monkeypatch.setattr(helper, "_caddy_installed_version", lambda: None)
     monkeypatch.setattr(helper, "_switch_cmd", fake_cmd)
     monkeypatch.setattr(helper, "_proxy_answers", fake_probe)
     return dev
@@ -175,10 +185,8 @@ def test_switch_happy_path_ends_native(helper, device):
     assert state["error"] is None
     calls = device.calls
     order = [
-        "apt-get update --error-on=any -o Dir::Etc::sourcelist=sources.list.d/caddy-stable.list "
-        "-o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0 -o DPkg::Lock::Timeout=300",
         "dpkg --configure -a",
-        "apt-get install -y --no-install-recommends -o DPkg::Lock::Timeout=300 caddy",
+        f"apt-get install -y --no-install-recommends -o DPkg::Lock::Timeout=300 {device.deb}",
         f"{helper.PROXY_CONFIG} --check",
         f"docker compose -f {device.compose} up -d --remove-orphans",
         "systemctl daemon-reload",
@@ -218,7 +226,7 @@ def test_a_failed_reload_after_a_good_probe_still_ends_native(helper, device):
 
 def test_no_network_leaves_the_container_untouched(helper, device):
     before = device.compose.read_text()
-    device.fail = {"apt-get update"}
+    device.online = False
 
     assert helper.main(["proxy-switch-run"]) == 1
 
@@ -228,7 +236,8 @@ def test_no_network_leaves_the_container_untouched(helper, device):
     assert not any(argv[0] == "docker" for argv in device.calls)
     state = _state(helper)
     assert state["state"] == "failed"
-    assert "apt-get update" in state["error"] or "apt-update" in state["error"]
+    assert state["step"] == "install-caddy"
+    assert "cannot download" in state["error"]
 
     assert helper.main(["proxy-switch-run"]) == 1
     assert _state(helper)["attempts"] == 2
@@ -422,14 +431,14 @@ def test_state_prints_the_record_and_the_log(helper, device, capsys):
     empty = json.loads(capsys.readouterr().out)
     assert empty["state"] is None and empty["attempts"] == 0 and empty["running"] is False
 
-    device.fail = {"apt-get update"}
+    device.fail = {"apt-get install"}
     helper.main(["proxy-switch-run"])
     capsys.readouterr()
     assert helper.main(["proxy-switch-state"]) == 0
     shown = json.loads(capsys.readouterr().out)
     assert shown["state"] == "failed"
     assert shown["native"] is False
-    assert "apt-get update" in shown["log"]
+    assert "apt-get install" in shown["log"]
 
 
 def test_the_switch_verbs_are_listed(helper, capsys):
@@ -555,7 +564,7 @@ def test_the_run_recovers_an_interrupted_switch_first(helper, device, monkeypatc
     assert helper.main(["proxy-switch-run"]) == 0
 
     disable = _index(device.calls, "systemctl disable --now caddy")
-    assert disable < _index(device.calls, "apt-get update")
+    assert disable < _index(device.calls, "apt-get install")
     assert _state(helper)["state"] == "done"
     assert "interrupted" in helper.SWITCH_LOG.read_text()
 
@@ -612,3 +621,91 @@ def test_the_boot_unit_runs_recovery_only_after_an_interruption(helper):
     assert str(helper.SWITCH_STATE) in condition
     assert '"state": "running"' in json.dumps({"state": "running"}, indent=1)
     assert '\\"state\\": \\"running\\"' in condition
+
+
+# ------------------------------------------------------------ the package
+
+
+def _as_root(lstat):
+    """lstat that reports root as the owner, as on the device."""
+    def wrapped(path):
+        real = lstat(path)
+        fields = list(real)
+        fields[4] = 0  # st_uid
+        return os.stat_result(fields)
+    return wrapped
+
+
+class _Response:
+    def __init__(self, body: bytes):
+        self.body = body
+
+    def read(self, size=-1):
+        chunk, self.body = (self.body, b"") if size < 0 else (self.body[:size], self.body[size:])
+        return chunk
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_the_package_is_kept_only_with_the_pinned_hash(helper, tmp_path, monkeypatch):
+    import hashlib
+    import io
+    import urllib.request
+
+    good = b"the real caddy"
+    monkeypatch.setattr(helper, "CADDY_CACHE", tmp_path / "cache")
+    monkeypatch.setattr(os, "lstat", _as_root(os.lstat))
+    monkeypatch.setattr(helper, "CADDY_DEB_SHA512", hashlib.sha512(good).hexdigest())
+    served = [b"something else", good]
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout: _Response(served.pop(0)))
+
+    with pytest.raises(helper.Refused, match="not the pinned one"):
+        helper._fetch_caddy(io.StringIO())
+    assert list((tmp_path / "cache").iterdir()) == []
+
+    deb = helper._fetch_caddy(io.StringIO())
+    assert deb.read_bytes() == good
+    # Cached: a second call downloads nothing (served is empty now).
+    assert helper._fetch_caddy(io.StringIO()) == deb
+
+
+def test_the_pinned_version_already_installed_is_left_alone(helper, monkeypatch):
+    import io
+
+    monkeypatch.setattr(helper, "_caddy_installed_version", lambda: helper.CADDY_VERSION)
+    monkeypatch.setattr(helper, "_fetch_caddy", lambda log: pytest.fail("downloaded"))
+    monkeypatch.setattr(helper, "_switch_cmd", lambda *a, **k: pytest.fail("ran a command"))
+    helper._install_caddy(io.StringIO())
+
+
+def test_the_pin_is_a_github_release_deb_for_armhf(helper):
+    assert helper.CADDY_DEB_URL == (
+        f"https://github.com/caddyserver/caddy/releases/download/v{helper.CADDY_VERSION}/"
+        f"caddy_{helper.CADDY_VERSION}_linux_armv7.deb"
+    )
+    assert len(helper.CADDY_DEB_SHA512) == 128
+
+
+@pytest.mark.parametrize("mode, owner", [(0o775, 0), (0o700, 1000)])
+def test_a_cache_others_could_write_is_refused(helper, tmp_path, monkeypatch, mode, owner):
+    """Root installs the file it hashed there; nobody else may swap it in between."""
+    import io
+
+    cache = tmp_path / "cache"
+    cache.mkdir(mode=mode)
+    cache.chmod(mode)
+    real = os.lstat
+
+    def lstat(path):
+        fields = list(real(path))
+        fields[4] = owner
+        return os.stat_result(fields)
+
+    monkeypatch.setattr(helper, "CADDY_CACHE", cache)
+    monkeypatch.setattr(os, "lstat", lstat)
+    with pytest.raises(helper.Refused, match="only root can write"):
+        helper._fetch_caddy(io.StringIO())
