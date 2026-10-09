@@ -341,7 +341,8 @@ async def run(args) -> bool:
             ).stdout.strip().replace(":", "")
             sni = f"blk{mac[-6:].lower()}.black.boneio.app"
         ws_url = next(t["webSocketDebuggerUrl"] for t in tabs if t["type"] == "page")
-        async with websockets.connect(ws_url, max_size=None) as ws:
+        # No keepalive pings: the scenarios wait minutes without reading.
+        async with websockets.connect(ws_url, max_size=None, ping_interval=None) as ws:
             page = Page(ws)
             await page.call("Log.enable")
             await page.call("Page.enable")
@@ -355,6 +356,17 @@ async def run(args) -> bool:
             for line in errors[-5:]:
                 log(f"console {line}")
             log(f"{args.scenario}: {'PASS' if ok else 'FAIL'}; {sni} served by {served_issuer(sni)}")
+            if not ok:
+                # The cloud API limits registrations; a run right after another
+                # one can fail on that, which is no fault of the panel.
+                tail = subprocess.run(
+                    ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no",
+                     "-o", "UserKnownHostsFile=/dev/null", args.ssh,
+                     "journalctl -u boneio --since -10min --no-pager | grep -E 'registration|Rate limited' | tail -4"],
+                    capture_output=True, text=True, check=False,
+                ).stdout
+                for line in tail.splitlines():
+                    log(f"controller: {line[-150:]}")
             return ok
     finally:
         browser.terminate()
