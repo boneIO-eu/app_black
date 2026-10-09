@@ -235,6 +235,8 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
 
   /* ---------- selected output capabilities ---------- */
   const selectedOutput = allAvailableOutputs.find(o => o.id === data.output_id);
+  // A cover entity can only be a cover, and only a cover entity can be one.
+  const isCoverEntity = selectedOutput?._type === 'cover';
   const isLightEntity = selectedOutput?._type === 'light';
   const selectedLight = isLightEntity
     ? [...availableLights, ...wledSegments].find(l => l.id === data.output_id)
@@ -372,7 +374,9 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                           ? 'cover'
                           : found?._type === 'light'
                             ? 'light'
-                            : data.output_type || 'switch';
+                            : data.output_type && data.output_type !== 'cover'
+                              ? data.output_type
+                              : 'switch';
                         onChange({ ...data, output_id: outputId, output_type: autoType });
                       }}
                       disabled={!data.device_id}
@@ -406,6 +410,18 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                             {availableLights.map((li) => (
                               <SelectItem key={`li_${li.id}`} value={li.id}>
                                 💡 {li.name ? `${li.name} (${li.id})` : li.id}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {availableCovers.length > 0 && (
+                          <>
+                            <SelectItem value="_header_covers" disabled>
+                              🪟 {t('outputs.categories.covers')}
+                            </SelectItem>
+                            {availableCovers.map((cv) => (
+                              <SelectItem key={`cv_${cv.id}`} value={cv.id}>
+                                🪟 {cv.name ? `${cv.name} (${cv.id})` : cv.id}
                               </SelectItem>
                             ))}
                           </>
@@ -444,10 +460,10 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="switch" disabled={outputTypeLocked || isCoverType}>{t('outputs.categories.switches')}</SelectItem>
-                        <SelectItem value="light" disabled={isCoverType}>{t('outputs.categories.lights')}</SelectItem>
-                        <SelectItem value="valve" disabled={outputTypeLocked || isCoverType}>{t('outputs.categories.valves')}</SelectItem>
-                        <SelectItem value="cover">{t('covers.title')}</SelectItem>
+                        <SelectItem value="switch" disabled={outputTypeLocked || isCoverEntity}>{t('outputs.categories.switches')}</SelectItem>
+                        <SelectItem value="light" disabled={isCoverEntity}>{t('outputs.categories.lights')}</SelectItem>
+                        <SelectItem value="valve" disabled={outputTypeLocked || isCoverEntity}>{t('outputs.categories.valves')}</SelectItem>
+                        <SelectItem value="cover" disabled={!!selectedOutput && !isCoverEntity}>{t('covers.title')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <label className="label">
