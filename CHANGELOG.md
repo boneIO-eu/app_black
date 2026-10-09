@@ -6,6 +6,19 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev38 (2026-10-09) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### ☁️ Onboarding
+
+- **Turning cloud registration on no longer ends in "could not confirm".**
+  The wizard checks from the browser that the new cloud address answers, and
+  the panel's Content-Security-Policy blocked that request, so after three
+  minutes it gave up although the panel already worked there. The policy now
+  allows this controller's own cloud address, and only that one.
+
 ## v1.6.0.dev37 (2026-10-08) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md

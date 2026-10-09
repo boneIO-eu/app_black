@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev37` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev38` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,24 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev38 — internal test build
+
+## Since dev37
+
+**Turning cloud registration on in the first-run wizard confirms the switch.**
+The panel moves to `https://<serial>.black.boneio.app:8443` and the old
+address stops answering, so the wizard asks the new address from the browser
+before sending you there. The panel's Content-Security-Policy only allowed
+requests to its own address, the browser blocked that check, and after three
+minutes the wizard said it could not confirm the switch — while the panel
+already worked at the new address. `connect-src` now also names this
+controller's own cloud address, and no other.
+
+No system migration was added and no plan changed since dev37; only the
+manifest was re-signed, because it names the release.
 
 ---
 
