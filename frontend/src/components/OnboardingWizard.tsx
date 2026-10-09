@@ -487,10 +487,13 @@ export default function OnboardingWizard() {
     try {
       // Merged into the stored section: the port and proxy port set moments
       // ago live in here too, and so does `expose`.
+      // Not the default 5 s: the backend starts registration inside this
+      // request, and on a fresh controller that first loads aiohttp — 8 s on a
+      // BeagleBone — so the save succeeded while the wizard reported failure.
       const saved = await updateWebSection<{ cloud?: string }>((web) => ({
         ...web,
         cloud: { ...((web.cloud ?? {}) as Record<string, unknown>), enabled: true },
-      }));
+      }), { timeout: 30_000 });
       // The backend starts registration where the change is made. It reports
       // "unavailable" when it could not — no address yet, most likely — and
       // then the next boot is what picks it up, which is worth saying rather
