@@ -396,3 +396,47 @@ class TestNativeMode:
                 start.return_value = _ok()
                 assert await cloud_reg._restore_local_config() is True
                 remove.assert_called_once()
+
+
+class TestRetryAfterAFailedRegistration:
+    """An hour was the wait after any failure, a 429 asking for five minutes too."""
+
+    async def _first_wait(self, cloud_reg, registered: bool, retry_after: int | None) -> float:
+        async def register():
+            cloud_reg._retry_after = retry_after
+            return registered
+
+        waits: list[float] = []
+
+        async def sleep(seconds):
+            waits.append(seconds)
+            raise asyncio.CancelledError
+
+        with (
+            patch.object(cloud_reg, "_register_dns", side_effect=register),
+            patch.object(cloud_reg, "_cert_exists", return_value=True),
+            patch.object(cloud_reg, "_cert_needs_refresh", AsyncMock(return_value=False)),
+            patch.object(cloud_reg, "is_cloud_config_active", return_value=True),
+            patch.object(cloud_reg, "_caddy_cert_matches_disk", AsyncMock(return_value=True)),
+            patch("boneio.core.cloud.registration.get_network_info", return_value={"ip": "10.0.0.2"}),
+            patch("boneio.core.cloud.registration.asyncio.sleep", side_effect=sleep),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await cloud_reg._registration_loop()
+        return waits[0]
+
+    @pytest.mark.asyncio
+    async def test_the_api_s_own_wait_is_honoured(self, cloud_reg):
+        assert await self._first_wait(cloud_reg, False, 327) == 327
+
+    @pytest.mark.asyncio
+    async def test_any_other_failure_is_retried_in_minutes(self, cloud_reg):
+        from boneio.core.cloud.registration import REGISTRATION_RETRY
+
+        assert await self._first_wait(cloud_reg, False, None) == REGISTRATION_RETRY
+
+    @pytest.mark.asyncio
+    async def test_a_registered_device_waits_the_full_interval(self, cloud_reg):
+        from boneio.core.cloud.registration import REGISTRATION_INTERVAL
+
+        assert await self._first_wait(cloud_reg, True, None) == REGISTRATION_INTERVAL

@@ -50,6 +50,10 @@ CADDY_CONFIG_DIR = _DOCKER_DIR / "caddy"
 
 # Registration interval (1 hour)
 REGISTRATION_INTERVAL = 3600
+#: After a failed registration: the next try, unless the API names its own.
+#: An hour was what somebody turning cloud on waited after a rate limit
+#: asking for five minutes, or a network that was down for one.
+REGISTRATION_RETRY = 300
 
 # Caddy Docker HTTPS port (host side of the 8443:443 mapping)
 CADDY_HTTPS_PORT = 8443
@@ -85,6 +89,8 @@ class CloudRegistration:
         self._master_secret = master_secret
         self._enabled = enabled
         self._domain: str | None = None
+        #: Seconds the API asked to wait, from its last 429.
+        self._retry_after: int | None = None
         self._task: asyncio.Task | None = None
         self._session: aiohttp.ClientSession | None = None
         self._last_error: str | None = None
@@ -191,6 +197,7 @@ class CloudRegistration:
     async def _registration_loop(self) -> None:
         """Main registration loop - registers DNS and fetches cert periodically."""
         while True:
+            success = False
             try:
                 # Refresh local IP in case it changed (e.g. DHCP renewal)
                 current_ip = get_network_info().get("ip", "")
@@ -234,8 +241,14 @@ class CloudRegistration:
             except Exception as e:
                 _LOGGER.error("Cloud registration error: %s", e)
 
-            # Wait before next registration
-            await asyncio.sleep(REGISTRATION_INTERVAL)
+            # Wait before the next registration: an hour once it worked, and
+            # soon again when it did not.
+            if success:
+                delay = REGISTRATION_INTERVAL
+            else:
+                delay = self._retry_after or REGISTRATION_RETRY
+            self._retry_after = None
+            await asyncio.sleep(delay)
 
     async def _register_dns(self) -> bool:
         """
@@ -266,6 +279,7 @@ class CloudRegistration:
                     data = await response.json()
                     retry_after = data.get("retryAfter", 3600)
                     _LOGGER.warning("Rate limited, retry after %d seconds", retry_after)
+                    self._retry_after = int(retry_after)
                     return False
                 else:
                     body = await response.text()
