@@ -654,7 +654,7 @@ class CloudRegistration:
             return False
 
         if not restart:
-            _LOGGER.info("Caddy container recreated successfully")
+            _LOGGER.info("Caddy is up with the new configuration")
             return True
 
         # Restart as well: mounted TLS certificates are only re-read on start.
@@ -665,7 +665,7 @@ class CloudRegistration:
                 restarted.stderr.strip() or "unknown error",
             )
 
-        _LOGGER.info("Caddy container recreated and restarted successfully")
+        _LOGGER.info("Caddy is up and restarted with the new configuration")
         return True
 
     def is_cloud_config_active(self) -> bool:

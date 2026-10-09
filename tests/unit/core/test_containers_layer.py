@@ -356,3 +356,17 @@ def test_no_dead_caddyfile_is_left_in_the_tree():
         if "node_modules" not in str(p) and ".git" not in str(p)
     ]
     assert not strays, f"unread Caddy configuration: {[str(p) for p in strays]}"
+
+
+def test_an_unreadable_native_marker_is_logged_not_silent(tmp_path, monkeypatch, caplog):
+    """/etc/boneio at 0700 made a native controller look like a container one."""
+    from pathlib import Path
+
+    class Unreadable(type(Path())):
+        def exists(self, *a, **k):
+            raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(containers, "NATIVE_MARKER", Unreadable(tmp_path / "proxy-native"))
+    monkeypatch.setattr(containers, "_marker_unreadable_logged", False)
+    assert containers.proxy_mode() == "container"
+    assert "Cannot read" in caplog.text

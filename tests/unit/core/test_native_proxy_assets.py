@@ -80,3 +80,13 @@ def test_the_cloudsmith_repository_is_taken_off_again() -> None:
     # The helper that installs from GitHub goes in first, pristine copy included.
     installs = [a["dst"] for a in actions[:2]]
     assert installs == ["/usr/lib/boneio/trusted/boneio-containers", "/usr/sbin/boneio-containers"]
+
+
+def test_etc_boneio_is_made_readable_again() -> None:
+    """1.6.45: the proxy markers live there; the password file keeps its own 0600."""
+    from boneio.migrations.versions import v1_6_45_etc_boneio_readable as m
+
+    assert [a.to_dict() for a in m.plan()] == [{
+        "action": "set_file_permissions", "path": "/etc/boneio",
+        "mode": 0o755, "owner": "root", "group": "root",
+    }]

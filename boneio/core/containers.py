@@ -473,11 +473,20 @@ NATIVE_MARKER = Path("/etc/boneio/proxy-native")
 CLOUD_MARKER = Path("/etc/boneio/proxy-cloud")
 
 
+_marker_unreadable_logged = False
+
+
 def proxy_mode() -> str:
     """``"native"`` once Caddy runs as the package, else ``"container"``."""
+    global _marker_unreadable_logged
     try:
         return "native" if NATIVE_MARKER.exists() else "container"
-    except OSError:
+    except OSError as err:
+        # Unreadable is not absent: a controller on the packaged Caddy is then
+        # taken for one on the container, and nothing else says why.
+        if not _marker_unreadable_logged:
+            _marker_unreadable_logged = True
+            _LOGGER.error("Cannot read %s, assuming the Caddy container: %s", NATIVE_MARKER, err)
         return "container"
 
 
