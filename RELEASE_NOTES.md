@@ -132,6 +132,9 @@ the retry by a real rate limit, which asked for 984 seconds and got them.
 Remote outputs: choosing "Cover" as the type locked the form on it. The type
 now follows the selected entity — an ESPHome cover can only be a cover — and
 ESPHome covers are listed as entities.
+A configured boneIO peer whose config lists no outputs or covers took them from
+its first discovery message only; a cover made on the peer appeared after a
+restart. Every discovery message now refreshes them.
 
 ---
 

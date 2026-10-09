@@ -45,6 +45,9 @@ before updating.
 - **The output type no longer gets stuck on Cover.** Picking "Cover" disabled
   every other type; the lock now follows the selected entity, and ESPHome
   covers are listed as entities, so the type is detected automatically.
+- **A configured boneIO peer keeps following its discovery.** Without outputs
+  or covers in its config it took them from the first discovery message only,
+  so turning two outputs into a cover on the peer showed up after a restart.
 
 ## v1.6.0.dev39 (2026-10-09) — 1.6.x security series
 
