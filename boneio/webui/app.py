@@ -1006,12 +1006,13 @@ def init_app(
     # Off unless the operator asked for it: the map picker is the only thing
     # that needs a third-party host in img-src, and most devices never open it.
     map_tiles = bool((web_security or {}).get("map_tiles"))
+    cloud_url = config_helper.cloud_url
 
     @app.middleware("http")
     async def security_headers_middleware(request, call_next):
         """Add security headers to all responses."""
         response = await call_next(request)
-        apply_security_headers(request, response, frame_ancestors, map_tiles)
+        apply_security_headers(request, response, frame_ancestors, map_tiles, cloud_url)
         return response
 
     # Add GZip compression

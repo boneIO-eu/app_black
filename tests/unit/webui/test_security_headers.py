@@ -186,3 +186,13 @@ def test_enabling_the_map_loosens_nothing_else():
 def test_the_map_setting_reaches_the_response():
     assert "openstreetmap" not in _headers(_app())["Content-Security-Policy"]
     assert "openstreetmap" in _headers(_app(map_tiles=True))["Content-Security-Policy"]
+
+
+def test_the_controllers_own_cloud_name_is_reachable_from_the_page():
+    """The onboarding wizard fetches the cloud name to see that it answers;
+    without it in connect-src the browser blocks that and the wizard times out
+    on a switch that worked. Only this controller's name, never a wildcard."""
+    url = "https://blk239bb2.black.boneio.app:8443"
+    connect = next(d for d in build_csp(cloud_url=url).split("; ") if d.startswith("connect-src"))
+    assert connect == f"connect-src 'self' ws: wss: {url}"
+    assert "black.boneio.app" not in build_csp()

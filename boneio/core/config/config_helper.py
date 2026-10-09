@@ -252,6 +252,13 @@ class ConfigHelper:
         return str(address)
 
     @property
+    def cloud_url(self) -> str | None:
+        """The name cloud registration gives this controller, on or off."""
+        if not self.serial_number:
+            return None
+        return f"https://{self.serial_number}.black.boneio.app:{DEFAULT_PROXY_PORT}"
+
+    @property
     def configuration_url(self) -> str | None:
         """The address anything linking to this panel should use.
 
@@ -267,7 +274,7 @@ class ConfigHelper:
         if self._cloud_registration and self.serial_number:
             # Registered with the cloud: a real certificate on a public name,
             # pointing at the local address. Nothing else can beat that.
-            return f"https://{self.serial_number}.black.boneio.app:{DEFAULT_PROXY_PORT}"
+            return self.cloud_url
         address = self._usable_address(self._network_info)
         if not (self._is_web_active and address):
             return None

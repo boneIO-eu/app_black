@@ -103,7 +103,9 @@ MAP_TILE_SOURCES = (
 )
 
 
-def build_csp(frame_ancestors: object = None, map_tiles: bool = False) -> str:
+def build_csp(
+    frame_ancestors: object = None, map_tiles: bool = False, cloud_url: str | None = None
+) -> str:
     """Assemble the Content-Security-Policy header value.
 
     Args:
@@ -114,6 +116,11 @@ def build_csp(frame_ancestors: object = None, map_tiles: bool = False) -> str:
         map_tiles: ``web.security.map_tiles``. When true, OpenStreetMap tile
             servers are added to ``img-src`` so the location picker can show a
             map. Off by default; see :data:`MAP_TILE_SOURCES`.
+        cloud_url: This controller's own cloud name, added to ``connect-src``.
+            Turning registration on moves the panel there, and the onboarding
+            wizard checks from the browser that the name answers before
+            sending anyone to it. Only this one name, not ``*.black.boneio.app``:
+            other controllers' names are no business of this page.
 
     Returns:
         The header value.
@@ -126,6 +133,11 @@ def build_csp(frame_ancestors: object = None, map_tiles: bool = False) -> str:
             else directive
             for directive in directives
         ]
+    if cloud_url:
+        directives = [
+            f"{directive} {cloud_url}" if directive.startswith("connect-src ") else directive
+            for directive in directives
+        ]
     tokens = framing.effective(frame_ancestors)
     directives.append(f"frame-ancestors {framing.to_csp(tokens)}")
     return "; ".join(directives)
@@ -136,6 +148,7 @@ def apply_security_headers(
     response: Response,
     frame_ancestors: object = None,
     map_tiles: bool = False,
+    cloud_url: str | None = None,
 ) -> None:
     """Set the security headers on an outgoing response.
 
@@ -145,10 +158,11 @@ def apply_security_headers(
         frame_ancestors: Configured frame_ancestors value, or None for the
             default. See :func:`build_csp`.
         map_tiles: Whether the map picker is enabled. See :func:`build_csp`.
+        cloud_url: This controller's cloud name. See :func:`build_csp`.
     """
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "same-origin"
-    response.headers["Content-Security-Policy"] = build_csp(frame_ancestors, map_tiles)
+    response.headers["Content-Security-Policy"] = build_csp(frame_ancestors, map_tiles, cloud_url)
     response.headers["Permissions-Policy"] = _PERMISSIONS_POLICY
 
     # Only meaningful over TLS. A proxy terminating TLS tells us via
