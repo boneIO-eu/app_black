@@ -216,7 +216,8 @@ class TestTimedOutCheck:
         present.write_text("boneio ALL=(root) NOPASSWD: /usr/bin/timedatectl set-ntp *\n")
         monkeypatch.setattr(mod, "SUDOERS_FILE", str(present))
 
-        async def never_answers(*args, **kwargs):
+        async def never_answers(awaitable, *args, **kwargs):
+            awaitable.close()  # as wait_for does: the read is cancelled, not leaked
             raise TimeoutError
 
         monkeypatch.setattr(mod.asyncio, "wait_for", never_answers)
@@ -235,7 +236,8 @@ class TestTimedOutCheck:
 
         monkeypatch.setattr(mod, "SUDOERS_FILE", str(tmp_path / "absent"))
 
-        async def never_answers(*args, **kwargs):
+        async def never_answers(awaitable, *args, **kwargs):
+            awaitable.close()  # as wait_for does: the read is cancelled, not leaked
             raise TimeoutError
 
         monkeypatch.setattr(mod.asyncio, "wait_for", never_answers)
@@ -271,3 +273,38 @@ class TestTimezoneRoutesDoNotBlockTheLoop:
             "these run on the event loop and stall every other request: "
             + "; ".join(offenders)
         )
+
+
+@pytest.mark.asyncio
+async def test_a_timed_out_sudo_is_not_left_running(monkeypatch, tmp_path):
+    """wait_for only cancels the read; the blocked `sudo -l` has to be killed."""
+    from boneio.webui.routes import timezone_sudoers as mod
+
+    monkeypatch.setattr(mod, "SUDOERS_FILE", str(tmp_path / "absent"))
+
+    class Proc:
+        returncode = None
+        killed = False
+
+        async def communicate(self):
+            return b"", b""
+
+        def kill(self):
+            self.killed = True
+
+    proc = Proc()
+
+    async def spawn(*args, **kwargs):
+        return proc
+
+    async def never_answers(awaitable, *args, **kwargs):
+        awaitable.close()
+        raise TimeoutError
+
+    monkeypatch.setattr(mod.asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(mod.asyncio, "wait_for", never_answers)
+
+    result = await mod.check_sudo_nopasswd_for_timedatectl()
+
+    assert proc.killed
+    assert "timed out" in result["error"]

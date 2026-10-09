@@ -9,6 +9,7 @@ and that password is shared across controllers.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from pathlib import Path
@@ -75,6 +76,7 @@ async def check_sudo_nopasswd_for_timedatectl() -> dict:
         "error": None,
     }
 
+    proc = None
     try:
         proc = await asyncio.create_subprocess_exec(
             "sudo", "-n", "-l",
@@ -120,6 +122,10 @@ async def check_sudo_nopasswd_for_timedatectl() -> dict:
             )
 
     except TimeoutError:
+        # Not left behind blocking: wait_for has only cancelled the read.
+        if proc is not None and proc.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
         # `sudo -l` can block on name resolution when the network is down,
         # which is the same outage that makes NTP unreachable — so this is
         # exactly the moment somebody opens this page. Say what is still
