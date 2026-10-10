@@ -214,7 +214,15 @@ async def wizard_cloud(page: Page, base: str, user: str, password: str, L: dict,
             break
         await asyncio.sleep(2)
     await page.shot(out, "wizard-cloud-after")
-    return last in ("ready", "ready_here")
+    if last not in ("ready", "ready_here"):
+        return False
+    links = await page.js("[...document.querySelectorAll('a[href*=\"black.boneio.app\"]')].map(a => a.href)")
+    log(f"links to the cloud address on the cloud step: {links}")
+    await page.do(f"__t.click({json.dumps(ob['next'])})", 2)
+    await page.shot(out, "wizard-done")
+    buttons = await page.js("[...document.querySelectorAll('button')].filter(b => b.offsetParent).map(b => b.innerText.trim() + ' ' + Math.round(b.getBoundingClientRect().height) + 'px')")
+    log(f"done step buttons: {buttons}")
+    return True
 
 
 async def settings_cloud(page: Page, base: str, user: str, password: str, L: dict, sni: str,
