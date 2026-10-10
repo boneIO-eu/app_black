@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev40` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev41` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,33 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev41 — internal test build
+
+## Since dev40
+
+**The first-run wizard's cloud step reads better.** The new address in its
+notices is a link, and on the last step the button that goes there has a row
+of its own instead of sharing one with "Back" and "Stay at this address",
+which wrapped their labels inside fixed-height buttons.
+
+**Node-RED has no password of its own**, and the wizard now says so where the
+panel password is chosen and again at the end: the Node-RED editor takes the
+panel account and password, administrators only.
+
+**A factory reset offers the controller's own type first.** It used to start
+with no type selected (and, before dev35, on board 0.8 whatever the board was);
+it now preselects both from config.yaml, and either can still be changed.
+
+The link and the buttons were seen on a controller flashed from the dev40
+image, with scripts/browser_e2e.py; the factory reset defaults were checked
+against a 0.8 controller's config.yaml. The Node-RED notes have not been seen
+on a screen yet.
+
+No system migration was added and no plan changed since dev40; only the
+manifest was re-signed, because it names the release.
 
 ---
 

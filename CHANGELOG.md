@@ -6,6 +6,26 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev41 (2026-10-10) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### ☁️ Onboarding
+
+- **The new cloud address is a link** in the wizard's notices, opening in a new
+  tab like the button that goes there.
+- **The last step's buttons fit.** "Go to blk….black.boneio.app:8443" has a
+  row of its own; "Back" and "Stay at this address" share the next, instead of
+  three buttons wrapping their labels in one row.
+- **The wizard says that Node-RED takes the panel's login.** Node-RED keeps
+  no accounts of its own; administrators sign in with their panel account.
+
+### 🧰 Factory reset
+
+- **The reset dialog starts from the controller's own type**, as it already did
+  for the board version; both can still be changed.
+
 ## v1.6.0.dev40 (2026-10-09) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md
