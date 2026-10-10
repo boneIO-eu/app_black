@@ -182,6 +182,7 @@ async def wizard_cloud(page: Page, base: str, user: str, password: str, L: dict,
     await page.do(f"__t.fill('input[autocomplete=username]', {json.dumps(user)})", 0.3)
     for i in (0, 1):
         await page.do(f"__t.fill('input[autocomplete=new-password]', {json.dumps(password)}, {i})", 0.3)
+    await page.shot(out, "wizard-account")
     await page.do(f"__t.click({json.dumps(ob['create_account'])})", 1)
     # The account step also sets the SSH password; the steps up to the cloud
     # one are skipped.

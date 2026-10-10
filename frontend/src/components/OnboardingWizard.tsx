@@ -809,6 +809,9 @@ export default function OnboardingWizard() {
                 root-capable SSH login as well, and somebody choosing a
                 password deserves to know what it will open. */}
             <NoticeCallout variant="info" message={t('onboarding.ssh_password_notice')} />
+            {/* Node-RED keeps no accounts of its own: its login asks boneIO
+                (settings.js, adminAuth), administrators only. */}
+            <NoticeCallout variant="info" message={t('onboarding.nodered_login_notice')} />
 
             {error && (
               <div role="alert">
@@ -1190,6 +1193,7 @@ export default function OnboardingWizard() {
             {sshOutcome === 'failed' && (
               <NoticeCallout variant="warning" message={t('onboarding.ssh_failed')} />
             )}
+            <NoticeCallout variant="info" message={t('onboarding.nodered_login_done', { username })} />
 
             {cloudDone === 'live' && <CloudSwitchNotice cloud={cloudSwitch} />}
 

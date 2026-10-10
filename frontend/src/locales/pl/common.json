@@ -2757,7 +2757,9 @@
     "board_apply": "Zastosuj",
     "board_restarting": "Sterownik uruchamia się z nową konfiguracją. To potrwa do minuty.",
     "board_failed": "Nie udało się ustawić typu sterownika.",
-    "board_restart_slow": "Sterownik uruchamia się dłużej niż zwykle. Odśwież stronę za chwilę."
+    "board_restart_slow": "Sterownik uruchamia się dłużej niż zwykle. Odśwież stronę za chwilę.",
+    "nodered_login_notice": "To samo konto i hasło otwiera edytor Node-RED — nie ma on osobnych kont. Wchodzą tam tylko administratorzy panelu.",
+    "nodered_login_done": "Do Node-RED logujesz się tym samym kontem co do panelu: „{{username}}” i tym samym hasłem."
   },
   "accounts": {
     "title": "Konta użytkowników",

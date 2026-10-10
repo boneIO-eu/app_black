@@ -2758,7 +2758,9 @@
     "board_apply": "Apply",
     "board_restarting": "The controller is restarting with the new configuration. This takes up to a minute.",
     "board_failed": "The controller type could not be set.",
-    "board_restart_slow": "The controller is taking longer than usual to start. Reload the page in a moment."
+    "board_restart_slow": "The controller is taking longer than usual to start. Reload the page in a moment.",
+    "nodered_login_notice": "The same account and password open the Node-RED editor — it keeps no accounts of its own. Only panel administrators get in.",
+    "nodered_login_done": "Node-RED takes the same login as the panel: “{{username}}” and the same password."
   },
   "accounts": {
     "title": "User accounts",
