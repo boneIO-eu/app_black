@@ -64,6 +64,25 @@ function hostOf(url: string): string {
 }
 
 /**
+ * A translated sentence with *url* in it, the address made a link. Split on
+ * the address rather than marked up in every locale: the translation is
+ * already interpolated, and the address is the one thing to click.
+ */
+function withLink(text: string, url: string): ReactNode {
+  const at = text.indexOf(url);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <a href={url} target="_blank" rel="noopener noreferrer" className="link link-primary wrap-break-word">
+        {url}
+      </a>
+      {text.slice(at + url.length)}
+    </>
+  );
+}
+
+/**
  * Where the PWA switch is, in words. Shown on the cloud step once it is on
  * and again on the last one, since that is where the owner waits for it.
  */
@@ -89,7 +108,7 @@ function CloudSwitchNotice({ cloud }: { cloud: CloudSwitch }) {
         <NoticeCallout
           variant="success"
           message={cloud.url && !isCurrentOrigin(cloud.url)
-            ? t('onboarding.cloud_ready', { url: cloud.url })
+            ? withLink(t('onboarding.cloud_ready', { url: cloud.url }), cloud.url)
             : t('onboarding.cloud_ready_here')}
         />
       );
@@ -97,15 +116,16 @@ function CloudSwitchNotice({ cloud }: { cloud: CloudSwitch }) {
       return (
         <NoticeCallout
           variant="warning"
-          message={t('onboarding.cloud_unreachable', { url: cloud.url ?? '' })}
+          message={withLink(t('onboarding.cloud_unreachable', { url: cloud.url ?? '' }), cloud.url ?? '')}
         />
       );
     case 'timeout': {
-      const message = cloud.url ? t('onboarding.cloud_timeout_at', { url: cloud.url }) : t('onboarding.cloud_timeout');
+      const text = cloud.url ? t('onboarding.cloud_timeout_at', { url: cloud.url }) : t('onboarding.cloud_timeout');
+      const message = cloud.url ? withLink(text, cloud.url) : text;
       return (
         <NoticeCallout
           variant="warning"
-          message={cloud.error ? `${message} ${cloud.error}` : message}
+          message={cloud.error ? <>{message} {cloud.error}</> : message}
         />
       );
     }
@@ -1173,15 +1193,30 @@ export default function OnboardingWizard() {
 
             {cloudDone === 'live' && <CloudSwitchNotice cloud={cloudSwitch} />}
 
+            {newAddress ? (
+              // Three buttons in a row left "Go to blk….black.boneio.app:8443"
+              // and "Stay at this address" wrapped inside fixed-height buttons.
+              // The way forward gets its own row; the two ways back share one.
+              <div className="flex flex-col gap-2 mt-auto">
+                <button className="btn btn-primary h-auto min-h-11 py-2 whitespace-normal wrap-break-word" onClick={finish}>
+                  {t('onboarding.finish_at', { host: hostOf(newAddress) })}
+                </button>
+                <div className="flex gap-2">
+                  {previousStep && (
+                    <button className="btn btn-outline" onClick={goBack}>
+                      {t('onboarding.back')}
+                    </button>
+                  )}
+                  <button className="btn btn-outline flex-1 h-auto min-h-10 whitespace-normal" onClick={() => window.location.reload()}>
+                    {t('onboarding.cloud_stay_here')}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="flex flex-wrap gap-2 mt-auto">
               {previousStep && (
                 <button className={backButtonClass} onClick={goBack}>
                   {t('onboarding.back')}
-                </button>
-              )}
-              {newAddress && (
-                <button className="btn btn-outline flex-1" onClick={() => window.location.reload()}>
-                  {t('onboarding.cloud_stay_here')}
                 </button>
               )}
               {(cloudSwitch.phase === 'unreachable' || cloudSwitch.phase === 'timeout') && cloudSwitch.url && (
@@ -1195,13 +1230,10 @@ export default function OnboardingWizard() {
                 disabled={cloudSwitchPending}
               >
                 {cloudSwitchPending && <span className="loading loading-spinner loading-sm" />}
-                {cloudSwitchPending
-                  ? t('onboarding.cloud_switch_wait')
-                  : newAddress
-                    ? t('onboarding.finish_at', { host: hostOf(newAddress) })
-                    : t('onboarding.finish')}
+                {cloudSwitchPending ? t('onboarding.cloud_switch_wait') : t('onboarding.finish')}
               </button>
             </div>
+            )}
           </div>
         )}
         </div>
