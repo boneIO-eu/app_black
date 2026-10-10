@@ -11,20 +11,24 @@ certificate:
                   back on its self-signed certificate), save, turn it on, save,
                   until the cloud name is served by Let's Encrypt again.
 
-The panel is reached through an SSH tunnel to localhost, so the browser is on
-a local origin, as on a page opened by IP: the cloud address is another
-origin. Chromium ignores certificate errors; the certificate actually served
-is checked from Python, by SNI, through the same tunnel.
+The panel is opened by IP (``--host``), as somebody setting a controller up
+does, or through an SSH tunnel to localhost (``--ssh``, for a controller with
+your key). Either way the cloud address is another origin. Chromium ignores
+certificate errors; the certificate actually served is checked from Python,
+by SNI.
 
-Usage:
-  scripts/browser_e2e.py wizard-cloud   --ssh boneio@192.168.50.141 --credentials FILE
-  scripts/browser_e2e.py settings-cloud --ssh boneio@192.168.50.141 --credentials FILE
+Right after flashing — no SSH, no key, nothing to click:
+  scripts/browser_e2e.py wizard-cloud --host 192.168.50.142
 
-FILE holds ``user:password`` (test credentials; never printed). For
-wizard-cloud they become the new administrator — and, through the wizard, the
-SSH password of the boneio account. Labels come from the panel's own locale
-(``--lang``, the language the controller shows). Screenshots go to ``--out``.
-Needs Chromium and ``websockets`` (pyenv black13 has it).
+The administrator it creates is written to ~/.config/boneio/e2e/<host>.cred
+(``user:password``, mode 0600; never printed), and so is, through the wizard,
+the SSH password of the boneio account. Later runs reuse that file:
+  scripts/browser_e2e.py settings-cloud --host 192.168.50.142
+  scripts/browser_e2e.py cloud-status   --host 192.168.50.142   (reads, changes nothing)
+
+``--credentials FILE`` takes another file. Labels come from the panel's own
+locale (``--lang``). Screenshots go to ``--out``. Needs Chromium and
+``websockets`` (pyenv black13 has it).
 """
 
 from __future__ import annotations
@@ -33,6 +37,8 @@ import argparse
 import asyncio
 import base64
 import json
+import os
+import secrets
 import shutil
 import socket
 import ssl
@@ -48,6 +54,9 @@ import websockets
 LOCALES = Path(__file__).resolve().parents[1] / "frontend" / "src" / "locales"
 LOCAL_PORT = 18443
 CDP_PORT = 9334
+CREDENTIALS_DIR = Path.home() / ".config" / "boneio" / "e2e"
+#: Where the panel's port answers: the tunnel's end, or the controller itself.
+TARGET = ("127.0.0.1", LOCAL_PORT)
 
 HELPERS = r"""
 window.__t = {
@@ -89,10 +98,10 @@ def log(msg: str) -> None:
 
 
 def served_issuer(sni: str) -> str:
-    """The issuer of the certificate served for *sni* through the tunnel."""
+    """The issuer of the certificate the panel's port serves for *sni*."""
     ctx = ssl.create_default_context()
     ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
-    with socket.create_connection(("127.0.0.1", LOCAL_PORT), timeout=10) as raw:
+    with socket.create_connection(TARGET, timeout=10) as raw:
         with ctx.wrap_socket(raw, server_hostname=sni) as tls:
             der = tls.getpeercert(binary_form=True)
     out = subprocess.run(["openssl", "x509", "-inform", "DER", "-noout", "-issuer"],
@@ -108,6 +117,9 @@ class Page:
         # Saves of a settings section: request id -> (start, end or None, status).
         self.saves: dict[str, list] = {}
         self.answered: set[str] = set()
+        # The latest request id per API path, for reading its answer back.
+        self.request_ids: dict[str, str] = {}
+        self.cloud_name: str | None = None
 
     async def call(self, method, **params):
         self.n += 1
@@ -124,7 +136,9 @@ class Page:
                 if req["method"] == "PUT" and "/api/config/" in req["url"]:
                     self.saves[msg["params"]["requestId"]] = [time.time(), None, None]
             elif msg.get("method") == "Network.responseReceived":
-                self.answered.add(msg["params"]["response"]["url"].split("?")[0])
+                url = msg["params"]["response"]["url"].split("?")[0]
+                self.answered.add(url)
+                self.request_ids[url.split("://", 1)[-1].split("/", 1)[-1]] = msg["params"]["requestId"]
                 if msg["params"]["requestId"] in self.saves:
                     self.saves[msg["params"]["requestId"]][2] = msg["params"]["response"]["status"]
             elif msg.get("method") in ("Network.loadingFinished", "Network.loadingFailed") \
@@ -135,6 +149,17 @@ class Page:
                 self.console.append(f"{e.get('level')}: {e.get('text', '')[:160]}")
             if msg.get("id") == self.n:
                 return msg
+
+    async def body_json(self, path: str):
+        """What the page last got from *path* (e.g. ``api/init``), parsed."""
+        rid = self.request_ids.get(path)
+        if rid is None:
+            return None
+        r = await self.call("Network.getResponseBody", requestId=rid)
+        try:
+            return json.loads(r["result"]["body"])
+        except (KeyError, ValueError):
+            return None
 
     async def js(self, expr):
         r = await self.call("Runtime.evaluate", expression=expr, awaitPromise=True, returnByValue=True)
@@ -203,6 +228,7 @@ async def wizard_cloud(page: Page, base: str, user: str, password: str, L: dict,
     await page.do(f"__t.click({json.dumps(ob['cloud_enable'])})", 1)
     states = {"ready": prefix("cloud_ready"), "ready_here": prefix("cloud_ready_here"),
               "timeout": prefix("cloud_timeout_at"), "unreachable": prefix("cloud_unreachable"),
+              "no address yet": prefix("cloud_timeout"),
               "failed": ob["cloud_failed"], "switching": ob["cloud_switching_title"]}
     last = None
     while time.time() - started < 240:
@@ -211,14 +237,18 @@ async def wizard_cloud(page: Page, base: str, user: str, password: str, L: dict,
         if state != last:
             log(f"+{int(time.time() - started)}s: {state}")
             last = state
-        if state in ("ready", "ready_here", "timeout", "unreachable", "failed"):
+        if state in ("ready", "ready_here", "timeout", "unreachable", "failed", "no address yet"):
             break
         await asyncio.sleep(2)
     await page.shot(out, "wizard-cloud-after")
     if last not in ("ready", "ready_here"):
+        await report_cloud(page)
         return False
     links = await page.js("[...document.querySelectorAll('a[href*=\"black.boneio.app\"]')].map(a => a.href)")
     log(f"links to the cloud address on the cloud step: {links}")
+    if links:
+        # The name to check the served certificate for, as the panel gives it.
+        page.cloud_name = links[0].split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
     await page.do(f"__t.click({json.dumps(ob['next'])})", 2)
     await page.shot(out, "wizard-done")
     buttons = await page.js("[...document.querySelectorAll('button')].filter(b => b.offsetParent).map(b => b.innerText.trim() + ' ' + Math.round(b.getBoundingClientRect().height) + 'px')")
@@ -226,18 +256,43 @@ async def wizard_cloud(page: Page, base: str, user: str, password: str, L: dict,
     return True
 
 
+async def report_cloud(page: Page) -> None:
+    """What the controller last said about its cloud registration."""
+    status = await page.body_json("api/cloud/status")
+    if status:
+        log("cloud status: " + json.dumps({k: status.get(k) for k in
+                                           ("enabled", "domain", "serving", "url", "last_error")}))
+
+
+async def sign_in(page: Page, base: str, user: str, password: str, L: dict) -> None:
+    await page.open(base + "/")
+    if L["panel_guard"]["continue_anyway"] in await page.text():
+        await page.do(f"__t.click({json.dumps(L['panel_guard']['continue_anyway'])})", 4)
+    if await page.js("!!document.querySelector('input[autocomplete=current-password]')"):
+        await page.do(f"__t.fill('input[autocomplete=username]', {json.dumps(user)})", 0.3)
+        await page.do(f"__t.fill('input[autocomplete=current-password]', {json.dumps(password)})", 0.3)
+        await page.do(f"__t.click({json.dumps(L['login']['submit'])})", 4)
+
+
+async def cloud_status(page: Page, base: str, user: str, password: str, L: dict,
+                       sni: str | None) -> bool:
+    """Sign in and say where cloud registration stands. Changes nothing."""
+    await sign_in(page, base, user, password, L)
+    # The web server page asks /api/cloud/status for itself.
+    await page.open(base + "/settings/web")
+    await asyncio.sleep(6)
+    await page.js("1")
+    init = await page.body_json("api/init") or {}
+    page.cloud_name = sni or (f"{init['serial_no']}.black.boneio.app" if init.get("serial_no") else None)
+    await report_cloud(page)
+    return bool(page.cloud_name) and "Let's Encrypt" in served_issuer(page.cloud_name)
+
+
 async def settings_cloud(page: Page, base: str, user: str, password: str, L: dict, sni: str,
                          out: Path) -> bool:
     label = L["boneio_config"]["cloud_registration"]
     save = L["settings"]["save"]
-    await page.open(base + "/")
-    if L["panel_guard"]["continue_anyway"] in await page.text():
-        await page.do(f"__t.click({json.dumps(L['panel_guard']['continue_anyway'])})", 4)
-    if await page.js(
-            "!!document.querySelector('input[autocomplete=current-password]')"):
-        await page.do(f"__t.fill('input[autocomplete=username]', {json.dumps(user)})", 0.3)
-        await page.do(f"__t.fill('input[autocomplete=current-password]', {json.dumps(password)})", 0.3)
-        await page.do(f"__t.click({json.dumps(L['login']['submit'])})", 4)
+    await sign_in(page, base, user, password, L)
     await page.open(base + "/settings/web")
     if not await page.wait_for(label, 30):
         log("no cloud toggle on the web server page")
@@ -297,6 +352,14 @@ async def settings_cloud(page: Page, base: str, user: str, password: str, L: dic
         await page.shot(out, f"settings-{what}")
         return False
 
+    if not sni:
+        # By IP there is no MAC to read; the panel names the serial once signed in.
+        init = await page.body_json("api/init") or {}
+        if not init.get("serial_no"):
+            log("the panel did not give its serial; pass --cloud-name")
+            return False
+        sni = f"{init['serial_no']}.black.boneio.app"
+    page.cloud_name = sni
     log(f"before: toggle {await page.js(f'__t.toggle({json.dumps(label)})')}, {sni} served by {served_issuer(sni)}")
     if await page.js(f"__t.toggle({json.dumps(label)})"):
         await page.do(f"__t.flip({json.dumps(label)})", 1)
@@ -311,19 +374,41 @@ async def settings_cloud(page: Page, base: str, user: str, password: str, L: dic
     return ok
 
 
+def credentials(args, host: str) -> tuple[str, str]:
+    """The administrator to use, made up and kept for the next run if need be."""
+    path = Path(args.credentials) if args.credentials else CREDENTIALS_DIR / f"{host}.cred"
+    if not path.exists():
+        if args.scenario != "wizard-cloud":
+            sys.exit(f"no credentials in {path}: run wizard-cloud first, or pass --credentials")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(f"e2e-admin:{secrets.token_urlsafe(18)}\n")
+        log(f"new administrator kept in {path}")
+    user, password = path.read_text().strip().split(":", 1)
+    return user, password
+
+
 async def run(args) -> bool:
-    user, password = Path(args.credentials).read_text().strip().split(":", 1)
+    global TARGET
+    host = args.host or args.ssh.split("@")[-1]
+    user, password = credentials(args, host)
     L = json.loads((LOCALES / args.lang / "common.json").read_text())
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    host = args.ssh.split("@")[-1]
     sni = args.cloud_name or None
 
-    tunnel = subprocess.Popen([
-        "ssh", "-N", "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
-        "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
-        "-L", f"{LOCAL_PORT}:127.0.0.1:8443", args.ssh,
-    ], stderr=subprocess.DEVNULL)
+    if args.ssh:
+        tunnel = subprocess.Popen([
+            "ssh", "-N", "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
+            "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+            "-L", f"{LOCAL_PORT}:127.0.0.1:8443", args.ssh,
+        ], stderr=subprocess.DEVNULL)
+        base = f"https://localhost:{LOCAL_PORT}"
+    else:
+        tunnel = None
+        TARGET = (host, 8443)
+        base = f"https://{host}:8443"
     chromium = shutil.which("chromium") or shutil.which("google-chrome-stable")
     browser = subprocess.Popen([
         chromium, "--headless=new", "--ignore-certificate-errors", "--no-first-run",
@@ -331,7 +416,6 @@ async def run(args) -> bool:
         f"--remote-debugging-port={CDP_PORT}", "about:blank",
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        base = f"https://localhost:{LOCAL_PORT}"
         for _ in range(50):
             try:
                 tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json"))
@@ -339,7 +423,13 @@ async def run(args) -> bool:
                 break
             except OSError:
                 time.sleep(0.3)
-        if sni is None:
+        init = json.load(urllib.request.urlopen(
+            f"{base}/api/init", context=ssl._create_unverified_context(), timeout=30))
+        log(f"{base}: boneIO {init.get('version')}, needs onboarding: {init.get('needs_onboarding')}")
+        if args.scenario == "wizard-cloud" and not init.get("needs_onboarding"):
+            log("this controller already has an administrator; the wizard runs on a fresh one")
+            return False
+        if sni is None and args.ssh:
             # The serial is the MAC's tail, as boneIO computes it; the hostname
             # can be wrong (an image that carried its build board's name).
             mac = subprocess.run(
@@ -359,13 +449,17 @@ async def run(args) -> bool:
             await page.call("Page.addScriptToEvaluateOnNewDocument", source=HELPERS)
             if args.scenario == "wizard-cloud":
                 ok = await wizard_cloud(page, base, user, password, L, out)
+            elif args.scenario == "cloud-status":
+                ok = await cloud_status(page, base, user, password, L, sni)
             else:
                 ok = await settings_cloud(page, base, user, password, L, sni, out)
             errors = [c for c in page.console if c.startswith("error") and "401" not in c and "403" not in c]
             for line in errors[-5:]:
                 log(f"console {line}")
-            log(f"{args.scenario}: {'PASS' if ok else 'FAIL'}; {sni} served by {served_issuer(sni)}")
-            if not ok:
+            name = sni or page.cloud_name
+            served = f"; {name} served by {served_issuer(name)}" if name else ""
+            log(f"{args.scenario}: {'PASS' if ok else 'FAIL'}{served}")
+            if not ok and args.ssh:
                 # The cloud API limits registrations; a run right after another
                 # one can fail on that, which is no fault of the panel.
                 tail = subprocess.run(
@@ -379,14 +473,17 @@ async def run(args) -> bool:
             return ok
     finally:
         browser.terminate()
-        tunnel.terminate()
+        if tunnel:
+            tunnel.terminate()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("scenario", choices=("wizard-cloud", "settings-cloud"))
-    parser.add_argument("--ssh", required=True, help="boneio@<controller>, with key login")
-    parser.add_argument("--credentials", required=True, help="file with user:password")
+    parser.add_argument("scenario", choices=("wizard-cloud", "settings-cloud", "cloud-status"))
+    where = parser.add_mutually_exclusive_group(required=True)
+    where.add_argument("--host", help="the controller's address, opened directly")
+    where.add_argument("--ssh", help="boneio@<controller>, with key login, through a tunnel")
+    parser.add_argument("--credentials", help=f"file with user:password (default {CREDENTIALS_DIR}/<host>.cred)")
     parser.add_argument("--lang", default="pl", help="the panel's language (locale directory)")
     parser.add_argument("--cloud-name", help="defaults to <serial>.black.boneio.app")
     parser.add_argument("--out", default=tempfile.gettempdir() + "/boneio-e2e")
