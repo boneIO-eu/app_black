@@ -55,6 +55,9 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
     try {
       const { data } = await axios.get('/api/factory_reset/device_types');
       setDeviceTypes(data.device_types || []);
+      // What this controller is now, as the version below: a reset usually
+      // keeps both, and either can still be changed.
+      if (data.current) setSelectedDeviceType((chosen) => chosen ?? data.current);
     } catch (err) {
       console.error('Error fetching device types:', err);
     }

@@ -739,6 +739,19 @@ def _current_board_version() -> str | None:
     return version if version in HARDWARE_VERSIONS else None
 
 
+def _current_device_type() -> str | None:
+    """The controller type config.yaml names, as the reset lists it (``32x10``)."""
+    try:
+        config = load_yaml_file(os.path.expanduser("~/boneio/config.yaml")) or {}
+        named = normalize_board_name(str(config.get("boneio", {}).get("device_type") or ""))
+    except Exception:  # noqa: BLE001 — no readable config, no current type
+        return None
+    if not named:
+        return None
+    # 32x10a, 32x10A and 32x10 are one controller; compare as the loader does.
+    return next((t for t in DEVICE_TYPES if normalize_board_name(t) == named), None)
+
+
 def _factory_templates(device_type: str, version: str):
     """Where a reset copies from, and whether config.yaml still needs fitting.
 
@@ -772,9 +785,10 @@ async def get_device_types():
     Get available device types for factory reset.
     
     Returns:
-        List of available device types.
+        The device types, and the one this controller is configured as, which
+        the reset dialog offers first.
     """
-    return {"device_types": DEVICE_TYPES}
+    return {"device_types": DEVICE_TYPES, "current": _current_device_type()}
 
 
 class FactoryResetRequest(BaseModel):
