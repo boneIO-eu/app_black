@@ -907,7 +907,15 @@
     "go_to_settings": "Go to Settings",
     "go_to_settings_confirm": "Do you want to open the settings for this device?",
     "polling_enabled": "Polling enabled",
-    "polling_disabled": "Polling disabled — values are frozen"
+    "polling_disabled": "Polling disabled — values are frozen",
+    "device": "Device",
+    "all_devices": "All devices",
+    "only_failing": "Failing only",
+    "previous_device": "Previous device",
+    "next_device": "Next device",
+    "search_placeholder": "Search: name or id…",
+    "no_matches": "Nothing matches the filter",
+    "failing": "Device not responding or refusing reads"
   },
   "modbus_config": {
     "uart": "UART",

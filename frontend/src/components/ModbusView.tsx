@@ -4,14 +4,14 @@ import axios from '@/api/axios';
 import type { AxiosError } from 'axios';
 import { WebSocketContext } from '@/contexts/WebSocketContext';
 import ViewToggle from './ViewToggle';
-import { isModbusDeviceEvent, ModbusDeviceState } from '../hooks/useWebSocket';
+import { addGlobalMessageListener, isModbusDeviceEvent, isModbusStatusEvent, ModbusDeviceState } from '../hooks/useWebSocket';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../hooks/useAuth';
 import ModbusDeviceItem from './ModbusDeviceItem';
 import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import { EntityGrid, EntityPanel, SENSOR_GRID_CLASS } from './EntityGrid';
-import { FaCog, FaSyncAlt } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCog, FaExclamationTriangle, FaSearch, FaSyncAlt } from 'react-icons/fa';
 import EntityInfoCard from './entityCard/EntityInfoCard';
 
 type ApiError = AxiosError<{ detail?: string }>;
@@ -37,6 +37,13 @@ const GROUP_COLORS = [
   { accentColor: 'border-orange-500',  strokeColor: '#f97316', fillColor: 'rgba(249, 115, 22, 0.10)' },
   { accentColor: 'border-pink-500',    strokeColor: '#ec4899', fillColor: 'rgba(236, 72, 153, 0.10)' },
 ];
+
+/** Device picker value that shows only the devices failing to read. */
+const FAILING = '__failing__';
+
+function matchesQuery(device: ModbusDeviceState, needle: string): boolean {
+  return [device.custom_label, device.name, device.id].some(v => v?.toLowerCase().includes(needle));
+}
 
 function isWriteableDevice(device: ModbusDeviceState): boolean {
   return device.entity_type?.includes('select') || device.entity_type === 'switch' || device.entity_type === 'number';
@@ -69,24 +76,40 @@ export default function ModbusView() {
   });
   const [error, setError] = useState<string | null>(null);
   const [pollingState, setPollingState] = useState<Record<string, boolean>>({});
+  const [failing, setFailing] = useState<Record<string, boolean>>({});
+  // '' is every device, FAILING the failing ones, anything else one device.
+  const [selected, setSelected] = useState(() => localStorage.getItem('modbusDevice') || '');
+  const [query, setQuery] = useState('');
 
   // Fetch initial polling state from API
   useEffect(() => {
+    // Subscribed before the fetch so a change in between is not lost; what
+    // the socket has already said wins over the older snapshot.
+    const unsubscribe = addGlobalMessageListener((data) => {
+      if (isModbusStatusEvent(data)) {
+        setFailing(prev => ({ ...prev, [data.entity_id]: data.failing }));
+      }
+    });
     const fetchPollingState = async () => {
       try {
         const { data } = await axios.get('/api/modbus/status');
         if (data.coordinators) {
           const state: Record<string, boolean> = {};
+          const failingState: Record<string, boolean> = {};
           for (const [id, info] of Object.entries(data.coordinators)) {
-            state[id] = (info as { polling_enabled: boolean }).polling_enabled;
+            const { polling_enabled, failing } = info as { polling_enabled: boolean; failing?: boolean };
+            state[id] = polling_enabled;
+            failingState[id] = Boolean(failing);
           }
           setPollingState(state);
+          setFailing(prev => ({ ...failingState, ...prev }));
         }
       } catch {
         // Non-critical — polling state defaults to enabled
       }
     };
     fetchPollingState();
+    return unsubscribe;
   }, []);
 
   const handlePollingToggle = useCallback(async (coordinatorId: string, enabled: boolean) => {
@@ -163,6 +186,41 @@ export default function ModbusView() {
     });
   }, [validModbusDevices, t]);
 
+  // Filtered after grouping, so a device keeps its color and the history
+  // above keeps every device's points while it is hidden.
+  const activeSelected = selected === FAILING || sortedGroupedEntries.some(g => g.groupKey === selected) ? selected : '';
+  const failingCount = sortedGroupedEntries.filter(g => failing[g.groupKey]).length;
+  const visibleGroups = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return sortedGroupedEntries.flatMap(group => {
+      if (activeSelected === FAILING ? !failing[group.groupKey] : activeSelected && group.groupKey !== activeSelected) {
+        return [];
+      }
+      if (!needle || group.groupName.toLowerCase().includes(needle)) {
+        return [group];
+      }
+      const sensors = group.sensors.filter(d => matchesQuery(d, needle));
+      const writeable = group.writeable.filter(d => matchesQuery(d, needle));
+      return sensors.length || writeable.length ? [{ ...group, sensors, writeable }] : [];
+    });
+  }, [sortedGroupedEntries, activeSelected, failing, query]);
+
+  // "Failing only" is not remembered: on a healthy system the next visit
+  // would open on an empty page.
+  const selectDevice = (key: string) => {
+    setSelected(key);
+    localStorage.setItem('modbusDevice', key === FAILING ? '' : key);
+  };
+
+  // From "all" or "failing" the arrows start at either end; past the last
+  // device they wrap around.
+  const stepDevice = (delta: 1 | -1) => {
+    const keys = sortedGroupedEntries.map(g => g.groupKey);
+    const index = keys.indexOf(activeSelected);
+    const next = index === -1 ? (delta === 1 ? 0 : keys.length - 1) : (index + delta + keys.length) % keys.length;
+    selectDevice(keys[next]);
+  };
+
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
     localStorage.setItem('modbusViewMode', gridView ? 'grid' : 'list');
@@ -216,20 +274,78 @@ export default function ModbusView() {
             </div>
           )}
 
+          {sortedGroupedEntries.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+              <div className="flex gap-2 min-w-0 sm:flex-1">
+                <button
+                  className="btn btn-sm btn-square"
+                  onClick={() => stepDevice(-1)}
+                  title={t('modbus_view.previous_device')}
+                  aria-label={t('modbus_view.previous_device')}
+                >
+                  <FaChevronLeft />
+                </button>
+                <select
+                  className="select select-sm flex-1 min-w-0"
+                  value={activeSelected}
+                  onChange={(e) => selectDevice(e.target.value)}
+                  aria-label={t('modbus_view.device')}
+                >
+                  <option value="">{t('modbus_view.all_devices')}</option>
+                  <option value={FAILING}>⚠ {t('modbus_view.only_failing')} ({failingCount})</option>
+                  {sortedGroupedEntries.map(g => (
+                    <option key={g.groupKey} value={g.groupKey}>
+                      {failing[g.groupKey] ? '⚠ ' : ''}{g.groupName} ({g.sensors.length + g.writeable.length})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-sm btn-square"
+                  onClick={() => stepDevice(1)}
+                  title={t('modbus_view.next_device')}
+                  aria-label={t('modbus_view.next_device')}
+                >
+                  <FaChevronRight />
+                </button>
+              </div>
+              <label className="input input-sm w-full sm:w-72">
+                <FaSearch className="opacity-50" />
+                <input
+                  type="search"
+                  className="grow"
+                  placeholder={t('modbus_view.search_placeholder')}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+
           {/* Grouped Modbus Devices */}
           {sortedGroupedEntries.length === 0 ? (
             <div className="text-center py-8 text-base-content/60">
               {t('modbus_view.no_devices')}
             </div>
+          ) : visibleGroups.length === 0 ? (
+            <div className="text-center py-8 text-base-content/60">
+              {t('modbus_view.no_matches')}
+            </div>
           ) : (
-            sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
+            visibleGroups.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
               return (
                 /* One panel per device: the thing you reason about here is
                    "what is this meter doing", and its sensors and controls
                    are two lists inside that, not two peers of it. */
                 <EntityPanel
                   key={groupKey}
-                  title={groupName}
+                  title={
+                    <>
+                      {failing[groupKey] && (
+                        <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0 text-error" title={t('modbus_view.failing')} />
+                      )}
+                      <span className="wrap-break-word min-w-0">{groupName}</span>
+                    </>
+                  }
                   action={
                     <label
                       className="flex items-center gap-1.5 cursor-pointer shrink-0"

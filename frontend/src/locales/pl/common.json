@@ -907,7 +907,15 @@
     "go_to_settings": "Przejdź do ustawień",
     "go_to_settings_confirm": "Czy chcesz otworzyć ustawienia tego urządzenia?",
     "polling_enabled": "Odpytywanie włączone",
-    "polling_disabled": "Odpytywanie wyłączone — wartości zamrożone"
+    "polling_disabled": "Odpytywanie wyłączone — wartości zamrożone",
+    "device": "Urządzenie",
+    "all_devices": "Wszystkie urządzenia",
+    "only_failing": "Tylko z błędami",
+    "previous_device": "Poprzednie urządzenie",
+    "next_device": "Następne urządzenie",
+    "search_placeholder": "Szukaj: nazwa lub id…",
+    "no_matches": "Nic nie pasuje do filtra",
+    "failing": "Urządzenie nie odpowiada lub odrzuca odczyt"
   },
   "modbus_config": {
     "uart": "UART",
