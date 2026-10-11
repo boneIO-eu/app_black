@@ -190,7 +190,7 @@ class MqttStateEvent(BaseModel):
 # Discriminated union for all events
 # The discriminator field "event_type" allows Pydantic to automatically
 # determine which event type to use when parsing
-Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ConfigReloadEvent | InputsReloadedEvent | MqttStateEvent
+Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ScheduleEvent | ConfigReloadEvent | InputsReloadedEvent | MqttStateEvent
 
 __all__ = [
     "InputEvent",
