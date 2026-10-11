@@ -30,10 +30,13 @@ MAX_POLLS = 180
 MAX_ATTEMPTS = 3
 #: Where the package comes from; no point starting the move without it.
 REPO_HOST = "github.com"
-#: Steps of the helper that installed Caddy from its apt repository on
-#: Cloudsmith. Attempts that failed there (402, quota spent) are not this
-#: controller's fault and do not use up the automatic ones.
-_CLOUDSMITH_STEPS = ("apt-update", "apt-install")
+#: Steps whose failure does not use up an automatic attempt. The helper's
+#: Cloudsmith steps failed on the repository's 402, not on this controller.
+#: A refusal at the preconditions changes nothing on the controller, and the
+#: one seen in the field (a compose file from before 1.6.15 taken for an
+#: edited one) goes away with the helper that fixed it — so the next look
+#: has to be allowed to try again.
+_NOT_COUNTED_STEPS = ("apt-update", "apt-install", "preconditions")
 
 
 def has_default_route() -> bool:
@@ -92,7 +95,7 @@ def _finished(state: dict) -> bool:
     attempts = state.get("attempts")
     if state.get("state") == "done":
         return True
-    if state.get("step") in _CLOUDSMITH_STEPS:
+    if state.get("step") in _NOT_COUNTED_STEPS:
         return False
     return isinstance(attempts, int) and attempts >= MAX_ATTEMPTS
 

@@ -1324,10 +1324,30 @@ def _wait_for_proxy(port: int) -> bool:
         time.sleep(PROBE_INTERVAL)
 
 
+#: Lines migration 1.6.15 added to the templates and deliberately left out of
+#: the live file. A controller installed before it, whose port and cloud mode
+#: never changed since, still runs the file without them.
+_ADDED_SINCE_INSTALL_RE = re.compile(
+    r"^\s*- (?:WEB_PORT|PUBLIC_HTTPS_PORT)=\S*\s*$", re.MULTILINE
+)
+
+
 def _shape(text: str) -> str:
-    """*text* with the two lines this helper changes for the panel blanked."""
+    """*text* as far as it decides what runs.
+
+    The two lines this helper changes for the panel are blanked, and what
+    earlier templates did not have yet is left out: comments, blank lines and
+    the two variables 1.6.15 added. Compared verbatim, every controller
+    installed before 1.6.15 looked edited by hand, and its switch to the
+    packaged Caddy was refused for good.
+    """
     text = _NODERED_IMAGE_RE.sub(lambda m: f"{m['prefix']}*{m['suffix']}", text, count=1)
-    return _CADDY_IMAGE_RE.sub(lambda m: f"{m['prefix']}*{m['suffix']}", text, count=1)
+    text = _CADDY_IMAGE_RE.sub(lambda m: f"{m['prefix']}*{m['suffix']}", text, count=1)
+    text = _ADDED_SINCE_INSTALL_RE.sub("", text)
+    return "\n".join(
+        line.rstrip() for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
 
 
 def _template_shapes() -> list[str]:

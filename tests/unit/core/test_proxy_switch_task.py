@@ -81,6 +81,15 @@ def test_runs_lost_to_the_old_apt_repository_do_not_count(monkeypatch):
     assert helper.calls == ["start"]
 
 
+def test_refusals_at_the_preconditions_do_not_count(monkeypatch):
+    """They change nothing; the next helper may well accept the same file."""
+    helper = Helper(monkeypatch, {"state": "failed", "running": False, "attempts": 4,
+                                  "step": "preconditions", "error": "not one of the Caddy templates"})
+    helper.finish_after_poll(monkeypatch)
+    assert asyncio.run(proxy_switch.attempt_switch()) is True
+    assert helper.calls == ["start"]
+
+
 def test_two_failed_runs_leave_room_for_a_third(monkeypatch):
     helper = Helper(monkeypatch, {"state": "failed", "running": False, "attempts": 2, "error": "x"})
     helper.finish_after_poll(monkeypatch)

@@ -709,3 +709,48 @@ def test_a_cache_others_could_write_is_refused(helper, tmp_path, monkeypatch, mo
     monkeypatch.setattr(os, "lstat", lstat)
     with pytest.raises(helper.Refused, match="only root can write"):
         helper._fetch_caddy(io.StringIO())
+
+
+# ------------------------------------------- controllers older than 1.6.15
+
+
+ASSETS = REPO_ROOT / "boneio" / "migrations" / "assets" / "docker" / "nodered"
+
+
+def _before_1_6_15(template: str) -> str:
+    """The live file a controller installed earlier still runs: no comments,
+    no WEB_PORT or PUBLIC_HTTPS_PORT, the Caddy image it was installed with."""
+    import re
+
+    lines = [
+        line for line in template.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+        and not re.match(r"\s*- (WEB_PORT|PUBLIC_HTTPS_PORT)=", line)
+    ]
+    text = "\n".join(lines) + "\n"
+    return re.sub(r"image: caddy:\S+", "image: caddy:2-alpine", text)
+
+
+@pytest.mark.parametrize("name", ["docker-compose.yaml", "docker-compose-cloud.yaml"])
+def test_a_file_from_before_1_6_15_is_still_a_template(helper, device, name):
+    """Reported from the field: 'is not one of the Caddy templates', attempts
+    used up, on a controller updated from an older release."""
+    real = (ASSETS / name).read_text()
+    (helper.COMPOSE_TEMPLATE).write_text((ASSETS / "docker-compose.yaml").read_text())
+    (helper.COMPOSE_CLOUD_TEMPLATE).write_text((ASSETS / "docker-compose-cloud.yaml").read_text())
+    device.compose.write_text(_before_1_6_15(real))
+
+    live, native, cloud, tag = helper._switch_preconditions()
+
+    assert cloud is (name == "docker-compose-cloud.yaml")
+    assert tag
+
+
+def test_a_service_added_by_hand_is_still_refused(helper, device):
+    (helper.COMPOSE_TEMPLATE).write_text((ASSETS / "docker-compose.yaml").read_text())
+    device.compose.write_text(
+        _before_1_6_15((ASSETS / "docker-compose.yaml").read_text())
+        + "  extra:\n    image: alpine\n"
+    )
+    with pytest.raises(helper.Refused, match="not one of the Caddy templates"):
+        helper._switch_preconditions()
