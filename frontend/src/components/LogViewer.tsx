@@ -109,12 +109,25 @@ export default function LogViewer() {
     return params.toString();
   }, [serverPriority, dateFrom, dateTo, debouncedGrep]);
 
-  const fetchLogs = useCallback(async () => {
+  /**
+   * Fetch the newest page. With `append`, keep what is shown and add only
+   * entries newer than the last one held, so a reader scrolled up does not
+   * have the lines shift under them or lose older pages they loaded.
+   */
+  const fetchLogs = useCallback(async (append = false) => {
     try {
       setIsLoading(true);
       const response = await axios.get(`/api/logs?${buildLogParams()}`, { timeout: 30000 });
-      setLogs(response.data.logs);
-      setHasMore(response.data.has_more);
+      const fresh: LogEntry[] = response.data.logs;
+      setLogs(prev => {
+        const last = prev[prev.length - 1];
+        if (!append || !last) return fresh;
+        let at = fresh.length - 1;
+        while (at >= 0 && !(fresh[at].timestamp === last.timestamp && fresh[at].message === last.message)) at--;
+        const added = at >= 0 ? fresh.slice(at + 1) : fresh.filter(l => l.timestamp > last.timestamp);
+        return added.length ? [...prev, ...added] : prev;
+      });
+      if (!append) setHasMore(response.data.has_more);
       setLogSource(response.data.source || 'standalone');
     } catch (error) {
       console.error('Error fetching logs:', error);
@@ -167,10 +180,10 @@ export default function LogViewer() {
 
   useEffect(() => {
     if (autoRefresh) {
-      const interval = setInterval(fetchLogs, 5000);
+      const interval = setInterval(() => fetchLogs(!autoScroll), 5000);
       return () => clearInterval(interval);
     }
-  }, [fetchLogs, autoRefresh]);
+  }, [fetchLogs, autoRefresh, autoScroll]);
 
   // Close dropdowns when clicking outside + track mouseup globally
   useEffect(() => {
@@ -382,8 +395,8 @@ export default function LogViewer() {
   const handleScroll = () => {
     if (logContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = logContainerRef.current;
-      // If we're near the bottom (within 100px), enable auto-scroll
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      // If we're near the bottom (within 30px), enable auto-scroll
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 30;
       setAutoScroll(isNearBottom);
       
       // Check if we're in the top half of the content
@@ -770,7 +783,7 @@ export default function LogViewer() {
         </span>
 
         <button
-          onClick={fetchLogs}
+          onClick={() => fetchLogs()}
           disabled={isLoading}
           className="btn btn-sm btn-square"
         >
