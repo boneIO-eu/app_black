@@ -6,6 +6,20 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev43 (2026-10-11) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🏠 Home Assistant add-on
+
+- **Settings open behind the Home Assistant add-on.** The add-on serves the
+  panel under a path and rewrites only index.html to it. The preloads of lazy
+  views and the `url()` references in stylesheets were built against the "/"
+  base, went to Home Assistant's root and got 404; a failed preload rejects the
+  view's import, so Settings stayed on a blank page. They now resolve against
+  the file that names them, which works with and without a path prefix.
+
 ## v1.6.0.dev42 (2026-10-11) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md

@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev42` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev43` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,24 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev43 — internal test build
+
+## Since dev42
+
+**Settings open behind the Home Assistant add-on.** The add-on serves the
+panel under a path (`/api/hassio_ingress/<token>/…`) and rewrites only
+index.html to it, never the scripts. The panel's preloads of lazy views and
+the `url()` references in its stylesheets were resolved against the "/" base,
+so they went to Home Assistant's root and came back 404; a failed preload
+rejects the view's import, and Settings stayed on a blank page. They now
+resolve against the file that names them, so the panel loads the same with and
+without a path prefix. Nothing changes for a controller opened directly.
+
+No system migration was added and no plan changed since dev42; only the
+manifest was re-signed, because it names the release.
 
 ---
 
