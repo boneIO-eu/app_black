@@ -11,21 +11,15 @@ import ModbusDeviceItem from './ModbusDeviceItem';
 import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import { EntityGrid, EntityPanel, SENSOR_GRID_CLASS } from './EntityGrid';
-import { FaChevronLeft, FaChevronRight, FaCog, FaExclamationTriangle, FaMapMarkerAlt, FaSearch, FaSyncAlt } from 'react-icons/fa';
+import { FaCog, FaExclamationTriangle, FaMapMarkerAlt, FaSyncAlt } from 'react-icons/fa';
 import EntityInfoCard from './entityCard/EntityInfoCard';
 import GroupByAreaToggle from './GroupByAreaToggle';
 import { useGroupByArea } from '@/hooks/useGroupByArea';
 import { useAreas } from '@/hooks/useAreas';
 import { groupByArea } from '@/utils/groupByArea';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select as BaseSelect } from '@base-ui/react/select';
+import { ChevronLeft, ChevronRight, ChevronsUpDown, Layers, Search, TriangleAlert } from 'lucide-react';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel } from '@/components/ui/select';
 
 type ApiError = AxiosError<{ detail?: string }>;
 
@@ -55,6 +49,31 @@ const GROUP_COLORS = [
 /** Device picker values for every device and for the failing ones. */
 const ALL = '__all__';
 const FAILING = '__failing__';
+
+// The device picker, styled as an iOS grouped list: on a phone the sheet is
+// grey and each group a white card of rows; on a desktop it stays a dropdown.
+const STEP_BUTTON_CLASS = 'grid place-items-center w-11 h-full shrink-0 text-base-content/60 outline-none transition-colors active:bg-base-200 first:rounded-l-2xl last:rounded-r-2xl focus-visible:bg-base-200';
+const SHEET_GROUP_CLASS = '[&+&]:mt-0 [&+&]:border-t-0 [&+&]:pt-0 max-sm:mb-5 max-sm:last:mb-2 sm:[&+&]:mt-1 sm:[&+&]:border-t sm:[&+&]:pt-1';
+const SHEET_CARD_CLASS = 'max-sm:overflow-hidden max-sm:rounded-2xl max-sm:bg-base-100';
+const SHEET_LABEL_CLASS = 'px-4 pt-1 pb-2 sm:px-2 [&>span]:normal-case [&>span]:tracking-normal [&>span]:text-[13px] [&>span]:font-medium [&>span]:opacity-55';
+const SHEET_ROW_CLASS = 'gap-3 rounded-lg pr-9 [&>*:last-child]:min-w-0 [&>*:last-child]:flex-1 [&_svg.lucide-check]:text-primary max-sm:rounded-none max-sm:px-4 max-sm:py-3.5 max-sm:pr-11 max-sm:after:absolute max-sm:after:right-0 max-sm:after:bottom-0 max-sm:after:left-12 max-sm:after:h-px max-sm:after:bg-base-content/8 max-sm:last:after:hidden';
+
+type DeviceStatus = 'ok' | 'failing' | 'paused';
+
+function StatusDot({ status }: { status: DeviceStatus }) {
+  const color = status === 'failing' ? 'bg-error' : status === 'paused' ? 'bg-base-content/25' : 'bg-success';
+  return <span className={`block size-2.5 rounded-full ${color}`} />;
+}
+
+function PickerRow({ icon, name, count }: { icon: React.ReactNode; name: string; count: number }) {
+  return (
+    <span className="flex w-full min-w-0 items-center gap-3">
+      <span className="grid place-items-center size-5 shrink-0">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      <span className="shrink-0 tabular-nums text-sm text-base-content/45">{count}</span>
+    </span>
+  );
+}
 
 function matchesQuery(device: ModbusDeviceState, needle: string): boolean {
   return [device.custom_label, device.name, device.id].some(v => v?.toLowerCase().includes(needle));
@@ -251,6 +270,33 @@ export default function ModbusView() {
     selectDevice(keys[next]);
   };
 
+  const statusOf = (key: string): DeviceStatus =>
+    failing[key] ? 'failing' : pollingState[key] === false ? 'paused' : 'ok';
+  const areaNames = new Map(areas.map(a => [a.id, a.name || a.id]));
+  const pickedGroup = sortedGroupedEntries.find(g => g.groupKey === activeSelected);
+  const picked = pickedGroup ? {
+    icon: <StatusDot status={statusOf(pickedGroup.groupKey)} />,
+    title: pickedGroup.groupName,
+    alert: Boolean(failing[pickedGroup.groupKey]),
+    subtitle: failing[pickedGroup.groupKey]
+      ? t('modbus_view.failing')
+      : pickedGroup.area
+        ? areaNames.get(pickedGroup.area) ?? pickedGroup.area
+        : t('modbus_view.entities_count', { count: pickedGroup.sensors.length + pickedGroup.writeable.length }),
+  } : activeSelected === FAILING ? {
+    icon: <TriangleAlert className="size-4 text-error" />,
+    title: t('modbus_view.only_failing'),
+    alert: false,
+    subtitle: t('modbus_view.devices_count', { count: failingCount }),
+  } : {
+    icon: <Layers className="size-4 text-base-content/60" />,
+    title: t('modbus_view.all_devices'),
+    alert: failingCount > 0,
+    subtitle: failingCount > 0
+      ? t('modbus_view.failing_count', { count: failingCount })
+      : t('modbus_view.devices_count', { count: sortedGroupedEntries.length }),
+  };
+
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
     localStorage.setItem('modbusViewMode', gridView ? 'grid' : 'list');
@@ -310,54 +356,75 @@ export default function ModbusView() {
           )}
 
           {sortedGroupedEntries.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
-              <div className="flex gap-2 min-w-0 sm:flex-1">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+              <div className="flex items-stretch h-14 min-w-0 sm:flex-1 rounded-2xl bg-base-100 ring-1 ring-base-content/8 shadow-sm">
                 <button
-                  className="btn btn-sm btn-square"
+                  className={STEP_BUTTON_CLASS}
                   onClick={() => stepDevice(-1)}
                   title={t('modbus_view.previous_device')}
                   aria-label={t('modbus_view.previous_device')}
                 >
-                  <FaChevronLeft />
+                  <ChevronLeft className="size-5" />
                 </button>
-                <div className="flex-1 min-w-0">
-                  <Select value={activeSelected || ALL} onValueChange={(v) => selectDevice(v === ALL ? '' : v)}>
-                    <SelectTrigger size="sm" aria-label={t('modbus_view.device')}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL}>{t('modbus_view.all_devices')}</SelectItem>
-                      <SelectItem value={FAILING}>{`⚠ ${t('modbus_view.only_failing')} (${failingCount})`}</SelectItem>
-                      {areaSections.map(section => {
-                        const items = section.items.map(g => (
-                          <SelectItem key={g.groupKey} value={g.groupKey}>
-                            {`${failing[g.groupKey] ? '⚠ ' : ''}${g.groupName} (${g.sensors.length + g.writeable.length})`}
-                          </SelectItem>
-                        ));
-                        return groupedByArea ? (
-                          <SelectGroup key={section.id ?? ''}>
-                            <SelectLabel>{section.name ?? t('common.without_area')}</SelectLabel>
-                            {items}
-                          </SelectGroup>
-                        ) : items;
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={activeSelected || ALL} onValueChange={(v) => selectDevice(v === ALL ? '' : v)}>
+                  <BaseSelect.Trigger
+                    aria-label={t('modbus_view.device')}
+                    className="flex flex-1 min-w-0 items-center gap-3 px-3 border-x border-base-content/8 text-left outline-none transition-colors active:bg-base-200 focus-visible:bg-base-200"
+                  >
+                    <span className="grid place-items-center size-5 shrink-0">{picked.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold leading-tight">{picked.title}</span>
+                      <span className={`block truncate text-xs leading-tight mt-0.5 ${picked.alert ? 'text-error' : 'text-base-content/55'}`}>
+                        {picked.subtitle}
+                      </span>
+                    </span>
+                    <ChevronsUpDown className="size-4 shrink-0 text-base-content/40" />
+                  </BaseSelect.Trigger>
+                  <SelectContent className="sm:min-w-[320px] sm:rounded-2xl sm:p-1.5 sm:shadow-xl max-sm:!bg-base-300 max-sm:!border-0 max-sm:!rounded-t-[28px]">
+                    <SelectGroup className={SHEET_GROUP_CLASS}>
+                      <div className={SHEET_CARD_CLASS}>
+                        <SelectItem value={ALL} label={t('modbus_view.all_devices')} className={SHEET_ROW_CLASS}>
+                          <PickerRow icon={<Layers className="size-4 text-base-content/60" />} name={t('modbus_view.all_devices')} count={sortedGroupedEntries.length} />
+                        </SelectItem>
+                        <SelectItem value={FAILING} label={t('modbus_view.only_failing')} className={SHEET_ROW_CLASS}>
+                          <PickerRow
+                            icon={<TriangleAlert className={`size-4 ${failingCount ? 'text-error' : 'text-base-content/40'}`} />}
+                            name={t('modbus_view.only_failing')}
+                            count={failingCount}
+                          />
+                        </SelectItem>
+                      </div>
+                    </SelectGroup>
+                    {areaSections.map(section => (
+                      <SelectGroup key={section.id ?? ''} className={SHEET_GROUP_CLASS}>
+                        {groupedByArea && (
+                          <SelectLabel className={SHEET_LABEL_CLASS}>{section.name ?? t('common.without_area')}</SelectLabel>
+                        )}
+                        <div className={SHEET_CARD_CLASS}>
+                          {section.items.map(g => (
+                            <SelectItem key={g.groupKey} value={g.groupKey} label={g.groupName} className={SHEET_ROW_CLASS}>
+                              <PickerRow icon={<StatusDot status={statusOf(g.groupKey)} />} name={g.groupName} count={g.sensors.length + g.writeable.length} />
+                            </SelectItem>
+                          ))}
+                        </div>
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <button
-                  className="btn btn-sm btn-square"
+                  className={STEP_BUTTON_CLASS}
                   onClick={() => stepDevice(1)}
                   title={t('modbus_view.next_device')}
                   aria-label={t('modbus_view.next_device')}
                 >
-                  <FaChevronRight />
+                  <ChevronRight className="size-5" />
                 </button>
               </div>
-              <label className="input input-sm w-full sm:w-72">
-                <FaSearch className="opacity-50" />
+              <label className="flex items-center gap-2 h-10 sm:h-14 sm:w-72 px-3.5 rounded-xl sm:rounded-2xl bg-base-content/6 focus-within:ring-2 focus-within:ring-primary/40">
+                <Search className="size-4 shrink-0 text-base-content/45" />
                 <input
                   type="search"
-                  className="grow"
+                  className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-base-content/45"
                   placeholder={t('modbus_view.search_placeholder')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}

@@ -915,7 +915,10 @@
     "next_device": "Next device",
     "search_placeholder": "Search: name or id…",
     "no_matches": "Nothing matches the filter",
-    "failing": "Device not responding or refusing reads"
+    "failing": "Device not responding or refusing reads",
+    "devices_count": "Devices: {{count}}",
+    "entities_count": "Entities: {{count}}",
+    "failing_count": "Failing: {{count}}"
   },
   "modbus_config": {
     "uart": "UART",

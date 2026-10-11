@@ -915,7 +915,10 @@
     "next_device": "Następne urządzenie",
     "search_placeholder": "Szukaj: nazwa lub id…",
     "no_matches": "Nic nie pasuje do filtra",
-    "failing": "Urządzenie nie odpowiada lub odrzuca odczyt"
+    "failing": "Urządzenie nie odpowiada lub odrzuca odczyt",
+    "devices_count": "Urządzeń: {{count}}",
+    "entities_count": "Encji: {{count}}",
+    "failing_count": "Z błędami: {{count}}"
   },
   "modbus_config": {
     "uart": "UART",
