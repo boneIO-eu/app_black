@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev41` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev42` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,36 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev42 — internal test build
+
+## Since dev41
+
+**Controllers installed before 1.6.15 can move to the packaged Caddy.** The
+move refuses to replace a docker-compose.yaml that is not one of boneIO's
+templates, so a file somebody edited is not lost. It compared them word for
+word, and 1.6.15 had added two variables (and comments) to the templates while
+deliberately leaving the live file alone. A controller set up earlier, whose
+port and cloud mode nobody changed since, therefore looked edited, and every
+attempt stopped at "… is not one of the Caddy templates; it is left as it is".
+
+Migration 1.6.46 installs a helper that leaves comments, blank lines and those
+two variables out of the comparison; a file with anything else changed is still
+refused. A refusal at that stage changes nothing on the controller and no
+longer counts against the three automatic attempts, so a controller that had
+used them up tries again by itself after the update.
+
+**Two items can no longer share an id.** A cover keeps the id made from its
+first relays, so copying one, or changing its relays, could give two covers one
+id; they shared their MQTT topics and Home Assistant entity, and the second
+silently replaced the first. Saving an output, output group, cover or remote
+device now refuses an id another item in the section has.
+
+The Caddy fix was checked against the real compose files of two controllers
+still on the container (dev34 and dev41): the old helper refuses both, the new
+one takes both as the cloud template.
 
 ---
 

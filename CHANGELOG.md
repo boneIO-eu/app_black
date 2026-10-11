@@ -6,6 +6,30 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev42 (2026-10-11) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🔒 Caddy
+
+- **Controllers installed before 1.6.15 can switch to the packaged Caddy.**
+  The switch refused any compose file that was not verbatim one of its
+  templates, and 1.6.15 added two variables and comments to the templates
+  while leaving the live file alone — so an older controller looked edited by
+  hand and was refused every time ("is not one of the Caddy templates").
+  Migration 1.6.46 installs a helper that ignores comments, blank lines and
+  those two variables; anything else changed is still refused. Refusals at
+  the preconditions no longer use up the automatic attempts, so a controller
+  that ran out of them tries again on its own.
+
+### 🧩 Settings
+
+- **An item cannot be saved under an id another one already has.** Two covers
+  with one id shared their MQTT topics and Home Assistant entity, and the
+  second silently replaced the first. Outputs, output groups, covers and
+  remote devices now refuse a duplicate id, the generated one included.
+
 ## v1.6.0.dev41 (2026-10-10) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md
