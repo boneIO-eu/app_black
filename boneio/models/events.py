@@ -99,6 +99,20 @@ class ModbusDeviceEvent(BaseModel):
     state: ModbusDeviceState
 
 
+class ModbusStatusEvent(BaseModel):
+    """Modbus device status - fired when a device starts or stops failing.
+
+    Attributes:
+        event_type: Type of event (always "modbus_status")
+        entity_id: The device's coordinator id
+        failing: A register group of the device fails to read
+    """
+
+    event_type: Literal["modbus_status"] = "modbus_status"
+    entity_id: str
+    failing: bool
+
+
 class HostEvent(BaseModel):
     """Host event - triggered when host system information changes.
     
@@ -190,7 +204,7 @@ class MqttStateEvent(BaseModel):
 # Discriminated union for all events
 # The discriminator field "event_type" allows Pydantic to automatically
 # determine which event type to use when parsing
-Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ScheduleEvent | ConfigReloadEvent | InputsReloadedEvent | MqttStateEvent
+Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | ModbusStatusEvent | HostEvent | GroupEvent | ScheduleEvent | ConfigReloadEvent | InputsReloadedEvent | MqttStateEvent
 
 __all__ = [
     "InputEvent",
@@ -198,6 +212,7 @@ __all__ = [
     "CoverEvent",
     "SensorEvent",
     "ModbusDeviceEvent",
+    "ModbusStatusEvent",
     "HostEvent",
     "GroupEvent",
     "ConfigReloadEvent",

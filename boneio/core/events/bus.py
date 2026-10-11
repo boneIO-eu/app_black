@@ -97,6 +97,7 @@ class EventBus:
             "output": {},
             "cover": {},
             "modbus_device": {},
+            "modbus_status": {},
             "modbus_temperature": {},
             "sensor": {},
             "host": {},

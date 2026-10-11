@@ -41,6 +41,7 @@ from boneio.models.events import (
     GroupEvent,
     InputEvent,
     ModbusDeviceEvent,
+    ModbusStatusEvent,
     OutputEvent,
     SensorEvent,
 )
@@ -318,6 +319,14 @@ def add_all_websocket_listeners(boneio_manager: Manager):
         target=boneio_state_changed_callback,
     )
 
+    # Modbus device status (a device starts or stops failing)
+    boneio_manager.event_bus.add_event_listener(
+        event_type="modbus_status",
+        entity_id="",
+        listener_id="ws_modbus_status_global",
+        target=boneio_state_changed_callback,
+    )
+
     # Sensor events (temperature, power, etc.)
     boneio_manager.event_bus.add_event_listener(
         event_type="sensor",
@@ -334,6 +343,7 @@ def remove_all_websocket_listeners(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(event_type="cover", listener_id="ws_cover_global")
     boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws_input_global")
     boneio_manager.event_bus.remove_event_listener(event_type="modbus_device", listener_id="ws_modbus_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="modbus_status", listener_id="ws_modbus_status_global")
     boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws_sensor_global")
     boneio_manager.event_bus.remove_event_listener(event_type="schedule", listener_id="ws_schedule_global")
 
@@ -531,6 +541,10 @@ async def send_initial_states(
         for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
             if not modbus_coordinator:
                 continue
+            if not await send_state_update(
+                ModbusStatusEvent(entity_id=modbus_coordinator._id, failing=modbus_coordinator.failing)
+            ):
+                return False
             for entities in modbus_coordinator.get_all_entities():
                 for entity in entities.values():
                     try:

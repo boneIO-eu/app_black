@@ -448,6 +448,7 @@ async def modbus_status(
         cid: {
             "name": coord.name,
             "polling_enabled": coord.polling_enabled,
+            "failing": coord.failing,
         }
         for cid, coord in coordinators.items()
     }

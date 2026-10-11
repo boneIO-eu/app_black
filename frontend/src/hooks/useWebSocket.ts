@@ -110,6 +110,14 @@ export interface ModbusDeviceEvent {
   state: ModbusDeviceState;
 }
 
+/** A Modbus device started or stopped failing to read. `entity_id` is its
+ * coordinator id. */
+export interface ModbusStatusEvent {
+  event_type: 'modbus_status';
+  entity_id: string;
+  failing: boolean;
+}
+
 export interface GroupState {
   id: string;
   name: string;
@@ -167,7 +175,7 @@ export interface StartupStatusEvent {
   complete: boolean;
 }
 
-export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | GroupEvent | ScheduleEvent | ConfigReloadEvent | StartupStatusEvent;
+export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | ModbusStatusEvent | GroupEvent | ScheduleEvent | ConfigReloadEvent | StartupStatusEvent;
 
 // Type guards
 
@@ -189,6 +197,10 @@ export function isSensorEvent(data: StateUpdate): data is SensorEvent {
 
 export function isModbusDeviceEvent(data: StateUpdate): data is ModbusDeviceEvent {
   return data.event_type === 'modbus_device';
+}
+
+export function isModbusStatusEvent(data: StateUpdate): data is ModbusStatusEvent {
+  return data.event_type === 'modbus_status';
 }
 
 export function isGroupEvent(data: StateUpdate): data is GroupEvent {

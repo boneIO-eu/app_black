@@ -35,6 +35,8 @@ def _coordinator(read_results: list, groups: int = 1) -> ModbusCoordinator:
     coordinator._db = {"registers_base": [{"base": 100 * i, "length": 2} for i in range(groups)]}
     coordinator._failed_groups = set()
     coordinator._reported_groups = set()
+    coordinator._published_failing = False
+    coordinator._event_bus = MagicMock()
     coordinator._payload_online = OFFLINE
     coordinator._discovery_sent = True
     coordinator._message_bus = MagicMock()
@@ -116,3 +118,17 @@ async def test_one_refused_group_does_not_stop_the_others(caplog):
     warnings = [r for r in caplog.records if r.name == LOGGER_NAME and r.levelno == logging.WARNING]
     assert len(warnings) == 1
     assert "refused register group 0 (base=0)" in warnings[0].getMessage()
+
+
+async def test_the_panel_hears_when_a_device_starts_and_stops_failing():
+    good = MagicMock(registers=[1, 2])
+    coordinator = _coordinator([None, None, good])
+
+    for ts in range(3):
+        await coordinator.async_update(timestamp=float(ts))
+
+    sent = [c.args[0] for c in coordinator._event_bus.trigger_event.call_args_list]
+    assert [(e.event_type, e.entity_id, e.failing) for e in sent] == [
+        ("modbus_status", "meter", True),
+        ("modbus_status", "meter", False),
+    ]

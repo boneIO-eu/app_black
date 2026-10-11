@@ -54,7 +54,7 @@ from boneio.modbus.entities.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
 )
-from boneio.models.events import ModbusDeviceEvent, SensorEvent
+from boneio.models.events import ModbusDeviceEvent, ModbusStatusEvent, SensorEvent
 from boneio.models.state import SensorState
 
 from .client import VALUE_TYPES, Modbus
@@ -139,6 +139,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # WARNING. Separate from _failed_groups, which is also filled to force
         # a re-read and so does not mean "a failure was reported".
         self._reported_groups: set[int] = set()
+        # Last ``failing`` sent to the panel, so it hears only the changes.
+        self._published_failing = False
         self._polling_enabled: bool = True  # Runtime toggle for temporarily disabling polling
 
         self.__init_modbus_entities__()
@@ -1045,7 +1047,25 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         
         return output
 
+    @property
+    def failing(self) -> bool:
+        """A register group of this device fails to read right now."""
+        return bool(self._reported_groups)
+
     async def async_update(self, timestamp: float) -> float | None:
+        """Fetch state periodically and tell the panel when the device
+        starts or stops failing.
+
+        A dead device sends no entity events at all, so the panel cannot tell
+        it from a quiet one without this.
+        """
+        interval = await self._poll(timestamp)
+        if self.failing != self._published_failing:
+            self._published_failing = self.failing
+            self._event_bus.trigger_event(ModbusStatusEvent(entity_id=self._id, failing=self.failing))
+        return interval
+
+    async def _poll(self, timestamp: float) -> float | None:
         """Fetch state periodically and send to MQTT."""
         # Skip update when polling is disabled by user
         if not self._polling_enabled:
