@@ -87,6 +87,7 @@ class ModbusDeviceState(BaseModel):
     payload_off: str | None = None  # For switch entities
     step: float | str | None = None  # Step value for numeric inputs
     custom_label: str | None = None  # User-defined custom label from YAML config
+    area: str | None = None  # Area id of the device the entity belongs to
 
 class HostSensorState(BaseModel):
     """Host sensor state model."""

@@ -96,6 +96,7 @@ export interface ModbusDeviceState {
   payload_off?: string | null;  // For switch entities
   step?: number | null;  // Step value for numeric inputs
   custom_label?: string | null;  // User-defined custom label from YAML config
+  area?: string | null;  // Area id of the device the entity belongs to
 }
 
 export interface SensorEvent {

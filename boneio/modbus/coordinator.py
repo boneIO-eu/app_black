@@ -883,6 +883,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             coordinator_id=self._id,
             entity_type=entity.entity_type,
             custom_label=custom_label,
+            area=self._area,
             **type_info
         )
 

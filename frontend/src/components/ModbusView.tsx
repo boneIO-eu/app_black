@@ -11,14 +11,28 @@ import ModbusDeviceItem from './ModbusDeviceItem';
 import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import { EntityGrid, EntityPanel, SENSOR_GRID_CLASS } from './EntityGrid';
-import { FaChevronLeft, FaChevronRight, FaCog, FaExclamationTriangle, FaSearch, FaSyncAlt } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCog, FaExclamationTriangle, FaMapMarkerAlt, FaSearch, FaSyncAlt } from 'react-icons/fa';
 import EntityInfoCard from './entityCard/EntityInfoCard';
+import GroupByAreaToggle from './GroupByAreaToggle';
+import { useGroupByArea } from '@/hooks/useGroupByArea';
+import { useAreas } from '@/hooks/useAreas';
+import { groupByArea } from '@/utils/groupByArea';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type ApiError = AxiosError<{ detail?: string }>;
 
 interface GroupedModbusDevices {
   groupKey: string;
   groupName: string;
+  area: string | null;
   sensors: ModbusDeviceState[];
   writeable: ModbusDeviceState[];
   accentColor: string;
@@ -38,7 +52,8 @@ const GROUP_COLORS = [
   { accentColor: 'border-pink-500',    strokeColor: '#ec4899', fillColor: 'rgba(236, 72, 153, 0.10)' },
 ];
 
-/** Device picker value that shows only the devices failing to read. */
+/** Device picker values for every device and for the failing ones. */
+const ALL = '__all__';
 const FAILING = '__failing__';
 
 function matchesQuery(device: ModbusDeviceState, needle: string): boolean {
@@ -171,6 +186,7 @@ export default function ModbusView() {
       return {
         groupKey: coordId,
         groupName,
+        area: devices[0]?.area || null,
         sensors,
         writeable,
         ...color,
@@ -186,13 +202,24 @@ export default function ModbusView() {
     });
   }, [validModbusDevices, t]);
 
+  const areas = useAreas();
+  const [groupedByArea, setGroupedByArea] = useGroupByArea('modbusGroupByArea', areas.length > 0);
+  // By area, the picker and the arrows follow the page: area by area.
+  const areaSections = useMemo(
+    () => groupedByArea
+      ? groupByArea(sortedGroupedEntries, g => g.area, areas)
+      : [{ id: null, name: null, items: sortedGroupedEntries }],
+    [groupedByArea, sortedGroupedEntries, areas],
+  );
+  const orderedGroups = useMemo(() => areaSections.flatMap(s => s.items), [areaSections]);
+
   // Filtered after grouping, so a device keeps its color and the history
   // above keeps every device's points while it is hidden.
   const activeSelected = selected === FAILING || sortedGroupedEntries.some(g => g.groupKey === selected) ? selected : '';
   const failingCount = sortedGroupedEntries.filter(g => failing[g.groupKey]).length;
-  const visibleGroups = useMemo(() => {
+  const visibleSections = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return sortedGroupedEntries.flatMap(group => {
+    const visible = (group: GroupedModbusDevices): GroupedModbusDevices[] => {
       if (activeSelected === FAILING ? !failing[group.groupKey] : activeSelected && group.groupKey !== activeSelected) {
         return [];
       }
@@ -202,8 +229,11 @@ export default function ModbusView() {
       const sensors = group.sensors.filter(d => matchesQuery(d, needle));
       const writeable = group.writeable.filter(d => matchesQuery(d, needle));
       return sensors.length || writeable.length ? [{ ...group, sensors, writeable }] : [];
-    });
-  }, [sortedGroupedEntries, activeSelected, failing, query]);
+    };
+    return areaSections
+      .map(section => ({ ...section, items: section.items.flatMap(visible) }))
+      .filter(section => section.items.length > 0);
+  }, [areaSections, activeSelected, failing, query]);
 
   // "Failing only" is not remembered: on a healthy system the next visit
   // would open on an empty page.
@@ -215,7 +245,7 @@ export default function ModbusView() {
   // From "all" or "failing" the arrows start at either end; past the last
   // device they wrap around.
   const stepDevice = (delta: 1 | -1) => {
-    const keys = sortedGroupedEntries.map(g => g.groupKey);
+    const keys = orderedGroups.map(g => g.groupKey);
     const index = keys.indexOf(activeSelected);
     const next = index === -1 ? (delta === 1 ? 0 : keys.length - 1) : (index + delta + keys.length) % keys.length;
     selectDevice(keys[next]);
@@ -265,7 +295,12 @@ export default function ModbusView() {
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold tracking-tight">{t('modbus_view.title')}</h2>
-            <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+            <div className="flex items-center gap-2">
+              {areas.length > 0 && (
+                <GroupByAreaToggle active={groupedByArea} onToggle={setGroupedByArea} />
+              )}
+              <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+            </div>
           </div>
 
           {error && (
@@ -285,20 +320,30 @@ export default function ModbusView() {
                 >
                   <FaChevronLeft />
                 </button>
-                <select
-                  className="select select-sm flex-1 min-w-0"
-                  value={activeSelected}
-                  onChange={(e) => selectDevice(e.target.value)}
-                  aria-label={t('modbus_view.device')}
-                >
-                  <option value="">{t('modbus_view.all_devices')}</option>
-                  <option value={FAILING}>⚠ {t('modbus_view.only_failing')} ({failingCount})</option>
-                  {sortedGroupedEntries.map(g => (
-                    <option key={g.groupKey} value={g.groupKey}>
-                      {failing[g.groupKey] ? '⚠ ' : ''}{g.groupName} ({g.sensors.length + g.writeable.length})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1 min-w-0">
+                  <Select value={activeSelected || ALL} onValueChange={(v) => selectDevice(v === ALL ? '' : v)}>
+                    <SelectTrigger size="sm" aria-label={t('modbus_view.device')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>{t('modbus_view.all_devices')}</SelectItem>
+                      <SelectItem value={FAILING}>{`⚠ ${t('modbus_view.only_failing')} (${failingCount})`}</SelectItem>
+                      {areaSections.map(section => {
+                        const items = section.items.map(g => (
+                          <SelectItem key={g.groupKey} value={g.groupKey}>
+                            {`${failing[g.groupKey] ? '⚠ ' : ''}${g.groupName} (${g.sensors.length + g.writeable.length})`}
+                          </SelectItem>
+                        ));
+                        return groupedByArea ? (
+                          <SelectGroup key={section.id ?? ''}>
+                            <SelectLabel>{section.name ?? t('common.without_area')}</SelectLabel>
+                            {items}
+                          </SelectGroup>
+                        ) : items;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <button
                   className="btn btn-sm btn-square"
                   onClick={() => stepDevice(1)}
@@ -326,96 +371,106 @@ export default function ModbusView() {
             <div className="text-center py-8 text-base-content/60">
               {t('modbus_view.no_devices')}
             </div>
-          ) : visibleGroups.length === 0 ? (
+          ) : visibleSections.length === 0 ? (
             <div className="text-center py-8 text-base-content/60">
               {t('modbus_view.no_matches')}
             </div>
           ) : (
-            visibleGroups.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
-              return (
-                /* One panel per device: the thing you reason about here is
-                   "what is this meter doing", and its sensors and controls
-                   are two lists inside that, not two peers of it. */
-                <EntityPanel
-                  key={groupKey}
-                  title={
-                    <>
-                      {failing[groupKey] && (
-                        <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0 text-error" title={t('modbus_view.failing')} />
-                      )}
-                      <span className="wrap-break-word min-w-0">{groupName}</span>
-                    </>
-                  }
-                  action={
-                    <label
-                      className="flex items-center gap-1.5 cursor-pointer shrink-0"
-                      title={pollingState[groupKey] === false ? t('modbus_view.polling_disabled') : t('modbus_view.polling_enabled')}
-                    >
-                      <FaSyncAlt className={`w-3 h-3 transition-colors ${
-                        pollingState[groupKey] === false ? 'text-base-content/30' : 'text-success'
-                      }`} />
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-xs toggle-success"
-                        checked={pollingState[groupKey] !== false}
-                        onChange={(e) => handlePollingToggle(groupKey, e.target.checked)}
-                      />
-                    </label>
-                  }
-                >
+            visibleSections.map(section => (
+              <div key={section.id ?? ''}>
+                {groupedByArea && (
+                  <h3 className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-base-content/60">
+                    <FaMapMarkerAlt className="w-3 h-3" />
+                    {section.name ?? t('common.without_area')}
+                  </h3>
+                )}
+                {section.items.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
+                  return (
+                  /* One panel per device: the thing you reason about here is
+                     "what is this meter doing", and its sensors and controls
+                     are two lists inside that, not two peers of it. */
+                  <EntityPanel
+                    key={groupKey}
+                    title={
+                      <>
+                        {failing[groupKey] && (
+                          <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0 text-error" title={t('modbus_view.failing')} />
+                        )}
+                        <span className="wrap-break-word min-w-0">{groupName}</span>
+                      </>
+                    }
+                    action={
+                      <label
+                        className="flex items-center gap-1.5 cursor-pointer shrink-0"
+                        title={pollingState[groupKey] === false ? t('modbus_view.polling_disabled') : t('modbus_view.polling_enabled')}
+                      >
+                        <FaSyncAlt className={`w-3 h-3 transition-colors ${
+                          pollingState[groupKey] === false ? 'text-base-content/30' : 'text-success'
+                        }`} />
+                        <input
+                          type="checkbox"
+                          className="toggle toggle-xs toggle-success"
+                          checked={pollingState[groupKey] !== false}
+                          onChange={(e) => handlePollingToggle(groupKey, e.target.checked)}
+                        />
+                      </label>
+                    }
+                  >
 
-                  {/* Sensors Section */}
-                  {sensors.length > 0 && (
-                    <>
-                      {writeable.length > 0 && (
-                        <p className="text-xs font-medium text-base-content/50 mb-2">
-                          {t('modbus_view.sensors')}
+                    {/* Sensors Section */}
+                    {sensors.length > 0 && (
+                      <>
+                        {writeable.length > 0 && (
+                          <p className="text-xs font-medium text-base-content/50 mb-2">
+                            {t('modbus_view.sensors')}
+                          </p>
+                        )}
+                        <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
+                          {sensors.map((device) => (
+                            <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
+                              <ModbusDeviceItem
+                                device={device}
+                                isGrid={isGrid}
+                                historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
+                                onValueChange={handleValueChange}
+                                accentColor={accentColor}
+                                strokeColor={strokeColor}
+                                fillColor={fillColor}
+                              />
+                            </LongPressWrapper>
+                          ))}
+                        </EntityGrid>
+                      </>
+                    )}
+
+                    {/* Writeable Entities Section */}
+                    {writeable.length > 0 && (
+                      <>
+                        <p className="text-xs font-medium text-base-content/50 mt-4 mb-2">
+                          {t('modbus_view.controls')}
                         </p>
-                      )}
-                      <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
-                        {sensors.map((device) => (
-                          <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
-                            <ModbusDeviceItem
-                              device={device}
-                              isGrid={isGrid}
-                              historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
-                              onValueChange={handleValueChange}
-                              accentColor={accentColor}
-                              strokeColor={strokeColor}
-                              fillColor={fillColor}
-                            />
-                          </LongPressWrapper>
-                        ))}
-                      </EntityGrid>
-                    </>
-                  )}
-
-                  {/* Writeable Entities Section */}
-                  {writeable.length > 0 && (
-                    <>
-                      <p className="text-xs font-medium text-base-content/50 mt-4 mb-2">
-                        {t('modbus_view.controls')}
-                      </p>
-                      <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
-                        {writeable.map((device) => (
-                          <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
-                            <ModbusDeviceItem
-                              device={device}
-                              isGrid={isGrid}
-                              historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
-                              onValueChange={handleValueChange}
-                              accentColor={accentColor}
-                              strokeColor={strokeColor}
-                              fillColor={fillColor}
-                            />
-                          </LongPressWrapper>
-                        ))}
-                      </EntityGrid>
-                    </>
-                  )}
-                </EntityPanel>
-              );
-            })
+                        <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
+                          {writeable.map((device) => (
+                            <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
+                              <ModbusDeviceItem
+                                device={device}
+                                isGrid={isGrid}
+                                historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
+                                onValueChange={handleValueChange}
+                                accentColor={accentColor}
+                                strokeColor={strokeColor}
+                                fillColor={fillColor}
+                              />
+                            </LongPressWrapper>
+                          ))}
+                        </EntityGrid>
+                      </>
+                    )}
+                  </EntityPanel>
+                );
+              })}
+              </div>
+            ))
           )}
         </div>
       </div>

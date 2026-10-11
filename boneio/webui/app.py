@@ -557,6 +557,7 @@ async def send_initial_states(
                             timestamp=entity.last_timestamp,
                             device_group=modbus_coordinator.name,
                             coordinator_id=modbus_coordinator._id,
+                            area=modbus_coordinator._area,
                             step=getattr(entity, "step", None),
                         )
                         update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
@@ -580,6 +581,7 @@ async def send_initial_states(
                             timestamp=entity.last_timestamp if hasattr(entity, "last_timestamp") else None,
                             device_group=modbus_coordinator.name,
                             coordinator_id=modbus_coordinator._id,
+                            area=modbus_coordinator._area,
                             entity_type=entity.entity_type,
                             x_mapping=value_mapping,
                             payload_on=payload_on,
