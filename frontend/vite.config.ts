@@ -164,6 +164,17 @@ export default defineConfig(({ mode }) => {
         }
       },
     },
+    // Behind a reverse proxy under a path (the Home Assistant add-on serves
+    // the panel at /api/hassio_ingress/<token>/proxy/N/) only index.html is
+    // rewritten to that path, never the scripts. Preloads of lazy views and
+    // url() in stylesheets must therefore resolve against the file that names
+    // them, not the "/" base, or they go to the proxy's root and 404 — and a
+    // failed preload rejects the view's import, leaving a blank page.
+    experimental: {
+      renderBuiltUrl(_filename: string, { hostType }: { hostType: string }) {
+        return hostType === 'html' ? undefined : { relative: true };
+      },
+    },
     publicDir: "public",
     test: {
       environment: 'node',
