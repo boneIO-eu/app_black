@@ -438,6 +438,7 @@
     "cover_fields_required": "Open relay, close relay, open time i close time są wymagane",
     "delete_item": "Usuń element",
     "duplicate_item": "Duplikuj element",
+    "id_duplicate": "Inny element ma już ID „{{id}}”. Zmień ID, żeby było unikalne.",
     "ha_dashboard": "Panel Home Assistant",
     "details": "Szczegóły",
     "edit_area": "Edytuj strefę",

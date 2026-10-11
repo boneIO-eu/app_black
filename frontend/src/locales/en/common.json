@@ -438,6 +438,7 @@
     "cover_fields_required": "Open relay, close relay, open time and close time are required",
     "delete_item": "Delete Item",
     "duplicate_item": "Duplicate item",
+    "id_duplicate": "Another item already has the ID \"{{id}}\". Change the ID so it is unique.",
     "ha_dashboard": "Home Assistant dashboard",
     "details": "Details",
     "edit_area": "Edit Area",

@@ -347,6 +347,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return;
     }
 
+    // Two entities with one id share MQTT topics and HA entity: the second
+    // silently replaces the first. A cover keeps the id generated from its
+    // first relays, so changing the relays or copying it is enough to collide.
+    const newId = getItemId(dataToSave);
+    if (newId && value.some((item, i) => i !== editingIndex && getItemId(item) === newId)) {
+      alert(t('array_table_widget.id_duplicate', { id: newId }));
+      return;
+    }
+
     // Clean legacy id/name duplication
     let cleanedData = { ...dataToSave };
     if (isInputSection(sectionType) && cleanedData.name && cleanedData.id) {
