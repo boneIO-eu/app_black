@@ -25,7 +25,8 @@ from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
-#: How long the panel keeps watching for docker0 after it has started. Nothing
+#: How long the panel keeps watching for docker0 and the USB cable after it has
+#: started. Nothing
 #: waits on this any more, so it can outlast a slow cold boot of dockerd.
 LATE_BRIDGE_WAIT_SECONDS = bind.BRIDGE_WAIT_SECONDS * 5
 
@@ -310,21 +311,51 @@ class WebServer:
                 late_bridge.cancel()
 
     async def _serve_late_bridge(self, app) -> None:
-        """Answer on docker0 too, once Docker has brought it up.
+        """Answer on docker0 and on the USB cable too, once each comes up.
 
         Node-RED's editor login reaches the panel through host.docker.internal,
         which is docker0, and on a cold boot dockerd brings it up well after the
-        panel is serving. The wait polls from the loop, one short check at a
-        time, so a shutdown ends it at once: a thread asleep for minutes would
-        hold the process exit for as long. A listener that cannot be bound is
-        logged and given up; the panel keeps answering where it already does.
+        panel is serving. bb-usb-gadgets is ordered after boneio.service, so
+        192.168.7.2 is never there when the panel first binds either, cable in
+        or not — and the factory station reaches a fresh board only that way.
 
         Args:
             app: The ASGI application the first server is serving.
         """
+        already = list(self._hypercorn_config.bind)
+        port = self._port
+        await asyncio.gather(
+            self._serve_when(
+                bind._default_bridge_up,
+                lambda: bind.bridge_binds(port, 0, already),
+                "the Docker bridge",
+                app,
+            ),
+            self._serve_when(
+                lambda: bool(bind.usb_gadget_addresses()),
+                lambda: bind.usb_binds(port, already),
+                "the USB cable",
+                app,
+            ),
+        )
+
+    async def _serve_when(self, ready, missing, what: str, app) -> None:
+        """Wait for ``ready()``, then also listen on whatever ``missing()`` gives.
+
+        The wait polls from the loop, one short check at a time, so a shutdown
+        ends it at once: a thread asleep for minutes would hold the process exit
+        for as long. A listener that cannot be bound is logged and given up; the
+        panel keeps answering where it already does.
+
+        Args:
+            ready: Blocking check, run in a thread, true once it is worth binding.
+            missing: Blocking call returning the bind strings still to add.
+            what: Name for the log.
+            app: The ASGI application the first server is serving.
+        """
         loop = asyncio.get_running_loop()
         deadline = loop.time() + LATE_BRIDGE_WAIT_SECONDS
-        while loop.time() < deadline and not await asyncio.to_thread(bind._default_bridge_up):
+        while loop.time() < deadline and not await asyncio.to_thread(ready):
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._shutdown_event.wait(), bind._BRIDGE_POLL_SECONDS)
             if self._shutdown_event.is_set():
@@ -332,21 +363,19 @@ class WebServer:
         try:
             from hypercorn.asyncio import serve
 
-            binds = await asyncio.to_thread(
-                bind.bridge_binds, self._port, 0, list(self._hypercorn_config.bind)
-            )
+            binds = await asyncio.to_thread(missing)
             if not binds or self._shutdown_event.is_set():
                 return
             config = copy.copy(self._hypercorn_config)
             config.bind = binds
-            _LOGGER.info("Docker bridge up; the panel now also answers on %s", ", ".join(binds))
+            _LOGGER.info("The panel now also answers on %s, %s being up", ", ".join(binds), what)
             await serve(
                 cast("Framework", _without_lifespan(app)),
                 config,
                 shutdown_trigger=self._shutdown_event.wait,
             )
         except Exception as err:  # noqa: BLE001
-            _LOGGER.warning("The panel could not also listen on the Docker bridge: %s", err)
+            _LOGGER.warning("The panel could not also listen on %s: %s", what, err)
 
     async def trigger_shutdown(self) -> None:
         """Signal the web server to start its shutdown sequence."""

@@ -1,7 +1,8 @@
-"""The panel answers on the loopback at once and on docker0 once it is up.
+"""The panel answers on the loopback at once, on docker0 and USB once they are up.
 
-Node-RED asks the panel through host.docker.internal, which is docker0, so the
-second listener is needed; it must not run the application's startup twice, and
+Node-RED asks the panel through host.docker.internal, which is docker0, and the
+factory station through the USB cable, which comes up after boneio.service, so
+the later listeners are needed; it must not run the application's startup twice, and
 it must not hold up a shutdown while it is still waiting for Docker.
 """
 
@@ -49,6 +50,7 @@ def _server() -> WebServer:
 async def test_a_shutdown_while_waiting_for_docker_is_not_held_up(monkeypatch):
     """Docker disabled, or a restart in the first minutes of boot."""
     monkeypatch.setattr(bind, "_default_bridge_up", lambda: False)
+    monkeypatch.setattr(bind, "usb_gadget_addresses", lambda: [])
     monkeypatch.setattr(bind, "_BRIDGE_POLL_SECONDS", 0.01)
     server = _server()
     task = asyncio.create_task(server._serve_late_bridge(server.app))
@@ -60,7 +62,7 @@ async def test_a_shutdown_while_waiting_for_docker_is_not_held_up(monkeypatch):
 async def test_a_bridge_that_cannot_be_bound_leaves_the_panel_running(monkeypatch, caplog):
     monkeypatch.setattr(bind, "_default_bridge_up", lambda: True)
     monkeypatch.setattr(bind, "docker_bridge_addresses", lambda: ["172.17.0.1"])
-    monkeypatch.setattr(bind, "usb_gadget_addresses", lambda: [])
+    monkeypatch.setattr(bind, "usb_gadget_addresses", lambda: ["192.168.7.2"])
 
     async def refuse(*args, **kwargs):
         raise OSError("address already in use")
@@ -69,3 +71,28 @@ async def test_a_bridge_that_cannot_be_bound_leaves_the_panel_running(monkeypatc
     server = _server()
     await asyncio.wait_for(server._serve_late_bridge(server.app), timeout=1)
     assert "address already in use" in caplog.text
+
+
+async def test_the_usb_cable_is_bound_once_its_address_appears(monkeypatch):
+    """bb-usb-gadgets starts after boneio.service, so usb0 has no address when
+    the panel first binds, and the factory station reaches the board only there."""
+    usb = []
+    served = []
+    monkeypatch.setattr(bind, "_default_bridge_up", lambda: False)
+    monkeypatch.setattr(bind, "usb_gadget_addresses", lambda: list(usb))
+    monkeypatch.setattr(bind, "_BRIDGE_POLL_SECONDS", 0.01)
+
+    async def serve(app, config, shutdown_trigger):
+        served.append(config.bind)
+        await shutdown_trigger()
+
+    monkeypatch.setattr("hypercorn.asyncio.serve", serve)
+    server = _server()
+    task = asyncio.create_task(server._serve_late_bridge(server.app))
+    await asyncio.sleep(0.05)
+    assert served == []
+    usb.append("192.168.7.2")
+    await asyncio.sleep(0.05)
+    assert served == [["192.168.7.2:8090"]]
+    server._shutdown_event.set()
+    await asyncio.wait_for(task, timeout=1)

@@ -91,8 +91,8 @@ def usb_gadget_addresses() -> list[str]:
     systemd-networkd only applies the address once the link comes up, so this
     is empty on a controller with nothing plugged in — which is most of them,
     most of the time. A device switched to proxy-only therefore answers over
-    USB when it was started with the cable in, as it is on the factory
-    station, and after a restart otherwise.
+    USB when the cable is in within the first minutes after start, as it is on
+    the factory station, and after a restart otherwise.
 
     Returns:
         Addresses, or an empty list when no cable is connected.
@@ -266,6 +266,19 @@ def bridge_binds(port: int, wait: float, already: list[str]) -> list[str]:
             ", ".join(already), port, LOOPBACK, port,
         )
     return [b for b in (f"{h}:{port}" for h in found) if b not in already]
+
+
+def usb_binds(port: int, already: list[str]) -> list[str]:
+    """USB gadget addresses that came up after the panel started.
+
+    Args:
+        port: The port to listen on.
+        already: Bind strings the panel is listening on already.
+
+    Returns:
+        The bind strings still missing, possibly none.
+    """
+    return [b for b in (f"{h}:{port}" for h in usb_gadget_addresses()) if b not in already]
 
 
 def proxy_is_serving(port: int = DEFAULT_PROXY_PORT, timeout: float = 5.0) -> tuple[bool, str]:
