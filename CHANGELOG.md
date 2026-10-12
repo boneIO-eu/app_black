@@ -6,6 +6,58 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0.dev44 (2026-10-12) — 1.6.x security series
+
+A pre-release, open for testing on real installations. See RELEASE_NOTES.md
+before updating.
+
+### 🔌 USB cable
+
+- **The panel answers on the USB cable again after a fresh start.** With
+  `web.expose: proxy`, from dev35 to dev43 the panel did not listen on
+  192.168.7.2 after boot: `bb-usb-gadgets` starts after `boneio.service`, so
+  `usb0` had no address when the panel bound, and the late listener only
+  followed `docker0`. The factory station found only 127.0.0.1 and 172.17.0.1
+  and could not reach a freshly flashed board. The late listener now watches
+  the USB link as well.
+
+### 🔌 Modbus
+
+- **A device that stops answering is now visible in the panel.** A dead
+  device sends no entity events, so it looked like a quiet one. The
+  coordinator reports when a device starts or stops failing, and
+  `/api/modbus/status` and the initial WebSocket dump carry the same flag.
+- **Device picker, search and an "only failing" choice.** Previous/next
+  arrows step through devices (the choice is remembered), the search covers
+  entity label, name and id, and a failing device is marked in the picker and
+  in its panel header. The picker is one capsule with a status dot (green, red
+  when failing, grey when polling is off) and the area or the fault under the
+  name.
+- **Modbus devices can be grouped by area**, like Inputs; the picker and its
+  arrows follow that order. On a phone the picker opens as the bottom sheet
+  the rest of the panel uses.
+- **The Modbus list is readable on a phone.** The sparkline is hidden below
+  `sm`, controls go under the name at full width, long names wrap.
+
+### 📱 Panel on a phone
+
+- **The bottom section bar no longer grabs page scrolling.** In Diagnostics
+  and Settings it blocked touch scrolling and opened its sheet on a short
+  swipe, also from the invisible strip above it. It opens on a tap only now;
+  swiping the open sheet down by its header still closes it.
+- **The log's toolbar folds behind a Filters button** with a badge counting
+  the filters in effect. The module pickers read "Show modules" and "Hide
+  modules", and the search field's magnifier is visible again.
+
+### 📜 Logs and schedules
+
+- **The log stays put when you scroll up.** While auto-scroll is off the
+  refresh appends only newer entries instead of replacing the window, so
+  loaded older pages are not lost. The bottom threshold is 30 px.
+- **A schedule that runs or is switched updates an open panel.** Its event
+  was missing from the event union and was dropped before reaching the
+  browser. A test now checks that every event model is in the union.
+
 ## v1.6.0.dev43 (2026-10-11) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md

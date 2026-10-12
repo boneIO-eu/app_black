@@ -1,6 +1,6 @@
 # boneIO Black 1.6 — open for testing on real installations
 
-`1.6.0.dev43` is a 1.6 build we consider ready to run on controllers in
+`1.6.0.dev44` is a 1.6 build we consider ready to run on controllers in
 real installations, for owners who want to help test it before 1.6 is final.
 It is still a pre-release: the panel does not offer it automatically, you
 have to pick it by hand. If you just want a controller that works, stay on
@@ -81,6 +81,35 @@ The full list, build by build, is in [CHANGELOG.md](CHANGELOG.md).
 
 Please report it with the version you updated from, what you saw, and — if
 you can — the output of `journalctl -u boneio -b`.
+
+---
+
+# v1.6.0.dev44 — internal test build
+
+## Since dev43
+
+**The panel answers on the USB cable again.** With `web.expose: proxy`, from
+dev35 to dev43 a freshly started controller did not listen on the USB address
+192.168.7.2: the USB gadget comes up after the boneIO service, and the late
+listener added since dev35 only followed the Docker bridge. The production
+station could not reach a newly flashed board over USB. The panel now listens
+on the USB address as soon as it appears. Checked on a controller with a local
+build: the address appeared, the panel listened a second later and answered
+over USB.
+
+**Modbus on a phone.** The Modbus page has a device picker with previous/next
+arrows, a search, an "only failing" choice and grouping by area. A device that
+stops answering is marked in the picker and in its header; until now it looked
+the same as a quiet one. The list no longer runs the name under the chart or
+sticks controls out of the screen.
+
+**Smaller fixes in the panel.** The bottom section bar no longer blocks page
+scrolling and opens on a tap only. The log's toolbar folds behind a Filters
+button, and the log no longer jumps or drops older pages while you read it
+scrolled up. A schedule that ran or was switched now updates an open panel.
+
+No system migration was added and no plan changed since dev43; only the
+manifest was re-signed, because it names the release.
 
 ---
 
