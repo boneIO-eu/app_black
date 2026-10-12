@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from '@/api/axios';
-import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaEyeSlash, FaSearch, FaDiscord, FaBug, FaCalendarAlt } from 'react-icons/fa';
+import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaEyeSlash, FaSearch, FaDiscord, FaBug, FaCalendarAlt, FaSlidersH } from 'react-icons/fa';
 import { useTranslation } from '../hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
 import { aggregateLogs, type AggregatedLog } from '../utils/logAggregation';
@@ -68,6 +68,9 @@ export default function LogViewer() {
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const moduleDropdownRef = useRef<HTMLDivElement>(null);
   const [excludedModules, setExcludedModules] = useState<Set<string>>(new Set());
+  // On a phone the filter toolbar would push the log under the fold, so it
+  // stays folded behind one button until asked for.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [excludeDropdownOpen, setExcludeDropdownOpen] = useState(false);
   const excludeDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(new Set());
@@ -542,14 +545,16 @@ export default function LogViewer() {
     }
   };
 
+  const activeFilterCount = [dateFrom || dateTo, selectedModules.size > 0, excludedModules.size > 0, debugActive].filter(Boolean).length;
+
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden">
       {/* Search gets its own full-width row above everything else. It was a
           36px-wide box in the middle of a crowded toolbar, which is the one
           control people reach for first on a page of thousands of lines. */}
-      <div className="bg-base-200 px-2 sm:px-4 pt-2 sm:pt-4">
-        <div className="relative flex items-center w-full">
-          <FaSearch className="absolute left-3 w-4 h-4 text-base-content/40 pointer-events-none" />
+      <div className="bg-base-200 px-2 sm:px-4 pt-2 sm:pt-4 flex items-center gap-2 max-sm:pb-2 max-sm:border-b max-sm:border-base-content/10">
+        <div className="relative flex items-center flex-1 min-w-0">
+          <FaSearch className="absolute left-3 z-10 w-4 h-4 text-base-content/40 pointer-events-none" />
           <input
             type="text"
             className="input input-bordered pl-9 w-full font-mono text-sm"
@@ -583,8 +588,27 @@ export default function LogViewer() {
             </button>
           )}
         </div>
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className={`sm:hidden btn gap-1.5 ${filtersOpen ? 'btn-primary btn-soft' : ''}`}
+          aria-expanded={filtersOpen}
+        >
+          <FaSlidersH className="w-3.5 h-3.5" />
+          {t('log_viewer.filters')}
+          {activeFilterCount > 0 && (
+            <span className="badge badge-xs badge-primary">{activeFilterCount}</span>
+          )}
+        </button>
+        <button
+          onClick={() => fetchLogs()}
+          disabled={isLoading}
+          className="sm:hidden btn btn-square"
+          aria-label={t('log_viewer.refresh')}
+        >
+          <FaSync className={`${isLoading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
-      <div className="bg-base-200 p-2 sm:p-4 border-b border-base-content/10 flex flex-wrap items-center gap-2 sm:gap-4">
+      <div className={`bg-base-200 p-2 sm:p-4 border-b border-base-content/10 flex-wrap items-center gap-2 sm:gap-4 ${filtersOpen ? 'flex' : 'hidden sm:flex'}`}>
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -785,7 +809,8 @@ export default function LogViewer() {
         <button
           onClick={() => fetchLogs()}
           disabled={isLoading}
-          className="btn btn-sm btn-square"
+          className="hidden sm:inline-flex btn btn-sm btn-square"
+          aria-label={t('log_viewer.refresh')}
         >
           <FaSync className={`${isLoading ? 'animate-spin' : ''}`} />
         </button>
