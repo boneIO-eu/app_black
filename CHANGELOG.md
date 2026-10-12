@@ -6,6 +6,33 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.0 (2026-10-12) — 1.6.x security series
+
+The first stable 1.6 release: the summary of builds dev1 to dev44. Nothing
+changed in the code since dev44; the version number is final. Update to
+1.5.6 first. See RELEASE_NOTES.md before updating.
+
+### 🎯 Highlights
+
+- **Adapting to the CRA, secure from the first start** — the panel over
+  HTTPS only on new controllers, no default passwords, an administrator
+  account from the first-run wizard, multiple accounts with an administrator
+  and a read-only role, no standing path to root, signed system migrations,
+  throttled logins.
+- **New panel** — first-run wizard, bottom navigation on phones, schedules and
+  sun-driven actions, Modbus picker, Diagnostics with a Disk card.
+- **MQTT** — password in `secrets.yaml`, TLS towards a broker and to the
+  controller's own Mosquitto.
+- **Whole-system updates from the panel** (Debian, kernel, boneIO), Caddy
+  installed from a pinned package, faster startup, better survival of a power
+  cut.
+- **Hardware revision 1.1** supported end to end.
+- **Home Assistant** — entities stay under their room's device, no duplicates
+  after an update, saving a section does not remove entities it does not own.
+- **System migrations 1.6.1–1.6.46**, signed; no new migration since dev44.
+
+The details, build by build, follow below.
+
 ## v1.6.0.dev44 (2026-10-12) — 1.6.x security series
 
 A pre-release, open for testing on real installations. See RELEASE_NOTES.md
