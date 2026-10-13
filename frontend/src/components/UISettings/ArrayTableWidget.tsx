@@ -264,6 +264,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return;
     } else if (sectionType === 'local_inputs') {
       setEditingItem({ _type: 'event' });
+    } else if (sectionType === 'board_sensors') {
+      // The form shows LM75 at 0x48 for an item with no type, but the save
+      // sorts items into lm75/ina219/... by _type and drops one without it.
+      setEditingItem({ _type: 'lm75', address: 0x48 });
     } else if (sectionType === 'schedule') {
       // A clock trigger rather than sunset: it is valid on every device,
       // including one with no coordinates, where a sun trigger can never
