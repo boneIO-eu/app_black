@@ -762,6 +762,7 @@
     "info_description": "Zmień adresy I2C ekspanderów GPIO. Domyślne adresy są ustawiane automatycznie przez konfigurację płytki. Zmień tylko jeśli Twoja płytka ma inne adresy.",
     "left_description": "Lewy ekspander GPIO (OUT_01-OUT_16 dla 32x10, OUT_01-OUT_12 dla 24x16)",
     "right_description": "Prawy ekspander GPIO (OUT_17-OUT_32 dla 32x10, OUT_13-OUT_24 dla 24x16)",
+    "middle_description": "Środkowy ekspander GPIO (48x4: środkowe 16 wyjść)",
     "address": "Adres I2C",
     "address_hint": "Wybierz adres I2C dla tego ekspandera",
     "inverted": "Odwrócona logika (active-LOW)",

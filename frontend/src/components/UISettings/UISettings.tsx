@@ -940,7 +940,7 @@ export default function UISettings() {
         // For mcp23017, use data directly - form already provides clean data
         // Convert addresses to integers for backend
         minimalConfig = Array.isArray(dataToUse)
-          ? dataToUse.map((entry: { id?: string; address?: string | number; inverted?: boolean } | null) => {
+          ? dataToUse.map((entry: { id?: string; address?: string | number; inverted?: boolean; init_sleep?: string | number } | null) => {
             if (entry && entry.address !== undefined) {
               let addr = entry.address;
               // Convert to integer
@@ -955,7 +955,8 @@ export default function UISettings() {
               if (isNaN(addr)) {
                 addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
               }
-              return { id: entry.id, address: addr, inverted: entry.inverted };
+              // Every other field (init_sleep, inverted) goes back as it was.
+              return { ...entry, address: addr };
             }
             return entry;
           })

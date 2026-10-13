@@ -43,11 +43,20 @@ const toHexAddress = (address: string | number): string => {
   return '0x20'; // fallback
 };
 
+/** Description key for the expanders the controller types ship with. */
+const DESCRIPTION_KEYS: Record<string, string> = {
+  mcp_left: 'mcp.left_description',
+  mcp_middle: 'mcp.middle_description',
+  mcp_right: 'mcp.right_description',
+};
+
 /**
  * Form for editing MCP23017 I2C expander configuration.
- * 
- * Allows editing addresses and inverted logic for mcp_left and mcp_right,
- * as these are the only IDs supported by the output configuration.
+ *
+ * One card per expander in the section, whatever its id: the 48x4 has a
+ * third one (mcp_middle), and an owner may add more in YAML. A change is
+ * emitted for every entry with every field kept, so saving the form never
+ * drops an expander the form does not know by name.
  * Fetches runtime status from the backend to show auto-detected inverted state.
  */
 const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
@@ -77,59 +86,15 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
     }));
   };
 
-  // Ensure we always have both mcp_left and mcp_right entries
-  const ensureDefaultEntries = (entries: Mcp23017Data[]): Mcp23017Data[] => {
-    const normalized = normalizeEntries(entries);
+  // An empty section starts from the usual left/right pair; otherwise every
+  // configured expander is shown as it is.
+  const mcpEntries: Mcp23017Data[] = data && data.length > 0
+    ? normalizeEntries(data)
+    : [{ id: 'mcp_left', address: '0x20' }, { id: 'mcp_right', address: '0x21' }];
 
-    const leftEntry = normalized.find(e => e.id === 'mcp_left');
-    const rightEntry = normalized.find(e => e.id === 'mcp_right');
-
-    // Only add defaults if no entries exist at all
-    const result: Mcp23017Data[] = [];
-
-    if (leftEntry) {
-      result.push(leftEntry);
-    } else if (normalized.length === 0) {
-      result.push({ id: 'mcp_left', address: '0x20' });
-    }
-
-    if (rightEntry) {
-      result.push(rightEntry);
-    } else if (normalized.length === 0) {
-      result.push({ id: 'mcp_right', address: '0x21' });
-    }
-
-    // Include any existing entries that are mcp_left or mcp_right
-    return result.length > 0 ? result : normalized.filter(e => e.id === 'mcp_left' || e.id === 'mcp_right');
-  };
-
-  const mcpEntries = ensureDefaultEntries(data || []);
-
-  // Get entry by ID with hex-formatted address
-  const getEntry = (id: string): Mcp23017Data => {
-    const entry = mcpEntries.find(e => e.id === id);
-    if (entry) {
-      return { ...entry, address: toHexAddress(entry.address) };
-    }
-    return { id, address: id === 'mcp_left' ? '0x20' : '0x21' };
-  };
-
-  /**
-   * Update a single field for a specific MCP entry.
-   * Preserves all existing fields (address, init_sleep, inverted).
-   */
+  /** Update one field of one expander, keeping every other entry and field. */
   const updateEntry = (id: string, field: keyof Mcp23017Data, value: string | number | boolean) => {
-    const left = getEntry('mcp_left');
-    const right = getEntry('mcp_right');
-
-    const update = (entry: Mcp23017Data): Mcp23017Data => {
-      if (entry.id === id) {
-        return { ...entry, [field]: value };
-      }
-      return entry;
-    };
-
-    onChange([update(left), update(right)]);
+    onChange(mcpEntries.map(entry => (entry.id === id ? { ...entry, [field]: value } : entry)));
   };
 
   // Common I2C addresses for MCP23017
@@ -144,11 +109,8 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
     { value: '0x27', label: '0x27' },
   ];
 
-  const leftEntry = getEntry('mcp_left');
-  const rightEntry = getEntry('mcp_right');
-
   /** Render a single MCP card with address + inverted toggle. */
-  const renderMcpCard = (entry: Mcp23017Data, variant: 'primary' | 'secondary') => {
+  const renderMcpCard = (entry: Mcp23017Data, variant: 'primary' | 'secondary' | 'accent') => {
     const runtime = runtimeStatus[entry.id];
     const configHasInverted = entry.inverted !== undefined;
     const runtimeInverted = runtime?.inverted ?? false;
@@ -156,7 +118,7 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
     const showDetectedBadge = runtime && !configHasInverted;
 
     return (
-      <div className="stg-card">
+      <div key={entry.id} className="stg-card">
         <div className="card-body p-4 sm:p-6">
           <h3 className="text-lg card-title">
             <span className={`badge badge-${variant}`}>{entry.id}</span>
@@ -166,9 +128,11 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
               </span>
             )}
           </h3>
-          <p className="text-sm text-base-content/70 wrap-break-word">
-            {t(entry.id === 'mcp_left' ? 'mcp.left_description' : 'mcp.right_description')}
-          </p>
+          {DESCRIPTION_KEYS[entry.id] && (
+            <p className="text-sm text-base-content/70 wrap-break-word">
+              {t(DESCRIPTION_KEYS[entry.id])}
+            </p>
+          )}
 
           {/* Address select */}
           <div className="mt-4 form-control">
@@ -230,8 +194,8 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
       />
 
       <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
-        {renderMcpCard(leftEntry, 'primary')}
-        {renderMcpCard(rightEntry, 'secondary')}
+        {mcpEntries.map((entry, i) =>
+          renderMcpCard(entry, (['primary', 'secondary', 'accent'] as const)[i % 3]))}
       </div>
     </div>
   );
