@@ -1,10 +1,22 @@
-# boneIO Black 1.6.0
+# boneIO Black 1.6.1
 
-The first stable release of the 1.6 series: boneIO Black adapted towards the
-EU Cyber Resilience Act, plus a new panel. The panel offers it as an update
-to controllers on 1.5.x. The 1.6 builds that came before it were tested on
-real controllers; this one is the same code with the version number made
-final.
+The first fix after 1.6.0. On a controller already running 1.6.0 it only
+brings the fixes below. Coming from 1.5.x, this is your update to the 1.6
+series: read "Before you update" first.
+
+## What 1.6.1 fixes
+
+- **DS18B20 sensors stopped working after updating to 1.6.0.** If your 1-Wire
+  temperature sensors showed no readings after the update, and the log said
+  "Dallas sensor ... not initialized, skipping update" every minute, this is
+  the fix. The sensor is now picked up on a later reading; no restart needed.
+- **"Scan" in the 1-Wire sensor form always said "Scan failed — check the
+  connection".** The panel sent the request without your login, so the
+  controller refused it. Fixed, together with the same problem in the
+  MCP23017 status.
+- **ADC names on a fresh image.** On a new image or after a reset to factory
+  settings, ADC inputs are now named after the number printed at the
+  terminal. Existing configurations keep their names.
 
 ## Before you update
 
@@ -54,7 +66,7 @@ created in the wizard.
   and the controller's own Mosquitto broker taking encrypted connections in.
 - **Whole-system updates from the panel**: Debian packages, the kernel and boneIO.
 
-## New features and fixes
+## New features and fixes in 1.6
 
 - First-run wizard for new and freshly reset controllers.
 - Schedules and sun-driven actions, and virtual switches that can run actions.
@@ -75,7 +87,7 @@ created in the wizard.
   longer removes entities it does not own from Home Assistant — security
   events, virtual switches, irrigation, remote outputs and more could
   disappear or stop updating on a save.
-- v0.2/v0.3 boards: `IN_26`, `IN_27` and `IN_28` work again.
+- v0.2/v0.3 controllers: `IN_26`, `IN_27` and `IN_28` work again.
 
 The full list is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -95,5 +107,5 @@ you can — the output of `journalctl -u boneio -b`.
 ---
 
 System migrations 1.6.1 to 1.6.46 are signed with the plans; this release
-adds none. No plan changed since the last test build, only the manifest was
-re-signed, because it names the release.
+adds none. No plan changed since 1.6.0, only the manifest was re-signed,
+because it names the release.

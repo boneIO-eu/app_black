@@ -6,6 +6,31 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.1 (2026-10-13) — 1.6.x security series
+
+The first fix after 1.6.0. Update to 1.6.0 or 1.5.6 first; see
+RELEASE_NOTES.md before updating.
+
+### 🌡️ 1-Wire
+
+- **DS18B20 temperature sensors work again after updating to 1.6.0.** On some
+  controllers the sensors stopped reporting until boneIO was restarted, with
+  "Dallas sensor … not initialized, skipping update" in the log every minute.
+  A sensor the kernel has not detected yet at startup is now bound on a later
+  reading, so no restart is needed.
+- **The "Scan" button in the 1-Wire sensor form works again.** It always
+  answered "Scan failed — check the connection", because the request went out
+  without the login token. The MCP23017 status request had the same problem
+  and is fixed too.
+
+### 🔧 Factory configuration
+
+- **ADC inputs are named after the terminal's printed ADC number.** Only a
+  fresh image or a reset to factory settings is affected; existing
+  configurations keep their names.
+
+- **System migrations 1.6.1–1.6.46**, signed; no new migration in this release.
+
 ## v1.6.0 (2026-10-12) — 1.6.x security series
 
 The first stable 1.6 release: the summary of builds dev1 to dev44. Nothing
