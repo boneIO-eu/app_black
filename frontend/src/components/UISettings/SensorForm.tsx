@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FaCheckCircle, FaExclamationCircle, FaExclamationTriangle, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '../../hooks/useTranslation';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { FormInputToggle } from './widgets/FormInputToggle';
 import { NoticeCallout } from './ui';
 
