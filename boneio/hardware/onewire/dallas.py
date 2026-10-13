@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 
 from boneio.const import TEMPERATURE
-from boneio.exceptions import OneWireError
 from boneio.hardware.sensor.temperature.base import TempSensor
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,11 +60,11 @@ class DallasSensor(TempSensor):
             filters: List of filters to apply to readings
             **kwargs: Additional arguments passed to parent classes
 
-        Raises:
-            OneWireError: If sensor cannot be initialized or is not found
+        A sensor missing from /sys/bus/w1 does not raise: it is bound later,
+        on the first update that finds it.
         """
         # Import w1thermsensor locally to avoid kernel module loading at import time
-        from w1thermsensor import W1ThermSensor, W1ThermSensorError
+        from w1thermsensor import W1ThermSensorError
 
         # Set default filters
         if filters is None:
@@ -87,42 +86,48 @@ class DallasSensor(TempSensor):
         # Store address for later reference
         self._address = address
 
-        # Initialize Dallas sensor manually
+        # W1ThermSensor expects only the serial number (without family prefix).
+        # Config address is e.g. "28-0b24402d6f2c" — strip "28-" prefix.
+        if "-" in address:
+            family_code, serial = address.split("-", 1)
+        else:
+            family_code, serial = "28", address
+
+        from w1thermsensor import Sensor as W1SensorType
+
+        family_map: dict[str, W1SensorType] = {
+            "10": W1SensorType.DS18S20,
+            "22": W1SensorType.DS1822,
+            "28": W1SensorType.DS18B20,
+            "3b": W1SensorType.DS1825,
+            "42": W1SensorType.DS28EA00,
+        }
+        self._sensor_type = family_map.get(family_code.lower(), W1SensorType.DS18B20)
+        self._serial = serial
+
+        # The update loop is already running (started by the base class), so
+        # a sensor the kernel has not enumerated yet must not be fatal: the
+        # w1 master finds slaves on its periodic search, which can land after
+        # the application has started. async_update() retries until it shows.
+        self._pct = None
         try:
-            # W1ThermSensor expects only the serial number (without family prefix).
-            # Config address is e.g. "28-0b24402d6f2c" — strip "28-" prefix.
-            raw_id = address
-            if "-" in raw_id:
-                parts = raw_id.split("-", 1)
-                family_code = parts[0]
-                serial = parts[1]
-            else:
-                family_code = "28"
-                serial = raw_id
-
-            # Map family code to W1ThermSensor sensor type
-            from w1thermsensor import Sensor as W1SensorType
-
-            family_map: dict[str, W1SensorType] = {
-                "10": W1SensorType.DS18S20,
-                "22": W1SensorType.DS1822,
-                "28": W1SensorType.DS18B20,
-                "3b": W1SensorType.DS1825,
-                "42": W1SensorType.DS28EA00,
-            }
-            sensor_type = family_map.get(family_code.lower(), W1SensorType.DS18B20)
-
-            self._pct = W1ThermSensor(sensor_type=sensor_type, sensor_id=serial)
-            # Perform a first read to check if sensor is available
-            self._pct.get_temperature()
-            _LOGGER.info(
-                "Dallas sensor %s initialized successfully (serial=%s, type=%s)",
-                address,
-                serial,
-                sensor_type,
+            self._connect()
+        except W1ThermSensorError as err:
+            _LOGGER.warning(
+                "Dallas sensor %s not available yet, will retry: %s", address, err
             )
-        except (ValueError, W1ThermSensorError) as err:
-            raise OneWireError(f"Error initializing sensor {address}: {err}") from err
+
+    def _connect(self) -> None:
+        """Bind to the kernel w1 slave. Raises W1ThermSensorError if absent."""
+        from w1thermsensor import W1ThermSensor
+
+        self._pct = W1ThermSensor(sensor_type=self._sensor_type, sensor_id=self._serial)
+        _LOGGER.info(
+            "Dallas sensor %s initialized (serial=%s, type=%s)",
+            self._address,
+            self._serial,
+            self._sensor_type,
+        )
 
     @property
     def address(self) -> str:
@@ -165,10 +170,7 @@ class DallasSensor(TempSensor):
         """
         try:
             if not self._pct:
-                _LOGGER.warning(
-                    "Dallas sensor %s not initialized, skipping update", self.id
-                )
-                return
+                await self._loop.run_in_executor(None, self._connect)
             # Run blocking get_temperature in executor to avoid blocking the event loop
             _temp = await self._loop.run_in_executor(None, self._pct.get_temperature)
             _LOGGER.debug(
