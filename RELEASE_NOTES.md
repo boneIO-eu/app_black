@@ -14,6 +14,11 @@ series: read "Before you update" first.
   connection".** The panel sent the request without your login, so the
   controller refused it. Fixed, together with the same problem in the
   MCP23017 status.
+- **Saving the MCP23017 form on a 48x4 controller removed the middle
+  expander,** and its 16 outputs stopped working. The form now keeps every
+  expander in the section with all its settings.
+- **A new I2C sensor added with the type left as shown (LM75 at 0x48) was
+  silently not saved.** Fixed.
 - **ADC names on a fresh image.** On a new image or after a reset to factory
   settings, ADC inputs are now named after the number printed at the
   terminal. Existing configurations keep their names.

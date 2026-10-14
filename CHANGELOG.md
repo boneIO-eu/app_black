@@ -23,6 +23,17 @@ RELEASE_NOTES.md before updating.
   without the login token. The MCP23017 status request had the same problem
   and is fixed too.
 
+### ⚙️ Settings
+
+- **Saving the MCP23017 form no longer removes the middle expander on a
+  48x4.** The form knew only the left and right expanders, so a save dropped
+  `mcp_middle` and its 16 outputs stopped working; an expander added in YAML
+  went the same way, and `init_sleep` was lost. Every expander in the section
+  now has its own card and is saved with all its fields.
+- **A new I2C sensor is saved even if its type is left as shown.** The add
+  dialog showed LM75 at 0x48, but the sensor had no type until the drop-down
+  was changed, and the save dropped it without a word.
+
 ### 🔧 Factory configuration
 
 - **ADC inputs are named after the terminal's printed ADC number.** Only a
