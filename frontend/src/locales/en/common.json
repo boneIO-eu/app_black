@@ -150,6 +150,8 @@
     "type": "Type",
     "select_input": "Select input...",
     "all_inputs_used": "All inputs are in use. You have to free one first.",
+    "not_active_at_startup": "Input {{pin}} must not be active while the controller starts. A reed switch or a motion sensor may well be closed then, so connect it to another input.",
+    "not_active_at_startup_short": "must not be active at start-up",
     "used_inputs": "Used",
     "bounce_time": "Bounce Time",
     "bounce_time_hint": "Debounce time in milliseconds",

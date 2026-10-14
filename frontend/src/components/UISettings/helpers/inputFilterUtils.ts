@@ -97,3 +97,19 @@ export function buildInputOptions(
   // Current pin is used elsewhere — still show it so user can see current selection
   return [...new Set([currentInput, ...availableInputs])].sort();
 }
+
+/**
+ * Inputs that must not be active while the controller starts. Most sit on
+ * BeagleBone boot pins (IN_01/02, IN_09/10, IN_29–IN_34), read once at power-on;
+ * the pins are the same on every board version. A reed switch or a motion
+ * sensor can well be closed at that moment, so the binary sensor form warns.
+ */
+const NOT_ACTIVE_AT_STARTUP = new Set([
+  'IN_01', 'IN_02', 'IN_09', 'IN_10', 'IN_19', 'IN_20', 'IN_21',
+  'IN_29', 'IN_30', 'IN_31', 'IN_32', 'IN_33', 'IN_34',
+]);
+
+/** Whether *pin* (any case) is one of the inputs that must not be active at start-up. */
+export function mustNotBeActiveAtStartup(pin: string | undefined): boolean {
+  return !!pin && NOT_ACTIVE_AT_STARTUP.has(pin.toUpperCase());
+}

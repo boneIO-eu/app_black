@@ -1,11 +1,11 @@
 import { NoticeCallout } from './ui';
 import React, { useState } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import { FaExclamationTriangle, FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
 import BlueprintPicker from './widgets/BlueprintPicker';
-import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
+import { getInputAvailability, buildInputOptions, mustNotBeActiveAtStartup } from './helpers/inputFilterUtils';
 import AreaSelect from './widgets/AreaSelect';
 import PinAvailabilityHint from './widgets/PinAvailabilityHint';
 import BounceTimeInput, { BOUNCE_TIME_MAX_MS, BOUNCE_TIME_MIN_MS } from './widgets/BounceTimeInput';
@@ -348,6 +348,9 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                         {boneioInputOptions.map((input: string) => (
                           <SelectItem key={input} value={input}>
                             {input}
+                            {mustNotBeActiveAtStartup(input) && (
+                              <FaExclamationTriangle className="inline ml-2 w-3 h-3 text-warning" title={t('inputs.not_active_at_startup_short')} aria-label={t('inputs.not_active_at_startup_short')} />
+                            )}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -358,6 +361,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                       current={data.boneio_input}
                       allUsedMessage={t('inputs.all_inputs_used')}
                     />
+                    {mustNotBeActiveAtStartup(data.boneio_input) && (
+                      <NoticeCallout
+                        variant="warning"
+                        message={t('inputs.not_active_at_startup', { pin: data.boneio_input!.toUpperCase() })}
+                      />
+                    )}
                   </div>
 
                   <div className="form-control">

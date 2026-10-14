@@ -150,6 +150,8 @@
     "type": "Typ",
     "select_input": "Wybierz wejście...",
     "all_inputs_used": "Wszystkie wejścia są zajęte. Musisz najpierw zwolnić jedno.",
+    "not_active_at_startup": "Wejście {{pin}} nie może być aktywne przy starcie sterownika. Kontaktron albo czujnik ruchu bywa wtedy zamknięty, więc podłącz go do innego wejścia.",
+    "not_active_at_startup_short": "nie może być aktywne przy starcie",
     "used_inputs": "Zajęte",
     "bounce_time": "Czas Odbicia",
     "bounce_time_hint": "Czas odbicia w milisekundach",
