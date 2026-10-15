@@ -27,7 +27,9 @@ from boneio.core.config.yaml_util import (
     merge_board_config,
     CustomValidator,
     _get_schema,
+    _strip_empty_strings_deep,
     update_config_section,
+    validate_section,
 )
 from boneio.core.manager import Manager
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
@@ -744,6 +746,54 @@ async def _stored_web_section() -> object:
         return None
 
 
+async def _section_errors(section: str, data: dict | list) -> list[str]:
+    """Why a save of this section would be refused; empty when it would not.
+
+    Stale fields left in event and binary_sensor actions are cleaned in place,
+    as the save has always done before writing.
+    """
+    errors: list[str] = []
+    if section in ("event", "binary_sensor") and isinstance(data, list):
+        # A sun condition on a device with no coordinates fails open at
+        # runtime, so the action keeps firing and nothing looks broken. Save
+        # time is the only point where it is visible.
+        has_location = bool((_config_cache["data"] or {}).get("location"))
+        errors += _validate_section_actions(section, data, has_location=has_location)
+        if has_long_bounce_time(data):
+            errors += validate_bounce_times(data, await _stored_section(section))
+
+    if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
+        host = str(data.get("host", "")).strip()
+        ipv4_re = r"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+        hostname_re = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+        if not host or (not re.match(ipv4_re, host) and not re.match(hostname_re, host)):
+            errors.append(f"Invalid host: '{host}'. Use an IPv4 address or hostname.")
+    return errors
+
+
+@router.post("/config/{section}/validate")
+async def validate_section_content(section: str, data: dict | list = Body(...)):
+    """Whether a section would be saved, and every reason it would not.
+
+    Runs the save's own checks and the schema the file is loaded with, on a
+    copy. Nothing is written and nothing is reloaded.
+    """
+    if not _SECTION_NAME.match(section):
+        raise HTTPException(status_code=404, detail=f"Not a configuration section: '{section}'")
+    data = _strip_empty_strings_deep(copy.deepcopy(data))
+
+    boneio_section = (_config_cache["data"] or {}).get("boneio")
+    if boneio_section is None:
+        # Every save empties the cache until the next read.
+        boneio_section = await asyncio.to_thread(
+            _get_app_state().manager.config_helper.get_section, "boneio"
+        )
+
+    errors = await _section_errors(section, data)
+    errors += await asyncio.to_thread(validate_section, section, data, boneio_section)
+    return {"valid": not errors, "errors": errors}
+
+
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
@@ -764,37 +814,17 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         "mcp23017", "lm75", "ina219", "ina226", "mcp9808", "can",
     }
 
+    errors = await _section_errors(section, data)
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": f"Invalid {section} configuration", "errors": errors},
+        )
+
     if section in ("event", "binary_sensor") and isinstance(data, list):
-        # A sun condition on a device with no coordinates fails open at
-        # runtime, so the action keeps firing and nothing looks broken. Save
-        # time is the only point where it is visible.
-        has_location = bool((_config_cache["data"] or {}).get("location"))
-        errors = _validate_section_actions(section, data, has_location=has_location)
-        if has_long_bounce_time(data):
-            errors += validate_bounce_times(data, await _stored_section(section))
-        if errors:
-            raise HTTPException(
-                status_code=422,
-                detail={"message": "Invalid action configuration", "errors": errors},
-            )
         # gpio_mode left the schema in 1.6; drop it from older configs on save.
         for entry in data:
             entry.pop("gpio_mode", None)
-
-    if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
-        import re
-
-        host = str(data.get("host", "")).strip()
-        ipv4_re = r"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-        hostname_re = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
-        if not host or (not re.match(ipv4_re, host) and not re.match(hostname_re, host)):
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "message": "Invalid lox_udp configuration",
-                    "errors": [f"Invalid host: '{host}'. Use an IPv4 address or hostname."],
-                },
-            )
 
     if section == "web":
         # It reads the compose .env: off the event loop.
@@ -802,23 +832,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
 
     # Strip empty string values from data to prevent cerberus coercion failures
     # (e.g. bounce_time: '' instead of being omitted).
-    def _strip_empty_strings(obj: dict | list) -> dict | list:
-        """Recursively remove keys whose value is an empty string."""
-        if isinstance(obj, list):
-            return [
-                _strip_empty_strings(item) if isinstance(item, (dict, list)) else item
-                for item in obj
-                if item != ""
-            ]
-        if isinstance(obj, dict):
-            return {
-                k: _strip_empty_strings(v) if isinstance(v, (dict, list)) else v
-                for k, v in obj.items()
-                if v != ""
-            }
-        return obj
-
-    data = _strip_empty_strings(data)
+    data = _strip_empty_strings_deep(data)
 
     # Captured before the write: the cloud toggle is acted on rather than
     # merely stored, and afterwards there is nothing left to compare against.
