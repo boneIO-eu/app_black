@@ -115,3 +115,34 @@ async def test_the_save_refuses_what_validation_reports(device):
         )
     assert err.value.status_code == 422
     assert any("not a host!" in e for e in err.value.detail["errors"])
+
+
+BROKEN_EVENT = [{"boneio_input": "in_01", "actions": {"single": [{"action": "output"}]}}]
+GOOD_EVENT = [
+    {"boneio_input": "in_01", "actions": {"single": [{"action": "output", "boneio_output": "out_01"}]}}
+]
+
+
+@pytest.mark.asyncio
+async def test_validation_refuses_an_action_missing_what_its_type_needs(device):
+    result = await config_core.validate_section_content("event", BROKEN_EVENT)
+    assert result["errors"] == ["event[0].actions.single[0].boneio_output: Field required"]
+
+
+@pytest.mark.asyncio
+async def test_the_save_refuses_an_action_missing_what_its_type_needs(device):
+    from fastapi import HTTPException
+
+    before = open(device.yaml_config_file, encoding="utf-8").read()
+    with pytest.raises(HTTPException) as err:
+        await config_core.update_section_content("event", BROKEN_EVENT)
+    assert err.value.status_code == 422
+    assert "event[0].actions.single[0].boneio_output: Field required" in err.value.detail["errors"]
+    assert open(device.yaml_config_file, encoding="utf-8").read() == before
+
+
+@pytest.mark.asyncio
+async def test_the_save_writes_a_valid_event_section(device):
+    device.manager.config_helper.restart_required_sections = []
+    await config_core.update_section_content("event", GOOD_EVENT)
+    assert "out_01" in open(device.yaml_config_file, encoding="utf-8").read()

@@ -1381,34 +1381,22 @@ def _flatten_errors(errors: dict, path: str = "") -> list[str]:
     return lines
 
 
-def validate_section(section: str, data: Any, boneio_section: dict | None) -> list[str]:
-    """Check one section against the schema the way startup checks the file.
-
-    Only the section is validated, not the whole config — on a BeagleBone the
-    whole config takes ~20 s. The ``boneio`` section travels with it because
-    the board it names decides what ``boneio_output``/``boneio_input`` expand
-    to, and the expanded entries are what the schema checks.
-
-    Args:
-        section: Top-level section name.
-        data: The section as it would be saved. Not modified.
-        boneio_section: The stored ``boneio`` section, for the board mapping.
-
-    Returns:
-        One ``path: message`` line per error; empty when the section is valid.
-    """
-    schema = _get_schema()
-    if section not in schema:
-        return [f"Unknown configuration section: '{section}'"]
-
+def _section_document(section: str, data: Any, boneio_section: dict | None) -> dict:
+    """The section, with the boneio section that names its board, ready to check."""
     doc = {section: copy.deepcopy(data)}
-    if section != "boneio" and boneio_section:
+    if section != "boneio" and isinstance(boneio_section, dict):
         doc["boneio"] = copy.deepcopy(boneio_section)
+    return _strip_empty_strings_deep(doc)
+
+
+def _cerberus_section_errors(section: str, doc: dict) -> list[str]:
+    """Validate ``doc[section]`` against the Cerberus schema, as start-up does."""
+    schema = _get_schema()
     subschema = {key: schema[key] for key in doc}
 
     _trust_schema()
     v = CustomValidator(subschema, purge_unknown=True)
-    doc = v.normalized(_strip_empty_strings_deep(doc), always_return_document=True)  # type: ignore[attr-defined]
+    doc = v.normalized(doc, always_return_document=True)  # type: ignore[attr-defined]
     try:
         doc = merge_board_config(doc)
     except ConfigurationException as err:
@@ -1418,6 +1406,44 @@ def validate_section(section: str, data: Any, boneio_section: dict | None) -> li
     # and anything wrong with it is not the caller's to fix in this section.
     errors = v.errors  # type: ignore[attr-defined]
     return _flatten_errors({section: errors[section]}) if section in errors else []
+
+
+def validate_section(section: str, data: Any, boneio_section: dict | None) -> list[str]:
+    """Check one section the way startup checks the file.
+
+    Only the section is validated, not the whole config. The ``boneio``
+    section travels with it because the board it names decides what
+    ``boneio_output``/``boneio_input`` expand to, and the expanded entries are
+    what is checked. Sections with a Pydantic model (``models.SECTIONS``) are
+    checked by it — about ten times faster than Cerberus on a BeagleBone.
+
+    Args:
+        section: Top-level section name.
+        data: The section as it would be saved. Not modified.
+        boneio_section: The stored ``boneio`` section, for the board mapping.
+
+    Returns:
+        One ``path: message`` line per error; empty when the section is valid.
+    """
+    from boneio.core.config import models
+
+    if section not in _get_schema():
+        return [f"Unknown configuration section: '{section}'"]
+
+    doc = _section_document(section, data, boneio_section)
+    if section not in models.SECTIONS:
+        return _cerberus_section_errors(section, doc)
+    # The model checks the section as written; the board mapping only has to
+    # know every input it names. In this order a malformed boneio_input is
+    # reported by the model instead of breaking the mapping.
+    errors = models.validate(section, doc[section])
+    if errors:
+        return errors
+    try:
+        merge_board_config(doc)
+    except ConfigurationException as err:
+        return [f"{section}: {err}"]
+    return []
 
 
 def _get_config_cache_path(config_file: str) -> str:

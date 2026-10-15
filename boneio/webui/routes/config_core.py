@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from starlette.datastructures import State
 
 from boneio.core import containers
+from boneio.core.config import models as config_models
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.core.config.yaml_util import (
     clear_config_cache,
@@ -747,6 +748,21 @@ async def _stored_web_section() -> object:
         return None
 
 
+async def _stored_boneio() -> dict | None:
+    """The stored ``boneio`` section, which names the board; None if unknown."""
+    stored = (_config_cache["data"] or {}).get("boneio")
+    if stored is None:
+        # Every save empties the cache until the next read.
+        try:
+            stored = await asyncio.to_thread(
+                _get_app_state().manager.config_helper.get_section, "boneio"
+            )
+        except Exception as err:  # noqa: BLE001 - without it only the board mapping goes unchecked
+            _LOGGER.warning("Could not read stored boneio section: %s", err)
+            return None
+    return stored if isinstance(stored, dict) else None
+
+
 async def _section_errors(section: str, data: dict | list) -> list[str]:
     """Why a save of this section would be refused; empty when it would not.
 
@@ -784,15 +800,8 @@ async def validate_section_content(section: str, data: dict | list = Body(...)):
     # Both build new containers: the checks below may not touch what was posted.
     data = _strip_empty_strings_deep(plain_time_periods(data))
 
-    boneio_section = (_config_cache["data"] or {}).get("boneio")
-    if boneio_section is None:
-        # Every save empties the cache until the next read.
-        boneio_section = await asyncio.to_thread(
-            _get_app_state().manager.config_helper.get_section, "boneio"
-        )
-
     errors = await _section_errors(section, data)
-    errors += await asyncio.to_thread(validate_section, section, data, boneio_section)
+    errors += await asyncio.to_thread(validate_section, section, data, await _stored_boneio())
     return {"valid": not errors, "errors": errors}
 
 
@@ -820,6 +829,10 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     }
 
     errors = await _section_errors(section, data)
+    if section in config_models.SECTIONS:
+        # The model is quick enough for every save; the Cerberus schema for
+        # these sections took 0.7 s on a BeagleBone, and is left to start-up.
+        errors += await asyncio.to_thread(validate_section, section, data, await _stored_boneio())
     if errors:
         raise HTTPException(
             status_code=422,
