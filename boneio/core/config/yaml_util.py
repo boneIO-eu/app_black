@@ -691,6 +691,62 @@ def one_of(*values, **kwargs):
 timeperiod_type = TypeDefinition("timeperiod", (TimePeriod,), ())
 
 
+def schedule_shape_errors(value: Any) -> list[str]:
+    """Why a schedule's trigger does not match its own type; empty when it does.
+
+    A schema can require a dict and check each field on its own, but not "a
+    sun trigger needs an event and a time trigger needs a time". Left to
+    runtime the symptom is a schedule that quietly never fires, which is the
+    hardest kind of misconfiguration to notice. A field of the wrong type is
+    the schema's to report and is not compared here.
+    """
+    if not isinstance(value, dict):
+        return []
+
+    errors = []
+    trigger = value.get("trigger")
+    trigger = trigger if isinstance(trigger, dict) else {}
+    kind = trigger.get("type", "sun")
+
+    if kind == "sun":
+        from boneio.core.utils.sun import ANCHOR_NAMES
+
+        event = trigger.get("event")
+        if not event:
+            errors.append("A sun trigger needs an 'event', e.g. sunset or civil_dusk.")
+        elif event not in ANCHOR_NAMES:
+            errors.append(
+                f"Unknown sun event {event!r}. "
+                f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}."
+            )
+        if trigger.get("at"):
+            errors.append("'at' belongs to a time trigger, not a sun trigger.")
+        earliest, latest = trigger.get("earliest"), trigger.get("latest")
+        # String compare is right for zero-padded HH:MM, which the schema's
+        # regex holds both to.
+        if isinstance(earliest, str) and isinstance(latest, str) and earliest and latest and earliest > latest:
+            errors.append(
+                f"'earliest' ({earliest}) is after 'latest' ({latest}), "
+                "so the window is empty and the schedule can never fire."
+            )
+    elif kind == "time":
+        if not trigger.get("at"):
+            errors.append("A time trigger needs 'at' in HH:MM.")
+        if trigger.get("event"):
+            errors.append("'event' belongs to a sun trigger, not a time trigger.")
+        for key in ("earliest", "latest"):
+            if trigger.get(key):
+                # Clamping a clock time to another clock time is either a
+                # no-op or a different time written twice.
+                errors.append(
+                    f"{key!r} clamps a sun anchor; a time trigger already has a fixed time."
+                )
+
+    if not value.get("actions"):
+        errors.append("A schedule with no actions would fire and do nothing.")
+    return errors
+
+
 def condition_shape_errors(value: Any) -> list[str]:
     """Why a condition's fields do not match its own type; empty when they do.
 
@@ -1071,69 +1127,9 @@ class CustomValidator(Validator):
                     )
 
     def _check_with_schedule_shape(self, field, value):
-        """Reject a schedule whose trigger does not match its own type.
-
-        Cerberus can require a dict and check each field on its own, but not
-        "a sun trigger needs an event and a time trigger needs a time". Left to
-        runtime the symptom is a schedule that quietly never fires, which is
-        the hardest kind of misconfiguration to notice.
-        """
-        if not isinstance(value, dict):
-            return
-
-        trigger = value.get("trigger") or {}
-        kind = trigger.get("type", "sun")
-
-        if kind == "sun":
-            from boneio.core.utils.sun import ANCHOR_NAMES
-
-            event = trigger.get("event")
-            if not event:
-                self._error(  # type: ignore[attr-defined]
-                    field, "A sun trigger needs an 'event', e.g. sunset or civil_dusk."
-                )
-            elif event not in ANCHOR_NAMES:
-                self._error(  # type: ignore[attr-defined]
-                    field,
-                    f"Unknown sun event {event!r}. "
-                    f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}.",
-                )
-            if trigger.get("at"):
-                self._error(  # type: ignore[attr-defined]
-                    field, "'at' belongs to a time trigger, not a sun trigger."
-                )
-            earliest, latest = trigger.get("earliest"), trigger.get("latest")
-            if earliest and latest and earliest > latest:
-                # String compare is right for zero-padded HH:MM, and both are
-                # already held to that shape by the schema's regex.
-                self._error(  # type: ignore[attr-defined]
-                    field,
-                    f"'earliest' ({earliest}) is after 'latest' ({latest}), "
-                    "so the window is empty and the schedule can never fire.",
-                )
-        elif kind == "time":
-            if not trigger.get("at"):
-                self._error(  # type: ignore[attr-defined]
-                    field, "A time trigger needs 'at' in HH:MM."
-                )
-            if trigger.get("event"):
-                self._error(  # type: ignore[attr-defined]
-                    field, "'event' belongs to a sun trigger, not a time trigger."
-                )
-            for key in ("earliest", "latest"):
-                if trigger.get(key):
-                    # Clamping a clock time to another clock time is either a
-                    # no-op or a different time written twice.
-                    self._error(  # type: ignore[attr-defined]
-                        field,
-                        f"{key!r} clamps a sun anchor; a time trigger already "
-                        "has a fixed time.",
-                    )
-
-        if not value.get("actions"):
-            self._error(  # type: ignore[attr-defined]
-                field, "A schedule with no actions would fire and do nothing."
-            )
+        """Reject a schedule whose trigger does not match its own type."""
+        for message in schedule_shape_errors(value):
+            self._error(field, message)  # type: ignore[attr-defined]
 
     def _check_with_condition_shape(self, field, value):
         """Reject a condition whose fields do not match its own type."""

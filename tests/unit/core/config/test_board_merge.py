@@ -27,3 +27,11 @@ def test_a_virtual_switch_whose_actions_are_not_a_dict_is_reported_not_a_crash(a
 
     errors = validate_section("virtual_switch", [{"name": "Night", "actions": actions}], None)
     assert errors and all("actions" in e for e in errors)
+
+
+@pytest.mark.parametrize("trigger", ["x", 7, ["sunset"], {"event": "sunset", "earliest": 7, "latest": "21:00"}])
+def test_a_schedule_with_a_malformed_trigger_is_reported_not_a_crash(trigger):
+    from boneio.core.config.yaml_util import validate_section
+
+    entry = {"name": "Dusk", "trigger": trigger, "actions": [{"action": "mqtt", "topic": "t", "action_mqtt_msg": "m"}]}
+    assert validate_section("schedule", [entry], None)
