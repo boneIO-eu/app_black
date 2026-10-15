@@ -91,10 +91,26 @@ class TestActionDef:
             "boneio_output": "out_03",
             "action_output": "ON",
             "delay": "5min",
-            "conditions": {"type": "and", "list": [{"type": "state", "entity": "output", "entity_id": "out_04", "state": "OFF"}]},
+            "conditions": {"mode": "and", "list": [{"type": "state", "entity": "output", "entity_id": "out_04", "state": "is_off"}]},
         }
         run(config_actions.add_quick_action({"entity_id": "IN_01", "click_type": "double", "action_def": action}))
         assert _entry(store, "event", "IN_01")["actions"]["double"] == [action]
+
+    def test_a_value_the_schema_refuses_is_not_written(self, store):
+        """Start-up would refuse the file; the save refuses the action instead."""
+        before = open(store["file"], encoding="utf-8").read()
+        action = {
+            "action": "output",
+            "boneio_output": "out_03",
+            "condition": {"type": "state", "entity": "output", "entity_id": "out_04", "state": "OFF"},
+        }
+        with pytest.raises(HTTPException) as err:
+            run(config_actions.add_quick_action({"entity_id": "IN_02", "click_type": "double", "action_def": action}))
+        assert err.value.status_code == 422
+        assert err.value.detail["errors"] == [
+            "event[1].actions.double[0].condition.state: unallowed value OFF"
+        ]
+        assert open(store["file"], encoding="utf-8").read() == before
 
     def test_a_virtual_switch_action_is_accepted(self, store):
         """The input editor offers it; the validator used to refuse it."""

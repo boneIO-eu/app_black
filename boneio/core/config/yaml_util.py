@@ -1365,6 +1365,61 @@ def load_config_from_string(config_str: str) -> dict:
     return merged_doc
 
 
+def _flatten_errors(errors: dict, path: str = "") -> list[str]:
+    """Cerberus' nested error tree as one ``path: message`` line per error."""
+    lines = []
+    for key, items in errors.items():
+        if isinstance(key, int):
+            where = f"{path}[{key}]"
+        else:
+            where = f"{path}.{key}" if path else str(key)
+        for item in items:
+            if isinstance(item, dict):
+                lines += _flatten_errors(item, where)
+            else:
+                lines.append(f"{where}: {item}")
+    return lines
+
+
+def validate_section(section: str, data: Any, boneio_section: dict | None) -> list[str]:
+    """Check one section against the schema the way startup checks the file.
+
+    Only the section is validated, not the whole config, which takes over a
+    second on a BeagleBone. The ``boneio`` section travels with it because
+    the board it names decides what ``boneio_output``/``boneio_input`` expand
+    to, and the expanded entries are what the schema checks.
+
+    Args:
+        section: Top-level section name.
+        data: The section as it would be saved. Not modified.
+        boneio_section: The stored ``boneio`` section, for the board mapping.
+
+    Returns:
+        One ``path: message`` line per error; empty when the section is valid.
+    """
+    schema = _get_schema()
+    if section not in schema:
+        return [f"Unknown configuration section: '{section}'"]
+
+    doc = {section: copy.deepcopy(data)}
+    if section != "boneio" and isinstance(boneio_section, dict):
+        doc["boneio"] = copy.deepcopy(boneio_section)
+    subschema = {key: schema[key] for key in doc}
+
+    _trust_schema()
+    v = CustomValidator(subschema, purge_unknown=True)
+    doc = v.normalized(_strip_empty_strings_deep(doc), always_return_document=True)  # type: ignore[attr-defined]
+    try:
+        doc = merge_board_config(doc)
+    except ConfigurationException as err:
+        return [f"{section}: {err}"]
+    v.validate(doc, subschema)  # type: ignore[attr-defined]
+    # Only what was asked about: the stored boneio section is context here,
+    # and anything wrong with it is not the caller's to fix in this section.
+    errors = v.errors  # type: ignore[attr-defined]
+    return _flatten_errors({section: errors[section]}) if section in errors else []
+
+
 def _get_config_cache_path(config_file: str) -> str:
     """Get path for validated config cache file.
 
