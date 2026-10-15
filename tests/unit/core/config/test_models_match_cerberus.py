@@ -36,6 +36,12 @@ BONEIO = {"config_version": 7, "name": "t", "version": 1.1, "device_type": "24x1
 #: Fields the board mapping looks up; a wrong one fails the whole list.
 MAPPED = {("boneio_input",), ("boneio_output",)}
 
+#: Sections whose entries must resolve to distinct identifiers (from id, else
+#: name). Batched, the copies of one entry would all collide; each gets an id
+#: of its own instead, and mutations of id and name run alone.
+RESOLVED_IDS = {"virtual_switch", "schedule"}
+IDENTITY = {("id",), ("name",)}
+
 #: A wrong value of every kind, and the marker for "field removed".
 REMOVED = object()
 MUTANTS = [REMOVED, None, True, 7, -1, 1000, 1.5, "x", "TOGGLE", "30s", [], {}]
@@ -122,6 +128,19 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
                             "show_in_ha": False,
                             "actions": {"on_turn_on": [dict(ACTIONS[0])],
                                         "on_turn_off": [dict(ACTIONS[3])]}}, (), False),
+        ("schedule", {"name": "Dusk lights", "trigger": {"event": "sunset", "offset": "-30min",
+                                                        "earliest": "17:00", "latest": "21:30",
+                                                        "jitter": "5min", "days": "weekdays"},
+                      "actions": [dict(ACTIONS[0])]}, (), False),
+        ("schedule", {"name": "Morning", "id": "morning", "description": "d", "enabled": False,
+                      "trigger": {"type": "time", "at": "06:30", "days": "mon"},
+                      "on_missed": "run", "catch_up": "10min",
+                      "condition": {"type": "state", "entity": "output", "entity_id": "out_02",
+                                    "state": "is_off"},
+                      "actions": [dict(ACTIONS[2])]}, (), False),
+        ("schedule", {"name": "Grouped", "trigger": {"event": "sunrise"},
+                      "conditions": {"mode": "or", "list": [dict(c) for c in CONDITIONS[:3]]},
+                      "actions": [dict(ACTIONS[3])]}, (), False),
     ]
     return bases
 
@@ -278,9 +297,14 @@ def test_the_model_refuses_whatever_cerberus_refuses(section, base, focus, typed
     mutations = [(p, m) for p, m in _mutations(base, rule) if _in_focus(p, focus, typed_only)]
     assert len(mutations) > 20
     # Mutating what the board mapping looks up breaks it for the whole list.
-    alone = [(p, m) for p, m in mutations if p in MAPPED]
-    together = [(p, m) for p, m in mutations if p not in MAPPED]
-    verdicts = _verdicts_each(section, [_apply(base, p, m) for p, m in together])
+    solo = MAPPED | (IDENTITY if section in RESOLVED_IDS else set())
+    alone = [(p, m) for p, m in mutations if p in solo]
+    together = [(p, m) for p, m in mutations if p not in solo]
+    batch = [_apply(base, p, m) for p, m in together]
+    if section in RESOLVED_IDS:
+        for i, entry in enumerate(batch):
+            entry["id"] = f"batch_{i}"
+    verdicts = _verdicts_each(section, batch)
     verdicts += [_verdicts(section, [_apply(base, p, m)]) for p, m in alone]
     for (path, mutant), (cerberus, model) in zip(together + alone, verdicts):
         if cerberus and not model:
@@ -317,3 +341,21 @@ def test_a_virtual_switch_setting_itself_is_refused_by_both():
 def test_virtual_switches_resolving_to_one_id_are_refused_by_both():
     cerberus, model = _verdicts("virtual_switch", [{"name": "Salon"}, {"name": "salon!"}])
     assert cerberus and model
+
+
+@pytest.mark.parametrize("section, base", [pytest.param(b[0], b[1], id=_name(*b)) for b in _bases()])
+def test_each_base_entry_as_get_serves_it_is_accepted(section, base):
+    """What the panel posts back after a read, for sections the factory configs lack."""
+    import json
+
+    from fastapi.encoders import jsonable_encoder
+
+    from boneio.core.config.yaml_util import CustomValidator, merge_board_config
+    from boneio.core.utils.timeperiod import plain_time_periods
+
+    schema = {k: _get_schema()[k] for k in (section, "boneio")}
+    validator = CustomValidator(schema, purge_unknown=True)
+    doc = validator.normalized({section: [copy.deepcopy(base)], "boneio": dict(BONEIO)},
+                               always_return_document=True)
+    served = json.loads(json.dumps(jsonable_encoder(plain_time_periods(merge_board_config(doc)))))
+    assert validate_section(section, served[section], served["boneio"]) == []

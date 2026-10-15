@@ -10,7 +10,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, TypeAdapter, model_validator
 
-from boneio.core.config.models.base import Model, Str
+from boneio.core.config.models.base import Model, Str, unique_resolved_ids
 from boneio.core.config.models.inputs import UNION_TAGS, Action  # noqa: F401 - UNION_TAGS for error paths
 from boneio.core.utils.naming import resolve_id
 
@@ -52,23 +52,6 @@ class VirtualSwitch(Model):
         return self
 
 
-def _unique_ids(switches: list[VirtualSwitch]) -> list[VirtualSwitch]:
-    seen: dict[str, int] = {}
-    for index, switch in enumerate(switches):
-        switch_id = resolve_id({"id": switch.id, "name": switch.name})
-        if not switch_id:
-            raise ValueError(f"Entry {index + 1} has no name to make an identifier from.")
-        if switch_id in seen:
-            raise ValueError(
-                f"Entries {seen[switch_id] + 1} and {index + 1} both resolve to the identifier "
-                f"{switch_id!r}. Names do not have to be unique, but what they are turned into "
-                "does — give one of them an explicit 'id', or a name that differs by more than "
-                "punctuation."
-            )
-        seen[switch_id] = index
-    return switches
-
-
 SECTION_ADAPTERS = {
-    "virtual_switch": TypeAdapter(Annotated[list[VirtualSwitch], AfterValidator(_unique_ids)]),
+    "virtual_switch": TypeAdapter(Annotated[list[VirtualSwitch], AfterValidator(unique_resolved_ids)]),
 }

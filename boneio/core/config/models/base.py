@@ -78,3 +78,28 @@ class Model(BaseModel):
     def _refuse_forbidden(cls, data: dict) -> dict:
         """Refuse fields this model may not carry; runs after nulls are read."""
         return data
+
+
+def unique_resolved_ids(entries: list) -> list:
+    """Refuse two entries that resolve to the same identifier (``resolve_id``).
+
+    Identifiers are made from names when no ``id`` is given: two lights both
+    called "Salon" in different rooms are an easy thing to write and produce
+    one entity, with the second silently dropped at start-up.
+    """
+    from boneio.core.utils.naming import resolve_id
+
+    seen: dict[str, int] = {}
+    for index, entry in enumerate(entries):
+        entry_id = resolve_id({"id": entry.id, "name": entry.name})
+        if not entry_id:
+            raise ValueError(f"Entry {index + 1} has no name to make an identifier from.")
+        if entry_id in seen:
+            raise ValueError(
+                f"Entries {seen[entry_id] + 1} and {index + 1} both resolve to the identifier "
+                f"{entry_id!r}. Names do not have to be unique, but what they are turned into "
+                "does — give one of them an explicit 'id', or a name that differs by more than "
+                "punctuation."
+            )
+        seen[entry_id] = index
+    return entries

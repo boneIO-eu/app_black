@@ -24,6 +24,7 @@ _MODULES = {
     "cover": "covers",
     "remote_inputs": "remote_inputs",
     "virtual_switch": "virtual_switches",
+    "schedule": "schedules",
 }
 SECTIONS = frozenset(_MODULES)
 
