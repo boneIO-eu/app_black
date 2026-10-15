@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -15,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from boneio.core.auth.api_keys import KEY_PREFIX, ApiKeyStore
 from boneio.core.auth.models import Role
 from boneio.webui.middleware import policy
 
@@ -107,6 +109,20 @@ def get_user_store() -> UserStore | None:
         The store, or None before init_app has run.
     """
     return _user_store
+
+
+_key_store: ApiKeyStore | None = None
+
+
+def set_key_store(store: ApiKeyStore | None) -> None:
+    """Attach the API key store; without one no API key is accepted."""
+    global _key_store
+    _key_store = store
+
+
+def get_key_store() -> ApiKeyStore | None:
+    """Return the API key store, if one has been attached."""
+    return _key_store
 
 
 def set_jwt_secret(secret: str) -> None:
@@ -375,6 +391,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     content={"detail": "No token provided"}
                 )
 
+            if token.startswith(KEY_PREFIX):
+                if not auth_header:
+                    # A query string ends up in access logs and browser history.
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "An API key goes in the Authorization header."},
+                    )
+                return await _dispatch_api_key(request, call_next, token)
+
             payload = verify_token(token)
             if payload is None:
                 return JSONResponse(
@@ -450,6 +475,40 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.state.token_exp = int(payload.get("exp", 0))
 
         return await call_next(request)
+
+
+async def _dispatch_api_key(request: Request, call_next, secret: str):
+    """Let a request made with an API key through, within the key's scope.
+
+    A key never answers a password confirmation: none of its scopes reaches a
+    route that asks for one (test_api_keys holds that).
+    """
+    path = request.url.path
+    # Off the event loop: it reads the key and account files when they change,
+    # and records the key's last use - a write at most once an hour.
+    key = await asyncio.to_thread(_key_store.authenticate, secret) if _key_store else None
+    if key is None:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Invalid, expired or revoked API key.", "code": "api_key_invalid"},
+        )
+    caller = f"key:{key.name} ({key.owner})"
+    if not policy.key_allows(key.scope, request.method, path):
+        _LOGGER.warning("Refused %s %s for API %s, scope %s", request.method, path, caller, key.scope)
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": f"This API key's scope ({key.scope}) does not allow that.",
+                "code": "forbidden",
+                "scope": str(key.scope),
+            },
+        )
+    request.state.user = caller
+    request.state.role = Role.VIEWER
+    request.state.api_key = key
+    request.state.session_id = f"key:{key.id}"
+    request.state.token_exp = int(datetime.fromisoformat(key.expires_at).timestamp())
+    return await call_next(request)
 
 
 def _step_up_applies() -> bool:

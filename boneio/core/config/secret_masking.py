@@ -58,11 +58,12 @@ def is_secret_key(key: Any) -> bool:
     return isinstance(key, str) and key.strip().lower() in SECRET_KEYS
 
 
-def _walk_mask(value: Any) -> Any:
+def _walk_mask(value: Any, extra: frozenset[str] = frozenset()) -> Any:
     """Recursively copy a structure, replacing secret values with the mask.
 
     Args:
         value: Configuration fragment.
+        extra: Keys masked on top of SECRET_KEYS.
 
     Returns:
         A masked copy. The input is never modified.
@@ -70,19 +71,20 @@ def _walk_mask(value: Any) -> Any:
     if isinstance(value, dict):
         masked: dict[Any, Any] = {}
         for key, item in value.items():
-            if is_secret_key(key) and isinstance(item, str) and item:
+            secret = is_secret_key(key) or (isinstance(key, str) and key.strip().lower() in extra)
+            if secret and isinstance(item, str) and item:
                 masked[key] = MASK
             else:
-                masked[key] = _walk_mask(item)
+                masked[key] = _walk_mask(item, extra)
         return masked
 
     if isinstance(value, list):
-        return [_walk_mask(item) for item in value]
+        return [_walk_mask(item, extra) for item in value]
 
     return value
 
 
-def mask_secrets(config: Any) -> Any:
+def mask_secrets(config: Any, extra_keys: frozenset[str] = frozenset()) -> Any:
     """Return a copy of the configuration with secrets replaced by the mask.
 
     Works on a copy on purpose: the parsed configuration is held in a
@@ -94,11 +96,12 @@ def mask_secrets(config: Any) -> Any:
 
     Args:
         config: Parsed configuration, or any fragment of one.
+        extra_keys: Keys masked on top of SECRET_KEYS, lower case.
 
     Returns:
         Masked copy.
     """
-    return _walk_mask(deepcopy(config))
+    return _walk_mask(deepcopy(config), extra_keys)
 
 
 def restore_secrets(incoming: Any, stored: Any) -> Any:

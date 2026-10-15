@@ -21,6 +21,7 @@ from starlette.websockets import WebSocketState
 
 from boneio.components.input import RemoteInputBase
 from boneio.const import COVER, NONE, VIRTUAL_SWITCH
+from boneio.core.auth.api_keys import ApiKeyStore
 from boneio.core.auth.migration import migrate_legacy_auth
 from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.core.config import ConfigHelper
@@ -57,12 +58,14 @@ from boneio.webui.middleware.auth import (
     set_allow_anonymous,
     set_auth_config,
     set_jwt_secret,
+    set_key_store,
     set_user_store,
 )
 
 # Import routes
 from boneio.webui.routes import (
     accounts_router,
+    api_keys_router,
     auth_router,
     can_router,
     config_router,
@@ -185,6 +188,7 @@ def get_config_helper():
 # Include routers
 app.include_router(auth_router)
 app.include_router(accounts_router)
+app.include_router(api_keys_router)
 app.include_router(outputs_router)
 app.include_router(covers_router)
 app.include_router(dashboard_router)
@@ -871,6 +875,7 @@ def init_app(
         _LOGGER.error("Account store is unusable: %s", err)
 
     set_user_store(user_store)
+    set_key_store(ApiKeyStore.beside(user_store))
     onboarding_module.set_user_store(user_store)
     onboarding_module.set_config_dir(os.path.dirname(os.path.abspath(yaml_config_file)))
     onboarding_module.set_legacy_migration(migration_info)

@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
 
 if TYPE_CHECKING:
     from starlette.datastructures import State
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 from boneio.core import containers
 from boneio.core.config import models as config_models
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
+from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS
 from boneio.core.config.yaml_util import (
     clear_config_cache,
     load_config_from_file,
@@ -260,8 +261,19 @@ def _get_config_mtime(config_file: str) -> float:
     return max_mtime
 
 
+def _masked(config: dict, request: Request | None) -> dict:
+    """The config as the caller may see it: secrets masked, durations as text.
+
+    An API key sees less than a person signed in: what an agent reads ends up
+    with its model's vendor, so ESPHome encryption keys and alarm codes are
+    masked for it too.
+    """
+    extra = AGENT_SECRET_KEYS if getattr(getattr(request, "state", None), "api_key", None) else frozenset()
+    return plain_time_periods(mask_secrets(config, extra))
+
+
 @router.get("/config")
-async def get_parsed_config():
+async def get_parsed_config(request: Request = None):  # type: ignore[assignment]
     """Get parsed configuration data with !include resolved (cached with mtime check)."""
     import time
 
@@ -273,7 +285,7 @@ async def get_parsed_config():
             _LOGGER.debug("Returning cached configuration (mtime unchanged)")
             # Masked on the way out, always on a copy: the cache is shared with
             # the rest of the process, which needs the real values.
-            return {"config": plain_time_periods(mask_secrets(_config_cache["data"]))}
+            return {"config": _masked(_config_cache["data"], request)}
 
         start = time.time()
         try:
@@ -359,7 +371,7 @@ async def get_parsed_config():
         _config_cache["mtime"] = current_mtime
 
         _LOGGER.info("Loaded and cached configuration in %.2fs (mtime: %.0f)", elapsed, current_mtime)
-        return {"config": plain_time_periods(mask_secrets(config_data))}
+        return {"config": _masked(config_data, request)}
 
     except Exception as e:
         _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
@@ -830,11 +842,6 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     # A duration posted as the dict a TimePeriod JSON-encodes to is written as
     # its string; the dict would stop config.yaml from loading.
     data = plain_time_periods(data)
-
-    RESTART_REQUIRED_SECTIONS = {
-        "boneio", "mqtt", "lox_udp", "web", "modbus",
-        "mcp23017", "lm75", "ina219", "ina226", "mcp9808", "can",
-    }
 
     errors = await _section_errors(section, data)
     if section in config_models.SECTIONS:

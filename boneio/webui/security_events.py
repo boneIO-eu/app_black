@@ -21,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 #: What the entity declares to Home Assistant. An event of any other type is
 #: refused there with an error in HA's log, so emit() only sends these.
-EVENT_TYPES = ("password_guessing", "session_signed_out")
+EVENT_TYPES = ("password_guessing", "session_signed_out", "api_key_created")
 
 # The username in a guessing event is whatever was typed at the login form,
 # and it ends up in somebody's notification. Kept short and printable.
@@ -30,6 +30,9 @@ _MAX_USERNAME = 64
 _MESSAGES = {
     "password_guessing": "Too many wrong passwords for '{username}' ({where}).",
     "session_signed_out": "A session of '{username}' was signed out after too many wrong passwords.",
+    # A key outlives the session that made it: if that session was not the
+    # owner's, this is how the owner finds out.
+    "api_key_created": "An API key was made by '{username}': {where}.",
 }
 
 _publisher: Callable[[dict], None] | None = None
@@ -54,7 +57,8 @@ def emit(event_type: str, *, username: str, client: str | None = None, where: st
         client: The caller's address. Left out when it is the controller's own
             loopback, which says nothing about who it was.
         where: Which form the passwords were typed into: ``login``,
-            ``confirm``, ``password_change`` or ``ssh_password``.
+            ``confirm``, ``password_change`` or ``ssh_password``; for a new API
+            key, its name and scope.
     """
     if event_type not in EVENT_TYPES:
         _LOGGER.error("Not an event the security entity declares: %s", event_type)

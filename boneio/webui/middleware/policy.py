@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 
+from boneio.core.auth.api_keys import KeyScope
 from boneio.core.auth.models import Role
 
 # Reachable with no token at all. The onboarding routes are open because a
@@ -48,6 +49,7 @@ _READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _ADMIN_ONLY_READ_PREFIXES = (
     "/api/files",
     "/api/accounts",
+    "/api/api-keys",
     "/api/config/download",
     "/api/config/backups",
     "/api/nodered",
@@ -150,6 +152,8 @@ _REAUTH_WRITES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         # form asks for the current one too, but that is the SSH password and
         # this is the owner proving the session is theirs.
         ("PUT", r"^/api/accounts/ssh-password$"),
+        # An API key is a credential that outlives the session making it.
+        ("POST", r"^/api/api-keys$"),
         # Replacing the whole configuration.
         ("POST", r"^/api/config/restore$"),
         ("POST", r"^/api/config/restore_backup$"),
@@ -263,3 +267,53 @@ def requires_recent_auth(method: str, path: str) -> bool:
         method == wanted_method and pattern.match(path)
         for wanted_method, pattern in _REAUTH_WRITES
     )
+
+
+# ---------------------------------------------------------------- API keys
+#
+# A key acts within its scope only, and the scopes are an allowlist like the
+# viewer's writes: anything not named here is refused, whatever the key's
+# owner may do. Each scope includes the one before it.
+_KEY_READ: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (method, re.compile(pattern))
+    for method, pattern in (
+        ("GET", r"^/api/config$"),
+        ("GET", r"^/api/config/checksum$"),
+    )
+)
+_KEY_PROPOSE = _KEY_READ + (
+    ("POST", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)/validate$")),
+)
+_KEY_WRITE = _KEY_PROPOSE + (
+    ("PUT", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)$")),
+    ("POST", re.compile(r"^/api/config/reload$")),
+)
+_KEY_ROUTES = {
+    KeyScope.READ: _KEY_READ,
+    KeyScope.PROPOSE: _KEY_PROPOSE,
+    KeyScope.WRITE: _KEY_WRITE,
+}
+
+
+def key_may_write(section: str) -> bool:
+    """Whether a write-scoped API key may save this section.
+
+    Not one that only a restart applies, and not one holding a secret: the
+    save puts a stored secret back wherever the mask comes back, whatever else
+    changed - so a key that kept an ESPHome password masked and pointed the
+    host at itself would be handed the password.
+    """
+    from boneio.core.config.sections import RESTART_REQUIRED_SECTIONS, secret_sections
+
+    return section not in RESTART_REQUIRED_SECTIONS and section not in secret_sections()
+
+
+def key_allows(scope: KeyScope, method: str, path: str) -> bool:
+    """Whether an API key of this scope may make this request."""
+    method = method.upper()
+    for allowed_method, pattern in _KEY_ROUTES[scope]:
+        match = pattern.match(path)
+        if method == allowed_method and match:
+            section = match.groupdict().get("section")
+            return not (method == "PUT" and section and not key_may_write(section))
+    return False
