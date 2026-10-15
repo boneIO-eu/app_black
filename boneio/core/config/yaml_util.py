@@ -590,6 +590,11 @@ def merge_board_config(config: dict) -> dict:
     if not config.get("boneio", {}).get("device_type"):
         return config
 
+    if config["boneio"].get("version") is None:
+        # Optional in the schema, but the board's mapping is found by it.
+        raise ConfigurationException(
+            "boneio.version is needed with boneio.device_type to find the board's mapping"
+        )
     board_name = normalize_board_name(config["boneio"]["device_type"])
     version = normalize_version(config["boneio"]["version"])
     config["boneio"]["version"] = version

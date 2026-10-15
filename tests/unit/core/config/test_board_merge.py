@@ -64,3 +64,10 @@ class TestIdUniqueness:
         assert self._errors({"output": outputs, "output_group": groups}) == {
             "output": ["Output IDs are not unique."]
         }
+
+
+def test_a_board_without_a_version_is_a_configuration_error_not_a_crash():
+    from boneio.exceptions import ConfigurationException
+
+    with pytest.raises(ConfigurationException, match="boneio.version"):
+        merge_board_config({"boneio": {"name": "t", "device_type": "24x16A"}})
