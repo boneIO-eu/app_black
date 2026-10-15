@@ -2862,8 +2862,17 @@
     "load_failed": "Nie udało się wczytać kluczy API.",
     "create_failed": "Nie udało się utworzyć klucza.",
     "revoke_failed": "Nie udało się odwołać klucza.",
-    "mcp_title": "Podłączenie Claude Code (inne klienty MCP biorą ten sam adres i nagłówek):",
-    "mcp_hint": "Certyfikat self-signed? Pobierz urząd certyfikacji tego sterownika w Dostęp → Bezpieczeństwo i uruchamiaj klienta z NODE_EXTRA_CA_CERTS=/ścieżka/do/tego/pliku."
+    "mcp_title": "Podłączenie klienta AI:",
+    "mcp_where_terminal": "Uruchom w terminalu:",
+    "mcp_where_codex": "Dodaj do ~/.codex/config.toml, a klucz do profilu powłoki:",
+    "mcp_where_antigravity": "Dodaj do ~/.gemini/config/mcp_config.json (panel agenta → … → MCP Servers → Manage MCP Servers → View raw config):",
+    "mcp_where_cursor": "Dodaj do ~/.cursor/mcp.json (wszystkie projekty) albo .cursor/mcp.json (jeden projekt):",
+    "mcp_where_vscode": "Uruchom „MCP: Open User Configuration” i dodaj to; VS Code raz zapyta o klucz i go zapamięta:",
+    "mcp_where_claude_desktop": "Ustawienia → Developer → Edit Config (claude_desktop_config.json), potem uruchom Claude Desktop ponownie. Wymaga Node.js; mcp-remote to pakiet społeczności:",
+    "mcp_ca_node": "Certyfikat self-signed? Pobierz urząd certyfikacji tego sterownika w Dostęp → Bezpieczeństwo i uruchamiaj klienta z NODE_EXTRA_CA_CERTS=/ścieżka/do/tego/pliku (w Claude Desktop: dopisz do \"env\").",
+    "mcp_ca_codex": "Certyfikat self-signed? Pobierz urząd certyfikacji tego sterownika w Dostęp → Bezpieczeństwo i uruchamiaj Codex z CODEX_CA_CERTIFICATE=/ścieżka/do/tego/pliku.",
+    "mcp_ca_system": "Certyfikat self-signed? Pobierz urząd certyfikacji tego sterownika w Dostęp → Bezpieczeństwo i dodaj go do zaufanych certyfikatów systemu.",
+    "mcp_web_apps": "ChatGPT, claude.ai i aplikacja Gemini łączą się z chmury producenta i wymagają publicznego adresu oraz OAuth, których ten sterownik nie oferuje. Zamiast nich użyj Codex, Claude Code albo Gemini CLI (lub Antigravity)."
   },
   "security": {
     "title": "Bezpieczeństwo",

@@ -2863,8 +2863,17 @@
     "load_failed": "Could not load API keys.",
     "create_failed": "Could not create the key.",
     "revoke_failed": "Could not revoke the key.",
-    "mcp_title": "Connect Claude Code (other MCP clients take the same address and header):",
-    "mcp_hint": "Self-signed certificate? Download this device's authority under Access → Security and start the client with NODE_EXTRA_CA_CERTS=/path/to/that/file."
+    "mcp_title": "Connect an AI client:",
+    "mcp_where_terminal": "Run in a terminal:",
+    "mcp_where_codex": "Add to ~/.codex/config.toml, and the key to your shell profile:",
+    "mcp_where_antigravity": "Add to ~/.gemini/config/mcp_config.json (Agent panel → … → MCP Servers → Manage MCP Servers → View raw config):",
+    "mcp_where_cursor": "Add to ~/.cursor/mcp.json (all projects) or .cursor/mcp.json (one project):",
+    "mcp_where_vscode": "Run “MCP: Open User Configuration” and add this; VS Code asks for the key once and stores it:",
+    "mcp_where_claude_desktop": "Settings → Developer → Edit Config (claude_desktop_config.json), then restart Claude Desktop. Needs Node.js; mcp-remote is a community package:",
+    "mcp_ca_node": "Self-signed certificate? Download this device's authority under Access → Security and start the client with NODE_EXTRA_CA_CERTS=/path/to/that/file (for Claude Desktop: add it to \"env\").",
+    "mcp_ca_codex": "Self-signed certificate? Download this device's authority under Access → Security and start Codex with CODEX_CA_CERTIFICATE=/path/to/that/file.",
+    "mcp_ca_system": "Self-signed certificate? Download this device's authority under Access → Security and add it to your system's trusted certificates.",
+    "mcp_web_apps": "ChatGPT, claude.ai and the Gemini app connect from their vendor's cloud and need a public address and OAuth, which this controller does not offer. Use Codex, Claude Code or Gemini CLI (or Antigravity) instead."
   },
   "security": {
     "title": "Security",

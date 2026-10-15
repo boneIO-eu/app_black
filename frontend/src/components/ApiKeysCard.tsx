@@ -6,6 +6,7 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from '../hooks/useTranslation';
 import { SettingsCard, FormField, FormActions, NoticeCallout } from './UISettings/ui';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { MCP_CLIENTS } from './mcpClients';
 
 type Scope = 'read' | 'propose' | 'write';
 
@@ -53,6 +54,10 @@ export default function ApiKeysCard() {
   const [secret, setSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [clientId, setClientId] = useState(MCP_CLIENTS[0].id);
+  const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const client = MCP_CLIENTS.find((c) => c.id === clientId) ?? MCP_CLIENTS[0];
+  const snippet = secret ? client.snippet(`${window.location.origin}/api/mcp`, secret) : '';
 
   const load = useCallback(async () => {
     try {
@@ -120,11 +125,34 @@ export default function ApiKeysCard() {
                 {copied ? t('api_keys.copied') : t('api_keys.copy')}
               </button>
             </div>
-            <span className="text-xs">{t('api_keys.mcp_title')}</span>
-            <code className="break-all rounded bg-base-100 px-2 py-1 text-xs">
-              {`claude mcp add --scope user --transport http boneio ${window.location.origin}/api/mcp --header "Authorization: Bearer ${secret}"`}
-            </code>
-            <span className="text-xs">{t('api_keys.mcp_hint')}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span>{t('api_keys.mcp_title')}</span>
+              <select
+                className="select select-bordered select-xs"
+                value={client.id}
+                onChange={(e) => {
+                  setClientId(e.target.value);
+                  setCopiedSnippet(false);
+                }}
+              >
+                {MCP_CLIENTS.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <span className="text-xs">{t(`api_keys.mcp_where_${client.where}`)}</span>
+            <div className="flex items-start gap-2">
+              <pre className="flex-1 overflow-x-auto whitespace-pre-wrap break-all rounded bg-base-100 px-2 py-1 text-xs">{snippet}</pre>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={async () => setCopiedSnippet(await copyToClipboard(snippet))}
+              >
+                {copiedSnippet ? t('api_keys.copied') : t('api_keys.copy')}
+              </button>
+            </div>
+            <span className="text-xs">{t(`api_keys.mcp_ca_${client.ca}`)}</span>
+            <span className="text-xs text-base-content/70">{t('api_keys.mcp_web_apps')}</span>
           </div>
         )}
         {isLoading ? (
