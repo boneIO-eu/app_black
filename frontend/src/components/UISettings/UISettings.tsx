@@ -1153,6 +1153,13 @@ export default function UISettings() {
     } catch (error) {
       console.error('Error saving section:', error);
       setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
+      // A refused save names each problem and where it is (422 detail.errors);
+      // the error badge alone gives no way to find the entry to fix.
+      const detail = (error as { response?: { data?: { detail?: { errors?: unknown } } } })
+        ?.response?.data?.detail;
+      if (detail && Array.isArray(detail.errors) && detail.errors.length > 0) {
+        alert(`${t('validation.errors')} (${detail.errors.length}):\n${detail.errors.join('\n')}`);
+      }
 
       // Clear error status after 5 seconds
       setTimeout(() => {
