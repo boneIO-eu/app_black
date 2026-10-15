@@ -1,27 +1,23 @@
-# boneIO Black 1.6.1
+# boneIO Black 1.6.2
 
-The first fix after 1.6.0. On a controller already running 1.6.0 it only
-brings the fixes below. Coming from 1.5.x, this is your update to the 1.6
-series: read "Before you update" first.
+A small fix release after 1.6.1. On a controller already running 1.6.0 or
+1.6.1 it only brings the fixes below. Coming from 1.5.x, this is your update
+to the 1.6 series: read "Before you update" first.
 
-## What 1.6.1 fixes
+## What 1.6.2 fixes
 
-- **DS18B20 sensors stopped working after updating to 1.6.0.** If your 1-Wire
-  temperature sensors showed no readings after the update, and the log said
-  "Dallas sensor ... not initialized, skipping update" every minute, this is
-  the fix. The sensor is now picked up on a later reading; no restart needed.
-- **"Scan" in the 1-Wire sensor form always said "Scan failed — check the
-  connection".** The panel sent the request without your login, so the
-  controller refused it. Fixed, together with the same problem in the
-  MCP23017 status.
-- **Saving the MCP23017 form on a 48x4 controller removed the middle
-  expander,** and its 16 outputs stopped working. The form now keeps every
-  expander in the section with all its settings.
-- **A new I2C sensor added with the type left as shown (LM75 at 0x48) was
-  silently not saved.** Fixed.
-- **ADC names on a fresh image.** On a new image or after a reset to factory
-  settings, ADC inputs are now named after the number printed at the
-  terminal. Existing configurations keep their names.
+- **An input action saved from the panel could stop the controller from
+  starting.** Quick actions, and Teach mode which saves through them, did not
+  check the action against the schema. A value the schema refuses (for
+  example a condition with `state: OFF` instead of `is_off`) was written to
+  `config.yaml`, and the controller refused to start at the next restart. The
+  save is now refused with a message that names the field. A save takes about
+  0.12–0.16 s longer on the controller.
+- **A sun condition with text in `above` or `below` gave an internal error
+  (500) on save.** It now says which field is wrong.
+- **The binary sensor form warns about inputs that must not be active at
+  start-up** (IN_01/02, IN_09/10, IN_19–21, IN_29–34, mostly BeagleBone boot
+  pins). They are marked in the list, with an explanation under the field.
 
 ## Before you update
 

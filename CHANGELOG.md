@@ -6,6 +6,31 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.2 (2026-10-15) — 1.6.x security series
+
+Fixes to saving input actions, and a warning on inputs that matter at
+start-up. See RELEASE_NOTES.md before updating.
+
+### ⚙️ Settings
+
+- **A quick action is checked against the schema before it is written.**
+  Quick actions, and Teach mode which saves through them, wrote an input's
+  actions without the schema check. A value the schema refuses — for example
+  a condition with `state: OFF` instead of `is_off` — went into `config.yaml`
+  and the controller refused to start at the next restart. The save is now
+  refused with a 422 that names the field. On a BeagleBone this costs about
+  0.12–0.16 s per save.
+- **A sun condition with a non-number `above` or `below` is reported as an
+  error, not a crash.** Saving it answered 500; it now answers with a
+  validation error naming the field.
+- **The binary sensor form warns about inputs that must not be active at
+  start-up.** IN_01/02, IN_09/10, IN_19–21 and IN_29–34 are marked in the
+  input list, and a note under the field says why when one is picked. Most of
+  them are BeagleBone boot pins, and a reed switch or a motion sensor can
+  well be closed while the controller starts.
+
+- **System migrations 1.6.1–1.6.46**, signed; no new migration in this release.
+
 ## v1.6.1 (2026-10-13) — 1.6.x security series
 
 The first fix after 1.6.0. Update to 1.6.0 or 1.5.6 first; see
