@@ -12,6 +12,7 @@ from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.modbus import router as modbus_router
 from boneio.webui.routes.nodered import router as nodered_router
 from boneio.webui.routes.os_update import router as os_update_router
+from boneio.webui.routes.proposals import router as proposals_router
 from boneio.webui.routes.proxy import router as proxy_router
 from boneio.webui.routes.onboarding import router as onboarding_router
 from boneio.webui.routes.mqtt_reference import router as mqtt_reference_router
@@ -33,6 +34,7 @@ from boneio.webui.routes.dev_fake_device import router as dev_fake_device_router
 __all__ = [
     "accounts_router",
     "api_keys_router",
+    "proposals_router",
     "auth_router",
     "can_router",
     "config_router",

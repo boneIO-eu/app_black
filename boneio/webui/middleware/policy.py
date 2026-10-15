@@ -50,6 +50,8 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/files",
     "/api/accounts",
     "/api/api-keys",
+    # Proposals carry whole config sections, and only an admin approves one.
+    "/api/proposals",
     "/api/config/download",
     "/api/config/backups",
     "/api/nodered",
@@ -283,6 +285,7 @@ _KEY_READ: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
 )
 _KEY_PROPOSE = _KEY_READ + (
     ("POST", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)/validate$")),
+    ("POST", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)/proposals$")),
 )
 _KEY_WRITE = _KEY_PROPOSE + (
     ("PUT", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)$")),
