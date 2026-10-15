@@ -38,7 +38,7 @@ MAPPED = {("boneio_input",), ("boneio_output",)}
 
 #: A wrong value of every kind, and the marker for "field removed".
 REMOVED = object()
-MUTANTS = [REMOVED, None, True, 7, 1.5, "x", "TOGGLE", "30s", [], {}]
+MUTANTS = [REMOVED, None, True, 7, -1, 1000, 1.5, "x", "TOGGLE", "30s", [], {}]
 
 ACTIONS = [
     {"action": "output", "boneio_output": "out_01", "action_output": "ON",
@@ -99,6 +99,14 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
                     "adjustable_duration": True, "duration_default": "5min", "duration_min": "1s",
                     "duration_max": "1h", "duration_unit": "min", "restore_state": False,
                     "sysfs_path": "/x", "mcp_id": "m", "pca_id": "p", "pcf_id": "f"}, (), False),
+        ("cover", {"open_relay": "OUT_01", "close_relay": "OUT_02", "open_time": "30s",
+                   "close_time": "28s"}, (), False),
+        ("cover", {"id": "living_blind", "name": "Blind", "area": "living", "restore_state": True,
+                   "open_relay": "OUT_03", "close_relay": "OUT_04", "platform": "venetian",
+                   "open_time": "40s", "close_time": "38s", "tilt_duration": "1500ms",
+                   "actuator_activation_duration": "200ms", "endstop_overrun": 20,
+                   "direction_change_wait_time": "1s", "tilt_restore_after_close": True,
+                   "device_class": "blind", "show_in_ha": False}, (), False),
     ]
     return bases
 

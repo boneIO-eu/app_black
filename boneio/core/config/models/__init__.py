@@ -21,6 +21,7 @@ _MODULES = {
     "event": "inputs",
     "binary_sensor": "inputs",
     "output": "outputs",
+    "cover": "covers",
 }
 SECTIONS = frozenset(_MODULES)
 
