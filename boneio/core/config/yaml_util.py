@@ -689,6 +689,65 @@ def one_of(*values, **kwargs):
 timeperiod_type = TypeDefinition("timeperiod", (TimePeriod,), ())
 
 
+def condition_shape_errors(value: Any) -> list[str]:
+    """Why a condition's fields do not match its own type; empty when they do.
+
+    A schema can say "this is a dict of allowed keys" but not "a sun condition
+    is one of three shapes and never a mixture". Without this a typo like
+    ``type: sun`` with ``after: "05:00"`` reaches runtime, where the only
+    symptom is an action that silently never fires.
+    """
+    if not isinstance(value, dict) or value.get("type") != "sun":
+        return []
+
+    from boneio.core.utils.sun import ANCHOR_NAMES, PHASE_NAMES
+
+    window = [key for key in ("after", "before") if value.get(key)]
+    phase = value.get("phase")
+    elevation = [key for key in ("above", "below") if value.get(key) is not None]
+
+    modes = [bool(window), bool(phase), bool(elevation)]
+    if sum(modes) == 0:
+        return [
+            "A sun condition needs one of: after/before (anchors), "
+            "phase, or above/below (elevation in degrees)."
+        ]
+    if sum(modes) > 1:
+        return [
+            "A sun condition must use only one of after/before, phase, or "
+            "above/below — not a mixture."
+        ]
+
+    errors = []
+    for key in ("after", "before"):
+        anchor = value.get(key)
+        if anchor and anchor not in ANCHOR_NAMES:
+            errors.append(
+                f"Unknown sun anchor {anchor!r} in '{key}'. "
+                f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}."
+            )
+
+    for key, other in (("after_offset", "after"), ("before_offset", "before")):
+        if value.get(key) and not value.get(other):
+            errors.append(f"'{key}' has no effect without '{other}'.")
+
+    if phase and phase not in PHASE_NAMES:
+        errors.append(
+            f"Unknown sun phase {phase!r}. "
+            f"Expected one of: {', '.join(sorted(PHASE_NAMES))}."
+        )
+
+    above, below = value.get("above"), value.get("below")
+    # A non-number is the schema's to report; compared here it would raise.
+    numbers = all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in (above, below))
+    if numbers and above >= below:
+        errors.append(
+            f"'above' ({above}) must be lower than 'below' ({below}); "
+            "the pair describes a band of elevations."
+        )
+    return errors
+
+
 class CustomValidator(Validator):
     """Custom validator of cerberus"""
 
@@ -1072,69 +1131,9 @@ class CustomValidator(Validator):
             )
 
     def _check_with_condition_shape(self, field, value):
-        """Reject a condition whose fields do not match its own type.
-
-        Cerberus can say "this is a dict of allowed keys" but not "a sun
-        condition is one of three shapes and never a mixture". Without this a
-        typo like ``type: sun`` with ``after: "05:00"`` reaches runtime, where
-        the only symptom is an action that silently never fires.
-        """
-        if not isinstance(value, dict):
-            return
-        if value.get("type") != "sun":
-            return
-
-        from boneio.core.utils.sun import ANCHOR_NAMES, PHASE_NAMES
-
-        window = [key for key in ("after", "before") if value.get(key)]
-        phase = value.get("phase")
-        elevation = [key for key in ("above", "below") if value.get(key) is not None]
-
-        modes = [bool(window), bool(phase), bool(elevation)]
-        if sum(modes) == 0:
-            self._error(  # type: ignore[attr-defined]
-                field,
-                "A sun condition needs one of: after/before (anchors), "
-                "phase, or above/below (elevation in degrees).",
-            )
-            return
-        if sum(modes) > 1:
-            self._error(  # type: ignore[attr-defined]
-                field,
-                "A sun condition must use only one of after/before, phase, or "
-                "above/below — not a mixture.",
-            )
-            return
-
-        for key in ("after", "before"):
-            anchor = value.get(key)
-            if anchor and anchor not in ANCHOR_NAMES:
-                self._error(  # type: ignore[attr-defined]
-                    field,
-                    f"Unknown sun anchor {anchor!r} in '{key}'. "
-                    f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}.",
-                )
-
-        for key, other in (("after_offset", "after"), ("before_offset", "before")):
-            if value.get(key) and not value.get(other):
-                self._error(  # type: ignore[attr-defined]
-                    field, f"'{key}' has no effect without '{other}'."
-                )
-
-        if phase and phase not in PHASE_NAMES:
-            self._error(  # type: ignore[attr-defined]
-                field,
-                f"Unknown sun phase {phase!r}. "
-                f"Expected one of: {', '.join(sorted(PHASE_NAMES))}.",
-            )
-
-        above, below = value.get("above"), value.get("below")
-        if above is not None and below is not None and above >= below:
-            self._error(  # type: ignore[attr-defined]
-                field,
-                f"'above' ({above}) must be lower than 'below' ({below}); "
-                "the pair describes a band of elevations.",
-            )
+        """Reject a condition whose fields do not match its own type."""
+        for message in condition_shape_errors(value):
+            self._error(field, message)  # type: ignore[attr-defined]
 
     def _lookup_field(self, path: str) -> tuple:
         """

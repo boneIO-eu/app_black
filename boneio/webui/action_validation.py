@@ -224,7 +224,9 @@ def _check_sun_condition(action: dict, has_location: bool | None) -> str | None:
             return f"Unknown sun phase '{phase}'."
 
         above, below = cond.get("above"), cond.get("below")
-        if above is not None and below is not None and above >= below:
+        # A non-number is the schema's to report; compared here it would raise.
+        numbers = all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in (above, below))
+        if numbers and above >= below:
             return (
                 f"Sun elevation range is inverted: 'above' ({above}) must be "
                 f"lower than 'below' ({below})."
