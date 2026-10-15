@@ -137,7 +137,7 @@ async def test_a_section_holding_a_secret_cannot_be_proposed(device, section):
 @pytest.mark.asyncio
 async def test_approving_saves_through_the_save_route_and_reloads(device):
     made = await _propose()
-    await routes.approve_proposal(made["id"], None)
+    await routes.approve_proposal(made["id"], AGENT, None)
     assert "OUT 01" in _stored(device)
     device.manager.reload_config.assert_awaited_once_with(reload_sections=["output"])
     assert (await routes.list_proposals())["proposals"] == []
@@ -149,10 +149,10 @@ async def test_approving_a_stale_proposal_wants_it_said_twice(device):
     config_core._config_cache["data"]["output"] = [{**OUTPUTS[0], "name": "Lamp"}]
     assert (await routes.list_proposals())["proposals"][0]["stale"] is True
     with pytest.raises(HTTPException) as err:
-        await routes.approve_proposal(made["id"], None)
+        await routes.approve_proposal(made["id"], AGENT, None)
     assert err.value.status_code == 409
     assert "OUT 01" not in _stored(device)
-    await routes.approve_proposal(made["id"], routes.Approval(force=True))
+    await routes.approve_proposal(made["id"], AGENT, routes.Approval(force=True))
     assert "OUT 01" in _stored(device)
 
 
@@ -162,6 +162,24 @@ async def test_rejecting_drops_it_unsaved(device):
     await routes.reject_proposal(made["id"])
     assert (await routes.list_proposals())["proposals"] == []
     with pytest.raises(HTTPException) as err:
-        await routes.approve_proposal(made["id"], None)
+        await routes.approve_proposal(made["id"], AGENT, None)
     assert err.value.status_code == 404
     assert "OUT 01" not in _stored(device)
+
+
+@pytest.mark.asyncio
+async def test_a_reload_that_fails_leaves_it_saved_and_out_of_the_queue(device):
+    made = await _propose()
+    device.manager.reload_config.side_effect = RuntimeError("bus gone")
+    with pytest.raises(HTTPException):
+        await routes.approve_proposal(made["id"], AGENT, None)
+    assert "OUT 01" in _stored(device)
+    assert (await routes.list_proposals())["proposals"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_section_applied_at_restart_is_not_reloaded(device):
+    made = await _propose(section="modbus", data={"uart": "uart1"})
+    result = await routes.approve_proposal(made["id"], AGENT, None)
+    assert result["restart_required"] is True
+    device.manager.reload_config.assert_not_awaited()

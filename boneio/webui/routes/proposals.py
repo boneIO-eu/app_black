@@ -18,6 +18,7 @@ import copy
 import difflib
 import hashlib
 import json
+import logging
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,8 @@ from boneio.core.config.sections import RESTART_REQUIRED_SECTIONS, secret_sectio
 from boneio.core.config.yaml_util import _strip_empty_strings_deep, validate_section
 from boneio.core.utils.timeperiod import plain_time_periods
 from boneio.webui.routes import config_core
+
+_LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["proposals"])
 
@@ -121,7 +124,7 @@ async def list_proposals():
 
 
 @router.post("/proposals/{proposal_id}/approve")
-async def approve_proposal(proposal_id: str, body: Approval | None = Body(None)):
+async def approve_proposal(proposal_id: str, request: Request, body: Approval | None = Body(None)):
     """Save the proposed section, through the save route, and reload it."""
     store = _store()
     try:
@@ -138,11 +141,16 @@ async def approve_proposal(proposal_id: str, body: Approval | None = Body(None))
             },
         )
     result = await config_core.update_section_content(proposal.section, copy.deepcopy(proposal.data))
+    _LOGGER.info(
+        "Proposal %s for '%s' from %s approved by %s",
+        proposal.id, proposal.section, proposal.author, getattr(request.state, "user", None),
+    )
+    # Out of the queue once saved, before the reload: a reload that fails
+    # leaves a saved section, and approving it again would save it twice.
+    with contextlib.suppress(ProposalError):  # approved twice at once
+        await asyncio.to_thread(store.remove, proposal.id)
     if not result.get("restart_required"):
         await config_core.reload_configuration([proposal.section])
-    # Approved twice at once: it is saved, which is what both wanted.
-    with contextlib.suppress(ProposalError):
-        await asyncio.to_thread(store.remove, proposal.id)
     return result
 
 
