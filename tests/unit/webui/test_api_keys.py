@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import re
 import stat
+import threading
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -105,6 +106,8 @@ class TestStore:
         monkeypatch.setattr(keys, "_save", lambda: saves.append(1))
         for _ in range(5):
             assert keys.authenticate(secret) is not None
+        for thread in [t for t in threading.enumerate() if t.name == "api-key-last-used"]:
+            thread.join()
         assert len(saves) == 1
 
 
@@ -204,6 +207,18 @@ def test_a_key_reads_as_itself_and_never_as_an_admin(client, keys):
     response = client.get("/api/config", headers=_bearer(secret))
     assert response.status_code == 200
     assert response.json() == {"user": "key:Claude (pawel)", "role": "viewer"}
+
+
+def test_a_key_does_not_wait_for_the_thread_pool(client, keys, monkeypatch):
+    """On one core the default executor can be busy with sudo helpers for tens of seconds."""
+    import asyncio
+
+    def busy(*args, **kwargs):
+        raise AssertionError("authenticating a key must not need the default executor")
+
+    monkeypatch.setattr(asyncio, "to_thread", busy)
+    _, secret = keys.create("Claude", "pawel", KeyScope.READ, 30)
+    assert client.get("/api/config", headers=_bearer(secret)).status_code == 200
 
 
 def test_a_key_is_refused_outside_its_scope(client, keys):

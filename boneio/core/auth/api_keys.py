@@ -209,7 +209,13 @@ class ApiKeyStore:
         if time.monotonic() - self._persisted_use.get(key.id, float("-inf")) < _LAST_USED_PERSIST_S:
             return
         self._persisted_use[key.id] = time.monotonic()
-        try:
-            self._save()
-        except ApiKeyError as err:
-            _LOGGER.warning("Could not record when API key %s was used: %s", key.id, err)
+        # In a thread of its own: authenticate() runs on the event loop, and
+        # an SD card write can take long enough to stall it.
+        threading.Thread(target=self._save_use, args=(key.id,), name="api-key-last-used", daemon=True).start()
+
+    def _save_use(self, key_id: str) -> None:
+        with self._lock:
+            try:
+                self._save()
+            except ApiKeyError as err:
+                _LOGGER.warning("Could not record when API key %s was used: %s", key_id, err)

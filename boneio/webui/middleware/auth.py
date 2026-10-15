@@ -484,9 +484,11 @@ async def _dispatch_api_key(request: Request, call_next, secret: str):
     route that asks for one (test_api_keys holds that).
     """
     path = request.url.path
-    # Off the event loop: it reads the key and account files when they change,
-    # and records the key's last use - a write at most once an hour.
-    key = await asyncio.to_thread(_key_store.authenticate, secret) if _key_store else None
+    # On the event loop, as the account check of a session token is: a hash
+    # and a stat. Not in the default executor, whose few threads on a
+    # single-core BeagleBone can all be waiting on sudo helpers for tens of
+    # seconds - a key once waited 34 s there for a reply that takes 90 ms.
+    key = _key_store.authenticate(secret) if _key_store else None
     if key is None:
         return JSONResponse(
             status_code=401,
