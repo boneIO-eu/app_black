@@ -2861,7 +2861,9 @@
     "revoked": "Klucz „{{name}}” został odwołany.",
     "load_failed": "Nie udało się wczytać kluczy API.",
     "create_failed": "Nie udało się utworzyć klucza.",
-    "revoke_failed": "Nie udało się odwołać klucza."
+    "revoke_failed": "Nie udało się odwołać klucza.",
+    "mcp_title": "Podłączenie Claude Code (inne klienty MCP biorą ten sam adres i nagłówek):",
+    "mcp_hint": "Certyfikat self-signed? Pobierz urząd certyfikacji tego sterownika w Dostęp → Bezpieczeństwo i uruchamiaj klienta z NODE_EXTRA_CA_CERTS=/ścieżka/do/tego/pliku."
   },
   "security": {
     "title": "Bezpieczeństwo",

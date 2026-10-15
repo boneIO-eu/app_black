@@ -2862,7 +2862,9 @@
     "revoked": "Key “{{name}}” has been revoked.",
     "load_failed": "Could not load API keys.",
     "create_failed": "Could not create the key.",
-    "revoke_failed": "Could not revoke the key."
+    "revoke_failed": "Could not revoke the key.",
+    "mcp_title": "Connect Claude Code (other MCP clients take the same address and header):",
+    "mcp_hint": "Self-signed certificate? Download this device's authority under Access → Security and start the client with NODE_EXTRA_CA_CERTS=/path/to/that/file."
   },
   "security": {
     "title": "Security",

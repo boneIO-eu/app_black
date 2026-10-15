@@ -120,6 +120,11 @@ export default function ApiKeysCard() {
                 {copied ? t('api_keys.copied') : t('api_keys.copy')}
               </button>
             </div>
+            <span className="text-xs">{t('api_keys.mcp_title')}</span>
+            <code className="break-all rounded bg-base-100 px-2 py-1 text-xs">
+              {`claude mcp add --transport http boneio ${window.location.origin}/api/mcp --header "Authorization: Bearer ${secret}"`}
+            </code>
+            <span className="text-xs">{t('api_keys.mcp_hint')}</span>
           </div>
         )}
         {isLoading ? (
