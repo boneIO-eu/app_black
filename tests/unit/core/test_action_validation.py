@@ -543,6 +543,21 @@ class TestSunConditionValidation:
         assert len(errors) == 1
         assert fragment in errors[0]
 
+    def test_a_non_number_elevation_is_left_to_the_schema(self):
+        # Compared as it was, "x" >= 10 raised and the save answered 500.
+        condition = {"type": "sun", "above": "x", "below": 10}
+        assert _validate_section_actions(
+            "event", _entity_with_condition(condition), has_location=True
+        ) == []
+
+    def test_the_schema_reports_a_non_number_elevation_instead_of_raising(self):
+        from boneio.core.config.yaml_util import validate_section
+
+        errors = validate_section(
+            "event", _entity_with_condition({"type": "sun", "above": "x", "below": 10}), None
+        )
+        assert errors and all("above" in e for e in errors)
+
     def test_a_sun_condition_inside_a_group_is_checked_too(self):
         entity = _entity_with_condition({"type": "time", "after": "05:00"})
         action = entity[0]["actions"]["single"][0]
