@@ -12,6 +12,7 @@ import { FaUsers, FaUserPlus } from 'react-icons/fa';
 import AccountPasswordDialog from './AccountPasswordDialog';
 import AccountDeleteDialog from './AccountDeleteDialog';
 import SshPasswordCard from './SshPasswordCard';
+import ApiKeysCard from './ApiKeysCard';
 import {
   SettingsPage,
   SettingsCard,
@@ -282,6 +283,9 @@ export default function AccountsView() {
           </div>
         </SettingsCard>
       </form>
+
+      {/* What an AI agent or a script signs in with instead of a password. */}
+      <ApiKeysCard />
 
       {/* Not a panel account: the Linux login behind SSH and sudo. */}
       <SshPasswordCard />
