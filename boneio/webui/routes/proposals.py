@@ -98,9 +98,12 @@ async def propose_section(section: str, body: NewProposal, request: Request):
             detail={"message": f"Invalid {section} configuration", "errors": errors},
         )
     author = getattr(request.state, "user", None) or ""
+    key = getattr(request.state, "api_key", None)
     base = _digest(await _current(section))
     try:
-        proposal = await asyncio.to_thread(_store().add, section, data, body.rationale, author, base)
+        proposal = await asyncio.to_thread(
+            _store().add, section, data, body.rationale, author, base, key.id if key else ""
+        )
     except ProposalError as err:
         raise HTTPException(status_code=429, detail=str(err)) from err
     return {"proposal": {"id": proposal.id, "section": section, "created_at": proposal.created_at}}
@@ -115,7 +118,7 @@ async def list_proposals():
     for proposal in proposals:
         current = config.get(proposal.section)
         entry = asdict(proposal)
-        del entry["data"], entry["base"]
+        del entry["data"], entry["base"], entry["key_id"]
         entry["diff"] = _diff(proposal.section, current, proposal.data)
         entry["stale"] = _digest(current) != proposal.base
         entry["restart_required"] = proposal.section in RESTART_REQUIRED_SECTIONS

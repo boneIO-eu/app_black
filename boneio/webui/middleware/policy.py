@@ -281,6 +281,11 @@ _KEY_READ: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     for method, pattern in (
         ("GET", r"^/api/config$"),
         ("GET", r"^/api/config/checksum$"),
+        # The MCP endpoint checks each tool against these tables itself.
+        # GET and DELETE only answer 405, which a client must see as such.
+        ("POST", r"^/api/mcp$"),
+        ("GET", r"^/api/mcp$"),
+        ("DELETE", r"^/api/mcp$"),
     )
 )
 _KEY_PROPOSE = _KEY_READ + (

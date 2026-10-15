@@ -1,0 +1,249 @@
+"""The MCP endpoint: tools an agent configures the controller with.
+
+Each tool is allowed exactly when the key could call the route it stands for,
+nothing reaches the tools without a key, and both eras of the protocol - with
+and without the ``initialize`` handshake - get answers they recognise.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from boneio.core.auth.api_keys import ApiKeyStore, KeyScope
+from boneio.core.auth.models import Role
+from boneio.core.auth.store import USERS_FILENAME, UserStore
+from boneio.webui.middleware.auth import (
+    AuthMiddleware,
+    issue_token,
+    set_allow_anonymous,
+    set_auth_config,
+    set_jwt_secret,
+    set_key_store,
+    set_user_store,
+)
+from boneio.webui.routes import config_core
+from boneio.webui.routes import mcp as mcp_routes
+from boneio.webui.routes import proposals as proposal_routes
+
+SECRET = "test-secret-for-mcp-endpoint-tests-32-bytes"
+BONEIO = {"config_version": 7, "name": "test", "version": 1.1, "device_type": "24x16A"}
+OUTPUTS = [{"name": "OUT 01", "boneio_output": "OUT_01", "output_type": "switch"}]
+MODERN = "2026-07-28"
+
+
+@pytest.fixture
+def device(tmp_path):
+    users = UserStore(tmp_path / USERS_FILENAME)
+    users.load()
+    users.add_user("pawel", "dobre-haslo", Role.ADMIN)
+    keys = ApiKeyStore.beside(users)
+    set_jwt_secret(SECRET)
+    set_auth_config({})
+    set_allow_anonymous(False)
+    set_user_store(users)
+    set_key_store(keys)
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("output: []\n", encoding="utf-8")
+    state = MagicMock()
+    state.yaml_config_file = str(config_file)
+    state.manager.reload_config = AsyncMock(return_value={"status": "success"})
+    state.manager.config_helper.get_section.return_value = []
+    config_core.set_app_state(state)
+    config_core._config_cache["data"] = {"boneio": BONEIO, "output": []}
+    config_core._config_cache["mtime"] = float("inf")
+    proposal_routes._stores.clear()
+
+    app = FastAPI()
+    app.include_router(mcp_routes.router)
+    app.add_middleware(AuthMiddleware)
+    client = TestClient(app)
+    client.keys, client.state, client.config_file = keys, state, config_file
+    client.admin = issue_token(users.get_user("pawel"))
+    yield client
+    config_core._config_cache["data"] = None
+    config_core._config_cache["mtime"] = 0
+    proposal_routes._stores.clear()
+    set_user_store(None)
+    set_key_store(None)
+
+
+def _key(device, scope):
+    return device.keys.create(f"agent-{scope}", "pawel", scope, 30)[1]
+
+
+def _rpc(device, token, method, params=None, *, headers=None, msg_id=1):
+    body = {"jsonrpc": "2.0", "method": method, "params": params or {}}
+    if msg_id is not None:
+        body["id"] = msg_id
+    return device.post("/api/mcp", json=body,
+                       headers={"Authorization": f"Bearer {token}", **(headers or {})})
+
+
+def _call(device, token, tool, **args):
+    reply = _rpc(device, token, "tools/call", {"name": tool, "arguments": args},
+                 headers={"MCP-Protocol-Version": "2025-06-18"})
+    assert reply.status_code == 200, reply.text
+    return reply.json()
+
+
+def _text(reply):
+    return reply["result"]["content"][0]["text"]
+
+
+# --------------------------------------------------------------- transport
+
+
+def test_an_older_client_is_answered_in_the_version_it_asked_for(device):
+    token = _key(device, KeyScope.READ)
+    reply = _rpc(device, token, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {}})
+    assert reply.json()["result"]["protocolVersion"] == "2025-06-18"
+    assert "mcp-session-id" not in reply.headers
+    reply = _rpc(device, token, "initialize", {"protocolVersion": "2024-01-01"})
+    assert reply.json()["result"]["protocolVersion"] == mcp_routes.LEGACY_VERSIONS[0]
+    assert _rpc(device, token, "notifications/initialized", msg_id=None).status_code == 202
+
+
+def _modern_headers(method, name=None, version=MODERN):
+    headers = {"MCP-Protocol-Version": version, "Mcp-Method": method}
+    if name:
+        headers["Mcp-Name"] = name
+    return headers
+
+
+def _meta(version=MODERN):
+    return {"_meta": {"io.modelcontextprotocol/protocolVersion": version}}
+
+
+def test_a_modern_client_discovers_and_calls_without_a_handshake(device):
+    token = _key(device, KeyScope.READ)
+    found = _rpc(device, token, "server/discover", _meta(), headers=_modern_headers("server/discover"))
+    assert found.json()["result"]["supportedVersions"] == [MODERN]
+    assert found.json()["result"]["cacheScope"] == "public"
+    listed = _rpc(device, token, "tools/list", _meta(), headers=_modern_headers("tools/list")).json()["result"]
+    # Filtered by scope, so never to be shared between keys.
+    assert (listed["cacheScope"], listed["ttlMs"]) == ("private", 300_000)
+    called = _rpc(device, token, "tools/call",
+                  {**_meta(), "name": "boneio_get_config", "arguments": {"section": "output"}},
+                  headers=_modern_headers("tools/call", "=?base64?Ym9uZWlvX2dldF9jb25maWc=?="))
+    assert called.json()["result"]["resultType"] == "complete"
+    assert _text(called.json()) == "[]"
+
+
+@pytest.mark.parametrize(
+    ("headers", "params", "status", "code"),
+    [
+        (_modern_headers("tools/list", version="2025-06-18"), _meta(), 400, -32020),
+        ({"MCP-Protocol-Version": MODERN}, _meta(), 400, -32020),
+        (_modern_headers("tools/list", version="2099-01-01"), _meta("2099-01-01"), 400, -32022),
+        (_modern_headers("tools/list"), {}, 400, -32020),
+    ],
+    ids=["version-mismatch", "no-method-header", "unknown-version", "header-without-meta"],
+)
+def test_a_modern_request_that_does_not_add_up_is_refused(device, headers, params, status, code):
+    reply = _rpc(device, _key(device, KeyScope.READ), "tools/list", params, headers=headers)
+    assert (reply.status_code, reply.json()["error"]["code"]) == (status, code)
+
+
+def test_unknown_methods_batches_and_streams(device):
+    token = _key(device, KeyScope.READ)
+    modern = _rpc(device, token, "prompts/list", _meta(), headers=_modern_headers("prompts/list"))
+    assert (modern.status_code, modern.json()["error"]["code"]) == (404, -32601)
+    assert _rpc(device, token, "prompts/list").json()["error"]["code"] == -32601
+    batch = device.post("/api/mcp", json=[{"jsonrpc": "2.0", "id": 1, "method": "ping"}],
+                        headers={"Authorization": f"Bearer {token}"})
+    assert batch.status_code == 400
+    assert device.get("/api/mcp", headers={"Authorization": f"Bearer {token}"}).status_code == 405
+
+
+# ------------------------------------------------------------------ access
+
+
+def test_nothing_reaches_the_tools_without_a_key(device):
+    assert _rpc(device, device.admin, "tools/list").status_code == 403
+    set_allow_anonymous(True)
+    try:
+        anonymous = device.post("/api/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+        assert anonymous.status_code in (401, 403)
+    finally:
+        set_allow_anonymous(False)
+
+
+@pytest.mark.parametrize(
+    ("scope", "tools"),
+    [
+        (KeyScope.READ, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema"}),
+        (KeyScope.PROPOSE, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
+                            "boneio_validate", "boneio_propose", "boneio_proposal_status"}),
+        (KeyScope.WRITE, {t.name for t in mcp_routes.TOOLS}),
+    ],
+)
+def test_a_key_is_offered_the_tools_of_its_scope(device, scope, tools):
+    listed = _rpc(device, _key(device, scope), "tools/list").json()["result"]["tools"]
+    assert {t["name"] for t in listed} == tools
+
+
+def test_a_tool_outside_the_scope_is_unknown(device):
+    assert _call(device, _key(device, KeyScope.READ), "boneio_validate",
+                 section="output", data=OUTPUTS)["error"]["code"] == -32602
+    assert _call(device, _key(device, KeyScope.PROPOSE), "boneio_save",
+                 section="output", data=OUTPUTS)["error"]["code"] == -32602
+
+
+@pytest.mark.parametrize("section", ["mqtt", "modbus", "remote_devices"])
+def test_a_write_key_cannot_save_a_section_a_person_changes(device, section):
+    reply = _call(device, _key(device, KeyScope.WRITE), "boneio_save", section=section, data={})
+    assert reply["result"]["isError"] is True
+    assert "OUT" not in device.config_file.read_text(encoding="utf-8")
+
+
+# ------------------------------------------------------------------- tools
+
+
+def test_validate_reports_errors_without_writing(device):
+    reply = _call(device, _key(device, KeyScope.PROPOSE), "boneio_validate",
+                  section="output", data=[{**OUTPUTS[0], "output_type": "banana"}])
+    assert '"valid":false' in _text(reply) and "output_type" in _text(reply)
+    assert device.config_file.read_text(encoding="utf-8") == "output: []\n"
+
+
+def test_a_proposal_waits_and_only_its_key_sees_how_it_stands(device):
+    token = _key(device, KeyScope.PROPOSE)
+    filed = _call(device, token, "boneio_propose", section="output", data=OUTPUTS, rationale="add OUT 01")
+    assert filed["result"]["isError"] is False
+    (pending,) = proposal_routes._store().list()
+    assert device.config_file.read_text(encoding="utf-8") == "output: []\n"
+    assert '"status":"pending"' in _text(_call(device, token, "boneio_proposal_status", proposal_id=pending.id))
+    other = _key(device, KeyScope.PROPOSE)
+    assert '"not pending"' in _text(_call(device, other, "boneio_proposal_status", proposal_id=pending.id))
+
+
+def test_an_invalid_proposal_comes_back_as_an_error_the_model_can_read(device):
+    reply = _call(device, _key(device, KeyScope.PROPOSE), "boneio_propose",
+                  section="output", data=[{**OUTPUTS[0], "output_type": "banana"}], rationale="x")
+    assert reply["result"]["isError"] is True and "output[0].output_type" in _text(reply)
+
+
+def test_a_write_key_saves_and_the_section_is_reloaded(device):
+    reply = _call(device, _key(device, KeyScope.WRITE), "boneio_save", section="output", data=OUTPUTS)
+    assert reply["result"]["isError"] is False
+    assert "OUT 01" in device.config_file.read_text(encoding="utf-8")
+    device.state.manager.reload_config.assert_awaited_once_with(reload_sections=["output"])
+
+
+def test_a_schema_is_served_without_titles_and_a_wrong_section_is_explained(device):
+    token = _key(device, KeyScope.READ)
+    schema = _text(_call(device, token, "boneio_describe_schema", section="output"))
+    assert '"boneio_output"' in schema and '"title"' not in schema
+    wrong = _call(device, token, "boneio_get_config", section="outputz")
+    assert wrong["result"]["isError"] is True and "boneio_list_sections" in _text(wrong)
+
+
+def test_sections_are_listed_with_what_a_key_may_do_with_them(device):
+    listed = _text(_call(device, _key(device, KeyScope.READ), "boneio_list_sections"))
+    assert '{"section":"mqtt","configured":false,"panel_only":true,"restart_required":true}' in listed
+    assert '{"section":"output","configured":true,"entries":0}' in listed

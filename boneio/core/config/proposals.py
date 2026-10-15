@@ -43,6 +43,8 @@ class Proposal:
     #: Digest of the section when the proposal was made: approving one made
     #: against an older section would undo what changed since.
     base: str
+    #: The API key that filed it, so that key alone may ask how it went.
+    key_id: str = ""
 
 
 def _now() -> datetime:
@@ -110,7 +112,9 @@ class ProposalStore:
             except KeyError:
                 raise ProposalError("There is no such proposal.") from None
 
-    def add(self, section: str, data: Any, rationale: str, author: str, base: str) -> Proposal:
+    def add(
+        self, section: str, data: Any, rationale: str, author: str, base: str, key_id: str = ""
+    ) -> Proposal:
         """File a proposal.
 
         Raises:
@@ -124,6 +128,7 @@ class ProposalStore:
             author=author,
             created_at=_now().isoformat(timespec="seconds"),
             base=base,
+            key_id=key_id,
         )
         with self._lock:
             self._ensure_loaded()

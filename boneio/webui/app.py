@@ -67,6 +67,7 @@ from boneio.webui.routes import (
     accounts_router,
     api_keys_router,
     proposals_router,
+    mcp_router,
     auth_router,
     can_router,
     config_router,
@@ -191,6 +192,7 @@ app.include_router(auth_router)
 app.include_router(accounts_router)
 app.include_router(api_keys_router)
 app.include_router(proposals_router)
+app.include_router(mcp_router)
 app.include_router(outputs_router)
 app.include_router(covers_router)
 app.include_router(dashboard_router)
