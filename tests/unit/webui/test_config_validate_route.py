@@ -146,3 +146,41 @@ async def test_the_save_writes_a_valid_event_section(device):
     device.manager.config_helper.restart_required_sections = []
     await config_core.update_section_content("event", GOOD_EVENT)
     assert "out_01" in open(device.yaml_config_file, encoding="utf-8").read()
+
+
+MISSING_TARGET = [
+    {"boneio_input": "in_01", "actions": {"single": [{"action": "output", "boneio_output": "OUT_99"}]}}
+]
+
+
+@pytest.fixture
+def no_outputs(device):
+    """A running manager that has no output, group, cover or switch at all."""
+    device.manager.outputs.get_output.return_value = None
+    device.manager.outputs.get_output_group.return_value = None
+    return device
+
+
+@pytest.mark.asyncio
+async def test_validation_reports_an_action_on_a_missing_output(no_outputs):
+    result = await config_core.validate_section_content("event", MISSING_TARGET)
+    assert result["errors"] == [
+        "event[0].actions.single[0].boneio_output: no output or output group 'OUT_99'"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_the_save_refuses_a_new_action_on_a_missing_output(no_outputs):
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as err:
+        await config_core.update_section_content("event", MISSING_TARGET)
+    assert err.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_the_save_keeps_a_dangling_action_that_was_already_stored(no_outputs):
+    no_outputs.manager.config_helper.get_section.return_value = MISSING_TARGET
+    no_outputs.manager.config_helper.restart_required_sections = []
+    await config_core.update_section_content("event", MISSING_TARGET)
+    assert "OUT_99" in open(no_outputs.yaml_config_file, encoding="utf-8").read()

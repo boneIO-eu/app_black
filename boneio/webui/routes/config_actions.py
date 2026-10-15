@@ -43,6 +43,7 @@ from boneio.webui.action_validation import (
     clean_action_fields,
     validate_action_fields,
 )
+from boneio.webui.action_validation import target_check, unknown_targets
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 from boneio.webui.routes.config_core import (
     _get_app_state,
@@ -645,6 +646,7 @@ async def _edit_input(entity_id: str, change: Callable[[dict, str], Any]) -> tup
         section, index = _find_input_entry(config, entity_id)
         entry = config[section][index]
         _migrate_flat_action_keys(entry, section)
+        before = copy.deepcopy(entry)
         result = change(entry, section)
         # Only the entry being changed: a problem in another input is not this
         # request's to report, and would block every quick action until someone
@@ -657,6 +659,7 @@ async def _edit_input(entity_id: str, change: Callable[[dict, str], Any]) -> tup
         errors += [
             e.replace(f"{section}[0]", f"{section}[{index}]", 1)
             for e in validate_section(section, [entry], config.get("boneio"))
+            + unknown_targets(section, [entry], [before], target_check(app_state.manager))
         ]
         if errors:
             raise HTTPException(

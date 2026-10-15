@@ -111,6 +111,19 @@ class TestActionDef:
         assert error.startswith("event[1].actions.double[0].condition.state: ")
         assert open(store["file"], encoding="utf-8").read() == before
 
+    def test_an_action_on_a_missing_output_is_not_written(self, store):
+        store["app_state"].manager.outputs.get_output.return_value = None
+        store["app_state"].manager.outputs.get_output_group.return_value = None
+        before = open(store["file"], encoding="utf-8").read()
+        action = {"action": "output", "boneio_output": "OUT_99"}
+        with pytest.raises(HTTPException) as err:
+            run(config_actions.add_quick_action({"entity_id": "IN_02", "click_type": "double", "action_def": action}))
+        assert err.value.status_code == 422
+        assert err.value.detail["errors"] == [
+            "event[1].actions.double[0].boneio_output: no output or output group 'OUT_99'"
+        ]
+        assert open(store["file"], encoding="utf-8").read() == before
+
     def test_a_virtual_switch_action_is_accepted(self, store):
         """The input editor offers it; the validator used to refuse it."""
         action = {"action": "virtual_switch", "boneio_virtual_switch": "away", "action_output": "ON"}

@@ -34,6 +34,7 @@ from boneio.core.config.yaml_util import (
 )
 from boneio.core.manager import Manager
 from boneio.core.utils.timeperiod import plain_time_periods
+from boneio.webui.action_validation import target_check, unknown_targets
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.webui.input_validation import has_long_bounce_time, validate_bounce_times
@@ -776,8 +777,13 @@ async def _section_errors(section: str, data: dict | list) -> list[str]:
         # time is the only point where it is visible.
         has_location = bool((_config_cache["data"] or {}).get("location"))
         errors += _validate_section_actions(section, data, has_location=has_location)
+        stored = await _stored_section(section)
         if has_long_bounce_time(data):
-            errors += validate_bounce_times(data, await _stored_section(section))
+            errors += validate_bounce_times(data, stored)
+        if stored is not None:
+            # Without the stored section every old dangling target would
+            # look new, so the check is skipped rather than made stricter.
+            errors += unknown_targets(section, data, stored, target_check(_get_app_state().manager))
 
     if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
         host = str(data.get("host", "")).strip()

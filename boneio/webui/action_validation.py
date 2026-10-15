@@ -7,6 +7,7 @@ in unit tests without triggering python-multipart or other optional deps.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -284,3 +285,97 @@ def validate_section_actions(
                     errors.append(f"Entity '{name}', {click_type}[{idx}]: {sun_err}")
     return errors
 
+
+
+#: The fields an action names its target with, by action type, as the runtime
+#: looks the target up. ``*_over_mqtt`` point at another controller and
+#: ``mqtt`` at a topic: nothing here to check them against.
+_TARGET_FIELDS: dict[str, tuple[str, ...]] = {
+    "output": ("boneio_output",),
+    "cover": ("boneio_cover",),
+    "virtual_switch": ("boneio_virtual_switch",),
+    "remote_output": ("remote_device", "output_id"),
+    "remote_cover": ("remote_device", "cover_id"),
+}
+
+_TARGET_NAMES = {
+    "output": "no output or output group '{0}'",
+    "cover": "no cover '{0}'",
+    "virtual_switch": "no virtual switch '{0}'",
+    "remote_output": "remote device '{0}' has no output '{1}'",
+    "remote_cover": "remote device '{0}' has no cover '{1}'",
+}
+
+
+def _action_targets(section_data: object):
+    """Yield (entry index, path in the entry, target) for each targeted action."""
+    if not isinstance(section_data, list):
+        return
+    for index, entry in enumerate(section_data):
+        actions = entry.get("actions") if isinstance(entry, dict) else None
+        if not isinstance(actions, dict):
+            continue
+        for click_type, items in actions.items():
+            for position, action in enumerate(items if isinstance(items, list) else []):
+                if not isinstance(action, dict):
+                    continue
+                kind = str(action.get("action") or "").lower()
+                fields = _TARGET_FIELDS.get(kind)
+                if not fields or not all(action.get(f) for f in fields):
+                    continue
+                where = f"actions.{click_type}[{position}].{fields[-1]}"
+                yield index, where, (kind, *(str(action[f]) for f in fields))
+
+
+def unknown_targets(
+    section: str,
+    data: object,
+    stored: object,
+    exists: Callable[[tuple[str, ...]], bool],
+) -> list[str]:
+    """Actions that point at something that does not exist, brought in by this save.
+
+    The runtime skips such an action with a warning in the log, so nothing
+    breaks and the button does nothing. A target the stored section already
+    pointed at is let through even if it is gone: an output removed after its
+    binding was made must not block every later save of the section.
+
+    Args:
+        section: Section name, for the error paths.
+        data: The section being saved.
+        stored: The section as stored, for the targets already there.
+        exists: Whether a target, as ``(action type, *ids)``, exists.
+
+    Returns:
+        One ``path: message`` line per unknown target.
+    """
+    known = {target for _, _, target in _action_targets(stored)}
+    return [
+        f"{section}[{index}].{where}: {_TARGET_NAMES[target[0]].format(*target[1:])}"
+        for index, where, target in _action_targets(data)
+        if target not in known and not exists(target)
+    ]
+
+
+def target_check(manager) -> Callable[[tuple[str, ...]], bool]:
+    """``exists`` for :func:`unknown_targets`, asking the running manager."""
+    from boneio.core.utils import strip_accents
+
+    def exists(target: tuple[str, ...]) -> bool:
+        kind, *ids = target
+        if kind == "output":
+            key = strip_accents(ids[0])
+            return bool(manager.outputs.get_output(key) or manager.outputs.get_output_group(key))
+        if kind == "cover":
+            return bool(manager.covers.get_cover(strip_accents(ids[0])))
+        if kind == "virtual_switch":
+            return bool(manager.virtual_switches.get(ids[0]))
+        device = manager.remote_devices.get_all_available_devices().get(ids[0])
+        if device is None:
+            return False
+        listed = device.outputs if kind == "remote_output" else device.covers
+        known = {str(e.get("id")) for e in listed or [] if isinstance(e, dict)}
+        # A device that has not reported what it has yet cannot be checked.
+        return not known or ids[1] in known
+
+    return exists

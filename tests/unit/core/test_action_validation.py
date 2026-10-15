@@ -615,3 +615,71 @@ class TestVirtualSwitchSelfReference:
     def test_setting_another_switch_is_fine(self):
         config = self._load(self._config("other"))
         assert len(config["virtual_switch"]) == 2
+
+
+class TestUnknownTargets:
+    """An action's target must exist — unless the stored section already had it."""
+
+    @staticmethod
+    def _entry(*actions):
+        return [{"boneio_input": "in_01", "actions": {"single": list(actions)}}]
+
+    @staticmethod
+    def _exists(*known):
+        return lambda target: target in known
+
+    def test_a_new_action_on_a_missing_output_is_reported(self):
+        from boneio.webui.action_validation import unknown_targets
+
+        data = self._entry({"action": "output", "boneio_output": "OUT_99"})
+        assert unknown_targets("event", data, [], self._exists()) == [
+            "event[0].actions.single[0].boneio_output: no output or output group 'OUT_99'"
+        ]
+
+    def test_an_existing_target_passes(self):
+        from boneio.webui.action_validation import unknown_targets
+
+        data = self._entry({"action": "cover", "boneio_cover": "blind"})
+        assert unknown_targets("event", data, [], self._exists(("cover", "blind"))) == []
+
+    def test_a_dangling_target_already_stored_is_let_through(self):
+        from boneio.webui.action_validation import unknown_targets
+
+        data = self._entry({"action": "output", "boneio_output": "OUT_99"})
+        assert unknown_targets("event", data, data, self._exists()) == []
+
+    def test_actions_on_other_controllers_and_topics_are_not_checked(self):
+        from boneio.webui.action_validation import unknown_targets
+
+        data = self._entry(
+            {"action": "output_over_mqtt", "boneio_output": "x", "boneio_id": "b", "action_mqtt_msg": "m"},
+            {"action": "mqtt", "topic": "t", "action_mqtt_msg": "m"},
+        )
+        assert unknown_targets("event", data, [], self._exists()) == []
+
+    def test_the_running_manager_is_asked(self):
+        from types import SimpleNamespace
+
+        from boneio.webui.action_validation import target_check
+
+        sensor = SimpleNamespace(outputs=[{"id": "relay1"}], covers=[])
+        manager = SimpleNamespace(
+            outputs=SimpleNamespace(
+                get_output=lambda i: i == "OUT_01" or None,
+                get_output_group=lambda i: i == "all_lights" or None,
+            ),
+            covers=SimpleNamespace(get_cover=lambda i: None),
+            virtual_switches=SimpleNamespace(get=lambda i: i == "away" or None),
+            remote_devices=SimpleNamespace(
+                get_all_available_devices=lambda: {"shelly": sensor, "esp": SimpleNamespace(outputs=[], covers=[])}
+            ),
+        )
+        exists = target_check(manager)
+        assert exists(("output", "OUT_01")) and exists(("output", "all_lights"))
+        assert not exists(("output", "OUT_99")) and not exists(("cover", "blind"))
+        assert exists(("virtual_switch", "away"))
+        assert exists(("remote_output", "shelly", "relay1"))
+        assert not exists(("remote_output", "shelly", "relay2"))
+        assert not exists(("remote_output", "nowhere", "relay1"))
+        # Has not reported its outputs yet: cannot be checked, so not refused.
+        assert exists(("remote_output", "esp", "anything"))
