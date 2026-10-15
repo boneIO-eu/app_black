@@ -25,6 +25,7 @@ _MODULES = {
     "remote_inputs": "remote_inputs",
     "virtual_switch": "virtual_switches",
     "schedule": "schedules",
+    "template": "templates",
 }
 SECTIONS = frozenset(_MODULES)
 
