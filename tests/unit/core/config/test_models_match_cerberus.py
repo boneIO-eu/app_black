@@ -116,6 +116,12 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
                            "long_press_duration": 600, "sequence_mode": "immediate",
                            "long_press_mqtt_mode": "periodic", "enable_triple_click": True,
                            "actions": {"single": [dict(ACTIONS[0])]}}, (), False),
+        ("virtual_switch", {"name": "Away mode"}, (), False),
+        ("virtual_switch", {"name": "Night", "id": "night", "description": "d", "area": "house",
+                            "icon": "mdi:weather-night", "restore_state": False, "initial": True,
+                            "show_in_ha": False,
+                            "actions": {"on_turn_on": [dict(ACTIONS[0])],
+                                        "on_turn_off": [dict(ACTIONS[3])]}}, (), False),
     ]
     return bases
 
@@ -299,3 +305,15 @@ def test_remote_input_actions_are_checked_though_cerberus_takes_any():
     cerberus, model = _verdicts("remote_inputs", [entry])
     assert cerberus == []
     assert model == ["remote_inputs[0].actions.pressed[0].boneio_output: Field required"]
+
+
+def test_a_virtual_switch_setting_itself_is_refused_by_both():
+    entry = {"name": "Night", "actions": {"on_turn_on": [
+        {"action": "virtual_switch", "boneio_virtual_switch": "night"}]}}
+    cerberus, model = _verdicts("virtual_switch", [entry])
+    assert cerberus and model
+
+
+def test_virtual_switches_resolving_to_one_id_are_refused_by_both():
+    cerberus, model = _verdicts("virtual_switch", [{"name": "Salon"}, {"name": "salon!"}])
+    assert cerberus and model
