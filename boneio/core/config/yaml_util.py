@@ -629,7 +629,9 @@ def merge_board_config(config: dict) -> dict:
     if "output" in config:
         output_mapping = board_config.get("output_mapping", {})
         for output in config["output"]:
-            if "boneio_output" in output:
+            # Nothing coerces it to a string before this point; anything else
+            # is left for the schema to report as the wrong type.
+            if isinstance(output.get("boneio_output"), str):
                 boneio_output = output["boneio_output"].lower()
                 mapped_output = output_mapping.get(boneio_output)
                 if not mapped_output:
