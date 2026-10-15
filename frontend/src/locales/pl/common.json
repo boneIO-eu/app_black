@@ -728,7 +728,8 @@
       "yaml_editor": "Zaawansowany edytor pliku konfiguracyjnego config.yaml.",
       "location": "Współrzędne geograficzne sterownika. Potrzebne do harmonogramów i warunków opartych o słońce oraz do godzin wschodu i zachodu pokazywanych w panelu.",
       "schedule": "Akcje, które uruchamiają się same, o wyznaczonej godzinie albo w momencie zależnym od słońca. Wszystko inne w boneIO czeka na człowieka lub na wejście — harmonogramy nie.",
-      "virtual_switch": "Przełącznik wł/wył, za którym nie stoi żaden przekaźnik. Służy do warunkowania innych akcji, żeby przycisk działał tylko gdy tryb w rodzaju wieczornego jest włączony."
+      "virtual_switch": "Przełącznik wł/wył, za którym nie stoi żaden przekaźnik. Służy do warunkowania innych akcji, żeby przycisk działał tylko gdy tryb w rodzaju wieczornego jest włączony.",
+      "proposals": "Zmiany konfiguracji zaproponowane przez asystenta AI kluczem API, czekające na Twoje zatwierdzenie."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -757,7 +758,8 @@
     "yaml_editor": "Edytor YAML",
     "location": "Lokalizacja",
     "schedule": "Harmonogramy",
-    "virtual_switch": "Przełączniki wirtualne"
+    "virtual_switch": "Przełączniki wirtualne",
+    "proposals": "Propozycje AI"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
@@ -2841,7 +2843,7 @@
     "scope_read": "Odczyt",
     "scope_read_hint": "Czyta konfigurację, bez haseł, kluczy szyfrowania i kodów alarmu. Niczego nie zmienia.",
     "scope_propose": "Propozycje",
-    "scope_propose_hint": "Czyta konfigurację i sprawdza zmiany bez zapisywania. Zatwierdzanie propozycji w panelu pojawi się w kolejnej wersji.",
+    "scope_propose_hint": "Czyta konfigurację, sprawdza zmiany i je proponuje. Propozycja zapisuje się dopiero po zatwierdzeniu przez administratora w Dostęp → Propozycje AI.",
     "scope_write": "Zapis",
     "scope_write_hint": "Czyta, sprawdza i zapisuje sekcje bez Twojego zatwierdzenia. Nie zmieni ustawień sieci i panelu, MQTT, sterownika, urządzeń zdalnych, szablonów (alarm, brama) ani sekcji wymagających restartu.",
     "days": "Ważność",
@@ -3543,5 +3545,23 @@
     "status_tls": "Połączono z brokerem przez TLS.",
     "status_plain": "Połączono, ale jeszcze bez TLS. Zapisz tę stronę, żeby przełączyć.",
     "status_disconnected": "Brak połączenia z brokerem. Sprawdź host, port i certyfikat; przyczyna jest w logu."
+  },
+  "proposals": {
+    "title": "Propozycje AI",
+    "intro": "Klucz API z zakresem Propozycje nie może zapisywać. To, co by zapisał, czeka tutaj, już sprawdzone, aż je zatwierdzisz albo odrzucisz.",
+    "empty": "Nic nie czeka na zatwierdzenie.",
+    "card_title": "Zmiana: {{section}}",
+    "meta": "od {{author}} · {{date}}",
+    "stale": "Ta sekcja zmieniła się po złożeniu propozycji. Zatwierdzenie zastąpi całą sekcję i cofnie te zmiany.",
+    "restart": "Ta sekcja zacznie działać po restarcie.",
+    "no_change": "Propozycja jest taka sama jak obecna sekcja.",
+    "approve": "Zatwierdź i zapisz",
+    "approve_anyway": "Zatwierdź mimo to",
+    "reject": "Odrzuć",
+    "approved": "Zapisano proponowaną zmianę: {{section}}.",
+    "rejected": "Odrzucono propozycję: {{section}}.",
+    "load_failed": "Nie udało się wczytać propozycji.",
+    "approve_failed": "Nie udało się zatwierdzić propozycji.",
+    "reject_failed": "Nie udało się odrzucić propozycji."
   }
 }

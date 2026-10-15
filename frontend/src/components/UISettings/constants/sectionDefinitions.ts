@@ -88,6 +88,7 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
 
   { name: 'security', icon: '🛡️', translationKey: 'sections.security', group: 'access' },
   { name: 'accounts', icon: '👥', translationKey: 'sections.accounts', group: 'access' },
+  { name: 'proposals', icon: '🤖', translationKey: 'sections.proposals', group: 'access' },
 
   { name: 'logger', icon: '📝', translationKey: 'sections.logger', group: 'advanced' },
   // Generates a Home Assistant dashboard from the configured entities. It was

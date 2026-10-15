@@ -769,7 +769,8 @@
       "yaml_editor": "Advanced direct editor for config.yaml.",
       "location": "Geographic coordinates of the controller. Required for sun-based schedules and conditions, and for the sunrise and sunset times shown in the panel.",
       "schedule": "Actions that run on their own, at a clock time or at a moment defined by the Sun. Everything else in boneIO waits for a person or an input — schedules do not.",
-      "virtual_switch": "An on/off flag with no relay behind it. Use it to qualify other actions, so that a button works only while a mode such as evening mode is on."
+      "virtual_switch": "An on/off flag with no relay behind it. Use it to qualify other actions, so that a button works only while a mode such as evening mode is on.",
+      "proposals": "Configuration changes an AI assistant proposed with an API key, waiting for your approval."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -798,7 +799,8 @@
     "yaml_editor": "YAML editor",
     "location": "Location",
     "schedule": "Schedules",
-    "virtual_switch": "Virtual switches"
+    "virtual_switch": "Virtual switches",
+    "proposals": "AI proposals"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",
@@ -2842,7 +2844,7 @@
     "scope_read": "Read",
     "scope_read_hint": "Reads the configuration, without passwords, encryption keys and alarm codes. Changes nothing.",
     "scope_propose": "Propose",
-    "scope_propose_hint": "Reads the configuration and checks changes without saving them. Approving proposals in the panel comes in a later version.",
+    "scope_propose_hint": "Reads the configuration, checks changes and proposes them. A proposal is saved only when an administrator approves it under Access → AI proposals.",
     "scope_write": "Write",
     "scope_write_hint": "Reads, checks and saves sections without your approval. It cannot change the network and panel settings, MQTT, the controller, remote devices, templates (alarm, gate) or sections that need a restart.",
     "days": "Valid for",
@@ -3544,5 +3546,23 @@
     "status_tls": "Connected to the broker over TLS.",
     "status_plain": "Connected, but still without TLS. Save this page to switch.",
     "status_disconnected": "Not connected to the broker right now. Check the host, port and certificate; the log says why."
+  },
+  "proposals": {
+    "title": "AI proposals",
+    "intro": "An API key in the Proposals scope cannot save. What it would have saved waits here, already checked, until you approve or reject it.",
+    "empty": "Nothing is waiting for approval.",
+    "card_title": "Change to: {{section}}",
+    "meta": "from {{author}} · {{date}}",
+    "stale": "This section changed after the proposal was made. Approving it replaces the whole section and undoes those changes.",
+    "restart": "This section takes effect after a restart.",
+    "no_change": "The proposal is the same as the current section.",
+    "approve": "Approve and save",
+    "approve_anyway": "Approve anyway",
+    "reject": "Reject",
+    "approved": "Saved the proposed change to {{section}}.",
+    "rejected": "Rejected the proposal for {{section}}.",
+    "load_failed": "Could not load the proposals.",
+    "approve_failed": "Could not approve the proposal.",
+    "reject_failed": "Could not reject the proposal."
   }
 }

@@ -45,6 +45,7 @@ const lazySection = (
 export const STANDALONE_SECTIONS: Record<string, StandaloneSection> = {
   security: { component: lazySection(() => import('../../SecurityView') as Promise<{ default: ComponentType<StandaloneSectionProps> }>) },
   accounts: { component: lazySection(() => import('../../AccountsView') as Promise<{ default: ComponentType<StandaloneSectionProps> }>) },
+  proposals: { component: lazySection(() => import('../../ProposalsView')) },
 
   ha_dashboard: {
     component: lazySection(() => import('../../HaDashboardWizard') as Promise<{ default: ComponentType<StandaloneSectionProps> }>),
