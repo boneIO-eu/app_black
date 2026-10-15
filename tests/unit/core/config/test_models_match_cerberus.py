@@ -208,6 +208,19 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
                         "zones": [{"id": "lawn", "name": "Lawn", "valve_id": "OUT_11",
                                    "run_duration": "10min", "enabled": False, "run_every_n": 2}]},
          (), False),
+        ("web", {"port": 8091, "proxy_port": 8443, "expose": "proxy",
+                 "cloud": {"enabled": True, "declined": False, "pwa_name": "Home"},
+                 "security": {"map_tiles": True, "frame_ancestors": ["https://ha.local"]},
+                 "auth": {"username": "u", "password": "p", "allow_anonymous": False}}, (), False),
+        ("mqtt", {"enabled": True, "host": "broker.local", "username": "u", "password": "p",
+                  "port": 8883, "ha_discovery": {"enabled": False, "topic_prefix": "ha"},
+                  "send_boneio_autodiscovery": False, "receive_boneio_autodiscovery": False,
+                  "update_channel": "dev",
+                  "tls": {"enabled": True, "ca_certs": "/c", "certfile": "/cert", "keyfile": "/key",
+                          "insecure": True}}, (), False),
+        ("boneio", {"config_version": 7, "name": "Home", "version": "1.1", "device_type": "24x16A",
+                    "ha_child_devices": True, "ha_child_devices_naming": "device_name_area",
+                    "serial_override": "blk265f49"}, (), False),
     ]
     return bases
 
@@ -354,25 +367,37 @@ def test_what_get_api_config_serves_is_accepted():
     assert checked > 20
 
 
+def _is_list(section: str) -> bool:
+    return _get_schema()[section]["type"] == "list"
+
+
+def _data(section: str, entry: dict) -> object:
+    """A list section holds entries; a dict section is the entry itself."""
+    return [entry] if _is_list(section) else entry
+
+
 @pytest.mark.parametrize(
     "section, base, focus, typed_only", [pytest.param(*b, id=_name(*b)) for b in _bases()]
 )
 def test_the_model_refuses_whatever_cerberus_refuses(section, base, focus, typed_only):
-    assert _verdicts(section, [base]) == ([], []), "the base entry must be valid for both"
-    rule = _get_schema()[section]["schema"]
+    assert _verdicts(section, _data(section, base)) == ([], []), "the base must be valid for both"
+    rule = _get_schema()[section]["schema"] if _is_list(section) else _get_schema()[section]
     lenient, stricter = [], []
     mutations = [(p, m) for p, m in _mutations(base, rule) if _in_focus(p, focus, typed_only)]
     assert len(mutations) > 20
-    # Mutating what the board mapping looks up breaks it for the whole list.
+    # Mutating what the board mapping looks up breaks it for the whole list;
+    # a dict section has no list to batch into.
     solo = MAPPED | (IDENTITY if section in RESOLVED_IDS else set())
+    if not _is_list(section):
+        solo = {p for p, _ in mutations}
     alone = [(p, m) for p, m in mutations if p in solo]
     together = [(p, m) for p, m in mutations if p not in solo]
     batch = [_apply(base, p, m) for p, m in together]
     if section in RESOLVED_IDS:
         for i, entry in enumerate(batch):
             entry["id"] = f"batch_{i}"
-    verdicts = _verdicts_each(section, batch)
-    verdicts += [_verdicts(section, [_apply(base, p, m)]) for p, m in alone]
+    verdicts = _verdicts_each(section, batch) if batch else []
+    verdicts += [_verdicts(section, _data(section, _apply(base, p, m))) for p, m in alone]
     for (path, mutant), (cerberus, model) in zip(together + alone, verdicts):
         if cerberus and not model:
             lenient.append((path, mutant, cerberus))
@@ -422,8 +447,8 @@ def test_each_base_entry_as_get_serves_it_is_accepted(section, base):
 
     schema = {k: _get_schema()[k] for k in (section, "boneio")}
     validator = CustomValidator(schema, purge_unknown=True)
-    doc = validator.normalized({section: [copy.deepcopy(base)], "boneio": dict(BONEIO)},
-                               always_return_document=True)
+    doc = {"boneio": dict(BONEIO), section: _data(section, copy.deepcopy(base))}
+    doc = validator.normalized(doc, always_return_document=True)
     served = json.loads(json.dumps(jsonable_encoder(plain_time_periods(merge_board_config(doc)))))
     assert validate_section(section, served[section], served["boneio"]) == []
 
@@ -437,3 +462,13 @@ def test_a_protocol_block_on_another_protocol_is_refused_by_both():
 def test_duplicate_output_group_ids_are_refused_by_both():
     groups = [{"id": "all", "outputs": ["OUT_01"]}, {"id": "all", "outputs": ["OUT_02"]}]
     assert _verdicts("output_group", groups) == (["output_group: Output IDs are not unique."],) * 2
+
+
+def test_a_certificate_without_its_key_is_refused_by_both():
+    mqtt = {"host": "b", "tls": {"enabled": True, "certfile": "/cert"}}
+    cerberus, model = _verdicts("mqtt", mqtt)
+    assert cerberus and model
+
+
+def test_web_may_be_null_for_both():
+    assert _verdicts("web", None) == ([], [])

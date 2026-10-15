@@ -30,6 +30,9 @@ _MODULES = {
     "remote_outputs": "remote_outputs",
     "output_group": "output_groups",
     "irrigation": "irrigation",
+    "web": "system",
+    "mqtt": "system",
+    "boneio": "system",
 }
 SECTIONS = frozenset(_MODULES)
 
