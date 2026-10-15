@@ -28,3 +28,11 @@ def test_a_virtual_switch_whose_actions_are_not_a_dict_is_reported_not_a_crash(a
     doc = _section_document("virtual_switch", [{"name": "Night", "actions": actions}], None)
     errors = _cerberus_section_errors("virtual_switch", doc)
     assert errors and all("actions" in e for e in errors)
+
+
+@pytest.mark.parametrize("trigger", ["x", 7, ["sunset"], {"event": "sunset", "earliest": 7, "latest": "21:00"}])
+def test_a_schedule_with_a_malformed_trigger_is_reported_not_a_crash(trigger):
+    from boneio.core.config.yaml_util import _cerberus_section_errors, _section_document
+
+    entry = {"name": "Dusk", "trigger": trigger, "actions": [{"action": "mqtt", "topic": "t", "action_mqtt_msg": "m"}]}
+    assert _cerberus_section_errors("schedule", _section_document("schedule", [entry], None))
