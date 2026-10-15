@@ -32,6 +32,7 @@ from boneio.core.config.yaml_util import (
     validate_section,
 )
 from boneio.core.manager import Manager
+from boneio.core.utils.timeperiod import plain_time_periods
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.webui.input_validation import has_long_bounce_time, validate_bounce_times
@@ -270,7 +271,7 @@ async def get_parsed_config():
             _LOGGER.debug("Returning cached configuration (mtime unchanged)")
             # Masked on the way out, always on a copy: the cache is shared with
             # the rest of the process, which needs the real values.
-            return {"config": mask_secrets(_config_cache["data"])}
+            return {"config": plain_time_periods(mask_secrets(_config_cache["data"]))}
 
         start = time.time()
         try:
@@ -356,7 +357,7 @@ async def get_parsed_config():
         _config_cache["mtime"] = current_mtime
 
         _LOGGER.info("Loaded and cached configuration in %.2fs (mtime: %.0f)", elapsed, current_mtime)
-        return {"config": mask_secrets(config_data)}
+        return {"config": plain_time_periods(mask_secrets(config_data))}
 
     except Exception as e:
         _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
@@ -780,7 +781,8 @@ async def validate_section_content(section: str, data: dict | list = Body(...)):
     """
     if not _SECTION_NAME.match(section):
         raise HTTPException(status_code=404, detail=f"Not a configuration section: '{section}'")
-    data = _strip_empty_strings_deep(copy.deepcopy(data))
+    # Both build new containers: the checks below may not touch what was posted.
+    data = _strip_empty_strings_deep(plain_time_periods(data))
 
     boneio_section = (_config_cache["data"] or {}).get("boneio")
     if boneio_section is None:
@@ -808,6 +810,9 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         data = restore_secrets(data, current.get(section))
     except Exception as err:  # noqa: BLE001 - a save must not fail over this
         _LOGGER.warning("Could not resolve masked secrets for %s: %s", section, err)
+    # A duration posted as the dict a TimePeriod JSON-encodes to is written as
+    # its string; the dict would stop config.yaml from loading.
+    data = plain_time_periods(data)
 
     RESTART_REQUIRED_SECTIONS = {
         "boneio", "mqtt", "lox_udp", "web", "modbus",

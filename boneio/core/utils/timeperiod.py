@@ -322,3 +322,30 @@ def ensure_time_period(value: "TimePeriod | str | int | float") -> "TimePeriod":
 
     return TimePeriod(**{kwarg: float(num_str)})
 
+
+def plain_time_periods(value: Any) -> Any:
+    """Turn every time period into the string the YAML carries ("800ms").
+
+    The parsed config holds a duration as a TimePeriod object. JSON-encoded it
+    becomes a dict of its internals, which the config loader refuses when it
+    is sent back — the device would not start. The API serves and accepts the
+    string instead, so what a client reads is what it may write.
+
+    Args:
+        value: A config value, section or whole config.
+
+    Returns:
+        The value with each TimePeriod (object, or its JSON dict) as a string.
+    """
+    if isinstance(value, TimePeriod):
+        return str(value)
+    if isinstance(value, dict):
+        if "_total_in_seconds" in value:
+            total = value.get("_total_in_seconds")
+            if isinstance(total, (int, float)) and not isinstance(total, bool):
+                whole_seconds = float(total).is_integer()
+                return str(TimePeriod(seconds=total) if whole_seconds else TimePeriod(milliseconds=total * 1000))
+        return {k: plain_time_periods(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [plain_time_periods(v) for v in value]
+    return value

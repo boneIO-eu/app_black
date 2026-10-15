@@ -59,15 +59,19 @@ function asExtendedSchema(schema: unknown): JsonSchema | undefined {
     if (typeof timeperiodObj === 'number') return timeperiodObj;
     if (typeof timeperiodObj === 'string') {
       // Parse string like "120ms" or "30s"
-      const match = timeperiodObj.match(/^(\d+(?:\.\d+)?)(ms|s|m|h)?$/);
+      // Every unit the backend writes a TimePeriod with (see TimePeriod.__str__).
+      const match = timeperiodObj.match(/^(\d+(?:\.\d+)?)(us|ms|s|min|m|h|d)?$/);
       if (match) {
         const value = parseFloat(match[1]);
         const unit = match[2] || 'ms';
         switch (unit) {
+          case 'us': return value / 1000;
           case 'ms': return value;
           case 's': return value * 1000;
+          case 'min':
           case 'm': return value * 60 * 1000;
           case 'h': return value * 60 * 60 * 1000;
+          case 'd': return value * 24 * 60 * 60 * 1000;
           default: return value;
         }
       }

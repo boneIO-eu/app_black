@@ -33,7 +33,7 @@ from boneio.core.config.input_bindings import (
     taken_inputs,
 )
 from boneio.core.manager import Manager
-from boneio.core.utils import TimePeriod
+from boneio.core.utils.timeperiod import plain_time_periods
 from boneio.exceptions import ConfigurationException
 from boneio.factory_config import OLDEST_REVISION, template_dir, type_folder
 from boneio.webui.action_validation import (
@@ -312,35 +312,6 @@ def _strip_empty(value):
     return value
 
 
-def _plain_time_periods(value):
-    """Turn every time period into the string the YAML carries ("800ms").
-
-    Actions are read from the parsed config, where a duration is a TimePeriod
-    object. JSON-encoded it becomes a dict of its internals, which the editor
-    cannot show and which, sent back, the config loader refuses — the device
-    would not start. The input editor converts these on load; this makes the
-    routes safe without depending on that.
-
-    Args:
-        value: Any value from an action.
-
-    Returns:
-        The value with each TimePeriod (object, or its JSON dict) as a string.
-    """
-    if isinstance(value, TimePeriod):
-        return str(value)
-    if isinstance(value, dict):
-        if "_total_in_seconds" in value:
-            total = value.get("_total_in_seconds")
-            if isinstance(total, (int, float)) and not isinstance(total, bool):
-                whole_seconds = float(total).is_integer()
-                return str(TimePeriod(seconds=total) if whole_seconds else TimePeriod(milliseconds=total * 1000))
-        return {k: _plain_time_periods(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_plain_time_periods(v) for v in value]
-    return value
-
-
 def _normalize_action_def(raw) -> dict:
     """Accept a whole action as the settings editor builds it.
 
@@ -360,7 +331,7 @@ def _normalize_action_def(raw) -> dict:
     if not isinstance(raw, dict):
         raise HTTPException(status_code=422, detail="action_def must be an object")
 
-    action = _plain_time_periods(_strip_empty(copy.deepcopy(raw)))
+    action = plain_time_periods(_strip_empty(copy.deepcopy(raw)))
     action_type = str(action.get("action") or "").strip().lower()
     if action_type not in ACTION_ALLOWED_FIELDS:
         raise HTTPException(
@@ -576,7 +547,7 @@ def _describe_action(act: dict) -> dict:
         ),
         "remote_device": act.get("remote_device") or act.get("boneio_id") or None,
         # As the YAML spells it, so an editor can load it and send it back.
-        "raw": _plain_time_periods(act),
+        "raw": plain_time_periods(act),
     }
 
 

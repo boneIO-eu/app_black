@@ -58,6 +58,12 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
 
     // If string with unit like "30s", "1000ms", "5min"
     if (typeof val === 'string') {
+      // Units the picker has no option for, as the backend may write them.
+      const odd = val.match(/^(\d+(?:\.\d+)?)\s*(us|d)$/i);
+      if (odd) {
+        const num = parseFloat(odd[1]);
+        return parseMilliseconds(odd[2].toLowerCase() === 'us' ? num / 1000 : num * 86400000);
+      }
       const match = val.match(/^(\d+(?:\.\d+)?)\s*(ms|s|sec|min|h|hours?)$/i);
       if (match) {
         const num = parseFloat(match[1]);

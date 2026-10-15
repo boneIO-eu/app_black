@@ -203,7 +203,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
       return 60;
     }
     if (typeof timeout !== 'string') return 60;
-    const match = timeout.match(/^(\d+)(s|ms|min|m|h)?$/);
+    const match = timeout.match(/^(\d+)(s|ms|min|m|h|d)?$/);
     if (!match) return 60;
     const val = parseInt(match[1], 10);
     const unit = match[2] || 's';
@@ -213,6 +213,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
       case 'min':
       case 'm': return val * 60;
       case 'h': return val * 3600;
+      case 'd': return val * 86400;
       default: return val;
     }
   };
