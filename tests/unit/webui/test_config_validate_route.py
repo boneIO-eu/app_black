@@ -46,6 +46,11 @@ class TestValidateSection:
     def test_a_section_the_schema_does_not_know_is_an_error(self):
         assert validate_section("outputz", [], BONEIO) == ["Unknown configuration section: 'outputz'"]
 
+    def test_errors_in_the_stored_boneio_section_are_not_reported(self):
+        boneio = {k: v for k, v in BONEIO.items() if k != "name"}
+        assert validate_section("output", OUTPUTS, boneio) == []
+        assert validate_section("boneio", boneio, None) == ["boneio.name: required field"]
+
     def test_the_input_is_left_as_it_was(self):
         data = [dict(o) for o in OUTPUTS]
         validate_section("output", data, BONEIO)

@@ -1414,9 +1414,11 @@ def validate_section(section: str, data: Any, boneio_section: dict | None) -> li
         doc = merge_board_config(doc)
     except ConfigurationException as err:
         return [f"{section}: {err}"]
-    if v.validate(doc, subschema):  # type: ignore[attr-defined]
-        return []
-    return _flatten_errors(v.errors)  # type: ignore[attr-defined]
+    v.validate(doc, subschema)  # type: ignore[attr-defined]
+    # Only what was asked about: the stored boneio section is context here,
+    # and anything wrong with it is not the caller's to fix in this section.
+    errors = v.errors  # type: ignore[attr-defined]
+    return _flatten_errors({section: errors[section]}) if section in errors else []
 
 
 def _get_config_cache_path(config_file: str) -> str:
