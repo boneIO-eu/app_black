@@ -771,19 +771,21 @@ async def _section_errors(section: str, data: dict | list) -> list[str]:
     as the save has always done before writing.
     """
     errors: list[str] = []
+    stored = None
+    if section in ("event", "binary_sensor", "remote_inputs") and isinstance(data, list):
+        stored = await _stored_section(section)
     if section in ("event", "binary_sensor") and isinstance(data, list):
         # A sun condition on a device with no coordinates fails open at
         # runtime, so the action keeps firing and nothing looks broken. Save
         # time is the only point where it is visible.
         has_location = bool((_config_cache["data"] or {}).get("location"))
         errors += _validate_section_actions(section, data, has_location=has_location)
-        stored = await _stored_section(section)
         if has_long_bounce_time(data):
             errors += validate_bounce_times(data, stored)
-        if stored is not None:
-            # Without the stored section every old dangling target would
-            # look new, so the check is skipped rather than made stricter.
-            errors += unknown_targets(section, data, stored, target_check(_get_app_state().manager))
+    if stored is not None:
+        # Without the stored section every old dangling target would look
+        # new, so the check is skipped rather than made stricter.
+        errors += unknown_targets(section, data, stored, target_check(_get_app_state().manager))
 
     if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
         host = str(data.get("host", "")).strip()

@@ -1,4 +1,5 @@
 import React from 'react';
+import axios from '@/api/axios';
 import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from '@/hooks/useTranslation';
 import type {
@@ -18,6 +19,8 @@ type SupportedEntity = EventEntity | BinarySensorEntity;
 
 interface AiConfigAssistantProps<T extends SupportedEntity> {
   entityType: AiEntityType;
+  /** The config section the entity is saved in; defaults to entityType. */
+  section?: string;
   data: T;
   schema?: JsonSchema;
   allOutputs?: OutputEntity[];
@@ -37,8 +40,30 @@ interface AiConfigAssistantProps<T extends SupportedEntity> {
  * Wraps AiAssistantShell with domain-specific prompt building
  * and response validation/apply logic for event/binary_sensor entities.
  */
+/**
+ * What the controller would refuse in a section holding just this entity.
+ *
+ * The controller knows what actually exists — outputs, groups, covers, remote
+ * devices — and checks it the way a save will. Errors come back without the
+ * section prefix, as "actions.single[0].boneio_output: …". If the controller
+ * cannot be asked, nothing is refused here: the save checks the same again.
+ */
+async function controllerErrors(section: string, entity: unknown): Promise<string[]> {
+  try {
+    const resp = await axios.post(`/api/config/${section}/validate`, [entity]);
+    const errors: unknown = resp.data?.errors;
+    return Array.isArray(errors)
+      ? errors.map((e) => String(e).replace(`${section}[0].`, '').replace(`${section}[0]: `, ''))
+      : [];
+  } catch (err) {
+    console.warn('Could not validate the AI response on the controller:', err);
+    return [];
+  }
+}
+
 export default function AiConfigAssistant<T extends SupportedEntity>({
   entityType,
+  section,
   data,
   schema,
   allOutputs = [],
@@ -99,17 +124,12 @@ export default function AiConfigAssistant<T extends SupportedEntity>({
    * Validates the pasted AI response and applies it to the current form.
    * Returns an array of error messages (empty = success).
    */
-  const handleApply = (responseText: string): string[] => {
+  const handleApply = async (responseText: string): Promise<string[]> => {
     const result = applyAiConfigResponse({
       entityType,
       data,
       responseText,
       schema,
-      allOutputs,
-      allOutputGroups,
-      allCovers,
-      allAreas,
-      allRemoteDevices,
       actionTypeOptions,
       actionOutputOptions,
       actionCoverOptions,
@@ -118,6 +138,11 @@ export default function AiConfigAssistant<T extends SupportedEntity>({
 
     if (result.errors.length > 0 || !result.data) {
       return result.errors;
+    }
+
+    const refused = await controllerErrors(section ?? entityType, result.data);
+    if (refused.length > 0) {
+      return refused;
     }
 
     onApply(result.data);

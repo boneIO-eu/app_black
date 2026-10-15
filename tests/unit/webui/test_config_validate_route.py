@@ -184,3 +184,11 @@ async def test_the_save_keeps_a_dangling_action_that_was_already_stored(no_outpu
     no_outputs.manager.config_helper.restart_required_sections = []
     await config_core.update_section_content("event", MISSING_TARGET)
     assert "OUT_99" in open(no_outputs.yaml_config_file, encoding="utf-8").read()
+
+
+@pytest.mark.asyncio
+async def test_a_remote_input_action_on_a_missing_output_is_reported(no_outputs):
+    entry = {"id": "hall", "remote_source": "esphome", "device_id": "d", "input_id": "i",
+             "actions": {"single": [{"action": "output", "boneio_output": "OUT_99"}]}}
+    result = await config_core.validate_section_content("remote_inputs", [entry])
+    assert "remote_inputs[0].actions.single[0].boneio_output: no output or output group 'OUT_99'" in result["errors"]

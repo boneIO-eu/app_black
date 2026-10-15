@@ -21,9 +21,10 @@ export interface AiAssistantShellProps {
   /**
    * Called when user clicks "Apply" in the paste dialog.
    * Receives the pasted text. Should validate and apply the configuration.
-   * Return an array of error messages (empty array = success).
+   * Return an array of error messages (empty array = success), or a promise
+   * of one when the check asks the controller.
    */
-  onApply: (responseText: string) => string[];
+  onApply: (responseText: string) => string[] | Promise<string[]>;
 
   /** Content rendered inside the "Details" accordion. */
   detailsContent: React.ReactNode;
@@ -58,6 +59,7 @@ export default function AiAssistantShell({
   const [copied, setCopied] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [responseText, setResponseText] = React.useState('');
+  const [applying, setApplying] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -88,8 +90,14 @@ export default function AiAssistantShell({
   /**
    * Validates and applies the pasted AI response.
    */
-  const handleApplyResponse = () => {
-    const resultErrors = onApply(responseText);
+  const handleApplyResponse = async () => {
+    setApplying(true);
+    let resultErrors: string[];
+    try {
+      resultErrors = await onApply(responseText);
+    } finally {
+      setApplying(false);
+    }
 
     if (resultErrors.length > 0) {
       setErrors(resultErrors);
@@ -180,7 +188,7 @@ export default function AiAssistantShell({
             >
               {t('common.cancel')}
             </button>
-            <button type="button" className="btn btn-primary" onClick={handleApplyResponse}>
+            <button type="button" className="btn btn-primary" onClick={handleApplyResponse} disabled={applying}>
               {t('event_form.ai_apply_response')}
             </button>
           </DialogFooter>

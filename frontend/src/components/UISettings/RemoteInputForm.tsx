@@ -523,6 +523,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
 
         <AiConfigAssistant
           entityType="binary_sensor"
+          section="remote_inputs"
           data={data}
           schema={schema}
           allOutputs={allOutputs}
@@ -576,6 +577,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
 
       <AiConfigAssistant
         entityType="event"
+        section="remote_inputs"
         data={data}
         schema={schema}
         allOutputs={allOutputs}

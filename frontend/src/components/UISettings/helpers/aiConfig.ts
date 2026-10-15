@@ -49,8 +49,12 @@ interface BuildAiConfigPromptParams<T extends SupportedEntity> {
   actionCoverOptions: string[];
 }
 
+/** The entity lists only go into the prompt; the controller checks targets. */
 interface ApplyAiConfigResponseParams<T extends SupportedEntity>
-  extends BuildAiConfigPromptParams<T> {
+  extends Omit<
+    BuildAiConfigPromptParams<T>,
+    'allOutputs' | 'allOutputGroups' | 'allCovers' | 'allAreas' | 'allRemoteDevices' | 'allConfiguredInputs'
+  > {
   responseText: string;
   t: TranslationFn;
 }
@@ -421,10 +425,6 @@ function validateAndNormalizeAction(
   action: Record<string, unknown>,
   actionIndex: number,
   slot: string,
-  localOutputIds: Set<string>,
-  localCoverIds: Set<string>,
-  remoteOutputs: Map<string, Set<string>>,
-  remoteCovers: Map<string, Set<string>>,
   actionTypeOptions: string[],
   actionOutputOptions: string[],
   actionCoverOptions: string[],
@@ -462,33 +462,8 @@ function validateAndNormalizeAction(
     sanitized.action_cover = actionCover as Action['action_cover'];
   }
 
-  if (normalizedActionType === 'output' && sanitized.boneio_output && !localOutputIds.has(sanitized.boneio_output)) {
-    errors.push(`${slot}[${actionIndex + 1}]: ${t('event_form.ai_unknown_output')}`);
-  }
-
-  if (normalizedActionType === 'cover' && sanitized.boneio_cover && !localCoverIds.has(sanitized.boneio_cover)) {
-    errors.push(`${slot}[${actionIndex + 1}]: ${t('event_form.ai_unknown_cover')}`);
-  }
-
-  if (normalizedActionType === 'remote_output') {
-    const outputIds = sanitized.remote_device ? remoteOutputs.get(sanitized.remote_device) : undefined;
-    if (sanitized.remote_device && !outputIds) {
-      errors.push(`${slot}[${actionIndex + 1}]: ${t('event_form.ai_unknown_remote_device')}`);
-    }
-    if (sanitized.remote_device && sanitized.output_id && outputIds && !outputIds.has(String(sanitized.output_id))) {
-      errors.push(`${slot}[${actionIndex + 1}]: ${t('event_form.ai_unknown_remote_output')}`);
-    }
-  }
-
-  if (normalizedActionType === 'remote_cover') {
-    const coverIds = sanitized.remote_device ? remoteCovers.get(sanitized.remote_device) : undefined;
-    if (sanitized.remote_device && !coverIds) {
-      errors.push(`${slot}[${actionIndex + 1}]: ${t('event_form.ai_unknown_remote_device')}`);
-    }
-    if (sanitized.remote_device && sanitized.cover_id && coverIds && !coverIds.has(String(sanitized.cover_id))) {
-      errors.push(`${slot}[${actionIndex + 1}]: ${t('event_form.ai_unknown_remote_cover')}`);
-    }
-  }
+  // Whether the outputs, covers and remote devices it names exist is the
+  // controller's to say: AiConfigAssistant asks it before applying.
 
   const validationError = validateAction(sanitized, t);
   if (validationError) {
@@ -510,11 +485,6 @@ export function applyAiConfigResponse<T extends SupportedEntity>({
   data,
   responseText,
   schema,
-  allOutputs = [],
-  allOutputGroups = [],
-  allCovers = [],
-  allAreas = [],
-  allRemoteDevices = [],
   actionTypeOptions,
   actionOutputOptions,
   actionCoverOptions,
@@ -546,14 +516,6 @@ export function applyAiConfigResponse<T extends SupportedEntity>({
 
   const allowedFields = getAllowedFields(entityType);
   const allowedInputs = new Set<string>((schema?.items?.properties?.boneio_input?.enum as string[] | undefined) || []);
-  const localOutputIds = new Set(getLocalOutputOptions(allOutputs, allOutputGroups, allAreas).map((output) => output.id));
-  const localCoverIds = new Set(getLocalCoverOptions(allCovers, allAreas).map((cover) => cover.id));
-  const remoteOutputs = new Map<string, Set<string>>(
-    allRemoteDevices.map((device) => [device.id, new Set(getRemoteOutputOptions(device).map((output) => String(output.id)))]),
-  );
-  const remoteCovers = new Map<string, Set<string>>(
-    allRemoteDevices.map((device) => [device.id, new Set(getRemoteCoverOptions(device).map((cover) => String(cover.id)))]),
-  );
   const nextData: Record<string, unknown> = { ...data };
   const errors: string[] = [];
 
@@ -594,10 +556,6 @@ export function applyAiConfigResponse<T extends SupportedEntity>({
             action,
             index,
             slot,
-            localOutputIds,
-            localCoverIds,
-            remoteOutputs,
-            remoteCovers,
             actionTypeOptions,
             actionOutputOptions,
             actionCoverOptions,
