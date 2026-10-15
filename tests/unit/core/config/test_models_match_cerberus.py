@@ -107,6 +107,15 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
                    "actuator_activation_duration": "200ms", "endstop_overrun": 20,
                    "direction_change_wait_time": "1s", "tilt_restore_after_close": True,
                    "device_class": "blind", "show_in_ha": False}, (), False),
+        ("remote_inputs", {"remote_source": "esphome_api", "device_id": "hall", "input_id": "button"},
+         (), False),
+        ("remote_inputs", {"id": "garden_switch", "name": "Garden", "remote_source": "mqtt",
+                           "device_id": "shelly", "input_id": "in0", "topic": "shelly/in0",
+                           "mode": "event", "device_class": "button", "area": "garden",
+                           "show_in_ha": True, "inverted": True, "double_click_duration": 300,
+                           "long_press_duration": 600, "sequence_mode": "immediate",
+                           "long_press_mqtt_mode": "periodic", "enable_triple_click": True,
+                           "actions": {"single": [dict(ACTIONS[0])]}}, (), False),
     ]
     return bases
 
@@ -281,3 +290,12 @@ def test_duplicate_output_ids_are_refused_by_both():
                {"id": "lamp", "kind": "gpio", "pin": 6, "output_type": "switch"}]
     cerberus, model = _verdicts("output", entries)
     assert cerberus == model == ["output: Output IDs are not unique."]
+
+
+def test_remote_input_actions_are_checked_though_cerberus_takes_any():
+    """Stricter on purpose: Cerberus takes any dictionary of actions here."""
+    entry = {"remote_source": "mqtt", "device_id": "shelly", "input_id": "in0",
+             "actions": {"pressed": [{"action": "output"}]}}
+    cerberus, model = _verdicts("remote_inputs", [entry])
+    assert cerberus == []
+    assert model == ["remote_inputs[0].actions.pressed[0].boneio_output: Field required"]
