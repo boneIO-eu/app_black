@@ -39,7 +39,7 @@ MAPPED = {("boneio_input",), ("boneio_output",)}
 #: Sections whose entries must resolve to distinct identifiers (from id, else
 #: name). Batched, the copies of one entry would all collide; each gets an id
 #: of its own instead, and mutations of id and name run alone.
-RESOLVED_IDS = {"virtual_switch", "schedule"}
+RESOLVED_IDS = {"virtual_switch", "schedule", "output_group"}
 IDENTITY = {("id",), ("name",)}
 
 #: A wrong value of every kind, and the marker for "field removed".
@@ -169,6 +169,44 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
                       "standby": True, "valve_open_delay": "3s", "valve_overlap": "5s",
                       "multiplier": 1.5, "repeat": 2, "auto_advance": False, "reverse": True,
                       "pause_timeout": "1h", "schedule": [{"time": "06:00", "days": "weekend"}]},
+         (), False),
+        ("remote_devices", {"id": "kitchen", "name": "Kitchen", "protocol": "mqtt",
+                            "device_type": "boneio_black",
+                            "mqtt": {"outputs": [{"id": "out_01", "name": "Lamp"}],
+                                     "covers": [{"id": "blind", "name": "Blind"}]}}, (), False),
+        ("remote_devices", {"id": "esp", "name": "ESP", "protocol": "esphome_api",
+                            "device_type": "esphome",
+                            "esphome_api": {"host": "10.0.0.5", "port": 6054, "password": "p",
+                                            "encryption_key": "k",
+                                            "switches": [{"id": "relay", "name": "R", "key": 1}],
+                                            "lights": [{"id": "led", "key": 2, "supports_brightness": True,
+                                                        "supports_color_temp": True, "supports_rgb": True,
+                                                        "supports_rgbw": True, "min_mireds": 153,
+                                                        "max_mireds": 500.5}],
+                                            "covers": [{"id": "shade", "key": 3, "supports_position": True,
+                                                        "supports_tilt": False}]}}, (), False),
+        ("remote_devices", {"id": "strip", "name": "Strip", "protocol": "wled", "device_type": "wled",
+                            "wled": {"host": "10.0.0.6", "port": 8080}}, (), False),
+        ("remote_outputs", {"remote_source": "mqtt", "device_id": "kitchen", "output_id": "out_01"},
+         (), False),
+        ("remote_outputs", {"id": "garden_pump", "name": "Pump", "remote_source": "esphome_api",
+                            "device_id": "esp", "output_id": "relay", "output_type": "valve",
+                            "show_in_ha": True, "area": "garden", "on_disconnect": "turn_off",
+                            "momentary_turn_on": "2s", "momentary_turn_off": "1s",
+                            "adjustable_duration": True, "duration_default": "5min",
+                            "duration_min": "1min", "duration_max": "1h", "duration_unit": "min",
+                            "interlock_group": ["pumps"], "enforce_interlock": True}, (), False),
+        ("output_group", {"id": "all_lights", "outputs": ["OUT_01", "OUT_02"]}, (), False),
+        ("output_group", {"id": "hall", "name": "Hall", "outputs": ["OUT_03"],
+                          "all_on_behaviour": True, "output_type": "light"}, (), False),
+        ("irrigation", {"id": "garden", "name": "Garden",
+                        "water_sources": [{"id": "pump", "outputs": ["OUT_10"],
+                                           "output_start_delay": "2s"}],
+                        "standby": True, "valve_open_delay": "3s", "valve_overlap": "5s",
+                        "multiplier": 1.5, "repeat": 2, "auto_advance": False, "reverse": True,
+                        "pause_timeout": "1h", "schedule": [{"time": "06:00", "days": "weekend"}],
+                        "zones": [{"id": "lawn", "name": "Lawn", "valve_id": "OUT_11",
+                                   "run_duration": "10min", "enabled": False, "run_every_n": 2}]},
          (), False),
     ]
     return bases
@@ -388,3 +426,14 @@ def test_each_base_entry_as_get_serves_it_is_accepted(section, base):
                                always_return_document=True)
     served = json.loads(json.dumps(jsonable_encoder(plain_time_periods(merge_board_config(doc)))))
     assert validate_section(section, served[section], served["boneio"]) == []
+
+
+def test_a_protocol_block_on_another_protocol_is_refused_by_both():
+    entry = {"id": "esp", "name": "ESP", "protocol": "esphome_api", "wled": {"host": "h"}}
+    cerberus, model = _verdicts("remote_devices", [entry])
+    assert cerberus and model
+
+
+def test_duplicate_output_group_ids_are_refused_by_both():
+    groups = [{"id": "all", "outputs": ["OUT_01"]}, {"id": "all", "outputs": ["OUT_02"]}]
+    assert _verdicts("output_group", groups) == (["output_group: Output IDs are not unique."],) * 2

@@ -26,6 +26,10 @@ _MODULES = {
     "virtual_switch": "virtual_switches",
     "schedule": "schedules",
     "template": "templates",
+    "remote_devices": "remote_devices",
+    "remote_outputs": "remote_outputs",
+    "output_group": "output_groups",
+    "irrigation": "irrigation",
 }
 SECTIONS = frozenset(_MODULES)
 

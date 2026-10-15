@@ -53,7 +53,8 @@ class Model(BaseModel):
 
     model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True)
 
-    #: Fields whose null a coercion turns into a value, so it is accepted.
+    #: Fields whose null Cerberus' coercion turns into a value (str() into
+    #: "None", sun_offset into 0); handed to the field's own coercion.
     nullable: ClassVar[frozenset[str]] = frozenset()
 
     @model_validator(mode="before")
@@ -65,8 +66,12 @@ class Model(BaseModel):
         refused = []
         for key in [k for k, v in data.items() if v is None and k in fields]:
             # Cerberus fills a null with the field's default, as if it were
-            # missing; with no default it is an error.
-            if fields[key].default not in (None, PydanticUndefined) or key in cls.nullable:
+            # missing; with no default it is an error - unless a coercion
+            # makes something of it.
+            if key in cls.nullable:
+                continue
+            field = fields[key]
+            if field.default not in (None, PydanticUndefined) or field.default_factory is not None:
                 data = {k: v for k, v in data.items() if k != key}
             else:
                 refused.append(key)
@@ -78,6 +83,14 @@ class Model(BaseModel):
     def _refuse_forbidden(cls, data: dict) -> dict:
         """Refuse fields this model may not carry; runs after nulls are read."""
         return data
+
+
+def unique_explicit_ids(entries: list) -> list:
+    """Refuse two entries with the same explicit ``id``; entries without one pass."""
+    ids = [e.id for e in entries if e.id]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Output IDs are not unique.")
+    return entries
 
 
 def unique_resolved_ids(entries: list) -> list:

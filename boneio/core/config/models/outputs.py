@@ -11,7 +11,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AfterValidator, BeforeValidator, TypeAdapter
 
-from boneio.core.config.models.base import Model, Str, StrPeriod
+from boneio.core.config.models.base import Model, Str, StrPeriod, unique_explicit_ids
 
 
 def _lower(value: Any) -> Any:
@@ -47,13 +47,6 @@ class Output(Model):
     ]
 
 
-def _unique_ids(outputs: list[Output]) -> list[Output]:
-    ids = [o.id for o in outputs if o.id]
-    if len(ids) != len(set(ids)):
-        raise ValueError("Output IDs are not unique.")
-    return outputs
-
-
 SECTION_ADAPTERS = {
-    "output": TypeAdapter(Annotated[list[Output], AfterValidator(_unique_ids)]),
+    "output": TypeAdapter(Annotated[list[Output], AfterValidator(unique_explicit_ids)]),
 }
