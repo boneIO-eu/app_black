@@ -36,3 +36,31 @@ def test_a_schedule_with_a_malformed_trigger_is_reported_not_a_crash(trigger):
 
     entry = {"name": "Dusk", "trigger": trigger, "actions": [{"action": "mqtt", "topic": "t", "action_mqtt_msg": "m"}]}
     assert _cerberus_section_errors("schedule", _section_document("schedule", [entry], None))
+
+
+class TestIdUniqueness:
+    """Each list's ids are checked within that list."""
+
+    @staticmethod
+    def _errors(doc):
+        from boneio.core.config.yaml_util import CustomValidator, _get_schema
+
+        schema = {k: _get_schema()[k] for k in doc}
+        validator = CustomValidator(schema, purge_unknown=True)
+        validator.validate(validator.normalized(doc, always_return_document=True), schema)
+        return validator.errors
+
+    def test_output_groups_alone_do_not_raise(self):
+        assert self._errors({"output_group": [{"id": "all", "outputs": ["OUT_01"]}]}) == {}
+
+    def test_duplicate_group_ids_are_refused(self):
+        groups = [{"id": "all", "outputs": ["OUT_01"]}, {"id": "all", "outputs": ["OUT_02"]}]
+        assert self._errors({"output_group": groups}) == {"output_group": ["Output IDs are not unique."]}
+
+    def test_a_duplicate_output_is_reported_on_the_outputs_only(self):
+        outputs = [{"id": "a", "kind": "gpio", "pin": 1, "output_type": "switch"},
+                   {"id": "a", "kind": "gpio", "pin": 2, "output_type": "switch"}]
+        groups = [{"id": "all", "outputs": ["a"]}]
+        assert self._errors({"output": outputs, "output_group": groups}) == {
+            "output": ["Output IDs are not unique."]
+        }
