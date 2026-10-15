@@ -267,15 +267,11 @@ def generate_section_schema(section_name: str, section_schema: dict[str, Any]) -
             }
         }
 
-def main():
-    """Main function to convert schema."""
+def build_schemas() -> dict[str, dict[str, Any]]:
+    """Every JSON Schema file the panel is served, by file name."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     schema_file = os.path.join(script_dir, "..", "..", "schema", "schema.yaml")
-    output_dir = os.path.join(script_dir, "..", "..", "webui", "schema")
-    
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
-    
+
     # Load the schema
     with open(schema_file) as f:
         schema = yaml.load(f, Loader=BoneIOLoader)
@@ -300,24 +296,30 @@ def main():
     try:
         model_field = schema["modbus_devices"]["schema"]["schema"]["model"]
         model_field["allowed"] = models
-        print(f"Injected {len(models)} modbus models into schema")
     except (KeyError, TypeError):
         print("WARNING: Could not inject modbus models into schema")
 
-    # Convert and save the main schema
-    json_schema = convert_cerberus_to_json_schema(schema)
-    main_schema_file = os.path.join(output_dir, "config.schema.json")
-    with open(main_schema_file, "w") as f:
-        json.dump(json_schema, f, indent=2)
-    print(f"Schema written to {main_schema_file}")
-    
-    # Generate and save section-specific schemas
+    schemas = {"config.schema.json": convert_cerberus_to_json_schema(schema)}
     for section_name, section_schema in schema.items():
-        section_json_schema = generate_section_schema(section_name, section_schema)
-        section_schema_file = os.path.join(output_dir, f"{section_name}.schema.json")
-        with open(section_schema_file, "w") as f:
-            json.dump(section_json_schema, f, indent=2)
-        print(f"Section schema for {section_name} written to {section_schema_file}")
+        schemas[f"{section_name}.schema.json"] = generate_section_schema(section_name, section_schema)
+    return schemas
+
+
+#: Where the panel's schema files live, committed and served as static files.
+OUTPUT_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "webui", "schema")
+)
+
+
+def main():
+    """Write the schema files the panel is served."""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    for name, json_schema in build_schemas().items():
+        path = os.path.join(OUTPUT_DIR, name)
+        with open(path, "w") as f:
+            json.dump(json_schema, f, indent=2)
+        print(f"Schema written to {path}")
+
 
 if __name__ == "__main__":
     main()
