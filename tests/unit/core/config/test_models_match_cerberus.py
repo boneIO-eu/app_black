@@ -252,6 +252,15 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
          (), False),
         ("virtual_energy_sensor", {"name": "Garden water", "output_id": "OUT_02", "sensor_type": "water",
                                    "flow_rate": "12 l/min"}, (), False),
+        ("oled", {"enabled": True, "screens": ["uptime", "extra_sensors"],
+                  "extra_screen_sensors": [{"sensor_type": "modbus", "modbus_id": "Air 1",
+                                            "sensor_id": "Temp"}],
+                  "screensaver_timeout": "5min"}, (), False),
+        ("location", {"latitude": 52.4, "longitude": 16.9, "elevation": 80}, (), False),
+        ("lox_udp", {"enabled": True, "host": "10.0.0.10", "send_port": 5000, "listen_port": 5001},
+         (), False),
+        ("logger", {"default": "INFO", "logs": {"boneio.core": "debug"}}, (), False),
+        ("areas", {"id": "living", "name": "Living room"}, (), False),
     ]
     return bases
 

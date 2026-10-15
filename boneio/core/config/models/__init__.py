@@ -38,6 +38,7 @@ _MODULES = {
          "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor"),
         "sensors",
     ),
+    **dict.fromkeys(("oled", "location", "lox_udp", "logger", "areas"), "misc"),
 }
 SECTIONS = frozenset(_MODULES)
 

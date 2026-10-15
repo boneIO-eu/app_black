@@ -9,7 +9,6 @@ from pydantic_core import PydanticUndefined
 
 from boneio.core.config.yaml_util import CustomValidator
 from boneio.core.utils import TimePeriod
-from boneio.exceptions import ConfigurationException
 
 # ponytail: the coercions still live on the Cerberus validator; move them to
 # plain functions when the last section leaves Cerberus.
@@ -21,10 +20,12 @@ def coerce(name: str):
     method = getattr(_cerberus, f"_normalize_coerce_{name}")
 
     def run(value: Any) -> Any:
+        # Cerberus reports any exception a coercion raises as the field's
+        # error, so a coercion fed the wrong type is an error here too.
         try:
             return method(value)
-        except ConfigurationException as err:
-            raise ValueError(str(err)) from None
+        except Exception as err:  # noqa: BLE001
+            raise ValueError(str(err) or type(err).__name__) from None
 
     return run
 
