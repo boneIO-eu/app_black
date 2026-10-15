@@ -33,6 +33,9 @@ from boneio.core.config.yaml_util import (
 
 BONEIO = {"config_version": 7, "name": "t", "version": 1.1, "device_type": "24x16A"}
 
+#: Fields the board mapping looks up; a wrong one fails the whole list.
+MAPPED = {("boneio_input",), ("boneio_output",)}
+
 #: A wrong value of every kind, and the marker for "field removed".
 REMOVED = object()
 MUTANTS = [REMOVED, None, True, 7, 1.5, "x", "TOGGLE", "30s", [], {}]
@@ -88,6 +91,15 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
     grouped = {**ACTIONS[2], "conditions": {"mode": "or", "list": [dict(c) for c in CONDITIONS[:3]]}}
     bases.append(("event", {**event, "actions": {"long": [grouped]}},
                   ("actions", "long", 0, "conditions"), True))
+    bases += [
+        ("output", {"boneio_output": "OUT_05", "output_type": "light", "name": "Lamp",
+                    "percentage_default_brightness": 80, "interlock_group": "g1",
+                    "momentary_turn_on": "2s", "momentary_turn_off": "500ms"}, (), False),
+        ("output", {"kind": "gpio", "pin": 5, "output_type": "switch", "area": "hall",
+                    "adjustable_duration": True, "duration_default": "5min", "duration_min": "1s",
+                    "duration_max": "1h", "duration_unit": "min", "restore_state": False,
+                    "sysfs_path": "/x", "mcp_id": "m", "pca_id": "p", "pcf_id": "f"}, (), False),
+    ]
     return bases
 
 
@@ -242,9 +254,9 @@ def test_the_model_refuses_whatever_cerberus_refuses(section, base, focus, typed
     lenient, stricter = [], []
     mutations = [(p, m) for p, m in _mutations(base, rule) if _in_focus(p, focus, typed_only)]
     assert len(mutations) > 20
-    # Mutating boneio_input breaks the board mapping for the whole list.
-    alone = [(p, m) for p, m in mutations if p == ("boneio_input",)]
-    together = [(p, m) for p, m in mutations if p != ("boneio_input",)]
+    # Mutating what the board mapping looks up breaks it for the whole list.
+    alone = [(p, m) for p, m in mutations if p in MAPPED]
+    together = [(p, m) for p, m in mutations if p not in MAPPED]
     verdicts = _verdicts_each(section, [_apply(base, p, m) for p, m in together])
     verdicts += [_verdicts(section, [_apply(base, p, m)]) for p, m in alone]
     for (path, mutant), (cerberus, model) in zip(together + alone, verdicts):
@@ -254,3 +266,10 @@ def test_the_model_refuses_whatever_cerberus_refuses(section, base, focus, typed
             stricter.append((path, mutant, model))
     assert not lenient, f"model accepts what Cerberus refuses: {lenient[:5]}"
     assert not stricter, f"model refuses what Cerberus accepts: {stricter[:5]}"
+
+
+def test_duplicate_output_ids_are_refused_by_both():
+    entries = [{"id": "lamp", "kind": "gpio", "pin": 5, "output_type": "light"},
+               {"id": "lamp", "kind": "gpio", "pin": 6, "output_type": "switch"}]
+    cerberus, model = _verdicts("output", entries)
+    assert cerberus == model == ["output: Output IDs are not unique."]

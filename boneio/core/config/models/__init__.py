@@ -12,10 +12,17 @@ tests/unit/core/config/test_models_match_cerberus.py holds that.
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
-#: Sections validated by a model instead of the Cerberus schema.
-SECTIONS = frozenset({"event", "binary_sensor"})
+#: Sections validated by a model instead of the Cerberus schema, and the
+#: module holding it. Only that module is built when its section is checked.
+_MODULES = {
+    "event": "inputs",
+    "binary_sensor": "inputs",
+    "output": "outputs",
+}
+SECTIONS = frozenset(_MODULES)
 
 
 def validate(section: str, data: Any) -> list[str]:
@@ -30,29 +37,32 @@ def validate(section: str, data: Any) -> list[str]:
     """
     from pydantic import ValidationError
 
-    from boneio.core.config.models.inputs import SECTION_ADAPTERS
-
+    module = importlib.import_module(f"{__name__}.{_MODULES[section]}")
+    tags = getattr(module, "UNION_TAGS", frozenset())
     try:
-        SECTION_ADAPTERS[section].validate_python(data)
+        module.SECTION_ADAPTERS[section].validate_python(data)
     except ValidationError as err:
-        return [f"{_path(section, e['loc'])}: {e['msg']}" for e in err.errors()]
+        # A message raised by our own validators reads better without the
+        # "Value error, " pydantic puts in front of it.
+        return [
+            f"{_path(section, e['loc'], tags)}: {e['msg'].removeprefix('Value error, ')}"
+            for e in err.errors()
+        ]
     return []
 
 
-def _path(section: str, loc: tuple) -> str:
+def _path(section: str, loc: tuple, tags: frozenset[str]) -> str:
     """``event[0].actions.single[1].boneio_output`` from a pydantic location.
 
-    An action's location carries the tag of the union member it was checked
-    against right after its index; it is not a field, so it is left out.
+    A tagged union member's location carries its tag right after its index
+    (an action's type); it is not a field, so it is left out.
     """
-    from boneio.core.config.models.inputs import ACTION_TAGS
-
     path = section
     previous: Any = None
     for part in loc:
         if isinstance(part, int):
             path += f"[{part}]"
-        elif not (isinstance(previous, int) and part in ACTION_TAGS):
+        elif not (isinstance(previous, int) and part in tags):
             path += f".{part}"
         previous = part
     return path

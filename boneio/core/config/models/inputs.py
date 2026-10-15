@@ -11,59 +11,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any, ClassVar, Literal, Union
 
-from pydantic import (
-    AfterValidator,
-    BaseModel,
-    BeforeValidator,
-    ConfigDict,
-    Discriminator,
-    Field,
-    Tag,
-    TypeAdapter,
-    model_validator,
-)
-from pydantic_core import PydanticUndefined
+from pydantic import AfterValidator, BeforeValidator, Discriminator, Field, Tag, TypeAdapter, model_validator
 
-from boneio.core.config.yaml_util import CustomValidator, condition_shape_errors
-from boneio.core.utils import TimePeriod
-from boneio.exceptions import ConfigurationException
-
-# ponytail: the coercions still live on the Cerberus validator; move them to
-# plain functions when the last section leaves Cerberus.
-_cerberus = CustomValidator({})
-
-
-def _coerce(name: str):
-    method = getattr(_cerberus, f"_normalize_coerce_{name}")
-
-    def coerce(value: Any) -> Any:
-        try:
-            return method(value)
-        except ConfigurationException as err:
-            raise ValueError(str(err)) from None
-
-    return coerce
-
-
-_time_period = _coerce("positive_time_period")
-
-
-def _str_time_period(value: Any) -> Any:
-    """``coerce: [str, positive_time_period]``."""
-    return value if isinstance(value, TimePeriod) else _time_period(str(value))
+from boneio.core.config.models.base import Model, Period, StrPeriod, coerce, str_lower
+from boneio.core.config.yaml_util import condition_shape_errors
 
 
 def _upper(value: Any) -> Any:
     return str(value).upper()
 
 
-def _str_lower(value: Any) -> Any:
-    return str(value).lower()
-
-
-Period = Annotated[TimePeriod, BeforeValidator(_time_period)]
-StrPeriod = Annotated[TimePeriod, BeforeValidator(_str_time_period)]
-SunOffset = Annotated[float, BeforeValidator(_coerce("sun_offset")), Field(ge=-43200, le=43200)]
+SunOffset = Annotated[float, BeforeValidator(coerce("sun_offset")), Field(ge=-43200, le=43200)]
 Elevation = Annotated[Union[float, int], Field(ge=-90, le=90)]
 
 OutputCommand = Annotated[
@@ -78,43 +36,8 @@ CoverCommand = Annotated[
 ]
 BoneioInput = Annotated[
     Literal[tuple(f"in_{i:02d}" for i in range(1, 53))],  # type: ignore[valid-type]
-    BeforeValidator(_str_lower),
+    BeforeValidator(str_lower),
 ]
-
-
-class _Model(BaseModel):
-    """Strict like the Cerberus schema: no "yes" for a boolean, no 5 for a string."""
-
-    model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True)
-
-    #: Fields whose null a coercion turns into a value, so it is accepted.
-    nullable: ClassVar[frozenset[str]] = frozenset()
-    #: Fields refused when set to anything but the default Cerberus fills in.
-    forbidden: ClassVar[frozenset[str]] = frozenset()
-
-    @model_validator(mode="before")
-    @classmethod
-    def _as_cerberus_reads_it(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-        fields = cls.model_fields
-        refused = []
-        for key in [k for k, v in data.items() if v is None and k in fields]:
-            # Cerberus fills a null with the field's default, as if it were
-            # missing; with no default it is an error.
-            if fields[key].default not in (None, PydanticUndefined) or key in cls.nullable:
-                data = {k: v for k, v in data.items() if k != key}
-            else:
-                refused.append(key)
-        if refused:
-            raise ValueError(f"null value not allowed: {', '.join(sorted(refused))}")
-        bad = sorted(
-            k for k in cls.forbidden
-            if k in data and not (k in _FILLED_DEFAULTS and str(data[k]).upper() == _FILLED_DEFAULTS[k])
-        )
-        if bad:
-            raise ValueError(f"not allowed with action '{data.get('action')}': {', '.join(bad)}")
-        return data
 
 
 #: The defaults Cerberus fills into every action, whatever its type; a
@@ -125,7 +48,7 @@ _FILLED_DEFAULTS = {"action_cover": "TOGGLE", "action_output": "TOGGLE"}
 # ----------------------------------------------------------------- conditions
 
 
-class Condition(_Model):
+class Condition(Model):
     nullable = frozenset({"after_offset", "before_offset"})
 
     type: Literal["time", "date", "state", "sun"]
@@ -153,7 +76,7 @@ def _condition_shape(condition: Condition) -> Condition:
 ShapedCondition = Annotated[Condition, AfterValidator(_condition_shape)]
 
 
-class Conditions(_Model):
+class Conditions(Model):
     mode: Literal["and", "or"] = "and"
     list: list[ShapedCondition]
 
@@ -161,18 +84,31 @@ class Conditions(_Model):
 # -------------------------------------------------------------------- actions
 
 
-class ActionData(_Model):
+class ActionData(Model):
     position: Annotated[int, Field(ge=0, le=100)] | None = None
     tilt_position: int | None = None
     always_open_till: Annotated[int, Field(ge=0, le=100)] | None = None
 
 
-class _Action(_Model):
+class _Action(Model):
     """Every field any action may carry; Cerberus checks each on every action.
 
     An action type below makes the fields it needs required and lists the
     ones it may not have.
     """
+
+    #: Fields refused when set to anything but the default Cerberus fills in.
+    forbidden: ClassVar[frozenset[str]] = frozenset()
+
+    @classmethod
+    def _refuse_forbidden(cls, data: dict) -> dict:
+        bad = sorted(
+            k for k in cls.forbidden
+            if k in data and not (k in _FILLED_DEFAULTS and str(data[k]).upper() == _FILLED_DEFAULTS[k])
+        )
+        if bad:
+            raise ValueError(f"not allowed with action '{data.get('action')}': {', '.join(bad)}")
+        return data
 
     boneio_output: str | None = None
     boneio_cover: str | None = None
@@ -272,7 +208,8 @@ _ACTIONS = {
     "remote_output": RemoteOutputAction,
     "remote_cover": RemoteCoverAction,
 }
-ACTION_TAGS = frozenset(_ACTIONS)
+#: Union tags in error locations, which are not fields (see models._path).
+UNION_TAGS = frozenset(_ACTIONS)
 
 
 def _action_kind(value: Any) -> Any:
@@ -295,7 +232,7 @@ Action = Annotated[
 # --------------------------------------------------------------------- inputs
 
 
-class EventActions(_Model):
+class EventActions(Model):
     single: list[Action] | None = None
     double: list[Action] | None = None
     triple: list[Action] | None = None
@@ -305,13 +242,13 @@ class EventActions(_Model):
     double_then_single: list[Action] | None = None
 
 
-class MqttSequences(_Model):
+class MqttSequences(Model):
     double_then_long: bool = False
     single_then_long: bool = False
     double_then_single: bool = False
 
 
-class Event(_Model):
+class Event(Model):
     name: str | None = None
     id: str | None = None
     pin: str | None = None
@@ -339,12 +276,12 @@ class Event(_Model):
         return data
 
 
-class BinarySensorActions(_Model):
+class BinarySensorActions(Model):
     pressed: list[Action] | None = None
     released: list[Action] | None = None
 
 
-class BinarySensor(_Model):
+class BinarySensor(Model):
     id: str | None = None
     pin: str | None = None
     bounce_time: StrPeriod = Field("120ms", validate_default=True)

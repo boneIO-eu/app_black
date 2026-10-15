@@ -1,0 +1,80 @@
+"""What every section model shares: Cerberus' reading of a value, and its coercions."""
+
+from __future__ import annotations
+
+from typing import Annotated, Any, ClassVar
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, model_validator
+from pydantic_core import PydanticUndefined
+
+from boneio.core.config.yaml_util import CustomValidator
+from boneio.core.utils import TimePeriod
+from boneio.exceptions import ConfigurationException
+
+# ponytail: the coercions still live on the Cerberus validator; move them to
+# plain functions when the last section leaves Cerberus.
+_cerberus = CustomValidator({})
+
+
+def coerce(name: str):
+    """A ``coerce:`` rule of the Cerberus schema, as a pydantic validator."""
+    method = getattr(_cerberus, f"_normalize_coerce_{name}")
+
+    def run(value: Any) -> Any:
+        try:
+            return method(value)
+        except ConfigurationException as err:
+            raise ValueError(str(err)) from None
+
+    return run
+
+
+_time_period = coerce("positive_time_period")
+
+
+def _str_time_period(value: Any) -> Any:
+    """``coerce: [str, positive_time_period]``."""
+    return value if isinstance(value, TimePeriod) else _time_period(str(value))
+
+
+def str_lower(value: Any) -> Any:
+    """``coerce: [str, lower]``."""
+    return str(value).lower()
+
+
+Period = Annotated[TimePeriod, BeforeValidator(_time_period)]
+StrPeriod = Annotated[TimePeriod, BeforeValidator(_str_time_period)]
+Str = Annotated[str, BeforeValidator(str)]
+"""``coerce: str``: anything but a null becomes its string."""
+
+
+class Model(BaseModel):
+    """Strict like the Cerberus schema: no "yes" for a boolean, no 5 for a string."""
+
+    model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True)
+
+    #: Fields whose null a coercion turns into a value, so it is accepted.
+    nullable: ClassVar[frozenset[str]] = frozenset()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _as_cerberus_reads_it(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        fields = cls.model_fields
+        refused = []
+        for key in [k for k, v in data.items() if v is None and k in fields]:
+            # Cerberus fills a null with the field's default, as if it were
+            # missing; with no default it is an error.
+            if fields[key].default not in (None, PydanticUndefined) or key in cls.nullable:
+                data = {k: v for k, v in data.items() if k != key}
+            else:
+                refused.append(key)
+        if refused:
+            raise ValueError(f"null value not allowed: {', '.join(sorted(refused))}")
+        return cls._refuse_forbidden(data)
+
+    @classmethod
+    def _refuse_forbidden(cls, data: dict) -> dict:
+        """Refuse fields this model may not carry; runs after nulls are read."""
+        return data

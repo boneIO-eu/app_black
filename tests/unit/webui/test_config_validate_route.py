@@ -40,7 +40,7 @@ class TestValidateSection:
         ]
 
     def test_an_output_the_board_does_not_have_is_an_error_not_a_crash(self):
-        errors = validate_section("output", [{"boneio_output": "OUT_99"}], BONEIO)
+        errors = validate_section("output", [{"boneio_output": "OUT_99", "output_type": "switch"}], BONEIO)
         assert len(errors) == 1 and "OUT_99" in errors[0]
 
     def test_a_section_the_schema_does_not_know_is_an_error(self):
