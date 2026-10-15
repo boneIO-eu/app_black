@@ -1049,11 +1049,14 @@ class CustomValidator(Validator):
             return
 
         switch_id = resolve_id(value)
-        if not switch_id:
+        actions = value.get("actions")
+        # Anything but a dict of actions is the schema's to report.
+        if not switch_id or not isinstance(actions, dict):
             return
 
         for key in ("on_turn_on", "on_turn_off"):
-            for action in value.get("actions", {}).get(key) or []:
+            items = actions.get(key)
+            for action in items if isinstance(items, list) else []:
                 if not isinstance(action, dict):
                     continue
                 if (
