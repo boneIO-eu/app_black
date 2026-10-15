@@ -22,6 +22,8 @@ import json
 import logging
 import os
 import subprocess
+import threading
+from concurrent.futures import Future
 from dataclasses import dataclass
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,6 +70,7 @@ class Result:
 
 
 _available: bool | None = None
+_available_lock = threading.Lock()
 
 
 def helper_available(recheck: bool = False) -> bool:
@@ -83,20 +86,39 @@ def helper_available(recheck: bool = False) -> bool:
     if _available is not None and not recheck:
         return _available
 
-    if not (os.path.isfile(HELPER_PATH) and os.access(HELPER_PATH, os.X_OK)):
-        _available = False
-        return False
-    try:
-        result = subprocess.run(
-            ["sudo", "-n", HELPER_PATH, "--list-verbs"],
-            capture_output=True, text=True, timeout=20,
-        )
-    except (subprocess.SubprocessError, OSError) as exc:
-        _LOGGER.warning("boneio-system is present but not callable: %s", exc)
-        _available = False
-        return False
-    _available = result.returncode == 0
-    return _available
+    # Every verb asks this first, so at startup several threads arrive before
+    # the first answer; they wait for that one rather than each probing.
+    with _available_lock:
+        if _available is not None and not recheck:
+            return _available
+        if not (os.path.isfile(HELPER_PATH) and os.access(HELPER_PATH, os.X_OK)):
+            _available = False
+            return False
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", HELPER_PATH, "--list-verbs"],
+                capture_output=True, text=True, timeout=20,
+            )
+        except (subprocess.SubprocessError, OSError) as exc:
+            _LOGGER.warning("boneio-system is present but not callable: %s", exc)
+            _available = False
+            return False
+        _available = result.returncode == 0
+        return _available
+
+
+#: Verbs that only read, and take no stdin. Callers asking for one of these at
+#: the same time get the answer of a single helper run: each costs 2 s of CPU
+#: on a BeagleBone, and at startup the panel and the warm-up used to ask for
+#: the same state four times over, starving everything else on the one core.
+#: Only calls in flight are shared — no caching here, so a poll still sees
+#: progress. Never add a verb that changes something or reads stdin.
+_SHARED_READS = frozenset({
+    "service-password-state", "os-update-state", "os-update-log",
+    "mqtt-tls-state", "overlay-get", "ntp-get", "disk-usage",
+})
+_in_flight: dict[tuple[str, ...], Future] = {}
+_in_flight_lock = threading.Lock()
 
 
 def run(
@@ -116,7 +138,30 @@ def run(
     """
     if not helper_available():
         return Result(1, "", _NOT_INSTALLED)
+    if stdin is not None or verb not in _SHARED_READS:
+        return _run(verb, arguments, timeout, stdin)
 
+    key = (verb, *(str(a) for a in arguments))
+    with _in_flight_lock:
+        shared = _in_flight.get(key)
+        if shared is None:
+            mine = _in_flight[key] = Future()
+    if shared is not None:
+        return shared.result()
+    try:
+        result = _run(verb, arguments, timeout, None)
+    except BaseException as exc:
+        mine.set_exception(exc)
+        raise
+    else:
+        mine.set_result(result)
+        return result
+    finally:
+        with _in_flight_lock:
+            del _in_flight[key]
+
+
+def _run(verb: str, arguments: tuple, timeout: int, stdin: str | None) -> Result:
     argv = ["sudo", "-n", HELPER_PATH, verb, *(str(a) for a in arguments)]
     # argv only, never stdin: that is where the secrets are.
     _LOGGER.info("system operation: %s", " ".join(argv[3:]))
@@ -328,17 +373,28 @@ def helper_supports(verb: str) -> bool:
 #: every call it makes — twice per poll of the OS update card. The list changes
 #: only when a migration replaces the helper, which changes this key.
 _verbs_cache: tuple[tuple[int, int, int], frozenset[str]] | None = None
+_verbs_lock = threading.Lock()
 
 
 def _helper_verbs() -> frozenset[str]:
-    global _verbs_cache
     try:
         st = os.stat(HELPER_PATH)
     except OSError:
         return frozenset()
     key = (st.st_ino, st.st_mtime_ns, st.st_size)
-    if _verbs_cache is not None and _verbs_cache[0] == key:
-        return _verbs_cache[1]
+    cached = _verbs_cache
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    # Concurrent first callers wait for one listing instead of each starting it.
+    with _verbs_lock:
+        cached = _verbs_cache
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        return _list_verbs(key)
+
+
+def _list_verbs(key: tuple[int, int, int]) -> frozenset[str]:
+    global _verbs_cache
     try:
         completed = subprocess.run(
             [HELPER_PATH, "--list-verbs"], capture_output=True, text=True, timeout=15

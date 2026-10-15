@@ -320,8 +320,10 @@ def warm_system_state(delay: float = WARM_DELAY_SECONDS) -> None:
         return
 
     def warm() -> None:
-        _service_password.refresh_in_background()
-        _os_update.refresh_in_background()
+        # A page opened in the meantime has already read them.
+        for state in (_service_password, _os_update):
+            if not state.known:
+                state.refresh_in_background()
 
     timer = threading.Timer(delay, warm)
     timer.daemon = True
