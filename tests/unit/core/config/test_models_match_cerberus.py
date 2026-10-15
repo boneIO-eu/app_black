@@ -221,6 +221,37 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
         ("boneio", {"config_version": 7, "name": "Home", "version": "1.1", "device_type": "24x16A",
                     "ha_child_devices": True, "ha_child_devices_naming": "device_name_area",
                     "serial_override": "blk265f49"}, (), False),
+        ("sensor", {"id": "t1", "name": "Floor", "area": "hall", "address": "28-0000", "show_in_ha": False,
+                    "filters": [{"offset": 0.5}, {"round": 1}], "update_interval": "30s",
+                    "unit_of_measurement": "°F"}, (), False),
+        ("adc", {"name": "Tank", "id": "tank", "pin": "P9_33", "area": "a", "update_interval": "10s",
+                 "show_in_ha": False, "filters": [{"multiply": 2}]}, (), False),
+        ("ina219", {"id": "ina", "address": 65, "update_interval": "5s",
+                    "sensors": [{"id": "I", "device_class": "current", "filters": [{"round": 3}]}]},
+         (), False),
+        ("ina226", {"id": "ina", "address": "0x41", "sensors": [{"id": "V", "device_class": "voltage"}]},
+         (), False),
+        ("lm75", {"id": "board", "address": 73, "update_interval": "2min", "filters": [{"round": 1}],
+                  "unit_of_measurement": "°C"}, (), False),
+        ("mcp9808", {"id": "mcp", "address": "0x18", "update_interval": "1min"}, (), False),
+        ("modbus", {"uart": "uart4", "baudrate": 19200, "stopbits": 2, "bytesize": 7, "parity": "E",
+                    "timeout": "2s", "inter_device_delay": "10ms"}, (), False),
+        ("modbus_devices", {"name": "Air", "area": "living", "id": "air_1", "address": 3, "model": "cwt",
+                            "update_interval": "1min", "entity_labels": {"temperature": "Temp"},
+                            "sensors_filters": {"temperature": [{"offset": -1}],
+                                                "humidity": [{"round": 0}]}}, (), False),
+        ("modbus_devices", {"address": "4", "model": "liquid-sensor",
+                            "data": {"width": "1.2m", "length": 2}}, (), False),
+        ("can", {"enabled": True, "channel": "can1", "bitrate": 250000, "node_id": 5, "mode": "slave",
+                 "auto_setup": False, "restart_on_error": False}, (), False),
+        ("mcp23017", {"id": "mcp1", "address": 32, "init_sleep": "1s", "inverted": True}, (), False),
+        ("pcf8575", {"id": "pcf1", "address": 33, "init_sleep": "500ms"}, (), False),
+        ("pca9685", {"id": "pca1", "address": 64, "init_sleep": "0s"}, (), False),
+        ("virtual_energy_sensor", {"id": "fridge", "name": "Fridge", "output_id": "OUT_01",
+                                   "sensor_type": "power", "power_usage": "150W", "area": "kitchen"},
+         (), False),
+        ("virtual_energy_sensor", {"name": "Garden water", "output_id": "OUT_02", "sensor_type": "water",
+                                   "flow_rate": "12 l/min"}, (), False),
     ]
     return bases
 
@@ -322,6 +353,10 @@ STRICTER_ON_PURPOSE = [
 def _on_purpose(errors: list[str]) -> bool:
     def explained(error: str) -> bool:
         where, _, message = error.partition(": ")
+        # A string-or-integer field reports each member of the union; True is
+        # refused as an integer (above), and so as a string too.
+        if where.endswith(".str") and "Input should be a valid string" in message:
+            return any(e.startswith(where[:-4] + ".int: Input should be a valid integer") for e in errors)
         return any(where.endswith(end) and text in message for end, text in STRICTER_ON_PURPOSE)
 
     return all(explained(e) for e in errors)
@@ -472,3 +507,23 @@ def test_a_certificate_without_its_key_is_refused_by_both():
 
 def test_web_may_be_null_for_both():
     assert _verdicts("web", None) == ([], [])
+
+
+@pytest.mark.parametrize(
+    "section, entry",
+    [
+        ("modbus_devices", {"address": 1, "model": "liquid-sensor", "sensors_filters": {}}),
+        ("modbus_devices", {"address": 1, "model": "cwt", "data": {"width": 1}}),
+        ("virtual_energy_sensor", {"name": "n", "output_id": "o", "sensor_type": "water", "power_usage": 5}),
+        ("virtual_energy_sensor", {"name": "n", "output_id": "o", "sensor_type": "power", "flow_rate": 5}),
+    ],
+)
+def test_a_block_for_another_type_is_refused_by_both(section, entry):
+    cerberus, model = _verdicts(section, [entry])
+    assert cerberus and model
+
+
+def test_the_modbus_update_interval_minimum_never_worked_and_still_does_not():
+    """min: 1s compares a TimePeriod with a string; Cerberus swallows the TypeError."""
+    entry = {"address": 1, "model": "cwt", "update_interval": "500ms"}
+    assert _verdicts("modbus_devices", [entry]) == ([], [])

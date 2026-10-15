@@ -33,6 +33,11 @@ _MODULES = {
     "web": "system",
     "mqtt": "system",
     "boneio": "system",
+    **dict.fromkeys(
+        ("sensor", "adc", "ina219", "ina226", "lm75", "mcp9808", "modbus", "modbus_devices", "can",
+         "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor"),
+        "sensors",
+    ),
 }
 SECTIONS = frozenset(_MODULES)
 
