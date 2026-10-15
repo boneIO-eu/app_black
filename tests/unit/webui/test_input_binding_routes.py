@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
+from boneio.core.config.input_bindings import INPUT_MODE_NONE, INPUT_MODES
+
 
 def _relay_board(count: int = 32) -> dict:
     """A 32x10-style config: plain relays, no covers."""
@@ -261,3 +263,28 @@ class TestRestoreStateStartsFromTheFile:
 
         written = yaml.safe_load(config_file.read_text(encoding="utf-8"))
         assert written["output"] == [{**o, "restore_state": True} for o in on_disk["output"]]
+
+
+@pytest.mark.parametrize("mode", [m for m in INPUT_MODES if m != INPUT_MODE_NONE])
+def test_the_planned_bindings_pass_the_schema_on_every_factory_config(mode):
+    """The planned section is written as it is, so start-up must accept it."""
+    import glob
+
+    from boneio.core.config.input_bindings import bindable_targets, plan_input_bindings, taken_inputs
+    from boneio.core.config.yaml_util import load_yaml_file, validate_section
+    from boneio.webui.routes.config_actions import _board_inputs
+
+    checked = 0
+    for path in sorted(glob.glob("boneio/factory_config/*/*/config.yaml")):
+        config = load_yaml_file(path)
+        outputs, covers = bindable_targets(config)
+        entries = plan_input_bindings(
+            mode=mode,
+            available_inputs=_board_inputs(config),
+            taken_inputs=taken_inputs(config),
+            outputs=outputs,
+            covers=covers,
+        )
+        assert validate_section("event", entries, config.get("boneio")) == [], path
+        checked += bool(entries)
+    assert checked > 0

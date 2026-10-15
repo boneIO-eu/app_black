@@ -20,6 +20,7 @@ from boneio.core.config.yaml_util import (
     normalize_version,
     strip_default_values,
     update_config_section,
+    validate_section,
 )
 from boneio.core.config.input_bindings import (
     INPUT_MODE_COVERS,
@@ -651,6 +652,12 @@ async def _edit_input(entity_id: str, change: Callable[[dict, str], Any]) -> tup
         # and the validator walks the click types of the section it is told.
         kind = "binary_sensor" if _uses_binary_actions(entry, section) else "event"
         errors = _validate_section_actions(kind, [entry], has_location=bool(config.get("location")))
+        # And against the schema start-up loads the file with: written without
+        # it, a wrong value reached config.yaml and the next start refused it.
+        errors += [
+            e.replace(f"{section}[0]", f"{section}[{index}]", 1)
+            for e in validate_section(section, [entry], config.get("boneio"))
+        ]
         if errors:
             raise HTTPException(
                 status_code=422,
