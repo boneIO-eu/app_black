@@ -1493,6 +1493,7 @@ export default function UISettings() {
                 activeSectionData={activeSection_data}
                 formData={formData}
                 originalData={originalData}
+                isDirty={sectionDirty}
                 schemaLoaded={schemaLoaded}
                 editItemName={editItemName || undefined}
                 onEditItemOpened={clearEditParam}

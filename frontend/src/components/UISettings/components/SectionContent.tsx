@@ -28,6 +28,8 @@ interface SectionContentProps {
   activeSectionData: ConfigSection;
   formData: SettingsFormData;
   originalData: SettingsFormData;
+  /** Whether the section has edits not yet saved — the action bar's flag. */
+  isDirty: boolean;
   schemaLoaded: boolean;
   editItemName?: string;
   onEditItemOpened?: () => void;
@@ -74,6 +76,7 @@ function ArraySectionContent({
   activeSectionData,
   formData,
   originalData,
+  isDirty,
   editItemName,
   onEditItemOpened,
   onSectionChange,
@@ -133,8 +136,9 @@ function ArraySectionContent({
       allRemoteInputs={formData.remote_inputs || []}
       allVirtualSwitches={formData.virtual_switch || []}
       /* Only the schedules table reads this, to keep "run now" from firing a
-         draft: it runs what the controller has loaded, not what is on screen. */
-      isDirty={JSON.stringify(formData[activeSection] ?? null) !== JSON.stringify(originalData[activeSection] ?? null)}
+         draft: it runs what the controller has loaded, not what is on screen.
+         The bar's own flag, so the two never disagree about a draft. */
+      isDirty={isDirty}
       extraActions={extraActions}
       savedOutputs={[...(originalData.output || []), ...(originalData.remote_outputs || [])]}
       savedOutputGroups={originalData.output_group || []}
@@ -246,6 +250,7 @@ export default function SectionContent({
   activeSectionData,
   formData,
   originalData,
+  isDirty,
   schemaLoaded,
   editItemName,
   onEditItemOpened,
@@ -274,6 +279,7 @@ export default function SectionContent({
             activeSectionData={activeSectionData}
             formData={formData}
             originalData={originalData}
+            isDirty={isDirty}
             editItemName={editItemName}
             onEditItemOpened={onEditItemOpened}
             onSectionChange={onSectionChange}
