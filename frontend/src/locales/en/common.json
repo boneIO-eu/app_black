@@ -3563,8 +3563,6 @@
     "title": "AI proposals",
     "intro": "An API key in the Proposals scope cannot save. What it would have saved waits here, already checked, until you approve or reject it.",
     "empty": "Nothing is waiting for approval.",
-    "card_title": "Change to: {{section}}",
-    "meta": "from {{author}} · {{date}}",
     "stale": "This section changed after the proposal was made. Approving it replaces the whole section and undoes those changes.",
     "restart": "This section takes effect after a restart.",
     "no_change": "The proposal is the same as the current section.",
@@ -3585,6 +3583,15 @@
     "paste_error_unparsable": "This is not valid YAML or JSON.",
     "paste_error_shape": "Paste one section with its name as the only top-level key, for example output: followed by its list.",
     "paste_failed": "The change could not be added.",
-    "pasted": "The change to {{section}} is checked and waits for your approval above."
+    "pasted": "The change to {{section}} is checked and waits for your approval above.",
+    "by_key": "key “{{key}}” of {{owner}},",
+    "by_user": "pasted by {{user}},",
+    "restart_badge": "After restart",
+    "diff_lines": "lines",
+    "diff_gap": "Unchanged lines",
+    "diff_more": "Show the whole change ({{count}} more lines)",
+    "diff_less": "Show less",
+    "empty_hint": "Changes appear here when an AI assistant with a Propose key suggests one, or when you paste a change from an AI chat below.",
+    "just_now": "just now"
   }
 }

@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState, FormEvent } from 'react';
 import type { AxiosError } from 'axios';
-import { FaPaste, FaRobot } from 'react-icons/fa';
+import { FaKey, FaPaste, FaRobot, FaUser } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { PROPOSALS_CHANGED } from '../hooks/usePendingProposals';
-import { SettingsPage, SettingsCard, NoticeCallout } from './UISettings/ui';
+import { SettingsPage, SettingsCard, NoticeCallout, EmptyState, FormActions } from './UISettings/ui';
 import { LoadingState } from '@/components/ui/LoadingState';
 import type { StandaloneSectionProps } from './UISettings/constants/standaloneSections';
 import { parsePastedSection } from './pastedSection';
+import ProposalDiff from './ProposalDiff';
 
 interface Proposal {
   id: string;
@@ -30,12 +31,23 @@ function errorMessage(err: unknown, fallback: string): string {
   return detail?.message || fallback;
 }
 
-function lineClass(line: string): string {
-  if (line.startsWith('+++') || line.startsWith('---')) return 'text-base-content/50';
-  if (line.startsWith('+')) return 'bg-success/15 text-success';
-  if (line.startsWith('-')) return 'bg-error/15 text-error';
-  if (line.startsWith('@@')) return 'text-info';
-  return '';
+/** "key:Claude (pawel)" for an API key, a username for something pasted. */
+function parseAuthor(author: string): { key: string; owner: string } | { user: string } {
+  const match = author.match(/^key:(.+) \((.+)\)$/);
+  return match ? { key: match[1], owner: match[2] } : { user: author };
+}
+
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['day', 86_400], ['hour', 3_600], ['minute', 60],
+];
+
+function ago(iso: string, language: string, justNow: string): string {
+  const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
+  const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
+  for (const [unit, size] of UNITS) {
+    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
+  }
+  return justNow;
 }
 
 /**
@@ -44,8 +56,9 @@ function lineClass(line: string): string {
  * It is filed like an agent's proposal, so it is checked as a save would
  * check it and lands in the list below with its diff, to approve or reject.
  */
-function PasteCard({ onFiled }: { onFiled: (section: string) => Promise<void> }) {
+function PasteCard({ onFiled, startOpen }: { onFiled: (section: string) => Promise<void>; startOpen: boolean }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(startOpen);
   const [text, setText] = useState('');
   const [rationale, setRationale] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -77,11 +90,18 @@ function PasteCard({ onFiled }: { onFiled: (section: string) => Promise<void> })
 
   return (
     <form onSubmit={submit}>
-      <SettingsCard icon={<FaPaste />} title={t('proposals.paste_title')} description={t('proposals.paste_intro')}>
+      <SettingsCard
+        icon={<FaPaste />}
+        title={t('proposals.paste_title')}
+        description={t('proposals.paste_intro')}
+        collapsible
+        open={open}
+        onOpenChange={setOpen}
+      >
         {error && <NoticeCallout variant="error" message={error} />}
         <textarea
           className="textarea textarea-bordered w-full font-mono text-xs"
-          rows={8}
+          rows={7}
           placeholder={'output:\n  - name: Lampa\n    boneio_output: OUT_01\n    output_type: light'}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -114,7 +134,7 @@ function PasteCard({ onFiled }: { onFiled: (section: string) => Promise<void> })
  * marked, and approving it asks a second time: it would undo those changes.
  */
 export default function ProposalsView({ onRestartRequired }: StandaloneSectionProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { isAdmin } = useAuth();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -194,46 +214,72 @@ export default function ProposalsView({ onRestartRequired }: StandaloneSectionPr
       {isLoading ? (
         <LoadingState className="py-6" />
       ) : proposals.length === 0 ? (
-        <SettingsCard icon={<FaRobot />} title={t('proposals.title')} description={t('proposals.intro')}>
-          <p className="text-sm text-base-content/60">{t('proposals.empty')}</p>
-        </SettingsCard>
+        <EmptyState icon={<FaRobot />} title={t('proposals.empty')} description={t('proposals.empty_hint')} />
       ) : (
-        proposals.map((p) => (
-          <SettingsCard
-            key={p.id}
-            icon={<FaRobot />}
-            title={t('proposals.card_title', { section: sectionName(p.section) })}
-            description={t('proposals.meta', { author: p.author, date: new Date(p.created_at).toLocaleString() })}
-          >
-            {p.rationale && <p className="text-sm whitespace-pre-wrap">{p.rationale}</p>}
-            {p.stale && <NoticeCallout variant="warning" message={t('proposals.stale')} />}
-            {p.restart_required && <NoticeCallout variant="info" message={t('proposals.restart')} />}
-            <pre className="stg-inset overflow-x-auto p-2 text-xs leading-5">
-              {p.diff
-                ? p.diff.split('\n').map((line, i) => (
-                    <div key={i} className={lineClass(line)}>{line || ' '}</div>
-                  ))
-                : t('proposals.no_change')}
-            </pre>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button className="btn btn-ghost btn-sm" disabled={busy === p.id} onClick={() => reject(p)}>
-                {t('proposals.reject')}
-              </button>
-              {confirmStale === p.id ? (
-                <button className="btn btn-warning btn-sm" disabled={busy === p.id} onClick={() => approve(p, true)}>
-                  {t('proposals.approve_anyway')}
-                </button>
-              ) : (
-                <button className="btn btn-primary btn-sm" disabled={busy === p.id} onClick={() => approve(p)}>
-                  {busy === p.id && <span className="loading loading-spinner loading-xs" />}
-                  {t('proposals.approve')}
-                </button>
+        proposals.map((p) => {
+          const author = parseAuthor(p.author);
+          return (
+            <SettingsCard
+              key={p.id}
+              icon={<FaRobot />}
+              title={sectionName(p.section)}
+              description={
+                <span className="inline-flex flex-wrap items-center gap-x-1.5">
+                  {'key' in author ? (
+                    <>
+                      <FaKey className="text-[11px] opacity-60" aria-hidden="true" />
+                      {t('proposals.by_key', { key: author.key, owner: author.owner })}
+                    </>
+                  ) : (
+                    <>
+                      <FaUser className="text-[11px] opacity-60" aria-hidden="true" />
+                      {t('proposals.by_user', { user: author.user })}
+                    </>
+                  )}
+                  <time dateTime={p.created_at} title={new Date(p.created_at).toLocaleString(language)}>
+                    {ago(p.created_at, language, t('proposals.just_now'))}
+                  </time>
+                </span>
+              }
+              action={
+                p.restart_required ? (
+                  <span className="badge badge-warning badge-sm whitespace-nowrap" title={t('proposals.restart')}>
+                    {t('proposals.restart_badge')}
+                  </span>
+                ) : undefined
+              }
+              footer={
+                <FormActions>
+                  <button className="btn btn-ghost btn-sm" disabled={busy === p.id} onClick={() => reject(p)}>
+                    {t('proposals.reject')}
+                  </button>
+                  {confirmStale === p.id ? (
+                    <button className="btn btn-warning btn-sm" disabled={busy === p.id} onClick={() => approve(p, true)}>
+                      {t('proposals.approve_anyway')}
+                    </button>
+                  ) : (
+                    <button className="btn btn-primary btn-sm gap-2" disabled={busy === p.id} onClick={() => approve(p)}>
+                      {busy === p.id && <span className="loading loading-spinner loading-xs" />}
+                      {t('proposals.approve')}
+                    </button>
+                  )}
+                </FormActions>
+              }
+            >
+              {p.rationale && (
+                <blockquote className="border-l-2 border-primary/60 pl-3 text-sm leading-relaxed whitespace-pre-wrap text-base-content/85">
+                  {p.rationale}
+                </blockquote>
               )}
-            </div>
-          </SettingsCard>
-        ))
+              {p.stale && <NoticeCallout variant="warning" message={t('proposals.stale')} />}
+              <ProposalDiff diff={p.diff} />
+            </SettingsCard>
+          );
+        })
       )}
       <PasteCard
+        key={isLoading ? 'loading' : 'ready'}
+        startOpen={!isLoading && proposals.length === 0}
         onFiled={async (section) => {
           setNotice(t('proposals.pasted', { section: sectionName(section) }));
           await load();

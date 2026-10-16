@@ -3562,8 +3562,6 @@
     "title": "Propozycje AI",
     "intro": "Klucz API z zakresem Propozycje nie może zapisywać. To, co by zapisał, czeka tutaj, już sprawdzone, aż je zatwierdzisz albo odrzucisz.",
     "empty": "Nic nie czeka na zatwierdzenie.",
-    "card_title": "Zmiana: {{section}}",
-    "meta": "od {{author}} · {{date}}",
     "stale": "Ta sekcja zmieniła się po złożeniu propozycji. Zatwierdzenie zastąpi całą sekcję i cofnie te zmiany.",
     "restart": "Ta sekcja zacznie działać po restarcie.",
     "no_change": "Propozycja jest taka sama jak obecna sekcja.",
@@ -3584,6 +3582,15 @@
     "paste_error_unparsable": "To nie jest poprawny YAML ani JSON.",
     "paste_error_shape": "Wklej jedną sekcję, której nazwa jest jedynym kluczem na górze, na przykład output: i lista pod spodem.",
     "paste_failed": "Nie udało się dodać zmiany.",
-    "pasted": "Zmiana w {{section}} jest sprawdzona i czeka wyżej na Twoje zatwierdzenie."
+    "pasted": "Zmiana w {{section}} jest sprawdzona i czeka wyżej na Twoje zatwierdzenie.",
+    "by_key": "klucz „{{key}}” użytkownika {{owner}},",
+    "by_user": "wkleił {{user}},",
+    "restart_badge": "Po restarcie",
+    "diff_lines": "linii",
+    "diff_gap": "Niezmienione linie",
+    "diff_more": "Pokaż całą zmianę (jeszcze {{count}} linii)",
+    "diff_less": "Zwiń",
+    "empty_hint": "Zmiany pojawią się tutaj, gdy asystent AI z kluczem Propozycje coś zaproponuje albo gdy wkleisz poniżej zmianę z czatu AI.",
+    "just_now": "przed chwilą"
   }
 }
