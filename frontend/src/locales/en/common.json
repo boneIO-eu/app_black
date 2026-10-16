@@ -3575,6 +3575,16 @@
     "rejected": "Rejected the proposal for {{section}}.",
     "load_failed": "Could not load the proposals.",
     "approve_failed": "Could not approve the proposal.",
-    "reject_failed": "Could not reject the proposal."
+    "reject_failed": "Could not reject the proposal.",
+    "paste_title": "Paste a change from an AI chat",
+    "paste_intro": "For an AI that may only read (a Read key, or a chat without access to the controller): ask it to answer with the whole changed section as YAML, starting with the section's name - for example output: and the list under it. The change is checked and waits above for your approval.",
+    "paste_rationale": "What it changes (optional)",
+    "paste_submit": "Check and add for review",
+    "paste_default_rationale": "Pasted from an AI chat.",
+    "paste_error_empty": "Paste the section first.",
+    "paste_error_unparsable": "This is not valid YAML or JSON.",
+    "paste_error_shape": "Paste one section with its name as the only top-level key, for example output: followed by its list.",
+    "paste_failed": "The change could not be added.",
+    "pasted": "The change to {{section}} is checked and waits for your approval above."
   }
 }

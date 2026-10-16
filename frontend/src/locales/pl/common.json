@@ -3574,6 +3574,16 @@
     "rejected": "Odrzucono propozycję: {{section}}.",
     "load_failed": "Nie udało się wczytać propozycji.",
     "approve_failed": "Nie udało się zatwierdzić propozycji.",
-    "reject_failed": "Nie udało się odrzucić propozycji."
+    "reject_failed": "Nie udało się odrzucić propozycji.",
+    "paste_title": "Wklej zmianę z czatu AI",
+    "paste_intro": "Dla AI, które może tylko czytać (klucz Odczyt albo czat bez dostępu do sterownika): poproś, żeby odpowiedziało całą zmienioną sekcją w YAML, zaczynając od nazwy sekcji — na przykład output: i lista pod spodem. Zmiana zostanie sprawdzona i poczeka wyżej na Twoje zatwierdzenie.",
+    "paste_rationale": "Co zmienia (opcjonalnie)",
+    "paste_submit": "Sprawdź i dodaj do przeglądu",
+    "paste_default_rationale": "Wklejone z czatu AI.",
+    "paste_error_empty": "Najpierw wklej sekcję.",
+    "paste_error_unparsable": "To nie jest poprawny YAML ani JSON.",
+    "paste_error_shape": "Wklej jedną sekcję, której nazwa jest jedynym kluczem na górze, na przykład output: i lista pod spodem.",
+    "paste_failed": "Nie udało się dodać zmiany.",
+    "pasted": "Zmiana w {{section}} jest sprawdzona i czeka wyżej na Twoje zatwierdzenie."
   }
 }

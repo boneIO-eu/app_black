@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, FormEvent } from 'react';
 import type { AxiosError } from 'axios';
-import { FaRobot } from 'react-icons/fa';
+import { FaPaste, FaRobot } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
@@ -8,6 +8,7 @@ import { PROPOSALS_CHANGED } from '../hooks/usePendingProposals';
 import { SettingsPage, SettingsCard, NoticeCallout } from './UISettings/ui';
 import { LoadingState } from '@/components/ui/LoadingState';
 import type { StandaloneSectionProps } from './UISettings/constants/standaloneSections';
+import { parsePastedSection } from './pastedSection';
 
 interface Proposal {
   id: string;
@@ -35,6 +36,73 @@ function lineClass(line: string): string {
   if (line.startsWith('-')) return 'bg-error/15 text-error';
   if (line.startsWith('@@')) return 'text-info';
   return '';
+}
+
+/**
+ * A section pasted from an AI chat - the way in for a key that may only read.
+ *
+ * It is filed like an agent's proposal, so it is checked as a save would
+ * check it and lands in the list below with its diff, to approve or reject.
+ */
+function PasteCard({ onFiled }: { onFiled: (section: string) => Promise<void> }) {
+  const { t } = useTranslation();
+  const [text, setText] = useState('');
+  const [rationale, setRationale] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const pasted = parsePastedSection(text);
+    if ('error' in pasted) {
+      setError(t(`proposals.paste_error_${pasted.error}`));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await axios.post(`/api/config/${encodeURIComponent(pasted.section)}/proposals`, {
+        data: pasted.data,
+        rationale: rationale.trim() || t('proposals.paste_default_rationale'),
+      });
+      setText('');
+      setRationale('');
+      await onFiled(pasted.section);
+    } catch (err: unknown) {
+      setError(errorMessage(err, t('proposals.paste_failed')));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <SettingsCard icon={<FaPaste />} title={t('proposals.paste_title')} description={t('proposals.paste_intro')}>
+        {error && <NoticeCallout variant="error" message={error} />}
+        <textarea
+          className="textarea textarea-bordered w-full font-mono text-xs"
+          rows={8}
+          placeholder={'output:\n  - name: Lampa\n    boneio_output: OUT_01\n    output_type: light'}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <input
+          type="text"
+          className="input input-bordered input-sm w-full"
+          placeholder={t('proposals.paste_rationale')}
+          maxLength={2000}
+          value={rationale}
+          onChange={(e) => setRationale(e.target.value)}
+        />
+        <div className="flex justify-end">
+          <button type="submit" className="btn btn-primary btn-sm gap-2" disabled={busy || !text.trim()}>
+            {busy && <span className="loading loading-spinner loading-xs" />}
+            {t('proposals.paste_submit')}
+          </button>
+        </div>
+      </SettingsCard>
+    </form>
+  );
 }
 
 /**
@@ -165,6 +233,12 @@ export default function ProposalsView({ onRestartRequired }: StandaloneSectionPr
           </SettingsCard>
         ))
       )}
+      <PasteCard
+        onFiled={async (section) => {
+          setNotice(t('proposals.pasted', { section: sectionName(section) }));
+          await load();
+        }}
+      />
     </SettingsPage>
   );
 }
