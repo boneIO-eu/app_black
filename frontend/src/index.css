@@ -718,13 +718,16 @@ body {
 
 /* Cards appear as the section loads, staggered down the page. Deliberately
    short and small — it is there to make a section change feel like one
-   movement, not to be noticed as an animation. */
+   movement, not to be noticed as an animation.
+   Fill is `backwards`, never `both`: a transform animation that stays in
+   effect after it ends makes the card a containing block for `position:
+   fixed`, and every modal rendered inside it is clipped to the card. */
 @keyframes stg-rise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
 .stg-page > * {
-  animation: stg-rise 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: stg-rise 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .stg-page > *:nth-child(2) { animation-delay: 40ms; }
 .stg-page > *:nth-child(3) { animation-delay: 80ms; }
