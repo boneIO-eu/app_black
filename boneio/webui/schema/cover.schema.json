@@ -191,6 +191,23 @@
             "default": true,
             "description": "If you want you can disable discovering this input in HA.",
             "title": "Show in ha"
+          },
+          "facade_azimuth": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Which way the window faces, in degrees clockwise from north (90 east, 180 south, 270 west). With it and the location set, the controller knows when the sun shines on the window: a \"sun on\" binary sensor in Home Assistant, and schedules that run when the sun reaches or leaves the window.",
+            "title": "Facade azimuth"
+          },
+          "facade_min_elevation": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "default": 0,
+            "description": "The sun counts as on the window only above this many degrees over the horizon - raise it when a neighbouring house or trees shade the window while the sun is low.",
+            "title": "Facade min elevation"
           }
         },
         "required": [

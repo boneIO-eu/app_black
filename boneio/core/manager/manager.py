@@ -46,6 +46,7 @@ from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.events import EventBus
 from boneio.core.manager.action_conditions import precompile_conditions, should_execute_action
 from boneio.core.manager.covers import CoverManager
+from boneio.core.manager.facade_sun import FacadeSun
 from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.irrigation import IrrigationManager
@@ -245,6 +246,9 @@ class Manager:
             manager=self,
             cover_config=cover,
         )
+        # Whether the Sun shines on each cover's window, for Home Assistant.
+        self.facade_sun = FacadeSun(self)
+        self.facade_sun.publish_discovery()
 
         # 4b. Virtual switches — flags with no hardware, read by conditions and
         # set by actions. Before anything whose actions may target one: the
@@ -1432,6 +1436,8 @@ class Manager:
         # were never built. Existing ones need nothing: they read the provider
         # on every update, so new coordinates reach them by themselves.
         self.sensors.configure_sun_sensors()
+        # Without coordinates there is nothing to say about any window.
+        self.facade_sun.publish_discovery()
 
     async def _reload_mqtt_credentials(self) -> None:
         """Adopt new broker credentials without a restart.

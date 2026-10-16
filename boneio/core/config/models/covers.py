@@ -30,6 +30,8 @@ class Cover(Model):
     device_class: Literal["awning", "blind", "curtain", "damper", "door", "garage", "gate",
                           "shade", "shutter", "window"] | None = None
     show_in_ha: bool = True
+    facade_azimuth: Annotated[int, Field(ge=0, le=359)] | None = None
+    facade_min_elevation: Annotated[int, Field(ge=0, le=45)] = 0
 
 
 SECTION_ADAPTERS = {"cover": TypeAdapter(list[Cover])}

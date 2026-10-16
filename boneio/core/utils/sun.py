@@ -269,6 +269,33 @@ def horizon_dip(elevation_m: float) -> float:
     return 0.0353 * math.sqrt(elevation_m)
 
 
+def facade_incidence(elevation: float, azimuth: float, facade_azimuth: float) -> float:
+    """Angle between the Sun and the outward normal of a vertical window.
+
+    0° is the Sun straight in front of the window, 90° is grazing it, more
+    is behind the wall.
+
+    Args:
+        elevation: Sun elevation, degrees.
+        azimuth: Sun azimuth, degrees clockwise from north.
+        facade_azimuth: Which way the window faces, the same convention.
+
+    Returns:
+        The angle in degrees, 0..180.
+    """
+    cos_theta = math.cos(math.radians(elevation)) * math.cos(math.radians(azimuth - facade_azimuth))
+    return math.degrees(math.acos(_clamp(cos_theta)))
+
+
+def sun_on_facade(elevation: float, azimuth: float, facade_azimuth: float, min_elevation: float = 0.0) -> bool:
+    """Whether the Sun shines on a vertical window facing ``facade_azimuth``.
+
+    Above ``min_elevation`` - what a neighbouring roof or tree hides counts
+    as not shining - and in front of the wall rather than behind it.
+    """
+    return elevation > min_elevation and facade_incidence(elevation, azimuth, facade_azimuth) < 90.0
+
+
 # ── Public: event times ──────────────────────────────────────────────────────
 
 

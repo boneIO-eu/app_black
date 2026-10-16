@@ -223,6 +223,8 @@ def test_the_manager_reload_handler_adopts_new_coordinates(monkeypatch):
         # The handler also asks for the sun sensors, because coordinates may
         # have just appeared on a device that started without any.
         sensors=SimpleNamespace(configure_sun_sensors=lambda: built.append(True)),
+        # And for the covers' windows, which need coordinates too.
+        facade_sun=SimpleNamespace(publish_discovery=lambda: built.append("facades")),
     )
 
     before = provider.anchors(at(2025, 6, 21))["sunrise"]
@@ -231,7 +233,7 @@ def test_the_manager_reload_handler_adopts_new_coordinates(monkeypatch):
 
     assert provider.latitude == pytest.approx(-33.8688)
     assert before != after
-    assert built == [True]
+    assert built == [True, "facades"]
 
 
 def test_removing_the_location_section_disables_sun_features(monkeypatch):
@@ -245,6 +247,7 @@ def test_removing_the_location_section_disables_sun_features(monkeypatch):
         sun=provider,
         _config_helper=SimpleNamespace(get_config=lambda: {}),
         sensors=SimpleNamespace(configure_sun_sensors=lambda: None),
+        facade_sun=SimpleNamespace(publish_discovery=lambda: None),
     )
 
     Manager._reload_location(fake_manager)

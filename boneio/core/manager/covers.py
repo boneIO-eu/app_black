@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+#: Cover settings the cover classes do not take: FacadeSun reads them.
+FACADE_KEYS = ("facade_azimuth", "facade_min_elevation")
+
 
 class CoverManager:
     """Manages all covers (time-based, venetian).
@@ -309,6 +312,7 @@ class CoverManager:
                         SHOW_HA,
                         DEVICE_CLASS,
                         NAME,
+                        *FACADE_KEYS,
                     )
                 },
             )
@@ -341,7 +345,7 @@ class CoverManager:
                 **{
                     k: v
                     for k, v in config.items()
-                    if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)
+                    if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME, *FACADE_KEYS)
                 },
             )
             availability_msg_func = ha_cover_availabilty_message
@@ -373,7 +377,7 @@ class CoverManager:
                 **{
                     k: v
                     for k, v in config.items()
-                    if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)
+                    if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME, *FACADE_KEYS)
                 },
             )
             availability_msg_func = ha_cover_availabilty_message
@@ -411,6 +415,9 @@ class CoverManager:
         cover.area = config.get("area")
         cover.device_class = config.get(DEVICE_CLASS)
         cover.show_in_ha = config.get(SHOW_HA, True)
+        # Read by FacadeSun, not by the cover: which way its window faces.
+        cover.facade_azimuth = config.get("facade_azimuth")
+        cover.facade_min_elevation = config.get("facade_min_elevation", 0)
 
     def _remove_cover_ha_discovery(self, cover_id: str) -> None:
         """Remove HA Discovery entries for a cover.
@@ -499,6 +506,9 @@ class CoverManager:
         """
         _LOGGER.info("Reloading cover configuration")
         self._configure_covers(reload_config=True)
+        facade_sun = getattr(self._manager, "facade_sun", None)
+        if facade_sun is not None:
+            facade_sun.publish_discovery()
 
         # Broadcast updated states to WebSocket clients
         self._broadcast_all_states()
