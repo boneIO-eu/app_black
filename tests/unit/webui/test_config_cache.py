@@ -130,3 +130,24 @@ class TestInvalidateConfigCacheInPlace:
 
             helper = mock_app_state.manager.config_helper
             helper.update_config_section.assert_not_called()
+
+
+def test_the_cache_filled_at_start_up_has_the_shape_a_rebuild_gives(tmp_path) -> None:
+    """Before the first save, outputs had no ids: agents copied that shape into proposals."""
+    from boneio.webui import app as app_module
+    from boneio.webui.middleware.auth import set_key_store, set_user_store
+    from boneio.webui.routes import config_core
+
+    config = tmp_path / "config.yaml"
+    config.write_text("output: []\n", encoding="utf-8")
+    loaded = {"output": [{"name": "OUT 01", "boneio_output": "OUT_01", "output_type": "switch"}]}
+    try:
+        app_module.init_app(manager=MagicMock(), yaml_config_file=str(config), config_helper=MagicMock(),
+                            auth_config={}, jwt_secret="x" * 40, initial_config=loaded)
+        assert config_core._config_cache["data"] == config_core.api_shape(loaded)
+        assert config_core._config_cache["data"]["output"][0]["id"] == "OUT_01"
+    finally:
+        config_core._config_cache["data"] = None
+        config_core._config_cache["mtime"] = 0
+        set_user_store(None)
+        set_key_store(None)
