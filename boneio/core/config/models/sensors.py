@@ -1,10 +1,10 @@
 """Sensors and expanders: 1-Wire, ADC, INA219/226, LM75, MCP9808, Modbus, CAN,
 the MCP23017/PCF8575/PCA9685 expanders and virtual energy sensors.
 
-Mirrors boneio/schema/schema.yaml for these sections. One rule there never
-worked and is kept that way, so the models refuse what Cerberus refuses and
-no more: ``update_interval``'s ``min: 1s`` on Modbus devices (Cerberus
-compares a TimePeriod with a string, gets TypeError and lets it pass).
+Mirrors boneio/schema/schema.yaml for these sections. One rule is enforced
+here and not at start-up: ``update_interval``'s ``min: 1s`` on Modbus devices.
+Cerberus compares a TimePeriod with a string, gets TypeError and lets it
+pass, so a saved config may still hold less; a save cannot add it.
 """
 
 from __future__ import annotations
@@ -121,13 +121,19 @@ class TankData(Model):
     length: Length | None = None
 
 
+def _at_least_a_second(value):
+    if value.total_in_seconds < 1:
+        raise ValueError("at least 1s: a Modbus device polled faster crowds out the others on the bus")
+    return value
+
+
 class ModbusDevice(Model):
     name: str | None = None
     area: str | None = None
     id: Annotated[str, BeforeValidator(str), Field(pattern=r"^[a-z0-9_]+$")] | None = None
     address: Address
     model: Annotated[str, BeforeValidator(str_lower), AfterValidator(_known_model)]
-    update_interval: StrPeriod = _interval("30s")
+    update_interval: Annotated[StrPeriod, AfterValidator(_at_least_a_second)] = _interval("30s")
     entity_labels: dict[str, str] | None = None
     sensors_filters: SensorsFilters | None = None
     data: TankData | None = None

@@ -356,6 +356,8 @@ STRICTER_ON_PURPOSE = [
     # over the one in the entry; the model checks what was written.
     (".pin", ""),
     ("", "null value not allowed: pin"),
+    # min: 1s in the schema never ran (TimePeriod against a string).
+    (".update_interval", "at least 1s"),
 ]
 
 
@@ -532,7 +534,10 @@ def test_a_block_for_another_type_is_refused_by_both(section, entry):
     assert cerberus and model
 
 
-def test_the_modbus_update_interval_minimum_never_worked_and_still_does_not():
+def test_the_modbus_update_interval_minimum_holds_on_save_only():
     """min: 1s compares a TimePeriod with a string; Cerberus swallows the TypeError."""
     entry = {"address": 1, "model": "cwt", "update_interval": "500ms"}
-    assert _verdicts("modbus_devices", [entry]) == ([], [])
+    cerberus, model = _verdicts("modbus_devices", [entry])
+    assert cerberus == []  # start-up still loads a config that has it
+    assert len(model) == 1 and "update_interval" in model[0] and "at least 1s" in model[0]
+    assert _verdicts("modbus_devices", [{**entry, "update_interval": "1s"}]) == ([], [])
