@@ -7,10 +7,12 @@ and without the ``initialize`` handshake - get answers they recognise.
 
 from __future__ import annotations
 
+import copy
 import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -186,7 +188,7 @@ def test_nothing_reaches_the_tools_without_a_key(device):
                          "boneio_discover_devices"}),
         (KeyScope.PROPOSE, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
                             "boneio_discover_devices", "boneio_validate", "boneio_propose",
-                            "boneio_proposal_status"}),
+                            "boneio_proposal_status", "boneio_add_discovered_device"}),
         (KeyScope.WRITE, {t.name for t in mcp_routes.TOOLS}),
     ],
 )
@@ -304,3 +306,110 @@ def test_a_read_key_sees_the_devices_around_the_controller(device, monkeypatch):
     scanned = json.loads(_text(_call(device, token, "boneio_discover_devices", scan_network=True)))
     assert scanned["esphome_on_network"][0]["ip"] == "192.168.1.30"
     assert "zeroconf" in scanned["wled_on_network"]["error"]
+
+
+# ------------------------------------------------- adding a discovered device
+
+AGENT_REQUEST = type("Req", (), {"state": type("S", (), {"user": "pawel"})()})()
+
+EXISTING = {"id": "garage", "name": "Garage", "protocol": "esphome_api", "device_type": "esphome",
+            "esphome_api": {"host": "192.168.1.40", "port": 6053, "password": "s3cret"}}
+
+
+@pytest.fixture
+def neighbours(device, monkeypatch):
+    """A device already configured with a password, and discovery that finds more."""
+    from boneio.webui.routes import remote_devices
+
+    config_core._config_cache["data"]["remote_devices"] = [copy.deepcopy(EXISTING)]
+    device.config_file.write_text(
+        "output: []\nremote_devices:\n  - id: garage\n    name: Garage\n    protocol: esphome_api\n"
+        "    device_type: esphome\n    esphome_api:\n      host: 192.168.1.40\n      port: 6053\n"
+        "      password: s3cret\n", encoding="utf-8")
+    # As the running app holds it: what the last save wrote.
+    device.state.manager.config_helper.get_config.side_effect = (
+        lambda *a, **k: {"boneio": BONEIO, **yaml.safe_load(device.config_file.read_text(encoding="utf-8"))})
+    boneio = MagicMock()
+    boneio.to_dict.return_value = {"id": "blk_abc123", "name": "Shed", "protocol": "mqtt",
+                                   "device_type": "boneio_black", "outputs": [{"id": "OUT_01", "name": "Lamp"}],
+                                   "covers": []}
+    device.state.manager.remote_devices.get_autodiscovered_device.side_effect = (
+        lambda i: boneio if i == "blk_abc123" else None)
+
+    async def wled(request):
+        return {"name": "Shelf LEDs", "segments": [{"id": 0}]}
+
+    async def esphome(request):
+        raise HTTPException(status_code=502, detail="No ESPHome device answered at that address.")
+
+    monkeypatch.setattr(remote_devices, "discover_wled", wled)
+    monkeypatch.setattr(remote_devices, "discover_esphome", esphome)
+    return device
+
+
+def test_a_propose_key_files_a_discovered_controller_for_approval(neighbours):
+    reply = _call(neighbours, _key(neighbours, KeyScope.PROPOSE), "boneio_add_discovered_device",
+                  kind="boneio", device_id="blk_abc123")
+    assert reply["result"]["isError"] is False, _text(reply)
+    (pending,) = proposal_routes._store().list()
+    added = pending.data[-1]
+    assert added["id"] == "blk_abc123" and added["mqtt"]["outputs"] == [{"id": "OUT_01", "name": "Lamp"}]
+    assert "blk_abc123" not in neighbours.config_file.read_text(encoding="utf-8")
+
+
+def test_a_write_key_saves_a_wled_device_and_the_neighbours_password_survives(neighbours):
+    reply = _call(neighbours, _key(neighbours, KeyScope.WRITE), "boneio_add_discovered_device",
+                  kind="wled", host="192.168.1.50")
+    assert reply["result"]["isError"] is False, _text(reply)
+    stored = neighbours.config_file.read_text(encoding="utf-8")
+    assert "shelf_leds" in stored and "192.168.1.50" in stored
+    assert "s3cret" in stored and "***" not in stored
+
+
+async def test_approving_a_proposed_device_puts_the_masked_password_back(neighbours):
+    _call(neighbours, _key(neighbours, KeyScope.PROPOSE), "boneio_add_discovered_device",
+          kind="wled", host="192.168.1.50")
+    (pending,) = proposal_routes._store().list()
+    assert pending.data[0]["esphome_api"]["password"] != "s3cret"  # what was filed is masked
+    await proposal_routes.approve_proposal(pending.id, AGENT_REQUEST, None)
+    stored = neighbours.config_file.read_text(encoding="utf-8")
+    assert "s3cret" in stored and "192.168.1.50" in stored
+
+
+@pytest.mark.parametrize(
+    ("args", "says"),
+    [
+        ({"kind": "esphome", "host": "192.168.1.60"}, "encryption key"),
+        ({"kind": "wled", "host": "192.168.1.40"}, "already configured"),
+        ({"kind": "boneio", "device_id": "blk_nope"}, "No boneIO controller"),
+    ],
+)
+def test_what_cannot_be_added_says_why(neighbours, args, says):
+    reply = _call(neighbours, _key(neighbours, KeyScope.WRITE), "boneio_add_discovered_device", **args)
+    assert reply["result"]["isError"] is True and says in _text(reply)
+
+
+def test_a_read_key_cannot_add_a_device(neighbours):
+    reply = _call(neighbours, _key(neighbours, KeyScope.READ), "boneio_add_discovered_device",
+                  kind="wled", host="192.168.1.50")
+    assert reply["error"]["code"] == -32602
+
+
+def test_an_esphome_device_given_by_address_is_named_as_it_names_itself(neighbours, monkeypatch):
+    from boneio.webui.routes import remote_devices
+
+    async def esphome(request):
+        return {"switches": [{"id": "relay_1", "name": "Relay 1", "key": 7, "icon": "mdi:x"}], "lights": [], "covers": []}
+
+    async def scan(timeout):
+        return {"devices": [{"name": "kitchen-relays", "host": "kitchen-relays.local", "ip": "192.168.1.70"}]}
+
+    monkeypatch.setattr(remote_devices, "discover_esphome", esphome)
+    monkeypatch.setattr(remote_devices, "scan_esphome_network", scan)
+    token = _key(neighbours, KeyScope.WRITE)
+    _call(neighbours, token, "boneio_add_discovered_device", kind="esphome", host="192.168.1.70")
+    _call(neighbours, token, "boneio_add_discovered_device", kind="esphome", host="192.168.1.71")
+    stored = neighbours.config_file.read_text(encoding="utf-8")
+    assert "id: kitchen_relays" in stored and "id: esphome_192_168_1_71" in stored
+    assert "icon" not in stored  # only what the schema holds is written
+    assert "id: garage" in stored and "s3cret" in stored  # the neighbour already there stays

@@ -19,6 +19,7 @@ from boneio.webui.routes.onboarding import router as onboarding_router
 from boneio.webui.routes.mqtt_reference import router as mqtt_reference_router
 from boneio.webui.routes.mqtt_tls import router as mqtt_tls_router
 from boneio.webui.routes.outputs import router as outputs_router
+from boneio.webui.routes.remote_add import router as remote_add_router
 from boneio.webui.routes.remote_devices import router as remote_devices_router
 from boneio.webui.routes.diagnostics import router as diagnostics_router
 from boneio.webui.routes.schedule import router as schedule_router
@@ -36,6 +37,7 @@ __all__ = [
     "accounts_router",
     "api_keys_router",
     "mcp_router",
+    "remote_add_router",
     "proposals_router",
     "auth_router",
     "can_router",

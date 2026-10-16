@@ -80,6 +80,26 @@ def _diff(section: str, current: Any, proposed: Any) -> str:
     )
 
 
+async def file_proposal(section: str, data, rationale: str, request: Request) -> dict:
+    """Queue a checked section for approval, and tell Home Assistant it waits."""
+    author = getattr(request.state, "user", None) or ""
+    key = getattr(request.state, "api_key", None)
+    base = _digest(await _current(section))
+    try:
+        proposal = await asyncio.to_thread(
+            _store().add, section, data, rationale, author, base, key.id if key else ""
+        )
+    except ProposalError as err:
+        raise HTTPException(status_code=429, detail=str(err)) from err
+    security_events.emit(
+        "proposal_filed",
+        username=key.owner if key else author,
+        client=getattr(getattr(request, "client", None), "host", None),
+        where=f"'{section}' from '{key.name if key else author}'",
+    )
+    return {"id": proposal.id, "section": section, "created_at": proposal.created_at}
+
+
 @router.post("/config/{section}/proposals")
 async def propose_section(section: str, body: NewProposal, request: Request):
     """File a change for an administrator to approve; refused if a save would be."""
@@ -98,22 +118,7 @@ async def propose_section(section: str, body: NewProposal, request: Request):
             status_code=422,
             detail={"message": f"Invalid {section} configuration", "errors": errors},
         )
-    author = getattr(request.state, "user", None) or ""
-    key = getattr(request.state, "api_key", None)
-    base = _digest(await _current(section))
-    try:
-        proposal = await asyncio.to_thread(
-            _store().add, section, data, body.rationale, author, base, key.id if key else ""
-        )
-    except ProposalError as err:
-        raise HTTPException(status_code=429, detail=str(err)) from err
-    security_events.emit(
-        "proposal_filed",
-        username=key.owner if key else author,
-        client=getattr(getattr(request, "client", None), "host", None),
-        where=f"'{section}' from '{key.name if key else author}'",
-    )
-    return {"proposal": {"id": proposal.id, "section": section, "created_at": proposal.created_at}}
+    return {"proposal": await file_proposal(section, data, body.rationale, request)}
 
 
 @router.get("/proposals/count")

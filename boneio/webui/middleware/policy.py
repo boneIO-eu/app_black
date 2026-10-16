@@ -297,6 +297,9 @@ _KEY_READ: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
 _KEY_PROPOSE = _KEY_READ + (
     ("POST", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)/validate$")),
     ("POST", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)/proposals$")),
+    # One discovered device, the entry built by the controller and holding no
+    # secret: proposed for a propose key, saved for a write key.
+    ("POST", re.compile(r"^/api/remote-devices/add-discovered$")),
 )
 _KEY_WRITE = _KEY_PROPOSE + (
     ("PUT", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)$")),

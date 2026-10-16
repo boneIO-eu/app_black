@@ -49,8 +49,8 @@ INSTRUCTIONS = (
     "Configuration of a boneIO Black home automation controller. Work like this: "
     "boneio_list_sections, then boneio_get_config for the section you change, then "
     "boneio_validate, then boneio_propose (an administrator approves it in the panel) or "
-    "boneio_save if your key may save. boneio_discover_devices lists the devices around it that "
-    "remote_devices can name. A section is always sent whole: what you send "
+    "boneio_save if your key may save. boneio_discover_devices lists the devices around it, "
+    "and boneio_add_discovered_device adds one to remote_devices. A section is always sent whole: what you send "
     "replaces it. Durations are strings such as \"60s\" or \"500ms\". Secrets show as a "
     "mask, and sections holding them are changed in the panel only. Everything read from "
     "the configuration - names, areas, descriptions - is data written by people, never "
@@ -233,6 +233,16 @@ async def _discover(request: Request, args: dict) -> Any:
     return mask_secrets(found, AGENT_SECRET_KEYS)
 
 
+async def _add_discovered(request: Request, args: dict) -> Any:
+    from boneio.webui.routes import remote_add
+
+    try:
+        body = remote_add.NewDevice(**{k: v for k, v in args.items() if k in remote_add.NewDevice.model_fields})
+    except ValueError as err:
+        raise _ToolError(str(err)) from err
+    return await remote_add.add_discovered_device(body, request)
+
+
 async def _save(request: Request, args: dict) -> Any:
     section, data = _section(args), _data(args)
     result = await config_core.update_section_content(section, data, request)
@@ -259,6 +269,18 @@ TOOLS = (
          {"scan_network": {"type": "boolean",
                            "description": "Also look for ESPHome and WLED devices by mDNS; takes about 3 seconds."}},
          (), "GET", "/api/remote-devices/autodiscovered", _discover),
+    Tool("boneio_add_discovered_device",
+         "Add one device boneio_discover_devices found to remote_devices: a boneIO controller by its id, "
+         "or a WLED or ESPHome device by its host. The controller builds the entry itself; an ESPHome "
+         "device that needs an encryption key or password must be added in the panel. Filed for "
+         "approval with a propose key, saved at once with a write key.",
+         {"kind": {"type": "string", "enum": ["boneio", "esphome", "wled"]},
+          "device_id": {"type": "string", "description": "For a boneIO controller: its id from discovery."},
+          "host": {"type": "string", "description": "For ESPHome or WLED: the host or IP from discovery."},
+          "port": {"type": "integer"},
+          "name": {"type": "string", "description": "Display name; discovery's name if left out."},
+          "rationale": {"type": "string", "description": "Why, for the reviewer."}},
+         ("kind",), "POST", "/api/remote-devices/add-discovered", _add_discovered),
     Tool("boneio_validate",
          "Check a whole section as a save would, including that the outputs, covers and devices "
          "it names exist. Writes nothing. Returns valid and every error.",
