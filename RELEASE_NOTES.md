@@ -1,23 +1,24 @@
-# boneIO Black 1.6.2
+# boneIO Black 1.6.3
 
-A small fix release after 1.6.1. On a controller already running 1.6.0 or
-1.6.1 it only brings the fixes below. Coming from 1.5.x, this is your update
+A small fix release after 1.6.2. On a controller already running 1.6.0 to
+1.6.2 it only brings the fixes below. Coming from 1.5.x, this is your update
 to the 1.6 series: read "Before you update" first.
 
-## What 1.6.2 fixes
+## What 1.6.3 fixes
 
-- **An input action saved from the panel could stop the controller from
-  starting.** Quick actions, and Teach mode which saves through them, did not
-  check the action against the schema. A value the schema refuses (for
-  example a condition with `state: OFF` instead of `is_off`) was written to
-  `config.yaml`, and the controller refused to start at the next restart. The
-  save is now refused with a message that names the field. A save takes about
-  0.12–0.16 s longer on the controller.
-- **A sun condition with text in `above` or `below` gave an internal error
-  (500) on save.** It now says which field is wrong.
-- **The binary sensor form warns about inputs that must not be active at
-  start-up** (IN_01/02, IN_09/10, IN_19–21, IN_29–34, mostly BeagleBone boot
-  pins). They are marked in the list, with an explanation under the field.
+- **The panel was slow in the first minute after a restart.** Right after
+  start the controller asked the system for the same information 13–16 times
+  in parallel, and a single-core BeagleBone spent that minute answering
+  itself instead of you. It now does it about 4 times. On our controller the
+  slowest request dropped from 17.6 s to 8–10 s, and the average from 0.66 s
+  to 0.30 s.
+- **The panel showed outputs without an id until the first save after a
+  restart**, and some old event keys were not yet rewritten. It now gets the
+  correct configuration from the start.
+- **Invalid configuration is reported instead of breaking validation.** An
+  output named with something other than text, a virtual switch with
+  malformed actions, a schedule with a malformed trigger, or a controller type
+  given without its version now give an error that says what is wrong.
 
 ## Before you update
 
@@ -108,5 +109,5 @@ you can — the output of `journalctl -u boneio -b`.
 ---
 
 System migrations 1.6.1 to 1.6.46 are signed with the plans; this release
-adds none. No plan changed since 1.6.0, only the manifest was re-signed,
+adds none. No plan changed since 1.6.0, only the manifest is re-signed,
 because it names the release.

@@ -22,6 +22,7 @@ import logging
 import os
 import pkgutil
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, StrEnum
@@ -162,6 +163,9 @@ class MigrationRunner:
         self._all_migrations: list[MigrationInfo] = []
         self._applied: set[str] = set()
         self._v2_available: bool | None = None
+        # Held across the selftest, so the startup check and a status request
+        # arriving together share one run instead of each starting it.
+        self._v2_lock = threading.Lock()
         self.hardening_pending: bool = False
         # A skipped migration never gets its applied flag, so every status
         # request finds it again; say so once per process, not on each poll.
@@ -377,6 +381,13 @@ class MigrationRunner:
         if self._v2_available is not None and not recheck:
             return self._v2_available
 
+        with self._v2_lock:
+            if self._v2_available is not None and not recheck:
+                return self._v2_available
+            return self._probe_v2()
+
+    def _probe_v2(self) -> bool:
+        """Run the v2 selftest and remember the answer."""
         if not (os.path.isfile(HELPER_V2_PATH) and os.access(HELPER_V2_PATH, os.X_OK)):
             self._v2_available = False
             return False

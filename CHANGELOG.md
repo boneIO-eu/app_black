@@ -6,6 +6,35 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.3 (2026-10-16) — 1.6.x security series
+
+A calmer first minute after a restart, and invalid configuration reported
+instead of crashing. See RELEASE_NOTES.md before updating.
+
+### 🚀 Start-up
+
+- **The panel no longer crawls in the first minute after a restart.** Right
+  after start the controller made 13–16 parallel calls to the system helper
+  through sudo (SSH state, system updates, MQTT TLS, the migration selftest),
+  and on a single-core BeagleBone they starved the application. Threads asking
+  for the same state now share one run, and the migration selftest runs once
+  per process. That is about 4 calls instead of 13–16. Measured on a
+  controller: the slowest request 17.6 s → 8–10 s, the average 0.66 s → 0.30 s.
+
+### ⚙️ Settings
+
+- **`GET /api/config` has one shape from start-up on.** Until the first save
+  after a restart the panel received outputs without an `id`, and old
+  `actions_<type>` keys in events that were not yet rewritten. After a save it
+  was already correct; now it is correct from the start.
+- **Four kinds of invalid configuration are reported, not a crash.** An
+  output named with something other than text, a virtual switch with
+  malformed actions, a schedule with a malformed trigger, and a controller type
+  given without its version now give a configuration error that names the problem
+  instead of breaking the validation.
+
+- **System migrations 1.6.1–1.6.46**, signed; no new migration in this release.
+
 ## v1.6.2 (2026-10-15) — 1.6.x security series
 
 Fixes to saving input actions, and a warning on inputs that matter at
