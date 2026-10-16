@@ -88,10 +88,13 @@ export const SettingsActionBar: React.FC<SettingsActionBarProps> = ({
           SETTINGS_PAGE_WIDTHS[width],
         )}
       >
+        {/* Invisible as well as transparent: opacity alone leaves the text in
+            innerText, and anything reading the page as text sees "unsaved
+            changes" on a section nobody touched. */}
         <span
           className={cn(
-            'flex items-center gap-2 text-[13px] font-medium text-warning transition-opacity',
-            dirty ? 'opacity-100' : 'opacity-0',
+            'flex items-center gap-2 text-[13px] font-medium text-warning transition-[opacity,visibility]',
+            dirty ? 'opacity-100' : 'opacity-0 invisible',
           )}
           aria-hidden={!dirty}
         >
