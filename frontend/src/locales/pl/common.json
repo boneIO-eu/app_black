@@ -3619,5 +3619,14 @@
     "diff_less": "Zwiń",
     "empty_hint": "Zmiany pojawią się tutaj, gdy asystent AI z kluczem Propozycje coś zaproponuje albo gdy wkleisz poniżej zmianę z czatu AI.",
     "just_now": "przed chwilą"
+  },
+  "usage_history": {
+    "intro": "Asystent AI z kluczem API w zakresie Propozycje może odczytać jej zestawienie i proponować automatyzacje: światło, które codziennie o tej samej porze włączasz ręcznie, rolety zamykane o zmierzchu.",
+    "privacy": "To zapis tego, kiedy ktoś jest w domu. Zostaje na sterowniku, ale to, co odczyta asystent AI, trafia do jego dostawcy. Wyłączenie kasuje zebrane dane.",
+    "enabled": "Zbieraj historię użycia",
+    "enabled_hint": "Kiedy przełączają się wyjścia, ruszają rolety i wciskane są przyciski — z dokładnością do godziny, nic więcej.",
+    "days": "Ile dni trzymać",
+    "days_hint": "Od 7 do 90. Starsze dni są usuwane; plik zapisuje się raz na godzinę.",
+    "collected": "Zebrano dotąd: {{days}} dni."
   }
 }

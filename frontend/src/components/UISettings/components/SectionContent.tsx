@@ -21,6 +21,7 @@ import { SettingsPage, SettingsCard, NoticeCallout } from '../ui';
 import { normalizeCovers } from '../helpers/coverUtils';
 import type { ConfigSection, SettingsFormData } from '../types/section';
 import type { ConfigRecord } from '@/types/jsonSchema';
+import UsageHistoryForm from '../UsageHistoryForm';
 
 interface SectionContentProps {
   activeSection: string;
@@ -224,6 +225,8 @@ function CustomFormContent({
           onChange={handleChange}
         />
       );
+    case 'usage_history':
+      return <UsageHistoryForm data={formData['usage_history'] as ConfigRecord} onChange={handleChange} />;
     default:
       return (
         <NoticeCallout
