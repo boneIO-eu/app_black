@@ -255,6 +255,83 @@ def _get_config_mtime(config_file: str) -> float:
     return max_mtime
 
 
+def api_shape(source_config: dict) -> dict:
+    """The config as GET /api/config serves it, from the config as loaded.
+
+    Fills in the ids the panel addresses entries by and folds legacy
+    ``actions_<type>`` keys into ``actions``. Every way into the route cache
+    goes through here, so the panel and agents get one shape whether the
+    cache was filled at start-up or rebuilt after a save.
+    """
+    config_data = dict(source_config)
+
+    if "output" in config_data and isinstance(config_data["output"], list):
+        import re
+
+        enriched: list[dict] = []
+        for output in config_data["output"]:
+            if not output.get("id"):
+                out = dict(output)
+                if out.get("boneio_output"):
+                    out["id"] = out["boneio_output"]
+                elif out.get("name"):
+                    name = out["name"].lower()
+                    name = re.sub(r"[^a-z0-9]+", "_", name)
+                    out["id"] = name.strip("_")
+                enriched.append(out)
+            else:
+                enriched.append(output)
+        config_data["output"] = enriched
+
+    if "cover" in config_data and isinstance(config_data["cover"], list):
+        enriched_covers: list[dict] = []
+        for cover in config_data["cover"]:
+            if not cover.get("id"):
+                cov = dict(cover)
+                open_relay = cov.get("open_relay", "")
+                close_relay = cov.get("close_relay", "")
+                if open_relay and close_relay:
+                    cov["id"] = f"cover_{open_relay}_{close_relay}".lower().replace(" ", "_")
+                enriched_covers.append(cov)
+            else:
+                enriched_covers.append(cover)
+        config_data["cover"] = enriched_covers
+
+    if "output_group" in config_data and isinstance(config_data["output_group"], list):
+        import re
+
+        enriched_groups: list[dict] = []
+        for group in config_data["output_group"]:
+            if not group.get("id") and group.get("name"):
+                grp = dict(group)
+                name = grp["name"].lower()
+                name = re.sub(r"[^a-z0-9]+", "_", name)
+                grp["id"] = name.strip("_")
+                enriched_groups.append(grp)
+            else:
+                enriched_groups.append(group)
+        config_data["output_group"] = enriched_groups
+
+    _EVENT_ACTION_TYPES = (
+        "single", "double", "triple", "long",
+        "double_then_long", "single_then_long", "double_then_single",
+    )
+    for section_key in ("event", "remote_inputs"):
+        if section_key in config_data and isinstance(config_data[section_key], list):
+            for entry in config_data[section_key]:
+                if not isinstance(entry, dict):
+                    continue
+                for act_type in _EVENT_ACTION_TYPES:
+                    flat_key = f"actions_{act_type}"
+                    if flat_key in entry:
+                        if "actions" not in entry or not isinstance(entry.get("actions"), dict):
+                            entry["actions"] = {}
+                        # Merge (don't overwrite) in case actions.single already exists
+                        existing = entry["actions"].get(act_type, [])
+                        entry["actions"][act_type] = existing + entry.pop(flat_key)
+    return config_data
+
+
 @router.get("/config")
 async def get_parsed_config():
     """Get parsed configuration data with !include resolved (cached with mtime check)."""
@@ -281,72 +358,7 @@ async def get_parsed_config():
             except Exception as merge_err:
                 _LOGGER.warning("Failed to merge board config for API response: %s", merge_err)
 
-        config_data = dict(source_config)
-
-        if "output" in config_data and isinstance(config_data["output"], list):
-            import re
-
-            enriched: list[dict] = []
-            for output in config_data["output"]:
-                if not output.get("id"):
-                    out = dict(output)
-                    if out.get("boneio_output"):
-                        out["id"] = out["boneio_output"]
-                    elif out.get("name"):
-                        name = out["name"].lower()
-                        name = re.sub(r"[^a-z0-9]+", "_", name)
-                        out["id"] = name.strip("_")
-                    enriched.append(out)
-                else:
-                    enriched.append(output)
-            config_data["output"] = enriched
-
-        if "cover" in config_data and isinstance(config_data["cover"], list):
-            enriched_covers: list[dict] = []
-            for cover in config_data["cover"]:
-                if not cover.get("id"):
-                    cov = dict(cover)
-                    open_relay = cov.get("open_relay", "")
-                    close_relay = cov.get("close_relay", "")
-                    if open_relay and close_relay:
-                        cov["id"] = f"cover_{open_relay}_{close_relay}".lower().replace(" ", "_")
-                    enriched_covers.append(cov)
-                else:
-                    enriched_covers.append(cover)
-            config_data["cover"] = enriched_covers
-
-        if "output_group" in config_data and isinstance(config_data["output_group"], list):
-            import re
-
-            enriched_groups: list[dict] = []
-            for group in config_data["output_group"]:
-                if not group.get("id") and group.get("name"):
-                    grp = dict(group)
-                    name = grp["name"].lower()
-                    name = re.sub(r"[^a-z0-9]+", "_", name)
-                    grp["id"] = name.strip("_")
-                    enriched_groups.append(grp)
-                else:
-                    enriched_groups.append(group)
-            config_data["output_group"] = enriched_groups
-
-        _EVENT_ACTION_TYPES = (
-            "single", "double", "triple", "long",
-            "double_then_long", "single_then_long", "double_then_single",
-        )
-        for section_key in ("event", "remote_inputs"):
-            if section_key in config_data and isinstance(config_data[section_key], list):
-                for entry in config_data[section_key]:
-                    if not isinstance(entry, dict):
-                        continue
-                    for act_type in _EVENT_ACTION_TYPES:
-                        flat_key = f"actions_{act_type}"
-                        if flat_key in entry:
-                            if "actions" not in entry or not isinstance(entry.get("actions"), dict):
-                                entry["actions"] = {}
-                            # Merge (don't overwrite) in case actions.single already exists
-                            existing = entry["actions"].get(act_type, [])
-                            entry["actions"][act_type] = existing + entry.pop(flat_key)
+        config_data = api_shape(source_config)
 
         elapsed = time.time() - start
 
