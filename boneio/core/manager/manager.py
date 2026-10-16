@@ -6,6 +6,7 @@ This is the central coordinator that manages all BoneIO subsystems.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 import json
 import logging
 import random
@@ -47,6 +48,8 @@ from boneio.core.events import EventBus
 from boneio.core.manager.action_conditions import precompile_conditions, should_execute_action
 from boneio.core.manager.covers import CoverManager
 from boneio.core.manager.facade_sun import FacadeSun
+from boneio.core.manager.usage_history import FILENAME as USAGE_FILENAME
+from boneio.core.manager.usage_history import UsageHistory
 from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.irrigation import IrrigationManager
@@ -249,6 +252,9 @@ class Manager:
         # Whether the Sun shines on each cover's window, for Home Assistant.
         self.facade_sun = FacadeSun(self)
         self.facade_sun.publish_discovery()
+        # Off unless configured: hourly usage counts for an AI to learn from.
+        self.usage_history = UsageHistory(self, Path(config_file_path).parent / USAGE_FILENAME)
+        self.usage_history.configure((self._config_helper.get_config() or {}).get("usage_history"))
 
         # 4b. Virtual switches — flags with no hardware, read by conditions and
         # set by actions. Before anything whose actions may target one: the
@@ -1914,6 +1920,9 @@ class Manager:
             "schedule": self._reload_schedule,  # Time and sun driven schedules
             "virtual_switch": self._reload_virtual_switches,  # Flags read by conditions
             "oled": self.display.reload_oled,  # OLED display screens, screensaver
+            "usage_history": lambda: self.usage_history.configure(
+                (self._config_helper.get_config() or {}).get("usage_history")
+            ),  # Usage counts for AI suggestions: on, off and forget
         }
 
         # If specific sections requested, filter

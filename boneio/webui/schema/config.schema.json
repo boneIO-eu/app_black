@@ -32,6 +32,47 @@
       "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
       "title": "Areas"
     },
+    "usage_history": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Collect usage history",
+          "title": "Enabled"
+        },
+        "days": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 30,
+          "description": "Days kept",
+          "title": "Days"
+        }
+      },
+      "description": "Hourly counts of how outputs, covers and inputs are used, kept on the controller, for an AI assistant to suggest automations from. Off unless turned on; turning it off deletes what was collected.",
+      "title": "Usage history"
+    },
     "location": {
       "type": [
         "object",

@@ -52,6 +52,8 @@ _ADMIN_ONLY_READ_PREFIXES = (
     "/api/api-keys",
     # Proposals carry whole config sections, and only an admin approves one.
     "/api/proposals",
+    # When the house is used: when somebody is at home.
+    "/api/usage-summary",
     "/api/config/download",
     "/api/config/backups",
     "/api/nodered",
@@ -300,6 +302,7 @@ _KEY_PROPOSE = _KEY_READ + (
     # One discovered device, the entry built by the controller and holding no
     # secret: proposed for a propose key, saved for a write key.
     ("POST", re.compile(r"^/api/remote-devices/add-discovered$")),
+    ("GET", re.compile(r"^/api/usage-summary$")),
 )
 _KEY_WRITE = _KEY_PROPOSE + (
     ("PUT", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)$")),
@@ -320,9 +323,13 @@ def key_may_write(section: str) -> bool:
     changed - so a key that kept an ESPHome password masked and pointed the
     host at itself would be handed the password.
     """
-    from boneio.core.config.sections import RESTART_REQUIRED_SECTIONS, secret_sections
+    from boneio.core.config.sections import PERSON_ONLY_SECTIONS, RESTART_REQUIRED_SECTIONS, secret_sections
 
-    return section not in RESTART_REQUIRED_SECTIONS and section not in secret_sections()
+    return (
+        section not in RESTART_REQUIRED_SECTIONS
+        and section not in secret_sections()
+        and section not in PERSON_ONLY_SECTIONS
+    )
 
 
 def key_allows(scope: KeyScope, method: str, path: str) -> bool:

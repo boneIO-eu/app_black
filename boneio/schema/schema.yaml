@@ -25,6 +25,37 @@ areas:
             Example: "Living Room", "Kitchen", "Garaż"
 
 # Where the device is. Needed by everything that reasons about the Sun.
+usage_history:
+  type: dict
+  required: False
+  meta:
+    label: >-
+      Hourly counts of how outputs, covers and inputs are used, kept on the
+      controller, for an AI assistant to suggest automations from. Off unless
+      turned on; turning it off deletes what was collected.
+  schema:
+    enabled:
+      type: boolean
+      required: False
+      default: False
+      meta:
+        label: Collect usage history
+        description: |
+          When outputs switch, covers move and buttons are pressed, by hour of
+          the day - no more. An API key in the Propose or Write scope can read
+          the summary, and what an AI reads goes to its vendor: it shows when
+          somebody is at home.
+    days:
+      type: integer
+      required: False
+      default: 30
+      min: 7
+      max: 90
+      meta:
+        label: Days kept
+        description: |
+          Older days are dropped. The file is written once an hour.
+
 location:
   type: dict
   required: False

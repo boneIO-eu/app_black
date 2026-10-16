@@ -52,6 +52,11 @@ class Location(Model):
     elevation: Annotated[Number, Field(ge=-500, le=9000)] = 0
 
 
+class UsageHistory(Model):
+    enabled: bool = False
+    days: Annotated[int, Field(ge=7, le=90)] = 30
+
+
 _HOST = (
     r"^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
     r"|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$"
@@ -82,6 +87,7 @@ SECTION_ADAPTERS = {
     # Required with a default: a null section is the default one.
     "oled": TypeAdapter(Oled | None),
     "location": TypeAdapter(Location),
+    "usage_history": TypeAdapter(UsageHistory),
     "lox_udp": TypeAdapter(LoxUdp),
     "logger": TypeAdapter(Logger),
     "areas": TypeAdapter(list[Area]),

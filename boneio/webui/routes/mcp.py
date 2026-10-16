@@ -243,6 +243,15 @@ async def _add_discovered(request: Request, args: dict) -> Any:
     return await remote_add.add_discovered_device(body, request)
 
 
+async def _usage_summary(request: Request, args: dict) -> Any:
+    from boneio.webui.routes import usage
+
+    days = args.get("days", 14)
+    if not isinstance(days, int) or not 1 <= days <= 90:
+        raise _ToolError("'days' is a whole number from 1 to 90.")
+    return await usage.usage_summary(days)
+
+
 async def _save(request: Request, args: dict) -> Any:
     section, data = _section(args), _data(args)
     result = await config_core.update_section_content(section, data, request)
@@ -281,6 +290,13 @@ TOOLS = (
           "name": {"type": "string", "description": "Display name; discovery's name if left out."},
           "rationale": {"type": "string", "description": "Why, for the reviewer."}},
          ("kind",), "POST", "/api/remote-devices/add-discovered", _add_discovered),
+    Tool("boneio_usage_summary",
+         "How outputs, covers and inputs were used over recent days, by hour (local time), weekdays "
+         "and weekends apart: counts, busiest hours, average minutes on. Base automation suggestions "
+         "on it - a repeated manual switch at the same hour, a light left on long, covers moved at "
+         "sunset - and file them with boneio_propose. Off unless an administrator turned it on.",
+         {"days": {"type": "integer", "minimum": 1, "maximum": 90, "description": "Default 14."}},
+         (), "GET", "/api/usage-summary", _usage_summary),
     Tool("boneio_validate",
          "Check a whole section as a save would, including that the outputs, covers and devices "
          "it names exist. Writes nothing. Returns valid and every error.",

@@ -188,7 +188,8 @@ def test_nothing_reaches_the_tools_without_a_key(device):
                          "boneio_discover_devices"}),
         (KeyScope.PROPOSE, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
                             "boneio_discover_devices", "boneio_validate", "boneio_propose",
-                            "boneio_proposal_status", "boneio_add_discovered_device"}),
+                            "boneio_proposal_status", "boneio_add_discovered_device",
+                            "boneio_usage_summary"}),
         (KeyScope.WRITE, {t.name for t in mcp_routes.TOOLS}),
     ],
 )

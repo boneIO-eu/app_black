@@ -786,7 +786,8 @@
       "location": "Geographic coordinates of the controller. Required for sun-based schedules and conditions, and for the sunrise and sunset times shown in the panel.",
       "schedule": "Actions that run on their own, at a clock time or at a moment defined by the Sun. Everything else in boneIO waits for a person or an input — schedules do not.",
       "virtual_switch": "An on/off flag with no relay behind it. Use it to qualify other actions, so that a button works only while a mode such as evening mode is on.",
-      "proposals": "Configuration changes an AI assistant proposed with an API key, waiting for your approval."
+      "proposals": "Configuration changes an AI assistant proposed with an API key, waiting for your approval.",
+      "usage_history": "Hourly counts of how outputs, covers and buttons are used, kept on the controller, for an AI assistant to suggest automations from. Off unless you turn it on; turning it off deletes what was collected. What an AI reads goes to its vendor: the history shows when somebody is at home."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -816,7 +817,8 @@
     "location": "Location",
     "schedule": "Schedules",
     "virtual_switch": "Virtual switches",
-    "proposals": "AI proposals"
+    "proposals": "AI proposals",
+    "usage_history": "Usage history for AI"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",

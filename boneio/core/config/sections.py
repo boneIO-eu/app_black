@@ -19,6 +19,11 @@ RESTART_REQUIRED_SECTIONS = frozenset({
 AGENT_SECRET_KEYS = frozenset({"encryption_key", "code"})
 
 
+#: Sections an API key may propose but never save: collecting how the house
+#: is used is a person's decision, not an agent's.
+PERSON_ONLY_SECTIONS = frozenset({"usage_history"})
+
+
 @cache
 def secret_sections() -> frozenset[str]:
     """Sections whose schema has a field holding a secret, anywhere in it."""

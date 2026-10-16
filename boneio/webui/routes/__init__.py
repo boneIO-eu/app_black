@@ -30,6 +30,7 @@ from boneio.webui.routes.system import router as system_router
 from boneio.webui.routes.templates import router as templates_router
 from boneio.webui.routes.tools import router as tools_router
 from boneio.webui.routes.update import router as update_router
+from boneio.webui.routes.usage import router as usage_router
 
 from boneio.webui.routes.dev_fake_device import router as dev_fake_device_router
 
@@ -37,6 +38,7 @@ __all__ = [
     "accounts_router",
     "api_keys_router",
     "mcp_router",
+    "usage_router",
     "remote_add_router",
     "proposals_router",
     "auth_router",
