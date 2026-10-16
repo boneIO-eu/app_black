@@ -855,6 +855,18 @@ async def update_section_content(section: str, data: dict | list = Body(...), re
             detail={"message": f"Invalid {section} configuration", "errors": errors},
         )
 
+    key = getattr(getattr(request, "state", None), "api_key", None)
+    if key is not None:
+        # Nobody looked at an agent's change before it is written, so there
+        # must be a way back. Imported here: config_backups builds on this module.
+        from boneio.webui.routes.config_backups import restore_point
+
+        if not await restore_point(f"before API key '{key.name}' saves '{section}'"):
+            raise HTTPException(
+                status_code=503,
+                detail="Could not back up the configuration first, so nothing was saved.",
+            )
+
     if section in ("event", "binary_sensor") and isinstance(data, list):
         # gpio_mode left the schema in 1.6; drop it from older configs on save.
         for entry in data:
@@ -949,7 +961,6 @@ async def update_section_content(section: str, data: dict | list = Body(...), re
             "[ROUTE] total PUT /config/%s took %.3fs",
             section, time.perf_counter() - t_route_start,
         )
-        key = getattr(getattr(request, "state", None), "api_key", None)
         if key is not None:
             security_events.emit(
                 "config_saved_by_key",

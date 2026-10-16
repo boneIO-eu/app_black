@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import stat
 from datetime import timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -19,7 +20,7 @@ from boneio.core.auth.api_keys import KeyScope
 from boneio.core.config import proposals as proposals_module
 from boneio.core.config.proposals import MAX_PENDING, ProposalError, ProposalStore
 from boneio.webui.middleware import policy
-from boneio.webui.routes import config_core
+from boneio.webui.routes import config_backups, config_core
 from boneio.webui.routes import proposals as routes
 
 BONEIO = {"config_version": 7, "name": "test", "version": 1.1, "device_type": "24x16A"}
@@ -79,13 +80,15 @@ def test_only_an_admin_sees_the_queue():
 
 
 @pytest.fixture
-def device(tmp_path):
+def device(tmp_path, monkeypatch):
     config_file = tmp_path / "config.yaml"
     config_file.write_text("output: []\n", encoding="utf-8")
     state = MagicMock()
     state.yaml_config_file = str(config_file)
     state.manager.reload_config = AsyncMock(return_value={"status": "success"})
     state.manager.config_helper.get_section.return_value = []
+    state.manager.config_helper.serial_number = state.manager.config_helper.real_serial = "blk000001"
+    monkeypatch.setattr(config_backups, "_last_restore_point", float("-inf"))
     config_core.set_app_state(state)
     config_core._config_cache["data"] = {"boneio": BONEIO, "output": []}
     config_core._config_cache["mtime"] = float("inf")
@@ -140,6 +143,8 @@ async def test_approving_saves_through_the_save_route_and_reloads(device):
     await routes.approve_proposal(made["id"], AGENT, None)
     assert "OUT 01" in _stored(device)
     device.manager.reload_config.assert_awaited_once_with(reload_sections=["output"])
+    # A way back to before the change.
+    assert len(list((Path(device.yaml_config_file).parent / "backups").glob("config_backup_*"))) == 1
     assert (await routes.list_proposals())["proposals"] == []
 
 

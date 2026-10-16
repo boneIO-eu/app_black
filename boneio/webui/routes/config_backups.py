@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import tarfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -379,6 +381,35 @@ async def restore_config_backup(
 @router.post("/config/create_backup")
 async def create_config_backup():
     """Create a configuration backup on disk with version in filename."""
+    # Off the event loop: packing every YAML file takes a while on a BeagleBone.
+    return await asyncio.to_thread(_create_backup)
+
+
+#: An agent saving section after section would otherwise push every backup a
+#: person made out of the ten kept: one restore point per quarter hour is one
+#: per agent session, taken before its first change.
+_RESTORE_POINT_EVERY_S = 900
+_last_restore_point = float("-inf")
+
+
+async def restore_point(reason: str) -> bool:
+    """Back up the configuration before a change nobody made in the panel.
+
+    Returns:
+        False if a backup was due and could not be made.
+    """
+    global _last_restore_point
+    if time.monotonic() - _last_restore_point < _RESTORE_POINT_EVERY_S:
+        return True
+    result = await asyncio.to_thread(_create_backup)
+    if result.get("status") != "success":
+        return False
+    _last_restore_point = time.monotonic()
+    _LOGGER.info("Restore point %s %s", result.get("filename"), reason)
+    return True
+
+
+def _create_backup() -> dict:
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
 

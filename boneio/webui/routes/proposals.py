@@ -150,6 +150,12 @@ async def approve_proposal(proposal_id: str, request: Request, body: Approval | 
                 "stale": True,
             },
         )
+    from boneio.webui.routes.config_backups import restore_point
+
+    if not await restore_point(f"before approving proposal {proposal.id} for '{proposal.section}'"):
+        # A person approved it having seen the diff, as a save in the panel
+        # (which makes no backup either); the change goes ahead.
+        _LOGGER.warning("No restore point before approving proposal %s", proposal.id)
     result = await config_core.update_section_content(proposal.section, copy.deepcopy(proposal.data))
     _LOGGER.info(
         "Proposal %s for '%s' from %s approved by %s",

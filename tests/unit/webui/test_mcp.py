@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from boneio.core.auth.api_keys import ApiKeyStore, KeyScope
 from boneio.core.auth.models import Role
 from boneio.core.auth.store import USERS_FILENAME, UserStore
+from boneio.webui import security_events
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
     issue_token,
@@ -25,8 +26,7 @@ from boneio.webui.middleware.auth import (
     set_key_store,
     set_user_store,
 )
-from boneio.webui import security_events
-from boneio.webui.routes import config_core
+from boneio.webui.routes import config_backups, config_core
 from boneio.webui.routes import mcp as mcp_routes
 from boneio.webui.routes import proposals as proposal_routes
 
@@ -54,6 +54,8 @@ def device(tmp_path, monkeypatch):
     state.yaml_config_file = str(config_file)
     state.manager.reload_config = AsyncMock(return_value={"status": "success"})
     state.manager.config_helper.get_section.return_value = []
+    state.manager.config_helper.serial_number = state.manager.config_helper.real_serial = "blk000001"
+    monkeypatch.setattr(config_backups, "_last_restore_point", float("-inf"))
     config_core.set_app_state(state)
     config_core._config_cache["data"] = {"boneio": BONEIO, "output": []}
     config_core._config_cache["mtime"] = float("inf")
@@ -254,3 +256,21 @@ def test_sections_are_listed_with_what_a_key_may_do_with_them(device):
     listed = _text(_call(device, _key(device, KeyScope.READ), "boneio_list_sections"))
     assert '{"section":"mqtt","configured":false,"panel_only":true,"restart_required":true}' in listed
     assert '{"section":"output","configured":true,"entries":0}' in listed
+
+
+def _backups(device):
+    return sorted((device.config_file.parent / "backups").glob("config_backup_*.tar.gz"))
+
+
+def test_a_save_by_key_leaves_one_restore_point_per_session(device):
+    token = _key(device, KeyScope.WRITE)
+    _call(device, token, "boneio_save", section="output", data=OUTPUTS)
+    _call(device, token, "boneio_save", section="output", data=[{**OUTPUTS[0], "name": "Lamp"}])
+    assert len(_backups(device)) == 1
+
+
+def test_without_a_restore_point_a_key_saves_nothing(device, monkeypatch):
+    monkeypatch.setattr(config_backups, "_create_backup", lambda: {"status": "error", "message": "disk full"})
+    reply = _call(device, _key(device, KeyScope.WRITE), "boneio_save", section="output", data=OUTPUTS)
+    assert reply["result"]["isError"] is True and "back up" in _text(reply)
+    assert device.config_file.read_text(encoding="utf-8") == "output: []\n"
