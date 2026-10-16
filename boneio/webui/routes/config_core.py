@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from starlette.datastructures import State
 
 from boneio.core import containers
+from boneio.core.auth.models import Role
 from boneio.core.config import models as config_models
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS
@@ -342,11 +343,14 @@ def api_shape(source_config: dict) -> dict:
 def _masked(config: dict, request: Request | None) -> dict:
     """The config as the caller may see it: secrets masked, durations as text.
 
-    An API key sees less than a person signed in: what an agent reads ends up
-    with its model's vendor, so ESPHome encryption keys and alarm codes are
-    masked for it too.
+    ESPHome encryption keys and alarm codes are masked too for anyone who
+    cannot change them - a read-only account, and an API key, whose reads end
+    up with its model's vendor. An administrator sees them: they edit them,
+    and the save puts back only the secrets masked for everyone.
     """
-    extra = AGENT_SECRET_KEYS if getattr(getattr(request, "state", None), "api_key", None) else frozenset()
+    state = getattr(request, "state", None)
+    reads_only = getattr(state, "api_key", None) is not None or getattr(state, "role", None) is Role.VIEWER
+    extra = AGENT_SECRET_KEYS if reads_only else frozenset()
     return plain_time_periods(mask_secrets(config, extra))
 
 

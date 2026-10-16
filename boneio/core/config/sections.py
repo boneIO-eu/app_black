@@ -11,10 +11,11 @@ RESTART_REQUIRED_SECTIONS = frozenset({
     "mcp23017", "lm75", "ina219", "ina226", "mcp9808", "can",
 })
 
-#: Keys whose values an API key never reads, beyond those the panel masks
-#: for everyone (secret_masking.SECRET_KEYS): an ESPHome device's encryption
-#: key, and alarm codes - digits, or a hash of a short PIN that falls to a
-#: brute force in seconds. What an agent reads ends up with its model's vendor.
+#: Keys whose values only an administrator reads, beyond those the panel
+#: masks for everyone (secret_masking.SECRET_KEYS): an ESPHome device's
+#: encryption key, and alarm codes - digits, or a hash of a short PIN that
+#: falls to a brute force in seconds. A read-only account and an API key get
+#: the mask; what an agent reads ends up with its model's vendor.
 AGENT_SECRET_KEYS = frozenset({"encryption_key", "code"})
 
 

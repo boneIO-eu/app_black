@@ -280,7 +280,7 @@ def test_a_key_in_the_query_string_is_refused(client, keys):
 
 
 @pytest.mark.asyncio
-async def test_a_key_does_not_see_encryption_keys_or_alarm_codes(tmp_path):
+async def test_only_an_admin_sees_encryption_keys_and_alarm_codes(tmp_path):
     from boneio.core.config.secret_masking import MASK
     from boneio.webui.routes import config_core
 
@@ -295,7 +295,8 @@ async def test_a_key_does_not_see_encryption_keys_or_alarm_codes(tmp_path):
     state.yaml_config_file = str(tmp_path / "config.yaml")
     config_core.set_app_state(state)
     try:
-        person = (await config_core.get_parsed_config(SimpleNamespace(state=SimpleNamespace())))["config"]
+        person = (await config_core.get_parsed_config(SimpleNamespace(state=SimpleNamespace(role=Role.ADMIN))))["config"]
+        viewer = (await config_core.get_parsed_config(SimpleNamespace(state=SimpleNamespace(role=Role.VIEWER))))["config"]
         agent = (await config_core.get_parsed_config(
             SimpleNamespace(state=SimpleNamespace(api_key=object()))))["config"]
     finally:
@@ -303,8 +304,11 @@ async def test_a_key_does_not_see_encryption_keys_or_alarm_codes(tmp_path):
         config_core._config_cache["mtime"] = 0
     assert agent["remote_devices"][0]["esphome_api"] == {"host": "h", "password": MASK, "encryption_key": MASK}
     assert agent["template"][0]["codes"] == [{"name": "Me", "code": MASK}]
-    # What the panel shows people is unchanged here.
+    # An administrator edits them, so sees them; a read-only account cannot.
     assert person["remote_devices"][0]["esphome_api"]["encryption_key"] == "psk="
+    assert person["template"][0]["codes"] == [{"name": "Me", "code": "1234"}]
+    assert viewer["remote_devices"][0]["esphome_api"]["encryption_key"] == MASK
+    assert viewer["template"][0]["codes"] == [{"name": "Me", "code": MASK}]
 
 
 # ------------------------------------------------------------------ routes
