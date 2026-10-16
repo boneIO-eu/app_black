@@ -272,6 +272,14 @@ class SunProvider:
         self._anchor_cache[key] = computed
         return computed
 
+    def facade_window(
+        self, day: date, facade_azimuth: float, min_elevation: float = 0.0
+    ) -> tuple[datetime | None, datetime | None]:
+        """When the Sun first reaches and last leaves a window on ``day``."""
+        return sun.facade_window(
+            self.latitude, self.longitude, day, self.timezone, facade_azimuth, min_elevation
+        )
+
     def anchor(self, name: str, now: datetime | None = None) -> datetime | None:
         """One anchor of the current local day.
 

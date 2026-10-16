@@ -34,11 +34,12 @@ from datetime import time as dt_time
 from typing import TYPE_CHECKING, Any
 
 from boneio.core.events.bus import async_track_point_in_time
-from boneio.core.utils.naming import resolve_id
 from boneio.core.manager.action_conditions import (
     precompile_conditions,
     should_execute_action,
 )
+from boneio.core.utils.naming import resolve_id
+from boneio.core.utils.sun import FACADE_EVENTS
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -52,6 +53,7 @@ _SUPERVISE_INTERVAL = 60.0
 #: weekday filter (7) and a sun event missing for a stretch; beyond that the
 #: honest answer is "not soon" rather than a date months out.
 _MAX_LOOKAHEAD_DAYS = 400
+_FACADE_LOOKAHEAD_DAYS = 7
 
 #: How many past runs are kept per schedule. Twenty covers "did it work this
 #: week" for anything that fires daily, and keeps ``state.json`` small enough
@@ -273,6 +275,7 @@ class Scheduler:
         self._running = False
         self._warned_clock = False
         self._skipped_today: set[str] = set()
+        self._warned_facades: set[str] = set()
         self._load(schedules or [])
 
     # ── configuration ────────────────────────────────────────────────────
@@ -686,8 +689,12 @@ class Scheduler:
                 raise ValueError(
                     "a sun trigger needs the location: section, which is not configured"
                 )
-            anchors = provider._anchors_for(day)  # noqa: SLF001 - same package
-            base = anchors.get(trigger.get("event", ""))
+            event = trigger.get("event", "")
+            if event in FACADE_EVENTS:
+                base = self._facade_time(entry, event, day, now)
+            else:
+                anchors = provider._anchors_for(day)  # noqa: SLF001 - same package
+                base = anchors.get(event)
             if base is None:
                 return None
 
@@ -706,6 +713,31 @@ class Scheduler:
             rng = random.Random(f"{entry.id}:{day.isoformat()}")
             when = when + timedelta(seconds=rng.uniform(0, jitter))
         return when
+
+    def _facade_time(self, entry: _Entry, event: str, day, now: datetime) -> datetime | None:
+        """When the Sun reaches or leaves the window of the trigger's cover.
+
+        Only a week ahead: a window the Sun does not reach for months would
+        otherwise cost a day's sampling per day of lookahead, every minute.
+        The supervisor re-plans daily, so the firing is found when it nears.
+        """
+        if (day - now.date()).days > _FACADE_LOOKAHEAD_DAYS:
+            return None
+        cover_id = entry.trigger.get("cover")
+        cover = self._manager.covers.get_cover(cover_id) if cover_id else None
+        facade = getattr(cover, "facade_azimuth", None)
+        if facade is None:
+            if entry.id not in self._warned_facades:
+                self._warned_facades.add(entry.id)
+                _LOGGER.warning(
+                    "Schedule '%s' waits for the Sun on cover '%s', which has no facade_azimuth: it will not fire.",
+                    entry.id, cover_id,
+                )
+            return None
+        enter, leave = self._manager.sun.facade_window(
+            day, facade, getattr(cover, "facade_min_elevation", 0) or 0
+        )
+        return enter if event == "facade_sun_enter" else leave
 
     # ── firing ───────────────────────────────────────────────────────────
 

@@ -30,6 +30,7 @@ class Trigger(Model):
 
     type: Literal["sun", "time"] = "sun"
     event: str | None = None
+    cover: str | None = None
     at: ClockTime | None = None
     offset: SunOffset | None = None
     earliest: ClockTime | None = None

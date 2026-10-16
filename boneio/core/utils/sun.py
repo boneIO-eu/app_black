@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
+from functools import lru_cache
 
 __all__ = [
     "ANCHOR_NAMES",
@@ -294,6 +295,63 @@ def sun_on_facade(elevation: float, azimuth: float, facade_azimuth: float, min_e
     as not shining - and in front of the wall rather than behind it.
     """
     return elevation > min_elevation and facade_incidence(elevation, azimuth, facade_azimuth) < 90.0
+
+
+#: Schedule events that need a cover, kept apart from ANCHOR_NAMES: a
+#: condition cannot name a cover, so it must not accept these.
+FACADE_EVENTS = ("facade_sun_enter", "facade_sun_leave")
+_FACADE_STEP = timedelta(minutes=15)
+_FACADE_PRECISION = timedelta(seconds=30)
+
+
+@lru_cache(maxsize=128)
+def facade_window(
+    latitude: float,
+    longitude: float,
+    day: date,
+    tz: tzinfo,
+    facade_azimuth: float,
+    min_elevation: float = 0.0,
+) -> tuple[datetime | None, datetime | None]:
+    """When the Sun first reaches a window on ``day``, and when it last leaves.
+
+    The day is sampled every quarter hour from local midnight and each change
+    narrowed to half a minute, so every call gives the same answer - and a
+    spell shorter than a quarter hour can be missed. A north window in summer
+    gets the Sun twice, in the morning and the evening: this is the morning's
+    start and the evening's end.
+
+    Returns:
+        (enter, leave), each None when it does not happen that day.
+    """
+    start = datetime.combine(day, time(0), tz).astimezone(UTC)
+    end = datetime.combine(day + timedelta(days=1), time(0), tz).astimezone(UTC)
+
+    def on(when: datetime) -> bool:
+        elevation, azimuth = solar_position(latitude, longitude, when)
+        return sun_on_facade(elevation, azimuth, facade_azimuth, min_elevation)
+
+    def edge(before: datetime, after: datetime, becomes: bool) -> datetime:
+        while after - before > _FACADE_PRECISION:
+            middle = before + (after - before) / 2
+            if on(middle) == becomes:
+                after = middle
+            else:
+                before = middle
+        return after.replace(microsecond=0).astimezone(tz)
+
+    enter = leave = None
+    previous_at, previous = start, on(start)
+    at = start
+    while at < end:
+        at = min(at + _FACADE_STEP, end)
+        now_on = on(at)
+        if now_on and not previous and enter is None:
+            enter = edge(previous_at, at, True)
+        elif previous and not now_on:
+            leave = edge(previous_at, at, False)
+        previous_at, previous = at, now_on
+    return enter, leave
 
 
 # ── Public: event times ──────────────────────────────────────────────────────

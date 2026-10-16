@@ -2450,6 +2450,14 @@ schedule:
                 nautical_dawn, nautical_dusk, astronomical_dawn,
                 astronomical_dusk, solar_noon, solar_midnight, or one of the
                 golden/blue hour edges. The full list is in docs/SUN.md.
+                Or facade_sun_enter / facade_sun_leave, with `cover`: when
+                the Sun first reaches that cover's window in the day, or last
+                leaves it.
+          cover:
+            type: string
+            required: False
+            meta:
+              label: Cover whose window the Sun reaches or leaves (facade events only)
           at:
             type: string
             required: False

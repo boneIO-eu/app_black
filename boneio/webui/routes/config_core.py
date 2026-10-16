@@ -24,21 +24,21 @@ from boneio.core.config import models as config_models
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS
 from boneio.core.config.yaml_util import (
+    CustomValidator,
+    _get_schema,
+    _strip_empty_strings_deep,
     clear_config_cache,
     load_config_from_file,
     load_yaml_file,
     merge_board_config,
-    CustomValidator,
-    _get_schema,
-    _strip_empty_strings_deep,
     update_config_section,
     validate_section,
 )
 from boneio.core.manager import Manager
 from boneio.core.utils.timeperiod import plain_time_periods
+from boneio.webui import security_events
 from boneio.webui.action_validation import target_check, unknown_targets
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
-from boneio.webui import security_events
 from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.webui.input_validation import has_long_bounce_time, validate_bounce_times
 
@@ -793,6 +793,27 @@ async def _stored_boneio() -> dict | None:
     return stored if isinstance(stored, dict) else None
 
 
+def _facade_trigger_errors(schedules: list) -> list[str]:
+    """A schedule waiting for the Sun on a window needs a cover that knows its facade."""
+    from boneio.core.utils.sun import FACADE_EVENTS
+
+    covers = getattr(_get_app_state().manager, "covers", None)
+    errors = []
+    for index, entry in enumerate(schedules):
+        trigger = entry.get("trigger") if isinstance(entry, dict) else None
+        if not isinstance(trigger, dict) or trigger.get("event") not in FACADE_EVENTS or not trigger.get("cover"):
+            continue
+        cover = covers.get_cover(trigger["cover"]) if covers else None
+        if cover is None:
+            errors.append(f"schedule[{index}].trigger.cover: there is no cover '{trigger['cover']}'.")
+        elif getattr(cover, "facade_azimuth", None) is None:
+            errors.append(
+                f"schedule[{index}].trigger.cover: cover '{trigger['cover']}' has no facade_azimuth, "
+                "so the controller cannot tell when the Sun reaches its window."
+            )
+    return errors
+
+
 async def _section_errors(section: str, data: dict | list) -> list[str]:
     """Why a save of this section would be refused; empty when it would not.
 
@@ -815,6 +836,9 @@ async def _section_errors(section: str, data: dict | list) -> list[str]:
         # Without the stored section every old dangling target would look
         # new, so the check is skipped rather than made stricter.
         errors += unknown_targets(section, data, stored, target_check(_get_app_state().manager))
+
+    if section == "schedule" and isinstance(data, list):
+        errors += _facade_trigger_errors(data)
 
     if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
         host = str(data.get("host", "")).strip()

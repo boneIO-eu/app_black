@@ -74,6 +74,11 @@
                 "description": "Sun event (sun triggers only)",
                 "title": "Event"
               },
+              "cover": {
+                "type": "string",
+                "description": "Cover whose window the Sun reaches or leaves (facade events only)",
+                "title": "Cover"
+              },
               "at": {
                 "type": "string",
                 "description": "Clock time in HH:MM (time triggers only)",

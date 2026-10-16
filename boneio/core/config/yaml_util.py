@@ -714,16 +714,21 @@ def schedule_shape_errors(value: Any) -> list[str]:
     kind = trigger.get("type", "sun")
 
     if kind == "sun":
-        from boneio.core.utils.sun import ANCHOR_NAMES
+        from boneio.core.utils.sun import ANCHOR_NAMES, FACADE_EVENTS
 
         event = trigger.get("event")
         if not event:
             errors.append("A sun trigger needs an 'event', e.g. sunset or civil_dusk.")
+        elif event in FACADE_EVENTS:
+            if not trigger.get("cover"):
+                errors.append(f"{event} needs 'cover': the cover whose window the Sun reaches or leaves.")
         elif event not in ANCHOR_NAMES:
             errors.append(
                 f"Unknown sun event {event!r}. "
-                f"Expected one of: {', '.join(sorted(ANCHOR_NAMES))}."
+                f"Expected one of: {', '.join(sorted((*ANCHOR_NAMES, *FACADE_EVENTS)))}."
             )
+        elif trigger.get("cover"):
+            errors.append(f"'cover' belongs to a facade event, not to {event}.")
         if trigger.get("at"):
             errors.append("'at' belongs to a time trigger, not a sun trigger.")
         earliest, latest = trigger.get("earliest"), trigger.get("latest")
