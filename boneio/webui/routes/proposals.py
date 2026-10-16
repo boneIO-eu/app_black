@@ -31,6 +31,7 @@ from boneio.core.config.proposals import PROPOSALS_FILENAME, ProposalError, Prop
 from boneio.core.config.sections import RESTART_REQUIRED_SECTIONS, secret_sections
 from boneio.core.config.yaml_util import _strip_empty_strings_deep, validate_section
 from boneio.core.utils.timeperiod import plain_time_periods
+from boneio.webui import security_events
 from boneio.webui.routes import config_core
 
 _LOGGER = logging.getLogger(__name__)
@@ -106,6 +107,12 @@ async def propose_section(section: str, body: NewProposal, request: Request):
         )
     except ProposalError as err:
         raise HTTPException(status_code=429, detail=str(err)) from err
+    security_events.emit(
+        "proposal_filed",
+        username=key.owner if key else author,
+        client=getattr(getattr(request, "client", None), "host", None),
+        where=f"'{section}' from '{key.name if key else author}'",
+    )
     return {"proposal": {"id": proposal.id, "section": section, "created_at": proposal.created_at}}
 
 

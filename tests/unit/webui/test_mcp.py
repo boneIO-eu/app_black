@@ -25,6 +25,7 @@ from boneio.webui.middleware.auth import (
     set_key_store,
     set_user_store,
 )
+from boneio.webui import security_events
 from boneio.webui.routes import config_core
 from boneio.webui.routes import mcp as mcp_routes
 from boneio.webui.routes import proposals as proposal_routes
@@ -36,7 +37,7 @@ MODERN = "2026-07-28"
 
 
 @pytest.fixture
-def device(tmp_path):
+def device(tmp_path, monkeypatch):
     users = UserStore(tmp_path / USERS_FILENAME)
     users.load()
     users.add_user("pawel", "dobre-haslo", Role.ADMIN)
@@ -64,6 +65,8 @@ def device(tmp_path):
     client = TestClient(app)
     client.keys, client.state, client.config_file = keys, state, config_file
     client.admin = issue_token(users.get_user("pawel"))
+    client.events = []
+    monkeypatch.setattr(security_events, "emit", lambda kind, **kw: client.events.append((kind, kw)))
     yield client
     config_core._config_cache["data"] = None
     config_core._config_cache["mtime"] = 0
@@ -216,6 +219,7 @@ def test_a_proposal_waits_and_only_its_key_sees_how_it_stands(device):
     filed = _call(device, token, "boneio_propose", section="output", data=OUTPUTS, rationale="add OUT 01")
     assert filed["result"]["isError"] is False
     (pending,) = proposal_routes._store().list()
+    assert [kind for kind, _ in device.events] == ["proposal_filed"]
     assert device.config_file.read_text(encoding="utf-8") == "output: []\n"
     assert '"status":"pending"' in _text(_call(device, token, "boneio_proposal_status", proposal_id=pending.id))
     other = _key(device, KeyScope.PROPOSE)
@@ -233,6 +237,9 @@ def test_a_write_key_saves_and_the_section_is_reloaded(device):
     assert reply["result"]["isError"] is False
     assert "OUT 01" in device.config_file.read_text(encoding="utf-8")
     device.state.manager.reload_config.assert_awaited_once_with(reload_sections=["output"])
+    # Saved without asking anyone: the owner hears of it in Home Assistant.
+    ((kind, event),) = device.events
+    assert kind == "config_saved_by_key" and event["username"] == "pawel" and "'output'" in event["where"]
 
 
 def test_a_schema_is_served_without_titles_and_a_wrong_section_is_explained(device):

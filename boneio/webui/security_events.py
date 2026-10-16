@@ -21,7 +21,10 @@ _LOGGER = logging.getLogger(__name__)
 
 #: What the entity declares to Home Assistant. An event of any other type is
 #: refused there with an error in HA's log, so emit() only sends these.
-EVENT_TYPES = ("password_guessing", "session_signed_out", "api_key_created")
+EVENT_TYPES = (
+    "password_guessing", "session_signed_out", "api_key_created",
+    "config_saved_by_key", "proposal_filed",
+)
 
 # The username in a guessing event is whatever was typed at the login form,
 # and it ends up in somebody's notification. Kept short and printable.
@@ -33,6 +36,10 @@ _MESSAGES = {
     # A key outlives the session that made it: if that session was not the
     # owner's, this is how the owner finds out.
     "api_key_created": "An API key was made by '{username}': {where}.",
+    # What an agent changed without asking, and what it asks to change: the
+    # owner hears of both without opening the panel.
+    "config_saved_by_key": "An API key of '{username}' saved the configuration: {where}.",
+    "proposal_filed": "A configuration change waits for approval in the panel: {where}.",
 }
 
 _publisher: Callable[[dict], None] | None = None
@@ -57,8 +64,8 @@ def emit(event_type: str, *, username: str, client: str | None = None, where: st
         client: The caller's address. Left out when it is the controller's own
             loopback, which says nothing about who it was.
         where: Which form the passwords were typed into: ``login``,
-            ``confirm``, ``password_change`` or ``ssh_password``; for a new API
-            key, its name and scope.
+            ``confirm``, ``password_change`` or ``ssh_password``; for an API
+            key's event, the key and what it did.
     """
     if event_type not in EVENT_TYPES:
         _LOGGER.error("Not an event the security entity declares: %s", event_type)

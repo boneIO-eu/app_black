@@ -37,6 +37,7 @@ from boneio.core.manager import Manager
 from boneio.core.utils.timeperiod import plain_time_periods
 from boneio.webui.action_validation import target_check, unknown_targets
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
+from boneio.webui import security_events
 from boneio.webui.bind import DEFAULT_PROXY_PORT, proxy_is_serving_cached
 from boneio.webui.input_validation import has_long_bounce_time, validate_bounce_times
 
@@ -826,7 +827,7 @@ async def validate_section_content(section: str, data: dict | list = Body(...)):
 
 
 @router.put("/config/{section}")
-async def update_section_content(section: str, data: dict | list = Body(...)):
+async def update_section_content(section: str, data: dict | list = Body(...), request: Request = None):  # type: ignore[assignment]
     """Update content of a configuration section."""
     if not _SECTION_NAME.match(section):
         raise HTTPException(status_code=404, detail=f"Not a configuration section: '{section}'")
@@ -948,6 +949,14 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             "[ROUTE] total PUT /config/%s took %.3fs",
             section, time.perf_counter() - t_route_start,
         )
+        key = getattr(getattr(request, "state", None), "api_key", None)
+        if key is not None:
+            security_events.emit(
+                "config_saved_by_key",
+                username=key.owner,
+                client=getattr(getattr(request, "client", None), "host", None),
+                where=f"'{section}' by '{key.name}'",
+            )
         return result
 
     except Exception as e:

@@ -205,7 +205,7 @@ async def _proposal_status(request: Request, args: dict) -> Any:
 
 async def _save(request: Request, args: dict) -> Any:
     section, data = _section(args), _data(args)
-    result = await config_core.update_section_content(section, data)
+    result = await config_core.update_section_content(section, data, request)
     if not result.get("restart_required"):
         await config_core.reload_configuration([section])
     return result
