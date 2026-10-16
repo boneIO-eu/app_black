@@ -20,6 +20,7 @@ import type { RemoteDevice } from './ActionFields/types';
 import {
   DAY_OPTIONS,
   SUN_EVENT_GROUPS,
+  FACADE_EVENTS,
   minutesToOffset,
   offsetToMinutes,
   withTriggerField,
@@ -116,12 +117,15 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
       found.push(t('schedule.error_id_duplicate'));
     }
     if (kind === 'sun' && !trigger.event) found.push(t('schedule.error_event_required'));
+    if (kind === 'sun' && FACADE_EVENTS.includes(trigger.event ?? '') && !trigger.cover) {
+      found.push(t('schedule.error_cover_required'));
+    }
     if (kind === 'time' && !trigger.at) found.push(t('schedule.error_at_required'));
     // A sun trigger without coordinates can never resolve, so the schedule
     // would sit there looking configured and never fire.
     if (kind === 'sun' && !hasLocation) found.push(t('schedule.needs_location'));
     return found;
-  }, [derivedId, existingItems, editingIndex, kind, trigger.event, trigger.at, hasLocation, t]);
+  }, [derivedId, existingItems, editingIndex, kind, trigger.event, trigger.cover, trigger.at, hasLocation, t]);
 
   useEffect(() => {
     onValidationChange?.(errors.length > 0);
@@ -221,10 +225,36 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
                       ))}
                     </SelectGroup>
                   ))}
+                  <SelectGroup>
+                    <SelectLabel hint={t('schedule.facade_group_hint')}>{t('schedule.facade_group')}</SelectLabel>
+                    {FACADE_EVENTS.map((event) => (
+                      <SelectItem key={event} value={event}>{t(`sun.anchor_${event}`)}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </FormField>
-          ) : (
+          ) : null}
+          {kind === 'sun' && FACADE_EVENTS.includes(trigger.event ?? '') ? (
+            <FormField label={t('schedule.cover')} help={t('schedule.cover_hint')}>
+              <Select value={trigger.cover || ''} onValueChange={(value) => updateTrigger('cover', value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t('schedule.cover_placeholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allCovers.filter((c) => c.id).map((cover) => (
+                    <SelectItem key={cover.id} value={cover.id!} disabled={cover.facade_azimuth === undefined}>
+                      {cover.name || cover.id}
+                      {cover.facade_azimuth === undefined && (
+                        <span className="text-xs opacity-60"> — {t('schedule.cover_no_facade')}</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          ) : null}
+          {kind !== 'sun' ? (
             <FormField label={t('schedule.at')}>
               <input
                 type="time"
@@ -233,7 +263,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
                 onChange={(e) => updateTrigger('at', e.target.value)}
               />
             </FormField>
-          )}
+          ) : null}
 
           <FormField label={t('schedule.days')}>
             <Select value={trigger.days || 'daily'} onValueChange={(value) => updateTrigger('days', value)}>

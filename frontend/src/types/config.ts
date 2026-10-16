@@ -271,6 +271,8 @@ export interface CoverEntity {
   restore_state?: boolean;
   /** Tilt time in milliseconds (for blinds) */
   tilt_time?: number | string;
+  /** Which way the window faces, degrees from north */
+  facade_azimuth?: number;
   /** Full tilt travel time (venetian) */
   tilt_duration?: number | string;
   /** Actuator activation time (venetian) */

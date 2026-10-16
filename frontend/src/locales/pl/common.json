@@ -849,7 +849,23 @@
     "restore_state_hint": "Przywróć zapisany stan po restarcie",
     "tilt_restore": "Przywróć Nachylenie Po Ruchu",
     "tilt_restore_hint": "Przywróć poprzedni kąt nachylenia po ruchu do pozycji pośredniej (nie przy 0% ani 100%)",
-    "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety"
+    "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety",
+    "facade_tab": "Słońce",
+    "facade_intro": "W którą stronę wychodzi okno. Gdy sterownik zna swoją lokalizację, Home Assistant dostaje czujnik „słońce” dla tej rolety, a harmonogramy mogą ruszać, gdy słońce wchodzi na okno albo z niego schodzi.",
+    "facade_azimuth": "Okno skierowane na",
+    "facade_none": "Nie ustawiono",
+    "facade_custom": "Inny kierunek (stopnie)",
+    "facade_azimuth_hint": "Stopnie od północy zgodnie z ruchem wskazówek zegara: 90 wschód, 180 południe, 270 zachód.",
+    "facade_min_elevation": "Słońce liczy się od",
+    "facade_min_elevation_hint": "Stopnie nad horyzontem. Podnieś, gdy sąsiedni dom albo drzewa zasłaniają okno przy nisko stojącym słońcu.",
+    "facade_n": "Północ",
+    "facade_ne": "Północny wschód",
+    "facade_e": "Wschód",
+    "facade_se": "Południowy wschód",
+    "facade_s": "Południe",
+    "facade_sw": "Południowy zachód",
+    "facade_w": "Zachód",
+    "facade_nw": "Północny zachód"
   },
   "modbus": {
     "name_id": "Nazwa / ID",
@@ -3154,7 +3170,9 @@
     "phase_astronomical_twilight": "Zmierzch astronomiczny",
     "phase_night": "Noc",
     "phase_golden_hour": "Złota godzina",
-    "phase_blue_hour": "Niebieska godzina"
+    "phase_blue_hour": "Niebieska godzina",
+    "anchor_facade_sun_enter": "Słońce wchodzi na okno",
+    "anchor_facade_sun_leave": "Słońce schodzi z okna"
   },
   "location": {
     "title": "Lokalizacja",
@@ -3253,7 +3271,14 @@
     "toggle_failed": "Nie udało się przełączyć harmonogramu.",
     "trigger_sun": "Słońce",
     "trigger_time": "Godzina",
-    "trigger_type": "Wyzwalacz"
+    "trigger_type": "Wyzwalacz",
+    "facade_group": "Okno rolety",
+    "facade_group_hint": "Gdy słońce pierwszy raz w ciągu dnia wchodzi na okno rolety albo ostatni raz z niego schodzi. Kierunek okna ustawisz w zakładce Słońce rolety.",
+    "cover": "Roleta",
+    "cover_hint": "Do wyboru są tylko rolety z ustawionym kierunkiem okna.",
+    "cover_placeholder": "Wybierz roletę",
+    "cover_no_facade": "bez kierunku okna",
+    "error_cover_required": "Wybierz roletę, na której okno słońce wchodzi albo z niego schodzi."
   },
   "virtual_switch": {
     "actions_hint": "Uruchamiają się tylko przy rzeczywistej zmianie — nie po reconnect MQTT ani przy odtworzeniu stanu na starcie.",

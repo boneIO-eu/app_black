@@ -37,6 +37,11 @@ interface CoverFormProps {
   allAreas?: AreaOption[];
 }
 
+/** The eight directions a window is usually described by, in degrees from north. */
+const COMPASS: [string, number][] = [
+  ['n', 0], ['ne', 45], ['e', 90], ['se', 135], ['s', 180], ['sw', 225], ['w', 270], ['nw', 315],
+];
+
 const CoverForm: React.FC<CoverFormProps> = ({ 
   data, 
   onChange, 
@@ -45,7 +50,8 @@ const CoverForm: React.FC<CoverFormProps> = ({
   allAreas = []
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'sun' | 'advanced'>('basic');
+  const [customFacade, setCustomFacade] = useState(false);
 
   const platformOptions = schema?.items?.properties?.platform?.enum || ['time_based', 'venetian'];
   const deviceClassOptions = schema?.items?.properties?.device_class?.enum || [
@@ -75,7 +81,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
       <TabsBox
         name="cover_tabs"
         activeTab={activeTab}
-        onTabChange={(tabId) => setActiveTab(tabId as 'basic' | 'advanced')}
+        onTabChange={(tabId) => setActiveTab(tabId as 'basic' | 'sun' | 'advanced')}
         tabs={[
           {
             id: 'basic',
@@ -275,6 +281,83 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   </>
                 )}
 
+              </div>
+            ),
+          },
+          {
+            id: 'sun',
+            label: t('covers.facade_tab'),
+            content: (
+              <div className="space-y-4">
+                <p className="text-sm text-base-content/70">{t('covers.facade_intro')}</p>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('covers.facade_azimuth')}</span>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                      value={
+                        customFacade || (data.facade_azimuth !== undefined
+                          && !COMPASS.some(([, deg]) => deg === data.facade_azimuth))
+                          ? '_custom_'
+                          : data.facade_azimuth === undefined ? '_none_' : String(data.facade_azimuth)
+                      }
+                      onValueChange={(value) => {
+                        setCustomFacade(value === '_custom_');
+                        if (value === '_none_') updateField('facade_azimuth', undefined);
+                        else if (value !== '_custom_') updateField('facade_azimuth', Number(value));
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-64">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{t('covers.facade_none')}</SelectItem>
+                        {COMPASS.map(([key, deg]) => (
+                          <SelectItem key={key} value={String(deg)}>
+                            {t(`covers.facade_${key}`)} ({deg}°)
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="_custom_">{t('covers.facade_custom')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(customFacade || data.facade_azimuth !== undefined) && (
+                      <div className="flex items-center gap-2">
+                        <NumericInput
+                          value={data.facade_azimuth ?? ''}
+                          onChange={(v) => updateField('facade_azimuth', v === '' ? undefined : v)}
+                          min={0}
+                          max={359}
+                          className="w-24 min-h-12"
+                        />
+                        <span className="text-base-content/70">°</span>
+                      </div>
+                    )}
+                  </div>
+                  <label className="label">
+                    <span className="label-text-alt text-info">{t('covers.facade_azimuth_hint')}</span>
+                  </label>
+                </div>
+                {data.facade_azimuth !== undefined && (
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('covers.facade_min_elevation')}</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <NumericInput
+                        value={data.facade_min_elevation ?? 0}
+                        onChange={(v) => updateField('facade_min_elevation', v === '' ? undefined : v)}
+                        min={0}
+                        max={45}
+                        className="w-24 min-h-12"
+                      />
+                      <span className="text-base-content/70">°</span>
+                    </div>
+                    <label className="label">
+                      <span className="label-text-alt text-info">{t('covers.facade_min_elevation_hint')}</span>
+                    </label>
+                  </div>
+                )}
               </div>
             ),
           },

@@ -22,6 +22,8 @@ export interface CoverFormData {
   device_class?: string;
   restore_state?: boolean;
   show_in_ha?: boolean;
+  facade_azimuth?: number;
+  facade_min_elevation?: number;
 }
 
 /** Time period format regex — number + unit (e.g. "30s", "1000ms"). */

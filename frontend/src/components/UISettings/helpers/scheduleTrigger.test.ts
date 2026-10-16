@@ -181,3 +181,13 @@ describe('OUTCOME_BADGE', () => {
     expect(OUTCOME_BADGE.failed).not.toBe(OUTCOME_BADGE.skipped_condition);
   });
 });
+
+
+describe('facade events', () => {
+  it('keep their cover only while a facade event is chosen', () => {
+    const facade = withTriggerField({ type: 'sun', event: 'facade_sun_enter', cover: 'salon' }, 'event', 'facade_sun_leave');
+    expect(facade.cover).toBe('salon');
+    expect(withTriggerField(facade, 'event', 'sunset').cover).toBeUndefined();
+    expect(withTriggerField(facade, 'type', 'time').cover).toBeUndefined();
+  });
+});

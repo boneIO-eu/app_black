@@ -24,6 +24,11 @@ export const SUN_EVENT_GROUPS: { label: string; events: string[] }[] = [
   },
 ];
 
+/** Events of one cover's window; a schedule names the cover. Not in
+ * SUN_EVENT_GROUPS, which the condition editor shares: a condition has no
+ * cover to name. */
+export const FACADE_EVENTS = ['facade_sun_enter', 'facade_sun_leave'];
+
 export const DAY_OPTIONS = ['daily', 'weekdays', 'weekend', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 /** One action, as the config carries it. Its fields depend on `action`. */
@@ -36,6 +41,8 @@ export type ActionEntry = Record<string, unknown>;
 export interface ScheduleTrigger {
   type?: string;
   event?: string;
+  /** The cover whose window a facade event is about. */
+  cover?: string;
   at?: string;
   offset?: string | number;
   jitter?: string | number;
@@ -203,6 +210,10 @@ export function withTriggerField(
       delete next.offset;
     }
   }
+  // A cover only means something to a facade event.
+  if ((field === 'event' && !FACADE_EVENTS.includes(value ?? '')) || (field === 'type' && value !== 'sun')) {
+    delete next.cover;
+  }
   if (value === undefined) delete next[field];
   return next;
 }
@@ -225,7 +236,8 @@ export function triggerSummary(entry: ScheduleEntry, t: (key: string) => string)
     return `${trigger.at || '--:--'}${shift} · ${days}`;
   }
   const event = trigger.event ? t(`sun.anchor_${trigger.event}`) : '—';
-  return `${event}${shift} · ${days}`;
+  const cover = trigger.cover ? ` (${trigger.cover})` : '';
+  return `${event}${cover}${shift} · ${days}`;
 }
 
 /** The distinct action types a schedule runs, for a table row. */

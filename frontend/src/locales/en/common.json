@@ -554,7 +554,23 @@
     "restore_state_hint": "Restore saved state after restart",
     "tilt_restore": "Restore Tilt After Movement",
     "tilt_restore_hint": "Restore the previous tilt angle after movement to an intermediate position (not at 0% or 100%)",
-    "show_in_ha_hint": "Enable Home Assistant discovery for this cover"
+    "show_in_ha_hint": "Enable Home Assistant discovery for this cover",
+    "facade_tab": "Sun",
+    "facade_intro": "Which way the window faces. With the controller's location set, Home Assistant gets a “sun” sensor for this cover, and schedules can run when the sun reaches or leaves the window.",
+    "facade_azimuth": "Window faces",
+    "facade_none": "Not set",
+    "facade_custom": "Other (degrees)",
+    "facade_azimuth_hint": "Degrees clockwise from north: 90 east, 180 south, 270 west.",
+    "facade_min_elevation": "Sun counts from",
+    "facade_min_elevation_hint": "Degrees above the horizon. Raise it when a neighbouring house or trees shade the window while the sun is low.",
+    "facade_n": "North",
+    "facade_ne": "North-east",
+    "facade_e": "East",
+    "facade_se": "South-east",
+    "facade_s": "South",
+    "facade_sw": "South-west",
+    "facade_w": "West",
+    "facade_nw": "North-west"
   },
   "software_update": {
     "title": "Software Update",
@@ -3155,7 +3171,9 @@
     "phase_astronomical_twilight": "Astronomical twilight",
     "phase_night": "Night",
     "phase_golden_hour": "Golden hour",
-    "phase_blue_hour": "Blue hour"
+    "phase_blue_hour": "Blue hour",
+    "anchor_facade_sun_enter": "Sun reaches the window",
+    "anchor_facade_sun_leave": "Sun leaves the window"
   },
   "location": {
     "title": "Location",
@@ -3254,7 +3272,14 @@
     "toggle_failed": "Could not switch the schedule.",
     "trigger_sun": "Sun",
     "trigger_time": "Clock time",
-    "trigger_type": "Trigger"
+    "trigger_type": "Trigger",
+    "facade_group": "Cover window",
+    "facade_group_hint": "When the sun first reaches a cover's window in the day, or last leaves it. Set which way the window faces in the cover's Sun tab.",
+    "cover": "Cover",
+    "cover_hint": "Only covers with a window direction can be chosen.",
+    "cover_placeholder": "Choose a cover",
+    "cover_no_facade": "no window direction",
+    "error_cover_required": "Choose the cover whose window the sun reaches or leaves."
   },
   "virtual_switch": {
     "actions_hint": "Run on a real change only — not on an MQTT reconnect, and not on a restored state at startup.",
