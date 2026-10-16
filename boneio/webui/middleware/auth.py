@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse
 from boneio.core.auth.api_keys import KEY_PREFIX, ApiKeyStore
 from boneio.core.auth.models import Role
 from boneio.webui.middleware import policy
+from boneio.webui.rate_limit import key_rate_limiter
 
 if TYPE_CHECKING:
     from boneio.core.auth.models import User
@@ -504,6 +505,14 @@ async def _dispatch_api_key(request: Request, call_next, secret: str):
                 "code": "forbidden",
                 "scope": str(key.scope),
             },
+        )
+    if not key_rate_limiter.hit(key.id):
+        # An agent looping on validate would otherwise keep a single-core
+        # controller busy; the panel and the house come first.
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests with this API key; slow down.", "code": "rate_limited"},
+            headers={"Retry-After": str(key_rate_limiter.retry_after(key.id))},
         )
     request.state.user = caller
     request.state.role = Role.VIEWER

@@ -221,6 +221,18 @@ def test_a_key_does_not_wait_for_the_thread_pool(client, keys, monkeypatch):
     assert client.get("/api/config", headers=_bearer(secret)).status_code == 200
 
 
+def test_a_key_in_a_loop_is_slowed_down_and_others_are_not(client, keys):
+    from boneio.webui.rate_limit import KEY_MAX_REQUESTS
+
+    _, looping = keys.create("Loop", "pawel", KeyScope.READ, 30)
+    _, other = keys.create("Other", "pawel", KeyScope.READ, 30)
+    for _ in range(KEY_MAX_REQUESTS):
+        assert client.get("/api/config", headers=_bearer(looping)).status_code == 200
+    refused = client.get("/api/config", headers=_bearer(looping))
+    assert refused.status_code == 429 and int(refused.headers["Retry-After"]) >= 1
+    assert client.get("/api/config", headers=_bearer(other)).status_code == 200
+
+
 def test_a_key_is_refused_outside_its_scope(client, keys):
     _, secret = keys.create("Claude", "pawel", KeyScope.READ, 30)
     assert client.put("/api/config/event", headers=_bearer(secret), json=[]).status_code == 403

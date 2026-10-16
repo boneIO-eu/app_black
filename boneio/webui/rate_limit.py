@@ -50,6 +50,7 @@ class RateLimiter:
         self._window_seconds = window_seconds
         self._name = name
         self._failures: dict[str, list[float]] = defaultdict(list)
+        self._refused: set[str] = set()
         self._lock = Lock()
 
     @property
@@ -127,6 +128,34 @@ class RateLimiter:
             self._max_attempts,
             self._window_seconds,
         )
+
+    def hit(self, key: str) -> bool:
+        """Count a request, unless the key is already at its limit.
+
+        For limiting requests rather than failures: every allowed call counts,
+        and only the first refusal in a window is logged, so a client stuck in
+        a loop does not fill the log as well.
+
+        Args:
+            key: Bucket key.
+
+        Returns:
+            True if the request may go ahead.
+        """
+        with self._lock:
+            self._prune(key)
+            stamps = self._failures[key]
+            if len(stamps) >= self._max_attempts:
+                first_refusal = key not in self._refused
+                self._refused.add(key)
+            else:
+                stamps.append(time.monotonic())
+                self._refused.discard(key)
+                return True
+        if first_refusal:
+            _LOGGER.warning("%s reached for %s (%d in %ds)", self._name, key,
+                            self._max_attempts, self._window_seconds)
+        return False
 
     def record_failures(self, *keys: str) -> None:
         """Count one failure against several keys at once.
@@ -206,6 +235,18 @@ login_rate_limiter = RateLimiter(
     max_attempts=LOGIN_MAX_ATTEMPTS,
     window_seconds=LOGIN_WINDOW_SECONDS,
     name="login rate limit",
+)
+
+
+# Requests per API key. An agent works in sequential steps of a second or
+# more (each waits for the model), so sixty a minute only stops a loop.
+KEY_MAX_REQUESTS = 60
+KEY_WINDOW_SECONDS = 60
+
+key_rate_limiter = RateLimiter(
+    max_attempts=KEY_MAX_REQUESTS,
+    window_seconds=KEY_WINDOW_SECONDS,
+    name="API key rate limit",
 )
 
 
