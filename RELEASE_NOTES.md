@@ -1,24 +1,18 @@
-# boneIO Black 1.6.3
+# boneIO Black 1.6.4
 
-A small fix release after 1.6.2. On a controller already running 1.6.0 to
-1.6.2 it only brings the fixes below. Coming from 1.5.x, this is your update
+A small fix release after 1.6.3. On a controller already running 1.6.0 to
+1.6.3 it only brings the fix below. Coming from 1.5.x, this is your update
 to the 1.6 series: read "Before you update" first.
 
-## What 1.6.3 fixes
+## What 1.6.4 fixes
 
-- **The panel was slow in the first minute after a restart.** Right after
-  start the controller asked the system for the same information 13–16 times
-  in parallel, and a single-core BeagleBone spent that minute answering
-  itself instead of you. It now does it about 4 times. On our controller the
-  slowest request dropped from 17.6 s to 8–10 s, and the average from 0.66 s
-  to 0.30 s.
-- **The panel showed outputs without an id until the first save after a
-  restart**, and some old event keys were not yet rewritten. It now gets the
-  correct configuration from the start.
-- **Invalid configuration is reported instead of breaking validation.** An
-  output named with something other than text, a virtual switch with
-  malformed actions, a schedule with a malformed trigger, or a controller type
-  given without its version now give an error that says what is wrong.
+- **After changing the configuration in settings, it could not be loaded.**
+  Changing the controller type (for example to 32x10A) opens the "Device type
+  change warning" dialog. It was clipped to the form card, so the Cancel and
+  "Load and apply" buttons were out of view and the change could not be
+  confirmed. The same happened to other dialogs opened from settings cards,
+  such as Web server and Self-test. The dialogs now open over the whole
+  screen again. This was present since 1.6.0.
 
 ## Before you update
 
