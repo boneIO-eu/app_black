@@ -7,10 +7,11 @@ and without the ``initialize`` handshake - get answers they recognise.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from boneio.core.auth.api_keys import ApiKeyStore, KeyScope
@@ -181,9 +182,11 @@ def test_nothing_reaches_the_tools_without_a_key(device):
 @pytest.mark.parametrize(
     ("scope", "tools"),
     [
-        (KeyScope.READ, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema"}),
+        (KeyScope.READ, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
+                         "boneio_discover_devices"}),
         (KeyScope.PROPOSE, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
-                            "boneio_validate", "boneio_propose", "boneio_proposal_status"}),
+                            "boneio_discover_devices", "boneio_validate", "boneio_propose",
+                            "boneio_proposal_status"}),
         (KeyScope.WRITE, {t.name for t in mcp_routes.TOOLS}),
     ],
 )
@@ -274,3 +277,30 @@ def test_without_a_restore_point_a_key_saves_nothing(device, monkeypatch):
     reply = _call(device, _key(device, KeyScope.WRITE), "boneio_save", section="output", data=OUTPUTS)
     assert reply["result"]["isError"] is True and "back up" in _text(reply)
     assert device.config_file.read_text(encoding="utf-8") == "output: []\n"
+
+
+def test_a_read_key_sees_the_devices_around_the_controller(device, monkeypatch):
+    from boneio.webui.routes import remote_devices
+
+    remote = device.state.manager.remote_devices
+    remote.autodiscovered_to_dict.return_value = {
+        "blk_abc123": {"id": "blk_abc123", "name": "Garaż", "protocol": "mqtt", "device_type": "boneio_black",
+                       "outputs": [{"id": "OUT_01", "name": "Brama"}], "covers": []},
+    }
+    remote.get_managed_by_devices.return_value = {}
+
+    async def esphome(timeout):
+        return {"devices": [{"name": "kuchnia", "host": "kuchnia.local", "ip": "192.168.1.30", "port": 6053}]}
+
+    async def wled(timeout):
+        raise HTTPException(status_code=400, detail="zeroconf not installed - mDNS discovery disabled")
+
+    monkeypatch.setattr(remote_devices, "scan_esphome_network", esphome)
+    monkeypatch.setattr(remote_devices, "scan_wled_network", wled)
+    token = _key(device, KeyScope.READ)
+    quiet = json.loads(_text(_call(device, token, "boneio_discover_devices")))
+    assert quiet["boneio_over_mqtt"][0]["name"] == "Garaż" and quiet["boneio_over_mqtt"][0]["configured"] is False
+    assert "esphome_on_network" not in quiet  # the network is scanned only when asked
+    scanned = json.loads(_text(_call(device, token, "boneio_discover_devices", scan_network=True)))
+    assert scanned["esphome_on_network"][0]["ip"] == "192.168.1.30"
+    assert "zeroconf" in scanned["wled_on_network"]["error"]

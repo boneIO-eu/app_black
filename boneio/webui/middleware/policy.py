@@ -281,6 +281,12 @@ _KEY_READ: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     for method, pattern in (
         ("GET", r"^/api/config$"),
         ("GET", r"^/api/config/checksum$"),
+        # What the controller sees around it: other boneIO controllers and
+        # devices on the network, by name and address - no credentials.
+        ("GET", r"^/api/remote-devices/autodiscovered$"),
+        ("GET", r"^/api/remote-devices/managed-by$"),
+        ("GET", r"^/api/remote-devices/scan-esphome$"),
+        ("GET", r"^/api/remote-devices/scan-wled$"),
         # The MCP endpoint checks each tool against these tables itself.
         # GET and DELETE only answer 405, which a client must see as such.
         ("POST", r"^/api/mcp$"),
