@@ -62,6 +62,9 @@ class ApiKey:
     created_at: str
     expires_at: str
     last_used: str = ""
+    #: Where the key was last used from, and by what program.
+    last_ip: str = ""
+    last_agent: str = ""
 
     def public(self) -> dict:
         """What the panel may see: everything but the digest."""
@@ -203,6 +206,23 @@ class ApiKeyStore:
                 return None
             self._note_use(key)
             return key
+
+    def note_source(self, key: ApiKey, ip: str, agent: str) -> str | None:
+        """Record where a key is used from.
+
+        Returns:
+            The address it was used from before, when this one differs - a key
+            showing up somewhere new is worth telling its owner about. None on
+            first use and when nothing changed.
+        """
+        agent = agent[:120]
+        with self._lock:
+            if (key.last_ip, key.last_agent) == (ip, agent):
+                return None
+            previous = key.last_ip
+            key.last_ip, key.last_agent = ip, agent
+        threading.Thread(target=self._save_use, args=(key.id,), name="api-key-last-used", daemon=True).start()
+        return previous if previous and previous != ip else None
 
     def _note_use(self, key: ApiKey) -> None:
         key.last_used = _now().isoformat(timespec="seconds")

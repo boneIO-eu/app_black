@@ -233,6 +233,25 @@ def test_a_key_in_a_loop_is_slowed_down_and_others_are_not(client, keys):
     assert client.get("/api/config", headers=_bearer(other)).status_code == 200
 
 
+def test_a_key_from_a_new_address_is_reported_to_its_owner(client, keys, monkeypatch):
+    from boneio.webui import security_events
+
+    events = []
+    monkeypatch.setattr(security_events, "emit", lambda kind, **kw: events.append((kind, kw)))
+    key, secret = keys.create("Claude", "pawel", KeyScope.READ, 30)
+    laptop = TestClient(client.app, client=("192.168.1.20", 5000))
+    other = TestClient(client.app, client=("10.0.0.7", 5000))
+    laptop.get("/api/config", headers={**_bearer(secret), "User-Agent": "claude-code/2.1"})
+    laptop.get("/api/config", headers={**_bearer(secret), "User-Agent": "claude-code/2.2"})
+    assert events == []  # first use, then only the program changed
+    other.get("/api/config", headers=_bearer(secret))
+    ((kind, event),) = events
+    assert kind == "api_key_new_source" and event["username"] == "pawel"
+    assert "10.0.0.7" in event["where"] and "192.168.1.20" in event["where"]
+    listed = next(k for k in keys.list_keys() if k.id == key.id).public()
+    assert listed["last_ip"] == "10.0.0.7"
+
+
 def test_a_key_is_refused_outside_its_scope(client, keys):
     _, secret = keys.create("Claude", "pawel", KeyScope.READ, 30)
     assert client.put("/api/config/event", headers=_bearer(secret), json=[]).status_code == 403

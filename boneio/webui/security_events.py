@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 #: refused there with an error in HA's log, so emit() only sends these.
 EVENT_TYPES = (
     "password_guessing", "session_signed_out", "api_key_created",
-    "config_saved_by_key", "proposal_filed",
+    "config_saved_by_key", "proposal_filed", "api_key_new_source",
 )
 
 # The username in a guessing event is whatever was typed at the login form,
@@ -40,6 +40,9 @@ _MESSAGES = {
     # owner hears of both without opening the panel.
     "config_saved_by_key": "An API key of '{username}' saved the configuration: {where}.",
     "proposal_filed": "A configuration change waits for approval in the panel: {where}.",
+    # One key per tool is the advice; the same key from a second address is
+    # either a new machine or a copied key, and only the owner knows which.
+    "api_key_new_source": "An API key of '{username}' was used from a new address: {where}.",
 }
 
 _publisher: Callable[[dict], None] | None = None

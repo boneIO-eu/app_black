@@ -2873,7 +2873,8 @@
     "mcp_ca_node": "Self-signed certificate? Download this device's authority under Access → Security and start the client with NODE_EXTRA_CA_CERTS=/path/to/that/file (for Claude Desktop: add it to \"env\").",
     "mcp_ca_codex": "Self-signed certificate? Download this device's authority under Access → Security and start Codex with CODEX_CA_CERTIFICATE=/path/to/that/file.",
     "mcp_ca_system": "Self-signed certificate? Download this device's authority under Access → Security and add it to your system's trusted certificates.",
-    "mcp_web_apps": "ChatGPT, claude.ai and the Gemini app connect from their vendor's cloud and need a public address and OAuth, which this controller does not offer. Use Codex, Claude Code or Gemini CLI (or Antigravity) instead."
+    "mcp_web_apps": "ChatGPT, claude.ai and the Gemini app connect from their vendor's cloud and need a public address and OAuth, which this controller does not offer. Use Codex, Claude Code or Gemini CLI (or Antigravity) instead.",
+    "last_from": "from {{ip}}"
   },
   "security": {
     "title": "Security",

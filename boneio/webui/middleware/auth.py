@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse
 
 from boneio.core.auth.api_keys import KEY_PREFIX, ApiKeyStore
 from boneio.core.auth.models import Role
+from boneio.webui import security_events
 from boneio.webui.middleware import policy
 from boneio.webui.rate_limit import key_rate_limiter
 
@@ -513,6 +514,15 @@ async def _dispatch_api_key(request: Request, call_next, secret: str):
             status_code=429,
             content={"detail": "Too many requests with this API key; slow down.", "code": "rate_limited"},
             headers={"Retry-After": str(key_rate_limiter.retry_after(key.id))},
+        )
+    client = request.client.host if request.client else ""
+    previous = _key_store.note_source(key, client, request.headers.get("user-agent", ""))
+    if previous:
+        security_events.emit(
+            "api_key_new_source",
+            username=key.owner,
+            client=client,
+            where=f"'{key.name}' from {client}, until now {previous}",
         )
     request.state.user = caller
     request.state.role = Role.VIEWER

@@ -18,6 +18,8 @@ interface ApiKey {
   created_at: string;
   expires_at: string;
   last_used: string;
+  last_ip?: string;
+  last_agent?: string;
 }
 
 const SCOPES: Scope[] = ['read', 'propose', 'write'];
@@ -176,6 +178,12 @@ export default function ApiKeysCard() {
                     {t('api_keys.expires', { date: day(key.expires_at) })}
                     {' · '}
                     {key.last_used ? t('api_keys.last_used', { date: day(key.last_used) }) : t('api_keys.never_used')}
+                    {key.last_ip && (
+                      <span title={key.last_agent || undefined}>
+                        {' · '}
+                        {t('api_keys.last_from', { ip: key.last_ip })}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {revoking === key.id ? (
