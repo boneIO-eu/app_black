@@ -114,6 +114,7 @@ async def test_a_valid_change_waits_with_its_diff_and_nothing_is_written(device)
     before = _stored(device)
     made = await _propose()
     assert _stored(device) == before
+    assert (await routes.count_proposals()) == {"pending": 1}
     (entry,) = (await routes.list_proposals())["proposals"]
     assert entry["id"] == made["id"] and entry["author"] == "key:Claude (pawel)"
     assert "+- name: OUT 01" in entry["diff"] and entry["stale"] is False

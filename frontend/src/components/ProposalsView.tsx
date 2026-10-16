@@ -4,6 +4,7 @@ import { FaRobot } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
+import { PROPOSALS_CHANGED } from '../hooks/usePendingProposals';
 import { SettingsPage, SettingsCard, NoticeCallout } from './UISettings/ui';
 import { LoadingState } from '@/components/ui/LoadingState';
 import type { StandaloneSectionProps } from './UISettings/constants/standaloneSections';
@@ -58,6 +59,7 @@ export default function ProposalsView({ onRestartRequired }: StandaloneSectionPr
     try {
       const { data } = await axios.get('/api/proposals');
       setProposals(data.proposals ?? []);
+      window.dispatchEvent(new Event(PROPOSALS_CHANGED));
       setError(null);
     } catch (err: unknown) {
       setError(errorMessage(err, t('proposals.load_failed')));

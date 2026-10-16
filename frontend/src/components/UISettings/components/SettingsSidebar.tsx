@@ -5,6 +5,7 @@
  * Desktop: Always-visible sidebar with section list.
  */
 import { useState } from 'react';
+import { usePendingProposals } from '../../../hooks/usePendingProposals';
 import { FaCheck, FaExclamationTriangle, FaSearch, FaTimes } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
@@ -128,6 +129,7 @@ function SectionList({
   saveStatus,
   unsavedChanges,
   outstanding,
+  pending,
   onNavigate,
 }: {
   sections: ConfigSection[];
@@ -138,6 +140,8 @@ function SectionList({
   unsavedChanges: Record<string, boolean>;
   /** Security findings still to act on, shown on the security row. */
   outstanding?: number;
+  /** AI proposals waiting for approval. */
+  pending?: number;
   onNavigate: (sectionName: string) => void;
 }) {
   return (
@@ -153,7 +157,7 @@ function SectionList({
               isActive={activeSection === section.name}
               status={saveStatus[section.name]}
               hasUnsavedChanges={unsavedChanges[section.name] || false}
-              countBadge={section.name === 'security' ? outstanding : undefined}
+              countBadge={section.name === 'security' ? outstanding : section.name === 'proposals' ? pending : undefined}
               onClick={() => onNavigate(section.name)}
             />
           );
@@ -219,6 +223,10 @@ function SidebarContent({
 
   const { posture } = useSecurityPosture();
   const outstanding = posture?.summary.actionable ?? 0;
+  const pending = usePendingProposals();
+  // The Access group's count: what needs doing about security, and what an
+  // agent asked for and nobody has looked at yet.
+  const accessCount = outstanding + pending;
 
   const grouped = SECTION_GROUPS.map(group => ({
     ...group,
@@ -280,6 +288,7 @@ function SidebarContent({
             saveStatus={saveStatus}
             unsavedChanges={unsavedChanges}
             outstanding={outstanding}
+            pending={pending}
             onNavigate={onNavigate}
           />
         )}
@@ -306,8 +315,8 @@ function SidebarContent({
                   so any phrasing would be wrong for some of them. */}
               <span className="text-xs opacity-60 flex items-center gap-1.5">
                 {group.entries.length}
-                {group.name === 'access' && outstanding > 0 && (
-                  <span className="badge badge-error badge-xs">{outstanding}</span>
+                {group.name === 'access' && accessCount > 0 && (
+                  <span className="badge badge-error badge-xs">{accessCount}</span>
                 )}
               </span>
             </button>
@@ -343,6 +352,7 @@ function SidebarContent({
           saveStatus={saveStatus}
           unsavedChanges={unsavedChanges}
           outstanding={outstanding}
+          pending={pending}
           onNavigate={onNavigate}
         />
       </>
@@ -370,8 +380,8 @@ function SidebarContent({
               <span className="text-sm font-semibold opacity-80 flex-1">
                 {t(group.translationKey)}
               </span>
-              {group.name === 'access' && outstanding > 0 && (
-                <span className="badge badge-error badge-sm">{outstanding}</span>
+              {group.name === 'access' && accessCount > 0 && (
+                <span className="badge badge-error badge-sm">{accessCount}</span>
               )}
               <span className="text-xs opacity-50">
                 {isOpen ? '▾' : `${group.entries.length} ▸`}
@@ -387,6 +397,7 @@ function SidebarContent({
                   saveStatus={saveStatus}
                   unsavedChanges={unsavedChanges}
                   outstanding={outstanding}
+                  pending={pending}
                   onNavigate={onNavigate}
                 />
               </div>

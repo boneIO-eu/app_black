@@ -116,6 +116,12 @@ async def propose_section(section: str, body: NewProposal, request: Request):
     return {"proposal": {"id": proposal.id, "section": section, "created_at": proposal.created_at}}
 
 
+@router.get("/proposals/count")
+async def count_proposals():
+    """How many wait: for the menu's badge, without building a diff for each."""
+    return {"pending": len(await asyncio.to_thread(_store().list))}
+
+
 @router.get("/proposals")
 async def list_proposals():
     """Pending proposals, each with a diff against the section as it is now."""
