@@ -33,7 +33,7 @@ dependencies = [
     # pyasn1 and six along for algorithms nothing here uses. ecdsa carries an
     # advisory with no fixed version and its maintainers have said there will
     # not be one, so the dependency could only ever be carried, not resolved.
-    "PyJWT==2.14.0",
+    "PyJWT==2.15.1",
     "python-multipart==0.0.31",
     "qrcode==8.2",
     "gpiod==2.3.0",
@@ -48,6 +48,9 @@ dependencies = [
     # anyio since it was imaged would keep it through every update. The floor
     # is what makes the fix reach a device already in the field.
     "anyio>=4.14.2",
+    # Indirect as well, through aiohttp, and held back on devices for the
+    # same reason. 6.9.1 fixes a reference leak in the items views.
+    "multidict>=6.9.1",
     # Also indirect — aioesphomeapi, noiseprotocol and PyJWT's backend all
     # want it, none with an upper bound on Linux. The advisory needs 50.0.0,
     # and without a floor pip leaves whatever a device was imaged with: one
