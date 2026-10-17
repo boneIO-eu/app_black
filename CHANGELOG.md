@@ -6,6 +6,26 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.4 (2026-10-16) — 1.6.x security series
+
+A fix for settings dialogs that could not be confirmed. See RELEASE_NOTES.md
+before updating.
+
+### ⚙️ Settings
+
+- **Dialogs opened from a settings page open over the whole screen again.**
+  Changing the controller type (for example to 32x10A) opens the "Device type
+  change warning" dialog, and in 1.6.0–1.6.3 it was clipped to the form card:
+  the Cancel and "Load and apply" buttons were below the card's edge and the
+  change could not be confirmed. The entrance animation of the settings cards
+  left a transform in effect after it ended, which made each card the
+  containing block for fixed-position elements. It now leaves nothing behind
+  once it finishes, and the staggered entrance stays. The same fix covers the
+  other dialogs embedded in settings cards (for example Web server and
+  Self-test).
+
+- **System migrations 1.6.1–1.6.46**, signed; no new migration in this release.
+
 ## v1.6.3 (2026-10-16) — 1.6.x security series
 
 A calmer first minute after a restart, and invalid configuration reported

@@ -2704,7 +2704,7 @@
     "import_formats": "Archiwum .tar.gz lub .tgz",
     "import_change": "kliknij, aby wybrać inny",
     "step_counter": "Krok {{current}} z {{total}}",
-    "devices_intro": "Wyjścia są już skonfigurowane pod Twoją płytkę. Przypisz do nich wejścia.",
+    "devices_intro": "Wyjścia są już skonfigurowane pod Twój sterownik. Przypisz do nich wejścia.",
     "devices_restore_state": "Przywracaj stan przekaźników i rolet po restarcie.",
     "devices_mode_outputs": "Wejścia sterują wyjściami ({{outputs}})",
     "devices_mode_covers": "Wejścia sterują roletami ({{covers}}, po dwa wejścia)",

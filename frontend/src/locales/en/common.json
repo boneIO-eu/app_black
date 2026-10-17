@@ -2705,7 +2705,7 @@
     "import_formats": ".tar.gz or .tgz archive",
     "import_change": "click to pick another",
     "step_counter": "Step {{current}} of {{total}}",
-    "devices_intro": "The outputs are already configured for your board. Wire the inputs to them.",
+    "devices_intro": "The outputs are already configured for your controller. Wire the inputs to them.",
     "devices_restore_state": "Restore relay and cover state after a restart.",
     "devices_mode_outputs": "Inputs control outputs ({{outputs}})",
     "devices_mode_covers": "Inputs control covers ({{covers}}, two inputs each)",
