@@ -673,6 +673,12 @@ async def async_run(
 
     proxy_switch_task = asyncio.create_task(proxy_switch.run())
 
+    # Announces the panel on the LAN over mDNS. Outside the main gather too: a
+    # network that will not take the announcement is no reason to stop.
+    from boneio.core.net import mdns
+
+    mdns_task = asyncio.create_task(mdns.advertise(_config_helper))
+
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
@@ -727,6 +733,11 @@ async def async_run(
         stable_task.cancel()
         nodered_task.cancel()
         proxy_switch_task.cancel()
+        # Awaited, unlike the three above, so the goodbye goes out and browsers
+        # drop this controller now rather than when its record expires.
+        mdns_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await asyncio.wait_for(mdns_task, timeout=2)
 
         # Cancel pending deferred state saves and write final state synchronously.
         # This MUST happen before event_bus.stop() which may trigger sigterm
