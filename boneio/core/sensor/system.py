@@ -12,12 +12,16 @@ via MQTT discovery.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import psutil
 
 from boneio.core.sensor import BaseSensor
+from boneio.core.system import cpu_report
 from boneio.core.utils import TimePeriod
 
 if TYPE_CHECKING:
@@ -323,6 +327,15 @@ class MemoryUsageSensor(BaseSensor):
             _LOGGER.error("Error reading memory usage: %s", err)
 
 
+#: Above this the CPU sensor also says what uses the processor.
+CPU_BUSY_PERCENT = 80
+
+#: Seconds between process scans while busy. A scan costs ~300 ms of CPU on a
+#: BeagleBone, so it never runs while the CPU is idle and at most once a minute
+#: while it is not.
+CPU_SCAN_INTERVAL = 60
+
+
 class CpuUsageSensor(BaseSensor):
     """Sensor for monitoring CPU usage.
     
@@ -358,6 +371,7 @@ class CpuUsageSensor(BaseSensor):
             **kwargs,
         )
         
+        self._last_scan = float("-inf")
         _LOGGER.info("Initialized CpuUsageSensor")
 
     @property
@@ -383,7 +397,26 @@ class CpuUsageSensor(BaseSensor):
             _LOGGER.debug("CPU usage: %.1f%%", usage_percent)
             
             self._state = usage_percent
+            if usage_percent < CPU_BUSY_PERCENT:
+                self._attributes = {}
+            elif time.monotonic() - self._last_scan >= CPU_SCAN_INTERVAL:
+                snapshot = await asyncio.to_thread(cpu_report.SAMPLER.sample)
+                # A first scan is only a baseline; the next reading rescans
+                # rather than leaving HA without an answer for a minute.
+                if snapshot is not None:
+                    self._last_scan = time.monotonic()
+                    self._attributes = _top_attributes(snapshot)
             self._publish_state(timestamp=timestamp)
             
         except Exception as err:
             _LOGGER.error("Error reading CPU usage: %s", err)
+
+
+def _top_attributes(snapshot: cpu_report.CpuSnapshot) -> dict[str, str | float]:
+    """The busiest services as flat attributes; HA and the event bus need flat."""
+    attributes: dict[str, str | float] = {}
+    for rank, (label, percent) in enumerate(cpu_report.top_labels(snapshot, 3), start=1):
+        attributes[f"top{rank}_name"] = label
+        attributes[f"top{rank}_percent"] = percent
+    attributes["measured_at"] = datetime.fromtimestamp(snapshot.measured_at, UTC).isoformat()
+    return attributes
