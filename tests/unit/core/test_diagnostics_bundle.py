@@ -13,6 +13,8 @@ import pytest
 
 from boneio.core.config.secret_masking import MASK
 from boneio.core.diagnostics.collect import EXCLUDED_FILES, build
+from boneio.core.system import cpu_report, cpu_why
+from boneio.core.system.cpu_report import CpuSnapshot, ProcessUsage
 
 
 @pytest.fixture
@@ -30,6 +32,25 @@ def device(tmp_path):
         "- id: wled1\n  password: haslo-wled\n", encoding="utf-8"
     )
     return tmp_path
+
+
+CPU_SNAPSHOT = CpuSnapshot(
+    1_760_000_000.0,
+    {"user": 70.0, "system": 10.0, "iowait": 0.0, "irq": 2.0, "softirq": 14.0, "idle": 4.0},
+    [ProcessUsage(1, "node", "nodered.service", 81.0)],
+)
+CPU_WHY = {
+    "threads": [{"native_id": 11, "name": "modbus-poller", "percent": 9.0}],
+    "hot_thread": "modbus-poller",
+    "stacks": [{"stack": "boneio/modbus/client.py:42 read", "count": 18}],
+}
+
+
+@pytest.fixture(autouse=True)
+def _cpu(monkeypatch):
+    """A real measurement takes two seconds; the bundle tests need a fixed one."""
+    monkeypatch.setattr(cpu_report.SAMPLER, "measure", lambda interval=1.0: CPU_SNAPSHOT)
+    monkeypatch.setattr(cpu_why, "explain", lambda interval=1.0: CPU_WHY)
 
 
 def members(payload: bytes) -> dict[str, str]:
@@ -238,3 +259,25 @@ def test_a_file_that_will_not_parse_is_shipped_but_not_trusted(tmp_path, caplog)
 
     payload, _ = build(load_yaml_file(str(tmp_path / "config.yaml")), tmp_path / "config.yaml")
     assert "config/broken.yaml" in members(payload)
+
+
+# ------------------------------------------------------------------------ cpu
+
+
+def test_the_bundle_says_what_uses_the_cpu(device):
+    payload, _ = build(config_of(device), device / "config.yaml", cpu_tasks={"Poller.run": 4})
+    cpu = members(payload)["status/cpu.txt"]
+    assert "nodered.service" in cpu
+    assert "softirq" in cpu
+    assert "modbus-poller" in cpu
+    assert "boneio/modbus/client.py:42 read" in cpu
+    assert "Poller.run" in cpu
+
+
+def test_a_cpu_that_cannot_be_measured_is_a_note_not_a_crash(device, monkeypatch):
+    def broken(interval=1.0):
+        raise RuntimeError("no /proc")
+
+    monkeypatch.setattr(cpu_report.SAMPLER, "measure", broken)
+    payload, _ = build(config_of(device), device / "config.yaml")
+    assert "[could not measure the CPU: no /proc]" in members(payload)["status/cpu.txt"]

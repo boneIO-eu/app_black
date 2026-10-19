@@ -41,6 +41,7 @@ from boneio.core.config.secret_masking import collect_secrets, scrub_text
 from boneio.version import __version__
 
 from boneio.core import containers
+from boneio.core.system import cpu_report, cpu_why
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -193,7 +194,8 @@ def _readme(masked: int, capture_started: float | None) -> str:
             "  summary.txt    versions, ports, how much of the device is configured",
             "  config/        your YAML configuration",
             "  logs/          the device log",
-            "  status/        MQTT, Mosquitto, Docker, system and network state",
+            "  status/        MQTT, Mosquitto, Docker, system and network state;",
+            "                 status/cpu.txt says what was using the processor",
             "",
             "What is NOT in here:",
             "  secrets.yaml and your account file are never read.",
@@ -416,6 +418,34 @@ def _status_sections(config: dict) -> list[Section]:
     return sections
 
 
+def _cpu_section(cpu_tasks: dict[str, int] | None) -> Section:
+    """What was using the processor while the bundle was built, and why."""
+    try:
+        snapshot = cpu_report.SAMPLER.measure(1.0)
+        why = cpu_why.explain(1.0)
+    except Exception as err:  # noqa: BLE001
+        return Section("status/cpu.txt", f"[could not measure the CPU: {err}]")
+
+    lines = ["CPU over one second, percent of the core:"]
+    lines += [f"  {field:<8} {value:5.1f}" for field, value in snapshot.breakdown.items()]
+    if cpu_report.looks_like_interrupts(snapshot):
+        lines += ["", "Interrupts suspected: the CPU goes to the kernel, not to programs."]
+    lines += ["", "By service:"]
+    lines += [f"  {pct:5.1f}  {label}" for label, pct in cpu_report.top_labels(snapshot, 10)]
+    lines += ["", "Processes (pid, name, service):"]
+    lines += [
+        f"  {p.percent:5.1f}  {p.pid:>6}  {p.name}  [{p.label}]" for p in snapshot.processes[:30]
+    ]
+    lines += ["", "boneIO threads:"]
+    lines += [f"  {t['percent']:5.1f}  {t['name']}" for t in why["threads"]]
+    lines += ["", f"Where the busiest thread ({why['hot_thread'] or 'none'}) was seen:"]
+    for stack in why["stacks"]:
+        lines += [f"  {stack['count']}x", *(f"    {frame}" for frame in stack["stack"].splitlines())]
+    lines += ["", "asyncio tasks by coroutine:"]
+    lines += [f"  {count:4}  {name}" for name, count in (cpu_tasks or {}).items()]
+    return Section("status/cpu.txt", "\n".join(lines) + "\n")
+
+
 def build(
     config: dict,
     config_file: str | os.PathLike[str],
@@ -424,6 +454,7 @@ def build(
     capture_started: float | None = None,
     serial: str | None = None,
     real_serial: str | None = None,
+    cpu_tasks: dict[str, int] | None = None,
 ) -> tuple[bytes, str]:
     """Assemble the diagnostic bundle.
 
@@ -434,6 +465,7 @@ def build(
         capture_started: Epoch seconds when a debug capture began, if any.
         serial: Effective serial of the device, for the summary.
         real_serial: MAC-derived serial, when an override is in use.
+        cpu_tasks: asyncio tasks per coroutine, counted on the event loop.
 
     Returns:
         Tuple of ``(gzipped tar bytes, suggested filename)``.
@@ -453,6 +485,7 @@ def build(
     ]
     sections.extend(_config_sections(path.parent, secrets))
     sections.extend(_status_sections(config))
+    sections.append(_cpu_section(cpu_tasks))
 
     name = (
         config.get("boneio", {}).get("name", "boneio")

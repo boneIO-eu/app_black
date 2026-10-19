@@ -256,6 +256,7 @@ async def get_bundle():
         capture_started=_capture_started,
         serial=serial,
         real_serial=real_serial,
+        cpu_tasks=cpu_why.task_counts(),
     )
 
     return Response(
