@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field
 from boneio.core import system_ops
 from boneio.core.config.yaml_util import load_yaml_file
 from boneio.core.diagnostics.collect import build
+from boneio.core.system import cpu_report, cpu_why
 from boneio.webui.routes.nodered import BACKUP_DIR as NODERED_BACKUP_DIR
 
 _LOGGER = logging.getLogger(__name__)
@@ -312,3 +313,31 @@ async def clean_disk(target: Literal["apt", "docker"]):
     freed = max(shutil.disk_usage("/").free - before, 0)
     _LOGGER.info("Disk clean-up from the panel: %s freed %d MB", target, freed >> 20)
     return {"target": target, "freed": freed}
+
+
+@router.get("/cpu")
+async def get_cpu():
+    """What uses the processor, measured over one second."""
+    snapshot = await asyncio.to_thread(cpu_report.SAMPLER.measure, 1.0)
+    return {
+        "measured_at": snapshot.measured_at,
+        "breakdown": snapshot.breakdown,
+        "busy": round(100 - snapshot.breakdown["idle"], 1),
+        "interrupts": cpu_report.looks_like_interrupts(snapshot),
+        "services": [
+            {"label": label, "percent": percent}
+            for label, percent in cpu_report.top_labels(snapshot, 10)
+        ],
+        "processes": [
+            {"pid": p.pid, "name": p.name, "label": p.label, "percent": p.percent}
+            for p in snapshot.processes[:30]
+        ],
+    }
+
+
+@router.get("/cpu/boneio")
+async def get_cpu_boneio():
+    """Which boneIO thread uses the CPU and where, plus the running tasks."""
+    tasks = cpu_why.task_counts()
+    report = await asyncio.to_thread(cpu_why.explain, 1.0)
+    return {**report, "tasks": [{"name": name, "count": count} for name, count in tasks.items()]}

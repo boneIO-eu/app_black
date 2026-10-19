@@ -142,6 +142,42 @@ async def test_no_configuration_at_all_is_an_honest_error():
     assert getattr(err.value, "status_code", None) == 503
 
 
+# ----------------------------------------------------------------------- cpu
+
+
+async def test_cpu_report_shape(monkeypatch):
+    from boneio.core.system import cpu_report
+    from boneio.core.system.cpu_report import CpuSnapshot, ProcessUsage
+
+    snapshot = CpuSnapshot(
+        5.0,
+        {"user": 80.0, "system": 15.0, "iowait": 0.0, "irq": 0.0, "softirq": 1.0, "idle": 4.0},
+        [
+            ProcessUsage(1, "node", "nodered.service", 40.0),
+            ProcessUsage(2, "node", "nodered.service", 20.0),
+            ProcessUsage(3, "python3", "boneio.service", 30.0),
+        ],
+    )
+    monkeypatch.setattr(cpu_report.SAMPLER, "measure", lambda interval=1.0: snapshot)
+    report = await route.get_cpu()
+    assert report["services"][0] == {"label": "nodered.service", "percent": 60.0}
+    assert report["busy"] == 96.0
+    assert report["interrupts"] is False
+    assert report["processes"][0] == {"pid": 1, "name": "node", "label": "nodered.service", "percent": 40.0}
+    assert report["measured_at"] == 5.0
+
+
+async def test_boneio_report_includes_tasks(monkeypatch):
+    from boneio.core.system import cpu_why
+
+    monkeypatch.setattr(
+        cpu_why, "explain", lambda interval=1.0: {"threads": [], "hot_thread": None, "stacks": []}
+    )
+    report = await route.get_cpu_boneio()
+    assert {"threads", "hot_thread", "stacks", "tasks"} <= report.keys()
+    assert any(task["count"] >= 1 for task in report["tasks"])
+
+
 # -------------------------------------------------------------------- access
 
 
@@ -152,6 +188,8 @@ def test_diagnostics_are_admin_only():
         ("GET", "/api/diagnostics/capture"),
         ("POST", "/api/diagnostics/capture"),
         ("DELETE", "/api/diagnostics/capture"),
+        ("GET", "/api/diagnostics/cpu"),
+        ("GET", "/api/diagnostics/cpu/boneio"),
     ):
         assert policy.required_role(method, path) is Role.ADMIN, f"{method} {path}"
         assert not policy.role_allows(Role.VIEWER, method, path)
