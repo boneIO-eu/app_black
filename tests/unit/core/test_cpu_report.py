@@ -140,3 +140,16 @@ def test_container_label_uses_the_container_name(monkeypatch):
     sampler.sample()
     snap = sampler.sample()
     assert snap.processes[0].label == "nodered"
+
+
+def test_the_scan_does_not_blame_the_process_that_runs_it():
+    """The panel measures from inside boneIO; its own scan is not boneIO's load.
+
+    On a BeagleBone a scan is ~300 ms, which over a one-second measurement made
+    an idle boneIO look like it used a quarter of the processor.
+    """
+    import os
+
+    snap = CpuSampler().measure(0.2)
+    own = [p.percent for p in snap.processes if p.pid == os.getpid()]
+    assert not own or own[0] < 5.0

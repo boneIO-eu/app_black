@@ -23,6 +23,7 @@ house. A process is its name, its pid and its cgroup — the cgroup is what turn
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 import time
@@ -170,6 +171,26 @@ class CpuSampler:
         self._lock = threading.Lock()
         self._procs: dict[int, psutil.Process] = {}
         self._times = None
+        self._pid = os.getpid()
+        #: CPU this sampler has spent scanning, over all calls, in seconds.
+        self._spent = 0.0
+        #: (``_spent``, monotonic time) when our own process was last read.
+        self._own_mark: tuple[float, float] | None = None
+
+    def _without_own_scan(self, percent: float, started: float) -> float:
+        """Our own process's share, minus what scanning cost it.
+
+        Measured from inside boneIO, the scan would otherwise be reported as
+        boneIO's load: ~300 ms on a BeagleBone, a quarter of a one-second panel
+        measurement on an idle controller.
+        """
+        spent = self._spent + time.thread_time() - started
+        now = time.monotonic()
+        if self._own_mark is not None and now > self._own_mark[1]:
+            cost = spent - self._own_mark[0]
+            percent = max(0.0, percent - 100 * cost / (now - self._own_mark[1]))
+        self._own_mark = (spent, now)
+        return percent
 
     def sample(self) -> CpuSnapshot | None:
         """Usage since the previous call; ``None`` on the first, which is a baseline.
@@ -177,6 +198,7 @@ class CpuSampler:
         Blocks for the length of a process scan.
         """
         with self._lock:
+            started = time.thread_time()
             times = psutil.cpu_times()
             seen: dict[int, psutil.Process] = {}
             usage: list[ProcessUsage] = []
@@ -187,6 +209,8 @@ class CpuSampler:
                     # was asked before can say what it used since.
                     current = known or process
                     percent = current.cpu_percent(None)
+                    if process.pid == self._pid:
+                        percent = self._without_own_scan(percent, started)
                     seen[process.pid] = current
                     if known is None or not percent:
                         continue
@@ -196,6 +220,7 @@ class CpuSampler:
                 except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied):
                     continue
             before, self._times, self._procs = self._times, times, seen
+            self._spent += time.thread_time() - started
             if before is None:
                 return None
 
