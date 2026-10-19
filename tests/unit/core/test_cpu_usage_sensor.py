@@ -49,8 +49,8 @@ def _cpu(monkeypatch, percent):
 def _scans(monkeypatch, result):
     calls = []
 
-    def sample():
-        calls.append(1)
+    def sample(max_age=None):
+        calls.append(max_age)
         return result
 
     monkeypatch.setattr(cpu_report.SAMPLER, "sample", sample)
@@ -112,3 +112,21 @@ async def test_attributes_cleared_as_soon_as_cpu_drops(sensor, monkeypatch):
     _cpu(monkeypatch, 20.0)
     await sensor.async_update(10.0)
     assert "top1_name" not in sensor.sent()
+
+
+async def test_the_scan_asks_for_a_recent_baseline(sensor, monkeypatch):
+    _cpu(monkeypatch, 100.0)
+    calls = _scans(monkeypatch, BUSY)
+    await sensor.async_update(0.0)
+    assert calls == [2 * system.CPU_SCAN_INTERVAL]
+
+
+async def test_a_failing_scan_still_publishes_the_cpu(sensor, monkeypatch):
+    _cpu(monkeypatch, 100.0)
+
+    def broken(max_age=None):
+        raise RuntimeError("no /proc")
+
+    monkeypatch.setattr(cpu_report.SAMPLER, "sample", broken)
+    await sensor.async_update(0.0)
+    assert sensor.sent()["state"] == 100.0

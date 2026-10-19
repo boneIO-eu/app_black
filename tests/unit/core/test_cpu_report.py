@@ -153,3 +153,24 @@ def test_the_scan_does_not_blame_the_process_that_runs_it():
     snap = CpuSampler().measure(0.2)
     own = [p.percent for p in snap.processes if p.pid == os.getpid()]
     assert not own or own[0] < 5.0
+
+
+def test_a_stale_baseline_is_replaced_not_reported(monkeypatch):
+    """Hours since the last scan would average a runaway process down to nothing."""
+    clock = [1000.0]
+    monkeypatch.setattr(cpu_report.time, "monotonic", lambda: clock[0])
+    sampler = CpuSampler()
+    assert sampler.sample() is None
+    clock[0] += 200
+    assert sampler.sample(max_age=120) is None
+    clock[0] += 10
+    assert sampler.sample(max_age=120) is not None
+
+
+def test_an_idle_controller_does_not_suspect_interrupts():
+    snap = CpuSnapshot(
+        0.0,
+        {"user": 2, "system": 1, "iowait": 0, "irq": 0, "softirq": 0, "idle": 97},
+        [ProcessUsage(9, "ksoftirqd/0", "ksoftirqd/0", 0.3)],
+    )
+    assert not looks_like_interrupts(snap)

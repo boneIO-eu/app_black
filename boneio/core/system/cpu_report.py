@@ -106,6 +106,8 @@ def looks_like_interrupts(snapshot: CpuSnapshot) -> bool:
     network, which no process list will explain.
     """
     # ponytail: rough thresholds, tune them after the first real case.
+    if snapshot.breakdown.get("idle", 100) >= 50:
+        return False
     irq = snapshot.breakdown.get("irq", 0) + snapshot.breakdown.get("softirq", 0)
     if irq >= 30:
         return True
@@ -171,6 +173,7 @@ class CpuSampler:
         self._lock = threading.Lock()
         self._procs: dict[int, psutil.Process] = {}
         self._times = None
+        self._baseline_at = 0.0
         self._pid = os.getpid()
         #: CPU this sampler has spent scanning, over all calls, in seconds.
         self._spent = 0.0
@@ -192,8 +195,13 @@ class CpuSampler:
         self._own_mark = (spent, now)
         return percent
 
-    def sample(self) -> CpuSnapshot | None:
+    def sample(self, max_age: float | None = None) -> CpuSnapshot | None:
         """Usage since the previous call; ``None`` on the first, which is a baseline.
+
+        Args:
+            max_age: Seconds after which the previous call is too old to compare
+                with — a runaway process averaged over hours of idle looks idle.
+                Such a call only takes a new baseline and returns ``None``.
 
         Blocks for the length of a process scan.
         """
@@ -221,7 +229,9 @@ class CpuSampler:
                     continue
             before, self._times, self._procs = self._times, times, seen
             self._spent += time.thread_time() - started
-            if before is None:
+            stale = max_age is not None and time.monotonic() - self._baseline_at > max_age
+            self._baseline_at = time.monotonic()
+            if before is None or stale:
                 return None
 
         if any(p.label.startswith("docker:") for p in usage):

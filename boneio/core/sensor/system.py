@@ -374,6 +374,24 @@ class CpuUsageSensor(BaseSensor):
         self._last_scan = float("-inf")
         _LOGGER.info("Initialized CpuUsageSensor")
 
+    async def _scan(self) -> None:
+        """Set the top-three attributes; never stops the CPU being published."""
+        try:
+            # A baseline older than two scans would average a runaway process
+            # over the idle hours before it.
+            snapshot = await asyncio.to_thread(
+                cpu_report.SAMPLER.sample, max_age=2 * CPU_SCAN_INTERVAL
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Could not see what uses the CPU: %s", err)
+            self._attributes = {}
+            return
+        # A first scan is only a baseline; the next reading rescans rather than
+        # leaving HA without an answer for a minute.
+        if snapshot is not None:
+            self._last_scan = time.monotonic()
+            self._attributes = _top_attributes(snapshot)
+
     @property
     def device_class(self) -> str:
         """Get Home Assistant device class."""
@@ -400,12 +418,7 @@ class CpuUsageSensor(BaseSensor):
             if usage_percent < CPU_BUSY_PERCENT:
                 self._attributes = {}
             elif time.monotonic() - self._last_scan >= CPU_SCAN_INTERVAL:
-                snapshot = await asyncio.to_thread(cpu_report.SAMPLER.sample)
-                # A first scan is only a baseline; the next reading rescans
-                # rather than leaving HA without an answer for a minute.
-                if snapshot is not None:
-                    self._last_scan = time.monotonic()
-                    self._attributes = _top_attributes(snapshot)
+                await self._scan()
             self._publish_state(timestamp=timestamp)
             
         except Exception as err:
