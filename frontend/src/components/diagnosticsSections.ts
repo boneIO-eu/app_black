@@ -52,6 +52,7 @@ export const DIAGNOSTICS_SECTIONS: DiagnosticsSectionDef[] = [
   { name: 'support', icon: '🛟', titleKey: 'diagnostics.section_support', descriptionKey: 'diagnostics.section_support_desc', group: 'log' },
 
   { name: 'disk', icon: '💾', titleKey: 'diagnostics.section_disk', descriptionKey: 'diagnostics.section_disk_desc', group: 'system' },
+  { name: 'cpu', icon: '🔥', titleKey: 'diagnostics.section_cpu', descriptionKey: 'diagnostics.section_cpu_desc', group: 'system' },
 
   { name: 'modbus', icon: '🔌', titleKey: 'diagnostics.section_modbus', descriptionKey: 'diagnostics.section_modbus_desc', group: 'buses' },
   { name: 'i2c', icon: '🧩', titleKey: 'diagnostics.section_i2c', descriptionKey: 'diagnostics.section_i2c_desc', group: 'buses' },

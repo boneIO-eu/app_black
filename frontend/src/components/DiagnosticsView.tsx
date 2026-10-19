@@ -17,6 +17,7 @@ import CANNetwork from './CANNetwork';
 import { I2CSection, CANNotSupported } from './Tools';
 import SupportSection from './SupportSection';
 import DiskSection from './DiskSection';
+import CpuSection from './CpuSection';
 import { useState } from 'react';
 
 /**
@@ -133,6 +134,10 @@ export default function DiagnosticsView() {
         ) : activeSection === 'disk' ? (
           <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <DiskSection />
+          </div>
+        ) : activeSection === 'cpu' ? (
+          <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <CpuSection />
           </div>
         ) : (
           <div className="stg-canvas flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
