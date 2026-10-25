@@ -251,8 +251,14 @@ async def scan_onewire_buses(manager: Manager = Depends(get_manager)):
         _LOGGER.error("1-Wire scan failed: %s", e, exc_info=True)
         return {"buses": [], "devices": [], "error": str(e)}
 
-    buses_info = []
-    if Path("/sys/bus/w1/devices").is_dir():
-        buses_info.append({"id": "w1-kernel"})
+    # One entry per bus master the kernel registered: none means the
+    # ds2482/w1 driver is not bound, which is a different fault from an
+    # empty bus.
+    w1_dir = Path("/sys/bus/w1/devices")
+    buses_info = (
+        [{"id": p.name} for p in sorted(w1_dir.glob("w1_bus_master*"))]
+        if w1_dir.is_dir()
+        else []
+    )
 
     return {"buses": buses_info, "devices": devices}

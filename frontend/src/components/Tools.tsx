@@ -13,7 +13,7 @@
  * configuration for an integration rather than reading hardware, so it is a
  * settings section under Connections.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FaCopy, FaSearch } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
@@ -202,6 +202,121 @@ export function I2CSection() {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+interface OneWireDevice {
+  address: string;
+  address_esphome: string | null;
+  family_name: string;
+  configured: boolean;
+}
+
+interface OneWireScanResult {
+  buses: { id: string }[];
+  devices: OneWireDevice[];
+  error?: string;
+}
+
+/**
+ * What the kernel lists under /sys/bus/w1. Reading that is a directory
+ * listing, so it runs on opening; the button is for after rewiring.
+ */
+export function OneWireSection() {
+  const { t } = useTranslation();
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState<OneWireScanResult | null>(null);
+
+  const handleScan = useCallback(async () => {
+    setScanning(true);
+    try {
+      const { data } = await axios.get<OneWireScanResult>('/api/onewire/scan');
+      setResult(data);
+    } catch (err) {
+      setResult({ buses: [], devices: [], error: String(err) });
+    } finally {
+      setScanning(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void handleScan();
+  }, [handleScan]);
+
+  return (
+    <div>
+      <div className="stg-card mb-4">
+        <div className="card-body p-4 sm:p-5 flex-row items-center gap-4">
+          <button
+            className={`btn btn-primary gap-2 ${scanning ? 'loading' : ''}`}
+            onClick={handleScan}
+            disabled={scanning}
+          >
+            {!scanning && <FaSearch />}
+            {scanning ? t('tools.i2c_scanning') : t('tools.onewire_rescan')}
+          </button>
+          {result && result.buses.length > 0 && (
+            <span className="font-mono text-xs text-base-content/60">
+              {result.buses.map((b) => b.id).join(', ')}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {result?.error && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-l-[3px] border-error/25 border-l-error bg-error/8 p-3.5 text-[13px]">
+          <span>{result.error}</span>
+        </div>
+      )}
+
+      {result && !result.error && result.buses.length === 0 && (
+        <div className="alert alert-warning mb-4">
+          <span>{t('tools.onewire_no_bus')}</span>
+        </div>
+      )}
+
+      {result && !result.error && result.buses.length > 0 && result.devices.length === 0 && (
+        <div className="alert alert-warning mb-4">
+          <span>{t('tools.onewire_no_devices')}</span>
+        </div>
+      )}
+
+      {result && result.devices.length > 0 && (
+        <div className="stg-card mb-4">
+          <div className="card-body p-4 sm:p-5">
+            <h2 className="font-semibold text-[15px] tracking-tight mb-2">
+              {t('tools.onewire_found', { count: result.devices.length })}
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>{t('tools.onewire_address')}</th>
+                    <th>{t('tools.onewire_esphome')}</th>
+                    <th>{t('tools.onewire_type')}</th>
+                    <th>{t('tools.onewire_in_config')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.devices.map((dev) => (
+                    <tr key={dev.address} className="hover">
+                      <td className="font-mono font-bold text-primary select-all">{dev.address}</td>
+                      <td className="font-mono text-base-content/70 select-all">{dev.address_esphome ?? '—'}</td>
+                      <td>{dev.family_name}</td>
+                      <td>
+                        <span className={`badge badge-sm ${dev.configured ? 'badge-success' : 'badge-ghost'}`}>
+                          {dev.configured ? t('tools.onewire_configured') : t('tools.onewire_not_configured')}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

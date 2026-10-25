@@ -14,7 +14,7 @@ import LogViewer from './LogViewer';
 import ModbusHelper from './ModbusHelper';
 import CANHelper from './CANHelper';
 import CANNetwork from './CANNetwork';
-import { I2CSection, CANNotSupported } from './Tools';
+import { I2CSection, OneWireSection, CANNotSupported } from './Tools';
 import SupportSection from './SupportSection';
 import DiskSection from './DiskSection';
 import CpuSection from './CpuSection';
@@ -148,6 +148,7 @@ export default function DiagnosticsView() {
                 <>
                   {activeSection === 'modbus' && <ModbusHelper />}
                   {activeSection === 'i2c' && <I2CSection />}
+                  {activeSection === 'onewire' && <OneWireSection />}
                   {activeSection === 'can_network' && <CANNetwork />}
                   {activeSection === 'can_sniffer' && <CANHelper />}
                 </>

@@ -56,6 +56,7 @@ export const DIAGNOSTICS_SECTIONS: DiagnosticsSectionDef[] = [
 
   { name: 'modbus', icon: '🔌', titleKey: 'diagnostics.section_modbus', descriptionKey: 'diagnostics.section_modbus_desc', group: 'buses' },
   { name: 'i2c', icon: '🧩', titleKey: 'diagnostics.section_i2c', descriptionKey: 'diagnostics.section_i2c_desc', group: 'buses' },
+  { name: 'onewire', icon: '🌡️', titleKey: 'diagnostics.section_onewire', descriptionKey: 'diagnostics.section_onewire_desc', group: 'buses' },
   { name: 'can_network', icon: '⚡', titleKey: 'diagnostics.section_can_network', descriptionKey: 'diagnostics.section_can_network_desc', group: 'buses', requiresCan: true },
   { name: 'can_sniffer', icon: '📡', titleKey: 'diagnostics.section_can_sniffer', descriptionKey: 'diagnostics.section_can_sniffer_desc', group: 'buses', requiresCan: true },
 ];
