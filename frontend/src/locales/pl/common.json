@@ -230,6 +230,7 @@
     "id_hint": "Pozostaw puste, aby użyć adresu jako ID",
     "address_required": "Adres czujnika jest wymagany",
     "address_duplicate": "Ten czujnik jest już skonfigurowany",
+    "address_invalid": "To nie jest adres 1-Wire: wpisz 28-0000098c7df0 albo postać z ESPHome 0xc0000000053f3328",
     "bus_id": "ID Magistrali",
     "view_title": "Sensory",
     "no_sensors": "Brak skonfigurowanych sensorów systemowych",

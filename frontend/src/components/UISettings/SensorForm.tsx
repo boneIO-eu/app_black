@@ -4,6 +4,7 @@ import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '../../hooks/useTranslation';
 import axios from '@/api/axios';
 import { sanitizeId } from './helpers/idValidation';
+import { esphomeAddress, kernelAddress } from './helpers/onewireAddress';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
@@ -15,6 +16,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { JsonSchema } from '@/types/jsonSchema';
+
+/** Either address form, compared as the one sensor it names. */
+const sameAddress = (a?: string, b?: string) =>
+  !!a && !!b && (kernelAddress(a) ?? a) === (kernelAddress(b) ?? b);
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -80,11 +85,13 @@ const SensorForm: React.FC<SensorFormProps> = ({
     // Address is required
     if (!data.address) {
       newErrors.address = 'address_required';
+    } else if (!kernelAddress(data.address)) {
+      newErrors.address = 'address_invalid';
     }
     
     // Check for duplicate address
     const isDuplicate = existingSensors.some((sensor, index) => 
-      sensor.address === data.address && index !== editingIndex
+      sameAddress(sensor.address, data.address) && index !== editingIndex
     );
     if (isDuplicate) {
       newErrors.address = 'address_duplicate';
@@ -172,10 +179,8 @@ const SensorForm: React.FC<SensorFormProps> = ({
   // Use local sensors for the dropdown
   const allSensors = localSensors;
   const getUnusedSensorsLocal = () => {
-    const usedAddresses = existingSensors
-      .filter((_, index) => index !== editingIndex)
-      .map(s => s.address);
-    return allSensors.filter(s => !usedAddresses.includes(s.address));
+    const used = existingSensors.filter((_, index) => index !== editingIndex);
+    return allSensors.filter(s => !used.some(u => sameAddress(u.address, s.address)));
   };
   const unusedSensorsLocal = getUnusedSensorsLocal();
 
@@ -225,11 +230,13 @@ const SensorForm: React.FC<SensorFormProps> = ({
             <SelectContent>
               {unusedSensorsLocal.map((sensor) => (
                 <SelectItem key={sensor.address} value={sensor.address}>
-                  {sensor.address} ({sensor.type})
+                  {sensor.address}
+                  <span className="font-mono text-base-content/50"> · {esphomeAddress(sensor.address)}</span>
+                  {' '}({sensor.type})
                 </SelectItem>
               ))}
               {/* Show current value if it's not in the list */}
-              {data.address && !allSensors.find(s => s.address === data.address) && (
+              {data.address && !allSensors.find(s => sameAddress(s.address, data.address)) && (
                 <SelectItem value={data.address}>{data.address} (manual)</SelectItem>
               )}
             </SelectContent>
@@ -253,8 +260,15 @@ const SensorForm: React.FC<SensorFormProps> = ({
             className={`input input-bordered w-full font-mono ${errors.address ? 'input-error' : ''}`}
             value={data.address || ''}
             onChange={(e) => handleChange('address', e.target.value)}
-            placeholder="28-0000098c7df0"
+            placeholder="28-0000098c7df0 / 0xc0000000053f3328"
           />
+          {!errors.address && data.address && (
+            <label className="label">
+              <span className="label-text-alt font-mono">
+                {kernelAddress(data.address)} · {esphomeAddress(data.address)}
+              </span>
+            </label>
+          )}
           {errors.address && (
             <label className="label">
               <span className="label-text-alt text-error">{getErrorMessage(errors.address)}</span>

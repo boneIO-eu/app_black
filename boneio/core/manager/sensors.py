@@ -371,10 +371,12 @@ class SensorManager:
         """Scan 1-Wire devices via kernel w1 subsystem.
 
         Returns:
-            List of dicts with keys: bus_id, address, family, family_name,
-            configured (whether sensor is already in config).
+            List of dicts with keys: bus_id, address, address_esphome, family,
+            family_name, configured (whether sensor is already in config).
         """
         from pathlib import Path
+
+        from boneio.core.config.onewire_address import esphome_address
 
         # Family code -> human-readable name
         family_names: dict[str, str] = {
@@ -413,10 +415,15 @@ class SensorManager:
                 clean_addr = raw_id.replace("-", "")
                 family_code = clean_addr[:2] if len(clean_addr) >= 2 else "28"
                 is_configured = clean_addr in configured_normalized
+                try:
+                    address_esphome = esphome_address(item.name)
+                except ValueError:
+                    address_esphome = None
 
                 results.append({
                     "bus_id": "kernel",
                     "address": item.name,
+                    "address_esphome": address_esphome,
                     "family": family_code,
                     "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
                     "configured": is_configured,

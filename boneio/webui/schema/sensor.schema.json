@@ -30,7 +30,7 @@
           },
           "address": {
             "type": "string",
-            "description": "Address of Dallas device (e.g. 28-0000098c7df0)",
+            "description": "Address of Dallas device, as the kernel names it (28-0000098c7df0) or as ESPHome writes it (0xc0000000053f3328)",
             "title": "Address"
           },
           "show_in_ha": {

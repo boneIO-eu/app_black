@@ -221,7 +221,7 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
         ("boneio", {"config_version": 7, "name": "Home", "version": "1.1", "device_type": "24x16A",
                     "ha_child_devices": True, "ha_child_devices_naming": "device_name_area",
                     "serial_override": "blk265f49"}, (), False),
-        ("sensor", {"id": "t1", "name": "Floor", "area": "hall", "address": "28-0000", "show_in_ha": False,
+        ("sensor", {"id": "t1", "name": "Floor", "area": "hall", "address": "28-0000098c7df0", "show_in_ha": False,
                     "filters": [{"offset": 0.5}, {"round": 1}], "update_interval": "30s",
                     "unit_of_measurement": "°F"}, (), False),
         ("adc", {"name": "Tank", "id": "tank", "pin": "P9_33", "area": "a", "update_interval": "10s",
@@ -358,6 +358,10 @@ STRICTER_ON_PURPOSE = [
     ("", "null value not allowed: pin"),
     # min: 1s in the schema never ran (TimePeriod against a string).
     (".update_interval", "at least 1s"),
+    # Start-up loads a 1-Wire address it cannot read, so one bad entry does
+    # not stop the controller; a save has to give a real one.
+    (".address", "not a 1-Wire address"),
+    (".address", "CRC byte does not match"),
 ]
 
 

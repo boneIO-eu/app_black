@@ -2848,8 +2848,9 @@ sensor:
       address:
         type: string
         required: True
+        coerce: onewire_address
         meta:
-          label: Address of Dallas device (e.g. 28-0000098c7df0)
+          label: Address of Dallas device, as the kernel names it (28-0000098c7df0) or as ESPHome writes it (0xc0000000053f3328)
       show_in_ha:
         type: boolean
         required: False

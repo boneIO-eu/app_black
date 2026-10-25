@@ -225,6 +225,7 @@
     "id_hint": "Leave empty to use address as ID",
     "address_required": "Sensor address is required",
     "address_duplicate": "This sensor is already configured",
+    "address_invalid": "Not a 1-Wire address: use 28-0000098c7df0 or the ESPHome form 0xc0000000053f3328",
     "bus_id": "Bus ID",
     "view_title": "Sensors",
     "no_sensors": "No system sensors configured",

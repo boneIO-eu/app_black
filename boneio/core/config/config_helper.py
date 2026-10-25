@@ -32,6 +32,7 @@ from boneio.const import (
     TEXT_SENSOR,
     VALVE,
 )
+from boneio.core.config.onewire_address import kernel_addresses
 from boneio.core.config.yaml_util import (
     load_config_from_file,
     load_yaml_file,
@@ -555,6 +556,10 @@ class ConfigHelper:
             raise ValueError(f"Failed to load config from: {self._config_file_path}")
 
         merged = merge_board_config(config_yaml)
+        # Start-up's validation does this; the sensors must not see an
+        # unquoted 0x... as a number only after a reload.
+        if SENSOR in merged:
+            merged[SENSOR] = kernel_addresses(merged[SENSOR])
         self._config_cache = merged
 
         elapsed = _time.monotonic() - _t0
@@ -598,6 +603,8 @@ class ConfigHelper:
             The section the way the reload path would see it.
         """
         cleaned = strip_default_values(copy.deepcopy(data), {}, section)
+        if section == SENSOR:
+            cleaned = kernel_addresses(cleaned)
         boneio = self._config_cache.get(BONEIO) if self._config_cache else None
         if section not in _BOARD_SECTIONS or not isinstance(boneio, dict):
             return cleaned

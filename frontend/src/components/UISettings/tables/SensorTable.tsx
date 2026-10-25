@@ -6,6 +6,15 @@ import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { formatTimeperiod } from '@/utils/formatters';
+import { esphomeAddress } from '../helpers/onewireAddress';
+
+/** The address as written, and under it the form ESPHome takes. */
+const AddressCell: React.FC<{ address: string }> = ({ address }) => (
+  <>
+    <span className="block">{address}</span>
+    <span className="block text-xs text-base-content/50">{esphomeAddress(address)}</span>
+  </>
+);
 
 interface Area {
   id: string;
@@ -74,7 +83,7 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
               onEdit={() => onEdit(originalIndex)}
               onDelete={() => onDelete(originalIndex)}
               fields={[
-                ...(item.address ? [{ label: t('sensors.address'), value: <span className="font-mono text-xs">{item.address}</span> }] : []),
+                ...(item.address ? [{ label: t('sensors.address'), value: <span className="font-mono text-xs"><AddressCell address={item.address} /></span> }] : []),
                 { label: t('sensors.platform'), value: <span className="badge badge-info badge-xs">{item.platform || 'gpio_onewire'}</span> },
                 ...(areaName ? [{ label: t('sensors.area'), value: areaName }] : []),
                 ...(item.update_interval ? [{ label: t('sensors.update_interval'), value: formatTimeperiod(item.update_interval) }] : []),
@@ -115,7 +124,7 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
                       )}
                     </div>
                   </Td>
-                  <Td className="font-mono text-sm">{item.address || '-'}</Td>
+                  <Td className="font-mono text-sm">{item.address ? <AddressCell address={item.address} /> : '-'}</Td>
                   <Td>{areaName}</Td>
                   <Td>
                     <span className="badge badge-info badge-sm">{item.platform || 'gpio_onewire'}</span>

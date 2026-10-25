@@ -14,6 +14,7 @@ from typing import Annotated, Any, Literal, Union
 from pydantic import AfterValidator, BeforeValidator, Field, TypeAdapter, model_validator
 
 from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, str_lower
+from boneio.core.config.onewire_address import kernel_address
 from boneio.core.config.yaml_util import _get_schema
 
 Number = Union[float, int]
@@ -35,7 +36,8 @@ class OneWireSensor(Model):
     id: str | None = None
     name: str | None = None
     area: str | None = None
-    address: str
+    # Stricter than start-up, which lets an unknown address through.
+    address: Annotated[str, BeforeValidator(kernel_address)]
     show_in_ha: bool = True
     filters: list[Filter] = Field(default_factory=lambda: [{"round": 2}])
     update_interval: StrPeriod = _interval("60s")

@@ -912,6 +912,12 @@ class CustomValidator(Validator):
         """Convert value to string."""
         return str(value)
 
+    def _normalize_coerce_onewire_address(self, value):
+        """1-Wire address in kernel or ESPHome form -> kernel form."""
+        from boneio.core.config.onewire_address import loaded_address
+
+        return loaded_address(value)
+
     def _normalize_coerce_version_to_str(self, value):
         """Convert value to string."""
         _v = str(value)
