@@ -1,3 +1,53 @@
+# ⛔ DO NOT INSTALL THIS VERSION ⛔
+
+**This is a beta. Please do not use this version.**
+
+`1.6.4.dev1` exists so that we can check a fix for lost button presses on a
+development controller. It is a test build of the coming 1.6.4 and has had no
+wider testing.
+
+- **Do not install it on a controller you depend on.**
+- **Do not install it on a device you cannot reach with a console or an SD card
+  reader.**
+- If your panel offers it as an update, **skip it.** It is marked as a
+  pre-release and is not offered automatically; you would have to select it by
+  hand.
+
+Stay on the latest stable release. A version of this work that is meant for you
+will be announced as such, and it will not look like this notice.
+
+---
+
+# v1.6.4.dev1 — internal test build
+
+## Since 1.6.3
+
+The main reason for this build is a controller with bell push buttons that lost
+up to two thirds of the clicks in the "Event entities" mode. On that wiring the
+first sub-millisecond bounce of a press shows up as a rising edge while the
+button is still released. The detector read it as a release, and the real press
+a fraction of a millisecond later was dropped as too soon after it. A rising
+edge with no press in progress is now ignored. Replaying the edges logged on
+that installation, the old detector reproduces the log exactly (20 clicks) and
+the new one finds all 42 presses. Inputs used as binary sensors were never
+affected. This is the thing to check on the device.
+
+The controller now announces its panel on the local network over mDNS, as
+`_boneio._tcp`, so Home Assistant and other tools can find it without knowing
+its address. It uses the `avahi-daemon` already running in the image and needs
+nothing from you. PyJWT is updated to 2.15.1 and `multidict` is held at 6.9.1
+or newer; the first-run wizard now says "controller" instead of "board".
+
+It also carries the settings dialog fix described below for 1.6.4: the "Device
+type change warning" dialog, and the other dialogs opened from settings cards,
+open over the whole screen again, so a change of controller type can be
+confirmed.
+
+No system migration was added; 1.6.1 to 1.6.46 are signed as before. Only the
+manifest is re-signed, because it names the release.
+
+---
+
 # boneIO Black 1.6.4
 
 A small fix release after 1.6.3. On a controller already running 1.6.0 to

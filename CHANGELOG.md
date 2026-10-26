@@ -6,10 +6,9 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
-## v1.6.4 (2026-10-16) — 1.6.x security series
+## v1.6.4.dev1 (2026-10-26) — 1.6.x security series
 
-A fix for settings dialogs that could not be confirmed. See RELEASE_NOTES.md
-before updating.
+Still a beta. See RELEASE_NOTES.md before installing anything.
 
 ### ⚙️ Settings
 
@@ -23,6 +22,33 @@ before updating.
   once it finishes, and the staggered entrance stays. The same fix covers the
   other dialogs embedded in settings cards (for example Web server and
   Self-test).
+
+### 🔘 Inputs
+
+- **A press is no longer lost to a glitch just before it.** On some wiring the
+  first sub-millisecond bounce of a press is reported as a rising edge while
+  the button is still released. In event mode the detector took it as a release
+  and then dropped the real press a moment later, so up to two thirds of the
+  clicks of bell push buttons disappeared. A rising edge with no press in
+  progress is now ignored. Inputs used as binary sensors were never affected.
+
+### 📡 Network
+
+- **The panel announces itself on the LAN over mDNS as `_boneio._tcp`.** Home
+  Assistant and anything else on the network can find a controller without
+  being told its address. It goes through the `avahi-daemon` that already runs
+  in the image, as the `boneio` user; the instance name is the MAC serial and
+  the TXT record carries serial, name, device type, board and protocol version.
+
+### 📦 Dependencies
+
+- **PyJWT 2.15.1 and a `multidict` floor of 6.9.1.** Both close upstream issues
+  that do not reach the panel as configured, but the pin was what kept devices
+  on the affected versions.
+
+### 🧭 First-run wizard
+
+- **The wizard says "controller", not "board".** English and Polish texts.
 
 - **System migrations 1.6.1–1.6.46**, signed; no new migration in this release.
 
