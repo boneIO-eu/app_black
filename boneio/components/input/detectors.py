@@ -640,17 +640,16 @@ class MultiClickDetector:
 
         elif event.event_type is event.Type.RISING_EDGE:
             # Button released (RISING_EDGE on BeagleBone with pull-up)
-            
-            # Software debounce (release-vs-release)
-            if self._state.last_release_ts and (timestamp_s - self._state.last_release_ts) < self._debounce_seconds:
-                delta_ms = (timestamp_s - self._state.last_release_ts) * 1000
-                _LOGGER.debug(
-                    "Ignoring bounced release on %s (%.3f ms since last release)",
-                    self._name,
-                    delta_ms,
-                )
+
+            # A rising edge with no press in progress is noise, not a release.
+            # The first sub-millisecond bounce of a press can be reported as
+            # RISING; treating it as a release would stamp last_release_ts and
+            # the real FALLING right behind it would die in the cross-debounce
+            # below, losing the whole click.
+            if self._state.last_press_ts is None or self._state.last_release_ts is not None:
+                _LOGGER.debug("Rising edge on %s while not pressed, ignoring", self._name)
                 return
-            
+
             # Cross-debounce: ignore release too close to press (bounce on rising edge)
             if self._state.last_press_ts and (timestamp_s - self._state.last_press_ts) < self._debounce_seconds:
                 delta_ms = (timestamp_s - self._state.last_press_ts) * 1000

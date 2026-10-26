@@ -258,3 +258,49 @@ class TestBootPressSuppression:
             det._finalize_clicks()
 
         callback.assert_called_once_with("single", None)
+
+
+# ── Tests: Rising glitch at the start of a press ────────────────────────────
+
+
+def _glitchy_press(det: MultiClickDetector, t: float) -> None:
+    """Edge sequence logged on a real installation: every press opens with a
+    sub-millisecond RISING glitch, then the contact bounces, then releases."""
+    det.handle_event(_rising(t))
+    det.handle_event(_falling(t + 0.000457))
+    det.handle_event(_rising(t + 0.000557))
+    det.handle_event(_falling(t + 0.000857))
+    det.handle_event(_rising(t + 0.200))
+
+
+def _finalize(det: MultiClickDetector) -> None:
+    if det._state.finalizer:
+        det._state.finalizer.cancel()
+        det._finalize_clicks()
+
+
+class TestRisingGlitchBeforePress:
+    """A RISING edge while released must not arm the cross-debounce."""
+
+    async def test_glitchy_press_is_single(self):
+        loop = asyncio.get_event_loop()
+        callback = MagicMock()
+        det = _make_detector(loop, callback)
+
+        _glitchy_press(det, 100.0)
+        _finalize(det)
+
+        callback.assert_called_once_with("single", None)
+
+    async def test_glitchy_double_click(self):
+        loop = asyncio.get_event_loop()
+        callback = MagicMock()
+        det = _make_detector(loop, callback)
+
+        _glitchy_press(det, 100.0)
+        if det._state.finalizer:
+            det._state.finalizer.cancel()
+        _glitchy_press(det, 100.3)
+        _finalize(det)
+
+        callback.assert_called_once_with("double", None)
