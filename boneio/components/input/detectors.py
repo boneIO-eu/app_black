@@ -664,14 +664,15 @@ class MultiClickDetector:
             press_duration_ms = (timestamp_s - self._state.last_press_ts) * 1000 if self._state.last_press_ts else 0
             _LOGGER.debug("RELEASED: %s (%s) after %.1f ms", self._name, self._pin, press_duration_ms)
 
-            # Guard: stale release from phantom press at boot.
-            # If time since press exceeds max_long_press_seconds, the press
-            # was a startup artifact (GPIO settling at boot), not a real user
-            # action.  Reset the detector so the next real press is accepted.
+            # Guard: stale release. If time since press exceeds
+            # max_long_press_seconds, the press was not a real hold: GPIO
+            # settling at boot, or a press whose release edge was lost while
+            # running. Reset the detector so the next real press is accepted.
             if self._state.last_press_ts and press_duration_ms > self._max_long_press_seconds * 1000:
                 _LOGGER.warning(
                     "Stale release on %s (%s): %.1fs since press exceeds max %.0fs. "
-                    "Likely phantom press from boot. Resetting detector.",
+                    "The release of that press was missed (input noise, or GPIO "
+                    "settling at boot). Resetting detector.",
                     self._name,
                     self._pin,
                     press_duration_ms / 1000,
