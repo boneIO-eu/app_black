@@ -1,61 +1,16 @@
-# ⛔ DO NOT INSTALL THIS VERSION ⛔
-
-**This is a beta. Please do not use this version.**
-
-`1.6.4.dev1` exists so that we can check a fix for lost button presses on a
-development controller. It is a test build of the coming 1.6.4 and has had no
-wider testing.
-
-- **Do not install it on a controller you depend on.**
-- **Do not install it on a device you cannot reach with a console or an SD card
-  reader.**
-- If your panel offers it as an update, **skip it.** It is marked as a
-  pre-release and is not offered automatically; you would have to select it by
-  hand.
-
-Stay on the latest stable release. A version of this work that is meant for you
-will be announced as such, and it will not look like this notice.
-
----
-
-# v1.6.4.dev1 — internal test build
-
-## Since 1.6.3
-
-The main reason for this build is a controller with bell push buttons that lost
-up to two thirds of the clicks in the "Event entities" mode. On that wiring the
-first sub-millisecond bounce of a press shows up as a rising edge while the
-button is still released. The detector read it as a release, and the real press
-a fraction of a millisecond later was dropped as too soon after it. A rising
-edge with no press in progress is now ignored. Replaying the edges logged on
-that installation, the old detector reproduces the log exactly (20 clicks) and
-the new one finds all 42 presses. Inputs used as binary sensors were never
-affected. This is the thing to check on the device.
-
-The controller now announces its panel on the local network over mDNS, as
-`_boneio._tcp`, so Home Assistant and other tools can find it without knowing
-its address. It uses the `avahi-daemon` already running in the image and needs
-nothing from you. PyJWT is updated to 2.15.1 and `multidict` is held at 6.9.1
-or newer; the first-run wizard now says "controller" instead of "board".
-
-It also carries the settings dialog fix described below for 1.6.4: the "Device
-type change warning" dialog, and the other dialogs opened from settings cards,
-open over the whole screen again, so a change of controller type can be
-confirmed.
-
-No system migration was added; 1.6.1 to 1.6.46 are signed as before. Only the
-manifest is re-signed, because it names the release.
-
----
-
 # boneIO Black 1.6.4
 
 A small fix release after 1.6.3. On a controller already running 1.6.0 to
-1.6.3 it only brings the fix below. Coming from 1.5.x, this is your update
+1.6.3 it brings the fixes below. Coming from 1.5.x, this is your update
 to the 1.6 series: read "Before you update" first.
 
 ## What 1.6.4 fixes
 
+- **Button presses are no longer lost in the "Event entities" mode.** On some
+  wiring, for example bell push buttons, up to two thirds of the clicks never
+  reached Home Assistant. A press is now counted even when a short glitch
+  precedes it. Inputs used as binary sensors were never affected. The warning
+  about a release that was not seen no longer says it comes from boot.
 - **After changing the configuration in settings, it could not be loaded.**
   Changing the controller type (for example to 32x10A) opens the "Device type
   change warning" dialog. It was clipped to the form card, so the Cancel and
@@ -63,6 +18,12 @@ to the 1.6 series: read "Before you update" first.
   confirmed. The same happened to other dialogs opened from settings cards,
   such as Web server and Self-test. The dialogs now open over the whole
   screen again. This was present since 1.6.0.
+- **The controller announces itself on the local network** over mDNS, as
+  `_boneio._tcp`, so Home Assistant and other tools can find it without knowing
+  its address. It uses the `avahi-daemon` already running in the image and
+  needs nothing from you.
+- **Dependencies:** PyJWT 2.15.1 and `multidict` 6.9.1 or newer.
+- The first-run wizard now says "controller" instead of "board".
 
 ## Before you update
 
@@ -153,5 +114,5 @@ you can — the output of `journalctl -u boneio -b`.
 ---
 
 System migrations 1.6.1 to 1.6.46 are signed with the plans; this release
-adds none. No plan changed since 1.6.0, only the manifest is re-signed,
-because it names the release.
+adds none. No plan changed, only the manifest is re-signed, because it names
+the release.

@@ -6,9 +6,10 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
-## v1.6.4.dev1 (2026-10-26) — 1.6.x security series
+## v1.6.4 (2026-10-28) — 1.6.x security series
 
-Still a beta. See RELEASE_NOTES.md before installing anything.
+Lost button presses in event mode, and settings dialogs that open over the
+whole screen again. See RELEASE_NOTES.md before updating.
 
 ### ⚙️ Settings
 
@@ -31,6 +32,11 @@ Still a beta. See RELEASE_NOTES.md before installing anything.
   and then dropped the real press a moment later, so up to two thirds of the
   clicks of bell push buttons disappeared. A rising edge with no press in
   progress is now ignored. Inputs used as binary sensors were never affected.
+- **The "release not seen" warning no longer blames boot.** When a press
+  outlives `max_long_press_duration` without a release, the log said "Likely
+  phantom press from boot" even on a controller that had been running for days.
+  It now names both possible causes: a press left over from start-up, or a
+  release edge missed while running.
 
 ### 📡 Network
 
