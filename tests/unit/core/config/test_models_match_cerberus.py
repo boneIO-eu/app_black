@@ -545,3 +545,14 @@ def test_the_modbus_update_interval_minimum_holds_on_save_only():
     assert cerberus == []  # start-up still loads a config that has it
     assert len(model) == 1 and "update_interval" in model[0] and "at least 1s" in model[0]
     assert _verdicts("modbus_devices", [{**entry, "update_interval": "1s"}]) == ([], [])
+
+
+def test_a_binary_sensor_keeps_its_name():
+    # Start-up reads it as the entity's name; a model without the field would
+    # drop it with the rest of what it does not know.
+    from boneio.core.config.models.inputs import SECTION_ADAPTERS
+
+    adapter = SECTION_ADAPTERS["binary_sensor"]
+    entry = {"name": "Kontaktron", "boneio_input": "in_01"}
+    assert adapter.dump_python(adapter.validate_python([entry]))[0]["name"] == "Kontaktron"
+    assert _verdicts("binary_sensor", [entry]) == ([], [])

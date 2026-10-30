@@ -13,7 +13,7 @@ from typing import Annotated, Any, ClassVar, Literal, Union
 
 from pydantic import AfterValidator, BeforeValidator, Discriminator, Field, Tag, TypeAdapter, model_validator
 
-from boneio.core.config.models.base import Model, Period, StrPeriod, coerce, str_lower
+from boneio.core.config.models.base import Model, Period, Str, StrPeriod, coerce, str_lower
 from boneio.core.config.yaml_util import condition_shape_errors
 
 
@@ -282,6 +282,9 @@ class BinarySensorActions(Model):
 
 
 class BinarySensor(Model):
+    # Not in the Cerberus schema, yet kept by it and read at start-up as the
+    # entity's name in HA; the factory configs name every input.
+    name: Str | None = None
     id: str | None = None
     pin: str | None = None
     bounce_time: StrPeriod = Field("120ms", validate_default=True)
