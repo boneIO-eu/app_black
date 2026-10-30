@@ -128,6 +128,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         
         
         self._modbus_entities: list[dict[str, ModbusEntity]] = []  # type: ignore[valid-type]
+        # Entities of "coil" blocks: written with FC05 instead of FC06.
+        self._coil_entities: set[ModbusBaseEntity] = set()
         self._modbus_entities_by_name: dict[str, ModbusEntity] = {}  # type: ignore[valid-type]
         self._additional_entities: list[dict[str, DerivedEntity]] = []  # type: ignore[valid-type]
         self._additional_entities_by_source_name: dict[str, list[DerivedEntity]] = {}  # type: ignore[valid-type]
@@ -260,6 +262,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 if custom_label:
                     single_sensor.set_custom_label(custom_label)
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
+                if data.get("register_type") == "coil":
+                    self._coil_entities.add(single_sensor)
 
     def __init_derived_numeric(
         self, additional: dict
@@ -738,6 +742,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             unit=self._address,
             address=source_sensor.write_address,
             value=encoded_value,
+            coil=source_sensor in self._coil_entities,
         )
         
         # Update states
@@ -789,7 +794,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         await self._modbus.write_register(
             unit=self._address, 
             address=entity.write_address, 
-            value=encoded_value
+            value=encoded_value,
+            coil=entity in self._coil_entities,
         )
         _LOGGER.debug("Register written address: %s value: %s, encoded: %s", entity.write_address, numeric_value, encoded_value)
         

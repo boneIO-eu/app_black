@@ -424,6 +424,11 @@ class Modbus:
                 result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
             elif method == "coil":
                 result = self._client.read_coils(**kwargs, no_response_expected=False)
+                # pymodbus puts coils in ``bits`` (padded to a byte) and leaves
+                # ``registers`` empty. One 0/1 register per coil lets coil blocks
+                # decode like any U_WORD register.
+                if not isinstance(result, ExceptionResponse) and hasattr(result, "bits"):
+                    result.registers = [int(bit) for bit in result.bits[:count]]
             else:
                 _LOGGER.error(f"Unknown method: {method}")
                 return None
@@ -495,8 +500,8 @@ class Modbus:
             )
         return result
 
-    def write_register_blocking(self, unit: int | str, address: int, value: int | float):
-        """Write register blocking (synchronous)."""
+    def write_register_blocking(self, unit: int | str, address: int, value: int | float, coil: bool = False):
+        """Write register (FC06) or, with ``coil``, a single coil (FC05), blocking."""
         start_time = time.perf_counter()
         result = None
         try:
@@ -517,7 +522,10 @@ class Modbus:
             # Use device_id parameter (pymodbus 3.10+)
             # _pymodbus_connect() guarantees self._client is not None here
             assert self._client is not None
-            result = self._client.write_register(address=address, value=int(value), device_id=int(unit))
+            if coil:
+                result = self._client.write_coil(address=address, value=bool(value), device_id=int(unit))
+            else:
+                result = self._client.write_register(address=address, value=int(value), device_id=int(unit))
 
             # Same key as reads: a holding register is usually both polled and
             # written, and a device that is down fails both.
@@ -658,6 +666,8 @@ class Modbus:
 
             if method == "input":
                 result = self._client.read_input_registers(**kwargs, no_response_expected=False)
+            elif method == "coil":
+                result = self._client.read_coils(**kwargs, no_response_expected=False)
             else:
                 result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
 
@@ -701,7 +711,7 @@ class Modbus:
 
         return value
 
-    async def write_register(self, unit: int | str, address: int, value: int | float):
+    async def write_register(self, unit: int | str, address: int, value: int | float, coil: bool = False):
         """Write register async.
 
         Returns None immediately when suspended.
@@ -710,13 +720,13 @@ class Modbus:
             return None
         async with self._lock:
             result = await self._loop.run_in_executor(
-                self._executor, self.write_register_blocking, unit, address, value
+                self._executor, self.write_register_blocking, unit, address, value, coil
             )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
             return result
 
-    async def write_register_direct(self, unit: int | str, address: int, value: int | float):
+    async def write_register_direct(self, unit: int | str, address: int, value: int | float, coil: bool = False):
         """Write register bypassing the suspend check.
 
         Used by Tools API for manual writes while coordinators are
@@ -729,6 +739,7 @@ class Modbus:
                 unit,
                 address,
                 value,
+                coil,
             )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)

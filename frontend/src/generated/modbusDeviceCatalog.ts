@@ -194,6 +194,16 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "defaultUpdateInterval": "30s",
     "hasSetBase": true
   },
+  "waveshare-16ch": {
+    "modelKey": "waveshare-16ch",
+    "displayName": "Waveshare Modbus RTU Relay 16CH",
+    "manufacturer": "Waveshare",
+    "description": "Waveshare 16-channel Modbus RTU relay module",
+    "category": "other",
+    "defaultAddress": 1,
+    "defaultUpdateInterval": "10s",
+    "hasSetBase": true
+  },
   "boneio-edge-temp": {
     "modelKey": "boneio-edge-temp",
     "displayName": "boneIO Edge Temp",

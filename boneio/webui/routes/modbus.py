@@ -49,6 +49,7 @@ class ModbusSetRequest(BaseModel):
     address: int
     register_address: int
     value: int | float
+    register_type: str = "holding"
 
 
 class ModbusSetMultipleRequest(BaseModel):
@@ -213,6 +214,7 @@ async def modbus_set(
                 unit=request.address,
                 address=request.register_address,
                 value=int(request.value),
+                coil=request.register_type == "coil",
             )
             
             if result:
@@ -510,7 +512,7 @@ async def get_modbus_config(boneio_manager: Manager = Depends(get_manager)):
     
     return {
         "configured": modbus_client is not None,
-        "register_types": ["holding", "input"],
+        "register_types": ["holding", "input", "coil"],
         "value_types": [
             "U_WORD", "S_WORD", 
             "U_DWORD", "S_DWORD", "U_DWORD_R", "S_DWORD_R",
