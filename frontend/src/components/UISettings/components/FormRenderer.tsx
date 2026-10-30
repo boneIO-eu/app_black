@@ -259,7 +259,6 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
         <ModbusDeviceForm
           data={editingItem}
           onChange={props.onChange}
-          schema={schema}
           areas={props.allAreas}
         />
       );

@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { JsonSchema } from '@/types/jsonSchema';
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -136,7 +135,6 @@ interface ModbusDeviceFormData {
 interface ModbusDeviceFormProps {
   data: ModbusDeviceFormData;
   onChange: (data: ModbusDeviceFormData) => void;
-  schema?: JsonSchema;
   areas?: Array<{ id: string; name: string }>;
 }
 
@@ -151,21 +149,19 @@ interface ModbusDeviceFormProps {
 const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({ 
   data, 
   onChange, 
-  schema,
   areas = []
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'filters' | 'data' | 'labels'>('basic');
 
-  // Extract model options from schema
-  const modelOptions = useMemo(() => {
-    const modelSchema = schema?.items?.properties?.model;
-    if (modelSchema?.enum) {
-      return modelSchema.enum as string[];
-    }
-    // Default models if not in schema
-    return ['sdm120', 'sdm630', 'cwt', 'liquid-sensor'];
-  }, [schema]);
+  // The device files on the controller, not the schema: a new model is a new
+  // file in boneio/modbus/devices/ and needs no schema rebuild.
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  useEffect(() => {
+    axios.get('/api/modbus/models')
+      .then((res) => setModelOptions(Object.keys((res.data as { models?: Record<string, unknown> }).models || {}).sort()))
+      .catch(() => {});
+  }, []);
 
   const updateField = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
