@@ -1,8 +1,9 @@
 /**
  * Shapes for `config.schema.json` and for the config data it describes.
  *
- * The schema is generated from `schema.yaml` (see `boneio/webui/schema/`), so
- * only the keywords that generator emits are spelled out. Anything else —
+ * The schema is generated from `schema.yaml`, or from the section's pydantic
+ * model where it has moved (see `boneio/webui/schema/`), so only the keywords
+ * those generators emit are spelled out. Anything else —
  * the `x-*` extensions most of all — is reachable through the index signature
  * as `unknown` and has to be narrowed where it is read.
  */

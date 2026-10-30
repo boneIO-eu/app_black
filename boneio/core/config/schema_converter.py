@@ -261,22 +261,29 @@ def build_schemas() -> dict[str, dict[str, Any]]:
     """Every JSON Schema file the panel is served, by file name.
 
     Sections in json_schema.FROM_MODELS come from their pydantic model, the
-    rest from schema.yaml.
+    rest from schema.yaml. A model's shared definitions go to the root of
+    config.schema.json and of the section's own file.
     """
     # Here, not at the top: the converter alone still imports without the
     # boneIO dependency graph.
-    from boneio.core.config.json_schema import FROM_MODELS, section_schema
+    from boneio.core.config.json_schema import FROM_MODELS, merge_defs, section_schema
 
     config = convert_cerberus_to_json_schema(load_schema_yaml())
     schemas = {"config.schema.json": config}
+    all_defs: dict[str, Any] = {}
     for name in config["properties"]:
+        defs: dict[str, Any] = {}
         if name in FROM_MODELS:
-            config["properties"][name] = section_schema(name)
+            config["properties"][name], defs = section_schema(name)
+            merge_defs(all_defs, defs, name)
         schemas[f"{name}.schema.json"] = {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
             "properties": {name: config["properties"][name]},
+            **({"$defs": defs} if defs else {}),
         }
+    if all_defs:
+        config["$defs"] = dict(sorted(all_defs.items()))
     return schemas
 
 

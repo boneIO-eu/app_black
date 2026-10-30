@@ -103,11 +103,13 @@ export default function ConfigEditor() {
             fileMatch: ["config.yaml", "config.yml"],
             schema: mainSchema
           },
-          // Section schemas for included files
+          // Section schemas for included files. A section made from its model
+          // points into the main schema's $defs (an action type is written
+          // there once), so each one carries them at its own root.
           ...Object.entries(mainSchema.properties ?? {}).map(([section, sectionSchema]) => ({
             uri: window.location.origin + `/schema/${section}.schema.json`,
             fileMatch: [`${section}.yaml`, `${section}.yml`],
-            schema: sectionSchema
+            schema: mainSchema.$defs ? { ...sectionSchema, $defs: mainSchema.$defs } : sectionSchema
           }))
         ],
         validate: true,

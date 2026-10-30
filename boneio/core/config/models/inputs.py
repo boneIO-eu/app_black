@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any, ClassVar, Literal, Union
 
-from pydantic import AfterValidator, BeforeValidator, Discriminator, Field, Tag, TypeAdapter, model_validator
+from pydantic import (
+    AfterValidator, BeforeValidator, ConfigDict, Discriminator, Field, Tag, TypeAdapter, model_validator,
+)
 
 from boneio.core.config.models.base import Model, Period, Str, StrPeriod, coerce, str_lower
 from boneio.core.config.yaml_util import condition_shape_errors
@@ -24,19 +26,25 @@ def _upper(value: Any) -> Any:
 SunOffset = Annotated[float, BeforeValidator(coerce("sun_offset")), Field(ge=-43200, le=43200)]
 Elevation = Annotated[Union[float, int], Field(ge=-90, le=90)]
 
+#: Marks a value read in any case; the panel's schema lists its spellings.
+ANY_CASE = {"x-any-case": True}
+
 OutputCommand = Annotated[
     Literal["TOGGLE", "ON", "OFF", "BRIGHTNESS_UP", "BRIGHTNESS_DOWN", "BRIGHTNESS_UP_CYCLE",
             "BRIGHTNESS_DOWN_CYCLE", "SET_BRIGHTNESS", "CYCLE_COLOR", "CYCLE_PRESET"],
     BeforeValidator(_upper),
+    Field(json_schema_extra=ANY_CASE),
 ]
 CoverCommand = Annotated[
     Literal["TOGGLE", "OPEN", "CLOSE", "STOP", "TOGGLE_OPEN", "TOGGLE_CLOSE", "SMART_TOGGLE",
             "SET_POSITION", "TILT", "TILT_OPEN", "TILT_CLOSE"],
     BeforeValidator(_upper),
+    Field(json_schema_extra=ANY_CASE),
 ]
 BoneioInput = Annotated[
     Literal[tuple(f"in_{i:02d}" for i in range(1, 53))],  # type: ignore[valid-type]
     BeforeValidator(str_lower),
+    Field(json_schema_extra=ANY_CASE),
 ]
 
 
@@ -51,19 +59,23 @@ _FILLED_DEFAULTS = {"action_cover": "TOGGLE", "action_output": "TOGGLE"}
 class Condition(Model):
     nullable = frozenset({"after_offset", "before_offset"})
 
-    type: Literal["time", "date", "state", "sun"]
-    after: str | None = None
-    before: str | None = None
-    after_offset: SunOffset | None = None
-    before_offset: SunOffset | None = None
+    type: Literal["time", "date", "state", "sun"] = Field(description="Condition type")
+    after: str | None = Field(None, description="After (start of range)")
+    before: str | None = Field(None, description="Before (end of range)")
+    after_offset: SunOffset | None = Field(None, description="Offset from the 'after' anchor (sun only)")
+    before_offset: SunOffset | None = Field(None, description="Offset from the 'before' anchor (sun only)")
     phase: Literal["day", "civil_twilight", "nautical_twilight", "astronomical_twilight",
-                   "night", "golden_hour", "blue_hour"] | None = None
-    above: Elevation | None = None
-    below: Elevation | None = None
+                   "night", "golden_hour", "blue_hour"] | None = Field(None, description="Sun phase (sun only)")
+    above: Elevation | None = Field(None, description="Sun elevation above (degrees, sun only)")
+    below: Elevation | None = Field(None, description="Sun elevation below (degrees, sun only)")
     entity: Literal["binary_sensor", "cover", "output", "light", "virtual_switch",
-                    "remote_input", "remote_output", "remote_cover"] | None = None
-    entity_id: str | None = None
-    state: Literal["is_on", "is_off", "is_open", "is_closed"] | None = None
+                    "remote_input", "remote_output", "remote_cover"] | None = Field(
+        None, description="Entity type (for state condition)",
+    )
+    entity_id: str | None = Field(None, description="Entity ID (for state condition)")
+    state: Literal["is_on", "is_off", "is_open", "is_closed"] | None = Field(
+        None, description="Expected state (for state condition)",
+    )
 
 
 def _condition_shape(condition: Condition) -> Condition:
@@ -77,17 +89,39 @@ ShapedCondition = Annotated[Condition, AfterValidator(_condition_shape)]
 
 
 class Conditions(Model):
-    mode: Literal["and", "or"] = "and"
-    list: list[ShapedCondition]
+    mode: Literal["and", "or"] = Field("and", description="Condition mode")
+    # Annotated, not "= Field(...)": a value here would shadow list in the annotation.
+    list: Annotated[list[ShapedCondition], Field(description="List of conditions")]
 
 
 # -------------------------------------------------------------------- actions
 
 
 class ActionData(Model):
-    position: Annotated[int, Field(ge=0, le=100)] | None = None
-    tilt_position: int | None = None
-    always_open_till: Annotated[int, Field(ge=0, le=100)] | None = None
+    position: Annotated[int, Field(ge=0, le=100)] | None = Field(
+        None, description="Position to set cover to for SET_POSITION. 0 means closed, 100 means opened.",
+    )
+    tilt_position: int | None = Field(
+        None, description="Tilt position to set cover to. 0 means closed, 100 means opened.",
+    )
+    always_open_till: Annotated[int, Field(ge=0, le=100)] | None = Field(
+        None, description="Smart toggle threshold (0-100%).",
+    )
+
+
+def _action_schema(schema: dict, cls: type) -> None:
+    """The schema of an action type: only the fields that type may carry.
+
+    A field the type redefines (to make it required) is described once, on
+    _Action.
+    """
+    for key in cls.forbidden:  # type: ignore[attr-defined]
+        schema["properties"].pop(key, None)
+    schema["properties"]["action"].update(ANY_CASE)  # lowered by _lower_action
+    for key, prop in schema["properties"].items():
+        base = _Action.model_fields.get(key)
+        if base is not None and base.description:
+            prop.setdefault("description", base.description)
 
 
 class _Action(Model):
@@ -100,6 +134,8 @@ class _Action(Model):
     #: Fields refused when set to anything but the default Cerberus fills in.
     forbidden: ClassVar[frozenset[str]] = frozenset()
 
+    model_config = ConfigDict(**Model.model_config, json_schema_extra=_action_schema)
+
     @classmethod
     def _refuse_forbidden(cls, data: dict) -> dict:
         bad = sorted(
@@ -110,31 +146,39 @@ class _Action(Model):
             raise ValueError(f"not allowed with action '{data.get('action')}': {', '.join(bad)}")
         return data
 
-    boneio_output: str | None = None
-    boneio_cover: str | None = None
-    boneio_virtual_switch: str | None = None
-    topic: str | None = None
-    action_cover: CoverCommand = "TOGGLE"
-    data: ActionData = ActionData()
-    restore_tilt: bool = False
-    action_output: OutputCommand = "TOGGLE"
-    action_mqtt_msg: str | None = None
-    boneio_id: str | None = None
-    remote_device: str | None = None
-    output_id: str | None = None
-    cover_id: str | None = None
-    brightness: Annotated[int, Field(ge=0, le=255)] | None = None
-    brightness_step: Annotated[int, Field(ge=1, le=50)] | None = None
-    color_temp: int | None = None
-    rgb: list | None = None
-    transition: Period | None = None
-    colors: list | None = None
-    presets: list | None = None
-    repeat: bool = False
-    repeat_interval: Period = Field("800ms", validate_default=True)
-    probability: Annotated[Union[float, int], Field(ge=0, le=1)] | None = None
-    delay: Period | None = None
-    delay_cancel_on: list[Literal["pressed", "released", "single", "double", "long"]] | None = None
+    boneio_output: str | None = Field(None, description="Output ID")
+    boneio_cover: str | None = Field(None, description="Cover ID")
+    boneio_virtual_switch: str | None = Field(None, description="Virtual switch ID")
+    topic: str | None = Field(None, description="If mqtt action then topic to send")
+    action_cover: CoverCommand = Field("TOGGLE", description="If cover action chosen then what action to perform.")
+    data: ActionData = Field(
+        ActionData(), description="Extra data for cover actions (position, tilt, smart toggle threshold).",
+    )
+    restore_tilt: bool = Field(False, description="Restore Tilt After Movement")
+    action_output: OutputCommand = Field("TOGGLE", description="If output action chosen then what action to perform.")
+    action_mqtt_msg: str | None = Field(None, description="What message to send to mqtt topic")
+    boneio_id: str | None = Field(
+        None,
+        description="boneIO id to perform action on. Use only with action type `output_over_mqtt` or "
+        "`cover_over_mqtt`.",
+    )
+    remote_device: str | None = Field(None, description="Remote Device ID")
+    output_id: str | None = Field(None, description="Remote Output ID")
+    cover_id: str | None = Field(None, description="Remote Cover ID")
+    brightness: Annotated[int, Field(ge=0, le=255)] | None = Field(None, description="Brightness (0-255)")
+    brightness_step: Annotated[int, Field(ge=1, le=50)] | None = Field(None, description="Brightness step (1-50%)")
+    color_temp: int | None = Field(None, description="Color Temperature (mireds)")
+    rgb: list | None = Field(None, description="RGB Color [R, G, B]")
+    transition: Period | None = Field(None, description="Transition Time")
+    colors: list | None = Field(None, description="Color List for CYCLE_COLOR")
+    presets: list | None = Field(None, description="Preset/Effect List for CYCLE_PRESET")
+    repeat: bool = Field(False, description="Repeat on Hold")
+    repeat_interval: Period = Field("800ms", validate_default=True, description="Repeat Interval")
+    probability: Annotated[Union[float, int], Field(ge=0, le=1)] | None = Field(None, description="Chance of running")
+    delay: Period | None = Field(None, description="Delay Before Execution")
+    delay_cancel_on: list[Literal["pressed", "released", "single", "double", "long"]] | None = Field(
+        None, description="Cancel Delay On Events",
+    )
     condition: ShapedCondition | None = None
     conditions: Conditions | None = None
 
@@ -243,30 +287,32 @@ class EventActions(Model):
 
 
 class MqttSequences(Model):
-    double_then_long: bool = False
-    single_then_long: bool = False
-    double_then_single: bool = False
+    double_then_long: bool = Field(False, description="Send double_then_long to MQTT")
+    single_then_long: bool = Field(False, description="Send single_then_long to MQTT")
+    double_then_single: bool = Field(False, description="Send double_then_single to MQTT")
 
 
 class Event(Model):
-    name: str | None = None
-    id: str | None = None
-    pin: str | None = None
-    bounce_time: StrPeriod = Field("30ms", validate_default=True)
-    boneio_input: BoneioInput | None = None
-    area: str | None = None
-    show_in_ha: bool = True
-    inverted: bool = False
-    device_class: Literal["button", "doorbell", "motion"] = "button"
-    double_click_duration: StrPeriod = Field("220ms", validate_default=True)
-    long_press_duration: StrPeriod = Field("400ms", validate_default=True)
-    sequence_window_duration: StrPeriod = Field("500ms", validate_default=True)
+    name: str | None = Field(None, description="Name to use in HA.")
+    id: str | None = Field(None, description="Id to use for MQTT topic. Default to boneio_input or pin number.")
+    pin: str | None = Field(None, description="PIN to use.")
+    bounce_time: StrPeriod = Field(
+        "30ms", validate_default=True, description="Bounce time for GPIO in miliseconds. Only for advanced usage.",
+    )
+    boneio_input: BoneioInput | None = Field(None, description="Reference to predefined input configuration")
+    area: str | None = Field(None, description="Area/Room")
+    show_in_ha: bool = Field(True, description="If you want you can disable discovering this input in HA.")
+    inverted: bool = Field(False, description="Check if sensor type is inverted. Only aplicable for sensor kind.")
+    device_class: Literal["button", "doorbell", "motion"] = Field("button", description="Device class to use in HA")
+    double_click_duration: StrPeriod = Field("220ms", validate_default=True, description="Double Click Duration")
+    long_press_duration: StrPeriod = Field("400ms", validate_default=True, description="Long Press Duration")
+    sequence_window_duration: StrPeriod = Field("500ms", validate_default=True, description="Sequence Window Duration")
     actions: EventActions | None = None
-    sequence_mode: Literal["immediate", "exclusive"] = "exclusive"
-    enable_triple_click: bool = False
-    long_press_mqtt_mode: Literal["single", "periodic"] = "single"
-    max_long_press_duration: StrPeriod = Field("30s", validate_default=True)
-    mqtt_sequences: MqttSequences | None = None
+    sequence_mode: Literal["immediate", "exclusive"] = Field("exclusive", description="Sequence Mode")
+    enable_triple_click: bool = Field(False, description="Enable Triple Click")
+    long_press_mqtt_mode: Literal["single", "periodic"] = Field("single", description="Long Press MQTT Mode")
+    max_long_press_duration: StrPeriod = Field("30s", validate_default=True, description="Max Long Press Duration")
+    mqtt_sequences: MqttSequences | None = Field(None, description="MQTT Sequences")
 
     @model_validator(mode="before")
     @classmethod
@@ -284,24 +330,38 @@ class BinarySensorActions(Model):
 class BinarySensor(Model):
     # Not in the Cerberus schema, yet kept by it and read at start-up as the
     # entity's name in HA; the factory configs name every input.
-    name: Str | None = None
-    id: str | None = None
-    pin: str | None = None
-    bounce_time: StrPeriod = Field("120ms", validate_default=True)
-    boneio_input: BoneioInput | None = None
-    area: str | None = None
-    show_in_ha: bool = True
-    inverted: bool = False
-    initial_send: bool = False
+    name: Str | None = Field(None, description="Name to use in HA.")
+    id: str | None = Field(None, description="Id to use in HA if needed. Default to pin number.")
+    pin: str | None = Field(None, description="PIN to use.")
+    bounce_time: StrPeriod = Field(
+        "120ms", validate_default=True, description="Bounce time for GPIO in miliseconds. Only for advanced usage.",
+    )
+    boneio_input: BoneioInput | None = Field(None, description="Reference to predefined input configuration")
+    area: str | None = Field(None, description="Area/Room")
+    show_in_ha: bool = Field(True, description="If you want you can disable discovering this input in HA.")
+    inverted: bool = Field(False, description="Check if sensor type is inverted. Only aplicable for sensor kind.")
+    initial_send: bool = Field(
+        False,
+        description="If set to true, then on startup of application initial status of the binary sensor will be "
+        "send to MQTT.",
+    )
     device_class: Literal["battery", "battery_charging", "carbon_monoxide", "cold",
                           "connectivity", "door", "garage_door", "gas", "heat", "light", "lock",
                           "moisture", "motion", "moving", "occupancy", "opening", "plug", "power",
                           "presence", "problem", "running", "safety", "smoke", "sound", "tamper",
-                          "vibration", "window"] | None = None
+                          "vibration", "window"] | None = Field(None, description="Device class to use in HA")
     actions: BinarySensorActions | None = None
 
 
 SECTION_ADAPTERS = {
-    "event": TypeAdapter(list[Event]),
-    "binary_sensor": TypeAdapter(list[BinarySensor]),
+    "event": TypeAdapter(Annotated[list[Event], Field(description=(
+        "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. "
+        "It enables event entities in HA. It detects single, double and long click. It can run action based "
+        "on states. It always send message to MQTT broker of invoked state."
+    ))]),
+    "binary_sensor": TypeAdapter(Annotated[list[BinarySensor], Field(description=(
+        "https://boneio.eu/docs/black/configuration/binary \n GPIO binary section of boneIO Black. It enables "
+        "binary sensors in HA. It detects press and release states. It can run action based on states. It "
+        "always send message to MQTT broker of invoked state."
+    ))]),
 }
