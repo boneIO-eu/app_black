@@ -1200,6 +1200,7 @@
     "broadcast_warning": "Broadcast mode will change settings on ALL devices connected to this UART bus!",
     "creator": "Creator",
     "device_creator": "Device Configuration Creator",
+    "fc05_coil": "Coil",
     "fc06_single": "Single",
     "fc16_multiple": "Multiple",
     "fc06_value_placeholder": "Value to write",
@@ -2422,6 +2423,9 @@
     },
     "wanas415": {
       "description": "Wanas heat recovery ventilation unit (rekuperator)"
+    },
+    "waveshare-16ch": {
+      "description": "Waveshare 16-channel Modbus RTU relay module"
     }
   },
   "entity_picker": {

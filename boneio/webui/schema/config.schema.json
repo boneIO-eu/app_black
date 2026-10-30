@@ -1905,7 +1905,9 @@
               "VENTCLEAR",
               "Ventclear",
               "WANAS415",
+              "WAVESHARE-16CH",
               "Wanas415",
+              "Waveshare-16Ch",
               "boneio-edge-temp",
               "cwt",
               "defro-drx",
@@ -1933,7 +1935,8 @@
               "sofar",
               "thessla",
               "ventclear",
-              "wanas415"
+              "wanas415",
+              "waveshare-16ch"
             ],
             "examples": [
               "boneio-edge-temp"

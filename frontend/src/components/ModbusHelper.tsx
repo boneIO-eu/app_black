@@ -55,7 +55,7 @@ interface ModbusResult {
 }
 
 /** Write mode: FC06 = single register, FC16 = multiple registers */
-type WriteMode = 'fc06' | 'fc16';
+type WriteMode = 'fc05' | 'fc06' | 'fc16';
 
 /** One simulated device from `/api/dev/fake-devices`. */
 interface FakeDevice {
@@ -201,6 +201,7 @@ export default function ModbusHelper() {
         address,
         register_address: writeRegisterAddress,
         value: writeValue,
+        register_type: writeMode === 'fc05' ? 'coil' : 'holding',
       });
       setResult(data);
     } catch (err) {
@@ -608,7 +609,7 @@ export default function ModbusHelper() {
           action={
             /* FC06 / FC16 toggle */
             <div className="flex gap-1 rounded-lg bg-base-content/5 p-1">
-              {(['fc06', 'fc16'] as const).map(mode => (
+              {(['fc05', 'fc06', 'fc16'] as const).map(mode => (
                 <button
                   key={mode}
                   type="button"
@@ -620,16 +621,18 @@ export default function ModbusHelper() {
                   )}
                   onClick={() => setWriteMode(mode)}
                 >
-                  {mode === 'fc06'
-                    ? `FC06 – ${t('modbus_helper.fc06_single')}`
-                    : `FC16 – ${t('modbus_helper.fc16_multiple')}`}
+                  {{
+                    fc05: `FC05 – ${t('modbus_helper.fc05_coil')}`,
+                    fc06: `FC06 – ${t('modbus_helper.fc06_single')}`,
+                    fc16: `FC16 – ${t('modbus_helper.fc16_multiple')}`,
+                  }[mode]}
                 </button>
               ))}
             </div>
           }
           footer={
             <FormActions className="w-full">
-              {writeMode === 'fc06' ? (
+              {writeMode !== 'fc16' ? (
                 <button
                   className="btn btn-warning btn-sm"
                   onClick={handleSet}
@@ -651,8 +654,8 @@ export default function ModbusHelper() {
             </FormActions>
           }
         >
-          {/* FC06 – single register */}
-          {writeMode === 'fc06' && (
+          {/* FC05 / FC06 – single coil or register */}
+          {writeMode !== 'fc16' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {addressField}
 

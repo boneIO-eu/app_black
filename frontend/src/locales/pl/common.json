@@ -1201,6 +1201,7 @@
     "broadcast_warning": "Tryb broadcast zmieni ustawienia na WSZYSTKICH urządzeniach podłączonych do tej magistrali UART!",
     "creator": "Kreator",
     "device_creator": "Kreator Konfiguracji Urządzenia",
+    "fc05_coil": "Cewka",
     "fc06_single": "Pojedynczy",
     "fc16_multiple": "Wiele",
     "fc06_value_placeholder": "Wartość do zapisu",
@@ -2421,6 +2422,9 @@
     },
     "wanas415": {
       "description": "Rekuperator Wanas"
+    },
+    "waveshare-16ch": {
+      "description": "16-kanałowy moduł przekaźników Modbus RTU Waveshare"
     }
   },
   "entity_picker": {

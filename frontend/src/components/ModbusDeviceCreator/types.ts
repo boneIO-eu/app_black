@@ -73,7 +73,7 @@ export const DEVICE_CLASSES = [
 
 export const STATE_CLASSES = ['measurement', 'total', 'total_increasing'];
 
-export const REGISTER_TYPES = ['holding', 'input'];
+export const REGISTER_TYPES = ['holding', 'input', 'coil'];
 
 export const UNITS_OF_MEASUREMENT = [
   '', '°C', '%', 'V', 'A', 'W', 'kW', 'VA', 'kVA', 'var', 'kvar',

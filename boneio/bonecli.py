@@ -170,7 +170,7 @@ def get_arguments() -> argparse.Namespace:
     get_modbus_parser.add_argument(
         "--register-type",
         type=str,
-        choices=["input", "holding"],
+        choices=["input", "holding", "coil"],
         help="Register type",
         required=True,
     )
@@ -197,7 +197,7 @@ def get_arguments() -> argparse.Namespace:
     search_modbus_parser.add_argument(
         "--register-type",
         type=str,
-        choices=["input", "holding"],
+        choices=["input", "holding", "coil"],
         help="Register type",
         required=True,
     )

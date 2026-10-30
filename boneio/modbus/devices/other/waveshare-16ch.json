@@ -1,0 +1,355 @@
+{
+  "model": "Waveshare Modbus RTU Relay 16CH",
+  "manufacturer": "Waveshare",
+  "description": "Waveshare 16-channel Modbus RTU relay module",
+  "category": "other",
+  "default_address": 1,
+  "default_update_interval": "10s",
+  "set_base": {
+    "set_address_address": 16384,
+    "set_baudrate": {
+      "address": 8192,
+      "possible_baudrates": {
+        "4800": 0,
+        "9600": 1,
+        "19200": 2,
+        "38400": 3,
+        "57600": 4,
+        "115200": 5,
+        "128000": 6,
+        "256000": 7
+      }
+    }
+  },
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 16,
+      "register_type": "coil",
+      "registers": [
+        {
+          "name": "Relay 1 State",
+          "address": 0,
+          "write_address": 0,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 2 State",
+          "address": 1,
+          "write_address": 1,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 3 State",
+          "address": 2,
+          "write_address": 2,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 4 State",
+          "address": 3,
+          "write_address": 3,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 5 State",
+          "address": 4,
+          "write_address": 4,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 6 State",
+          "address": 5,
+          "write_address": 5,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 7 State",
+          "address": 6,
+          "write_address": 6,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 8 State",
+          "address": 7,
+          "write_address": 7,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 9 State",
+          "address": 8,
+          "write_address": 8,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 10 State",
+          "address": 9,
+          "write_address": 9,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 11 State",
+          "address": 10,
+          "write_address": 10,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 12 State",
+          "address": 11,
+          "write_address": 11,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 13 State",
+          "address": 12,
+          "write_address": 12,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 14 State",
+          "address": 13,
+          "write_address": 13,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 15 State",
+          "address": 14,
+          "write_address": 14,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 16 State",
+          "address": 15,
+          "write_address": 15,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "Relay 1",
+      "source": "relay_1_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 2",
+      "source": "relay_2_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 3",
+      "source": "relay_3_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 4",
+      "source": "relay_4_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 5",
+      "source": "relay_5_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 6",
+      "source": "relay_6_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 7",
+      "source": "relay_7_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 8",
+      "source": "relay_8_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 9",
+      "source": "relay_9_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 10",
+      "source": "relay_10_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 11",
+      "source": "relay_11_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 12",
+      "source": "relay_12_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 13",
+      "source": "relay_13_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 14",
+      "source": "relay_14_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 15",
+      "source": "relay_15_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 16",
+      "source": "relay_16_state",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    }
+  ]
+}
