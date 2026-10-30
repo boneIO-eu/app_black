@@ -32,7 +32,7 @@ from fastapi.responses import JSONResponse, Response
 
 from boneio.core.config.secret_masking import mask_secrets
 from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS, secret_sections
-from boneio.core.config.yaml_util import _get_schema
+from boneio.core.config.yaml_util import _get_modbus_device_models, _get_schema
 from boneio.version import __version__
 from boneio.webui.middleware import policy
 from boneio.webui.routes import config_core
@@ -161,7 +161,13 @@ def _schema(section: str) -> Any:
     # Titles and examples repeat what names and descriptions say; dropped,
     # the event schema goes from 178 kB to 49 kB of tokens.
     path = _SCHEMA_DIR / f"{section}.schema.json"
-    return _strip(json.loads(path.read_text(encoding="utf-8")))
+    schema = _strip(json.loads(path.read_text(encoding="utf-8")))
+    if section == "modbus_devices":
+        # The schema carries no model list (it would go stale with every new
+        # device file); an agent should not have to guess the names.
+        model = schema["properties"]["modbus_devices"]["items"]["properties"]["model"]
+        model["enum"] = _get_modbus_device_models()
+    return schema
 
 
 async def _describe_schema(request: Request, args: dict) -> Any:

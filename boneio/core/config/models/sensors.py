@@ -110,17 +110,20 @@ def _known_model(value: str) -> str:
     return value
 
 
+_FILTERS = "List of filters to apply. Allowed filters visible in allowed section."
+
+
 class SensorsFilters(Model):
-    temperature: list[Filter] = Field(default_factory=lambda: [{"round": 2}])
-    humidity: list[Filter] = Field(default_factory=lambda: [{"round": 2}])
+    temperature: list[Filter] = Field(default_factory=lambda: [{"round": 2}], description=_FILTERS)
+    humidity: list[Filter] = Field(default_factory=lambda: [{"round": 2}], description=_FILTERS)
 
 
 Length = Annotated[Number, BeforeValidator(coerce("length_to_meters"))]
 
 
 class TankData(Model):
-    width: Length | None = None
-    length: Length | None = None
+    width: Length | None = Field(None, description="Width of sensor in meters, cm etc. Without unit is meters")
+    length: Length | None = Field(None, description="Length of sensor in meters, cm etc. Without unit is meters")
 
 
 def _at_least_a_second(value):
@@ -130,15 +133,35 @@ def _at_least_a_second(value):
 
 
 class ModbusDevice(Model):
-    name: str | None = None
-    area: str | None = None
-    id: Annotated[str, BeforeValidator(str), Field(pattern=r"^[a-z0-9_]+$")] | None = None
-    address: Address
-    model: Annotated[str, BeforeValidator(str_lower), AfterValidator(_known_model)]
-    update_interval: Annotated[StrPeriod, AfterValidator(_at_least_a_second)] = _interval("30s")
-    entity_labels: dict[str, str] | None = None
-    sensors_filters: SensorsFilters | None = None
-    data: TankData | None = None
+    name: str | None = Field(None, description="Display Name")
+    area: str | None = Field(None, description="Area")
+    id: Annotated[str, BeforeValidator(str), Field(pattern=r"^[a-z0-9_]+$")] | None = Field(
+        None, description="Device ID"
+    )
+    address: Address = Field(description="Address of Modbus sensor to use.")
+    # No enum in the schema: _known_model reads the device files, so a new
+    # device needs no schema rebuild.
+    model: Annotated[str, BeforeValidator(str_lower), AfterValidator(_known_model)] = Field(
+        description="Model to load from database."
+    )
+    update_interval: Annotated[StrPeriod, AfterValidator(_at_least_a_second)] = Field(
+        "30s",
+        validate_default=True,
+        description="Update interval (minimum 1 second).",
+        json_schema_extra={"minimum": 1000},
+    )
+    entity_labels: dict[str, str] | None = Field(None, description="Custom entity labels")
+    sensors_filters: SensorsFilters | None = Field(
+        None,
+        description="List of sub sensors to use to filter. Available values are temperature or humidity. "
+        "Only for CWT model.",
+        json_schema_extra={"x-dependencies": {"model": ["cwt"]}},
+    )
+    data: TankData | None = Field(
+        None,
+        description="Data to pass to additional entities. Only for liquid-sensor model.",
+        json_schema_extra={"x-dependencies": {"model": ["liquid-sensor"]}},
+    )
 
     @model_validator(mode="after")
     def _blocks_fit_the_model(self) -> ModbusDevice:
@@ -207,7 +230,16 @@ SECTION_ADAPTERS = {
     "lm75": TypeAdapter(list[Lm75]),
     "mcp9808": TypeAdapter(list[Mcp9808]),
     "modbus": TypeAdapter(Modbus),
-    "modbus_devices": TypeAdapter(list[ModbusDevice]),
+    "modbus_devices": TypeAdapter(
+        Annotated[
+            list[ModbusDevice],
+            Field(
+                description="https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus "
+                "sensors. You can use predefined modbus sensors. It would fetch data from them and "
+                "publish to mqtt."
+            ),
+        ]
+    ),
     "can": TypeAdapter(Can),
     "mcp23017": TypeAdapter(list[Mcp23017]),
     "pcf8575": TypeAdapter(list[Expander]),

@@ -13,7 +13,7 @@ import os
 
 from boneio.core.config.schema_converter import OUTPUT_DIR, build_schemas
 
-REGENERATE = "run: python boneio/core/config/schema_converter.py"
+REGENERATE = "run: python -m boneio.core.config.schema_converter"
 
 
 def test_every_schema_file_matches_schema_yaml():

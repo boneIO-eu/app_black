@@ -10,7 +10,7 @@ from yaml import load
 
 # Prefer the libyaml-backed loader when available (~10x faster). Imported
 # directly instead of via boneio.core.config.yaml_compat because this module
-# must stay importable without the full boneIO dependency graph (CI).
+# must stay importable without the full boneIO dependency graph.
 try:
     from yaml import CSafeLoader as _BaseLoader
 except ImportError:  # pragma: no cover - PyYAML built without libyaml
@@ -249,59 +249,34 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
 
     return json_schema
 
-def generate_section_schema(section_name: str, section_schema: dict[str, Any]) -> dict[str, Any]:
-    """Generate a schema for a specific section."""
-    if section_schema.get("type") == "array":
-        # For array types, use the items schema directly
-        return {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            **convert_cerberus_to_json_schema({section_name: section_schema})["properties"][section_name]
-        }
-    else:
-        # For object types, wrap in an object schema
-        return {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object",
-            "properties": {
-                section_name: convert_cerberus_to_json_schema({section_name: section_schema})["properties"][section_name]
-            }
-        }
-
-def build_schemas() -> dict[str, dict[str, Any]]:
-    """Every JSON Schema file the panel is served, by file name."""
+def load_schema_yaml() -> dict[str, Any]:
+    """schema.yaml with its !include files resolved."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     schema_file = os.path.join(script_dir, "..", "..", "schema", "schema.yaml")
-
-    # Load the schema
     with open(schema_file) as f:
-        schema = yaml.load(f, Loader=BoneIOLoader)
+        return yaml.load(f, Loader=BoneIOLoader)
 
-    # Dynamically inject modbus device models into the schema.
-    # NOTE: This is a standalone copy of the logic from yaml_util.py.
-    # We cannot import yaml_util here because it pulls in the full boneIO
-    # dependency graph (cerberus, pymodbus, smbus2 …) which is NOT installed
-    # in the CI environment that runs this converter script.
-    devices_dir = os.path.normpath(
-        os.path.join(script_dir, "..", "..", "modbus", "devices")
-    )
-    models: list[str] = []
-    if os.path.isdir(devices_dir):
-        for root, dirs, files in os.walk(devices_dir):
-            dirs[:] = [d for d in dirs if d != "__pycache__"]
-            for fname in files:
-                if fname.endswith(".json"):
-                    models.append(fname[:-5])
-    models.sort()
 
-    try:
-        model_field = schema["modbus_devices"]["schema"]["schema"]["model"]
-        model_field["allowed"] = models
-    except (KeyError, TypeError):
-        print("WARNING: Could not inject modbus models into schema")
+def build_schemas() -> dict[str, dict[str, Any]]:
+    """Every JSON Schema file the panel is served, by file name.
 
-    schemas = {"config.schema.json": convert_cerberus_to_json_schema(schema)}
-    for section_name, section_schema in schema.items():
-        schemas[f"{section_name}.schema.json"] = generate_section_schema(section_name, section_schema)
+    Sections in json_schema.FROM_MODELS come from their pydantic model, the
+    rest from schema.yaml.
+    """
+    # Here, not at the top: the converter alone still imports without the
+    # boneIO dependency graph.
+    from boneio.core.config.json_schema import FROM_MODELS, section_schema
+
+    config = convert_cerberus_to_json_schema(load_schema_yaml())
+    schemas = {"config.schema.json": config}
+    for name in config["properties"]:
+        if name in FROM_MODELS:
+            config["properties"][name] = section_schema(name)
+        schemas[f"{name}.schema.json"] = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {name: config["properties"][name]},
+        }
     return schemas
 
 

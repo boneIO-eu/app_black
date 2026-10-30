@@ -414,3 +414,11 @@ def test_an_esphome_device_given_by_address_is_named_as_it_names_itself(neighbou
     assert "id: kitchen_relays" in stored and "id: esphome_192_168_1_71" in stored
     assert "icon" not in stored  # only what the schema holds is written
     assert "id: garage" in stored and "s3cret" in stored  # the neighbour already there stays
+
+
+def test_modbus_schema_names_the_device_models():
+    # The schema file carries no model list; the agent still needs the names.
+    from boneio.webui.routes.mcp import _schema
+
+    model = _schema("modbus_devices")["properties"]["modbus_devices"]["items"]["properties"]["model"]
+    assert "sdm120" in model["enum"]

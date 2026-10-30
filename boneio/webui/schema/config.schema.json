@@ -1855,15 +1855,8 @@
       "title": "Can"
     },
     "modbus_devices": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use predefined modbus sensors. It would fetch data from them and publish to mqtt.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -1881,119 +1874,33 @@
             "title": "Id"
           },
           "address": {
+            "description": "Address of Modbus sensor to use.",
             "type": [
               "integer",
               "string"
             ],
-            "description": "Address of Modbus sensor to use.",
             "title": "Address"
           },
           "model": {
-            "type": "string",
-            "enum": [
-              "BONEIO-EDGE-TEMP",
-              "Boneio-Edge-Temp",
-              "CWT",
-              "Cwt",
-              "DEFRO-DRX",
-              "DTS1964_3F",
-              "DYP-A12-ULTRASONIC",
-              "Defro-Drx",
-              "Dts1964_3F",
-              "Dyp-A12-Ultrasonic",
-              "EHT-TOPVENTIL-PLUS",
-              "ESP32_RELAY_X4_MODBUS",
-              "Eht-Topventil-Plus",
-              "Esp32_Relay_X4_Modbus",
-              "FUJITSU-AC",
-              "Fujitsu-Ac",
-              "GDFS",
-              "GDFX",
-              "Gdfs",
-              "Gdfx",
-              "LE-03MW",
-              "LE-03MWCT",
-              "LIQUID-SENSOR",
-              "Le-03Mw",
-              "Le-03Mwct",
-              "Liquid-Sensor",
-              "N4DSC08",
-              "N4Dsc08",
-              "ORNO-OR-WE-517",
-              "Orno-Or-We-517",
-              "PT100",
-              "Pt100",
-              "QDW90A",
-              "Qdw90A",
-              "R4DCB08",
-              "R4Dcb08",
-              "SDM120",
-              "SDM630",
-              "SHT20",
-              "SHT30",
-              "SOCOMEC_E03",
-              "SOCOMEC_E23",
-              "SOFAR",
-              "Sdm120",
-              "Sdm630",
-              "Sht20",
-              "Sht30",
-              "Socomec_E03",
-              "Socomec_E23",
-              "Sofar",
-              "THESSLA",
-              "Thessla",
-              "VENTCLEAR",
-              "Ventclear",
-              "WANAS415",
-              "Wanas415",
-              "boneio-edge-temp",
-              "cwt",
-              "defro-drx",
-              "dts1964_3f",
-              "dyp-a12-ultrasonic",
-              "eht-topventil-plus",
-              "esp32_relay_x4_modbus",
-              "fujitsu-ac",
-              "gdfs",
-              "gdfx",
-              "le-03mw",
-              "le-03mwct",
-              "liquid-sensor",
-              "n4dsc08",
-              "orno-or-we-517",
-              "pt100",
-              "qdw90a",
-              "r4dcb08",
-              "sdm120",
-              "sdm630",
-              "sht20",
-              "sht30",
-              "socomec_e03",
-              "socomec_e23",
-              "sofar",
-              "thessla",
-              "ventclear",
-              "wanas415"
-            ],
-            "examples": [
-              "boneio-edge-temp"
-            ],
             "description": "Model to load from database.",
+            "type": "string",
             "title": "Model"
           },
           "update_interval": {
+            "default": "30s",
+            "description": "Update interval (minimum 1 second).",
+            "minimum": 1000,
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "minimum": 1000,
-            "default": "30s",
-            "description": "Update interval (minimum 1 second).",
             "title": "Update interval"
           },
           "entity_labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
             "type": [
               "object",
               "string"
@@ -2002,98 +1909,127 @@
             "title": "Entity labels"
           },
           "sensors_filters": {
+            "properties": {
+              "temperature": {
+                "default": [
+                  {
+                    "round": 2
+                  }
+                ],
+                "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                "items": {
+                  "additionalProperties": true,
+                  "propertyNames": {
+                    "enum": [
+                      "offset",
+                      "round",
+                      "multiply",
+                      "filter_out",
+                      "filter_out_greater",
+                      "filter_out_lower"
+                    ]
+                  },
+                  "type": [
+                    "object",
+                    "string"
+                  ]
+                },
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "title": "Temperature"
+              },
+              "humidity": {
+                "default": [
+                  {
+                    "round": 2
+                  }
+                ],
+                "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                "items": {
+                  "additionalProperties": true,
+                  "propertyNames": {
+                    "enum": [
+                      "offset",
+                      "round",
+                      "multiply",
+                      "filter_out",
+                      "filter_out_greater",
+                      "filter_out_lower"
+                    ]
+                  },
+                  "type": [
+                    "object",
+                    "string"
+                  ]
+                },
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "title": "Humidity"
+              }
+            },
             "type": [
               "object",
               "string"
             ],
-            "properties": {
-              "temperature": {
-                "type": [
-                  "array",
-                  "string"
-                ],
-                "default": [
-                  {
-                    "round": 2
-                  }
-                ],
-                "items": {
-                  "type": [
-                    "object",
-                    "string"
-                  ]
-                },
-                "description": "List of filters to apply. Allowed filters visible in allowed section.",
-                "title": "Temperature"
-              },
-              "humidity": {
-                "type": [
-                  "array",
-                  "string"
-                ],
-                "default": [
-                  {
-                    "round": 2
-                  }
-                ],
-                "items": {
-                  "type": [
-                    "object",
-                    "string"
-                  ]
-                },
-                "description": "List of filters to apply. Allowed filters visible in allowed section.",
-                "title": "Humidity"
-              }
-            },
             "description": "List of sub sensors to use to filter. Available values are temperature or humidity. Only for CWT model.",
-            "title": "Sensors filters",
             "x-dependencies": {
               "model": [
                 "cwt"
               ]
-            }
+            },
+            "title": "Sensors filters"
           },
           "data": {
+            "properties": {
+              "width": {
+                "description": "Width of sensor in meters, cm etc. Without unit is meters",
+                "type": [
+                  "integer",
+                  "number",
+                  "string"
+                ],
+                "title": "Width"
+              },
+              "length": {
+                "description": "Length of sensor in meters, cm etc. Without unit is meters",
+                "type": [
+                  "integer",
+                  "number",
+                  "string"
+                ],
+                "title": "Length"
+              }
+            },
             "type": [
               "object",
               "string"
             ],
-            "properties": {
-              "width": {
-                "type": [
-                  "integer",
-                  "number",
-                  "string"
-                ],
-                "description": "Width of sensor in meters, cm etc. Without unit is meters",
-                "title": "Width"
-              },
-              "length": {
-                "type": [
-                  "integer",
-                  "number",
-                  "string"
-                ],
-                "description": "Length of sensor in meters, cm etc. Without unit is meters",
-                "title": "Length"
-              }
-            },
             "description": "Data to pass to additional entities. Only for liquid-sensor model.",
-            "title": "Data",
             "x-dependencies": {
               "model": [
                 "liquid-sensor"
               ]
-            }
+            },
+            "title": "Data"
           }
         },
         "required": [
           "address",
           "model"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use predefined modbus sensors. It would fetch data from them and publish to mqtt.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Modbus devices"
     },
     "lm75": {
