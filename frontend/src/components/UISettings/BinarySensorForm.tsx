@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { FaExclamationTriangle, FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
+import { ACTION_COVER_OPTIONS, ACTION_OUTPUT_OPTIONS, ACTION_TYPE_OPTIONS } from './ActionFields/options';
 import AiConfigAssistant from './AiConfigAssistant';
 import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions, mustNotBeActiveAtStartup } from './helpers/inputFilterUtils';
@@ -138,19 +139,9 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   );
   const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
 
-  const rawActionTypeOptions = (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum as string[] | undefined) || [
-    'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
-  ];
-  // Deduplicate: schema may provide both uppercase and lowercase variants
-  const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
-
-  const actionOutputOptions = (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum as string[] | undefined) || [
-    'TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'
-  ];
-
-  const actionCoverOptions = (schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum as string[] | undefined) || [
-    'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'SET_POSITION', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
-  ];
+  const actionTypeOptions = ACTION_TYPE_OPTIONS;
+  const actionOutputOptions = ACTION_OUTPUT_OPTIONS;
+  const actionCoverOptions = ACTION_COVER_OPTIONS;
 
   const updateField = (field: keyof BinarySensorEntity, value: unknown) => {
     onChange({ ...data, [field]: value });

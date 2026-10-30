@@ -17,6 +17,7 @@ import { AddModbusDeviceWizard } from './AddModbusDeviceWizard';
 import type { AffectedAction } from './hooks/useItemActions';
 import type { AutodiscoveredDevice } from './tables/RemoteDeviceTable';
 import type { OutputGroupRecord } from './ActionFields/types';
+import { ACTION_COVER_OPTIONS, ACTION_OUTPUT_OPTIONS, ACTION_TYPE_OPTIONS } from './ActionFields/options';
 import type { BinarySensorEntity, CoverEntity, EventEntity, OutputEntity, RemoteDeviceEntity } from '@/types/config';
 import { isRecord, type ConfigRecord, type JsonSchema } from '@/types/jsonSchema';
 
@@ -494,13 +495,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       const getEnum = (path: string) => (path.split('.').reduce<unknown>((o, k) => (isRecord(o) ? o[k] : undefined), schema) || []) as string[];
       const actionTypeOptions = getEnum('items.properties.actions.properties.single.items.properties.action.enum') ||
         getEnum('items.properties.actions.properties.pressed.items.properties.action.enum') ||
-        ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'];
+        ACTION_TYPE_OPTIONS;
       const actionOutputOptions = getEnum('items.properties.actions.properties.single.items.properties.action_output.enum') ||
         getEnum('items.properties.actions.properties.pressed.items.properties.action_output.enum') ||
-        ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'];
+        ACTION_OUTPUT_OPTIONS;
       const actionCoverOptions = getEnum('items.properties.actions.properties.single.items.properties.action_cover.enum') ||
         getEnum('items.properties.actions.properties.pressed.items.properties.action_cover.enum') ||
-        ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'SET_POSITION', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+        ACTION_COVER_OPTIONS;
 
       const prompt = buildAiWizardPrompt({
         entityType, data: {}, schema,
