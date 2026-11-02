@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BeforeValidator, Field, TypeAdapter
+from pydantic import BeforeValidator, Field
 
-from boneio.core.config.models.base import ANY_CASE, Model, Str, StrPeriod, coerce
+from boneio.core.config.models.base import ANY_CASE, Model, Str, StrPeriod, coerce, section
 
 Number = Union[float, int]
 
@@ -89,37 +89,32 @@ class Area(Model):
     name: str = Field(description="Area Name")
 
 
-def _section(model: Any, description: str, **extra: Any) -> TypeAdapter:
-    """The section's adapter, with schema.yaml's description of it."""
-    return TypeAdapter(Annotated[model, Field(description=description, json_schema_extra=extra or None)])
-
-
 SECTION_ADAPTERS = {
     # Required with a default: a null section is the default one.
-    "oled": _section(
+    "oled": section(
         Oled | None,
         "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled "
         "screen. You'd need enabled: true to make it work.",
         default={},
     ),
-    "location": _section(
+    "location": section(
         Location,
         "Geographic location of the controller. Required for sun-based conditions and for the sunrise/sunset "
         "times shown in the panel.",
     ),
-    "usage_history": _section(
+    "usage_history": section(
         UsageHistory,
         "Hourly counts of how outputs, covers and inputs are used, kept on the controller, for an AI assistant "
         "to suggest automations from. Off unless turned on; turning it off deletes what was collected.",
     ),
-    "lox_udp": _section(LoxUdp, "Lox UDP Messaging"),
-    "logger": _section(
+    "lox_udp": section(LoxUdp, "Lox UDP Messaging"),
+    "logger": section(
         Logger,
         "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging "
         "level. If run as systemd service, then it will log to journal. If not, then it will log to "
         "/tmp/boneio.log",
     ),
-    "areas": _section(
+    "areas": section(
         list[Area],
         "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to "
         "the main BoneIO device.",

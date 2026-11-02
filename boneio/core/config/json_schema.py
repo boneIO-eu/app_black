@@ -31,6 +31,8 @@ from boneio.core.utils import TimePeriod
 FROM_MODELS = frozenset({
     "modbus_devices", "event", "binary_sensor",
     "modbus", "can", "location", "lox_udp", "logger", "usage_history", "oled", "areas",
+    "sensor", "adc", "ina219", "ina226", "lm75", "mcp9808",
+    "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor",
 })
 
 _BOOLEAN = [

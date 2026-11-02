@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "adc": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC sensors in HA. Don't let them hang without use.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -24,7 +17,7 @@
             "title": "Id"
           },
           "pin": {
-            "type": "string",
+            "description": "PIN to use.",
             "enum": [
               "P9_33",
               "P9_35",
@@ -34,10 +27,7 @@
               "P9_39",
               "P9_40"
             ],
-            "examples": [
-              "P9_33"
-            ],
-            "description": "PIN to use.",
+            "type": "string",
             "title": "Pin"
           },
           "area": {
@@ -46,13 +36,13 @@
             "title": "Area"
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "show_in_ha": {
@@ -78,10 +68,6 @@
             "title": "Show in ha"
           },
           "filters": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "multiply": 1.8
@@ -90,21 +76,43 @@
                 "round": 2
               }
             ],
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
             "items": {
+              "additionalProperties": true,
+              "propertyNames": {
+                "enum": [
+                  "offset",
+                  "round",
+                  "multiply",
+                  "filter_out",
+                  "filter_out_greater",
+                  "filter_out_lower"
+                ]
+              },
               "type": [
                 "object",
                 "string"
               ]
             },
-            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Filters"
           }
         },
         "required": [
           "pin"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC sensors in HA. Don't let them hang without use.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Adc"
     }
   }

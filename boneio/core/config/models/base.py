@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, ClassVar
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 from pydantic_core import PydanticUndefined
 
 from boneio.core.config.yaml_util import CustomValidator
@@ -46,10 +46,15 @@ def str_lower(value: Any) -> Any:
 Period = Annotated[TimePeriod, BeforeValidator(_time_period)]
 StrPeriod = Annotated[TimePeriod, BeforeValidator(_str_time_period)]
 Str = Annotated[str, BeforeValidator(str)]
+"""``coerce: str``: anything but a null becomes its string."""
 
 #: Marks a value read in any case; the panel's schema lists its spellings.
 ANY_CASE = {"x-any-case": True}
-"""``coerce: str``: anything but a null becomes its string."""
+
+
+def section(model: Any, description: str, **extra: Any) -> TypeAdapter:
+    """The section's adapter, with schema.yaml's description of it."""
+    return TypeAdapter(Annotated[model, Field(description=description, json_schema_extra=extra or None)])
 
 
 class Model(BaseModel):

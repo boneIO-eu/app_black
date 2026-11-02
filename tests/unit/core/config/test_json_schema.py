@@ -27,6 +27,12 @@ _FILTER_ITEM = {
     },
 }
 
+_INA_DEFAULT = [
+    {"id": "Board Current", "device_class": "current"},
+    {"id": "Board Power", "device_class": "power"},
+    {"id": "Board Voltage", "device_class": "voltage"},
+]
+
 _ACTION = "items/properties/actions/properties/*/items/properties"
 _CONDITION_BOUNDS = {
     "above": {"minimum": -90, "maximum": 90},
@@ -91,6 +97,12 @@ ADDED = {
         "properties/screens/items": {"type": "string"},
         "properties/enabled": {"description": "Turn the built-in screen on."},
     },
+    # A reading is a number or a string with its unit ("10W"); schema.yaml's
+    # converter wrote only "string".
+    "virtual_energy_sensor": {
+        "items/properties/power_usage": {"type": ["integer", "number", "string"]},
+        "items/properties/flow_rate": {"type": ["integer", "number", "string"]},
+    },
     "binary_sensor": {
         **_input_added(),
         # Read at start-up as the entity's name; schema.yaml never listed it.
@@ -108,12 +120,30 @@ REMOVED = {
     },
 }
 REMOVED["binary_sensor"] = REMOVED["event"]
+REMOVED["virtual_energy_sensor"] = {
+    "items/properties/power_usage": {"type": "string"},
+    "items/properties/flow_rate": {"type": "string"},
+}
 REMOVED["logger"] = {
     "properties/logs/additionalProperties": {"enum": _LOG_LEVELS},
     "properties/logs": {"type": "object"},
 }
 # It said the opposite of what the field does.
 REMOVED["oled"] = {"properties/enabled": {"description": "Disable builtin screen."}}
+
+for _section in ("sensor", "adc", "lm75", "mcp9808"):
+    ADDED[_section] = {"items/properties/filters/items": _FILTER_ITEM}
+for _section in ("ina219", "ina226"):
+    ADDED[_section] = {
+        "items/properties/sensors/items/properties/filters/items": _FILTER_ITEM,
+        # Each reading as start-up fills it in, with its filters' own default.
+        "items/properties/sensors": {"default": [{**s, "filters": [{"round": 2}]} for s in _INA_DEFAULT]},
+    }
+    REMOVED[_section] = {"items/properties/sensors": {"default": _INA_DEFAULT}}
+# schema.yaml called the I2C address "GPIO of I2C SDA".
+for _section in ("mcp23017", "pcf8575", "pca9685"):
+    ADDED[_section] = {"items/properties/address": {"description": "I2C address of the expander."}}
+    REMOVED[_section] = {"items/properties/address": {"description": "GPIO of I2C SDA"}}
 
 
 def _nodes(schema: dict, path: str):

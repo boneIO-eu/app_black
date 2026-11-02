@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "ina219": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -19,38 +12,45 @@
             "title": "Id"
           },
           "address": {
+            "default": 64,
+            "description": "Address of I2C",
             "type": [
               "integer",
               "string"
             ],
-            "default": 64,
-            "description": "Address of I2C",
             "title": "Address"
           },
           "sensors": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "id": "Board Current",
-                "device_class": "current"
+                "device_class": "current",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               },
               {
                 "id": "Board Power",
-                "device_class": "power"
+                "device_class": "power",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               },
               {
                 "id": "Board Voltage",
-                "device_class": "voltage"
+                "device_class": "voltage",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               }
             ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -58,51 +58,74 @@
                   "title": "Id"
                 },
                 "device_class": {
-                  "type": "string",
                   "enum": [
                     "current",
                     "power",
                     "voltage"
                   ],
-                  "examples": [
-                    "current"
-                  ]
+                  "type": "string"
                 },
                 "filters": {
-                  "type": [
-                    "array",
-                    "string"
-                  ],
                   "default": [
                     {
                       "round": 2
                     }
                   ],
+                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
                   "items": {
+                    "additionalProperties": true,
+                    "propertyNames": {
+                      "enum": [
+                        "offset",
+                        "round",
+                        "multiply",
+                        "filter_out",
+                        "filter_out_greater",
+                        "filter_out_lower"
+                      ]
+                    },
                     "type": [
                       "object",
                       "string"
                     ]
                   },
-                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                  "type": [
+                    "array",
+                    "string"
+                  ],
                   "title": "Filters"
                 }
-              }
-            }
+              },
+              "type": [
+                "object",
+                "string"
+              ]
+            },
+            "type": [
+              "array",
+              "string"
+            ]
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Ina219"
     }
   }

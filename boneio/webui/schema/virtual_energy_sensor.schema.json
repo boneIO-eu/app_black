@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "virtual_energy_sensor": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -19,46 +12,51 @@
             "title": "Id"
           },
           "name": {
-            "type": "string",
             "description": "Sensor Name",
+            "type": "string",
             "title": "Name"
           },
           "output_id": {
-            "type": "string",
             "description": "Output ID",
+            "type": "string",
             "title": "Output id"
           },
           "sensor_type": {
-            "type": "string",
+            "description": "Sensor Type",
             "enum": [
               "power",
               "water"
             ],
-            "examples": [
-              "power"
-            ],
-            "description": "Sensor Type",
+            "type": "string",
             "title": "Sensor type"
           },
           "power_usage": {
-            "type": "string",
             "description": "Power Usage",
-            "title": "Power usage",
             "x-dependencies": {
               "sensor_type": [
                 "power"
               ]
-            }
+            },
+            "type": [
+              "integer",
+              "number",
+              "string"
+            ],
+            "title": "Power usage"
           },
           "flow_rate": {
-            "type": "string",
             "description": "Flow Rate",
-            "title": "Flow rate",
             "x-dependencies": {
               "sensor_type": [
                 "water"
               ]
-            }
+            },
+            "type": [
+              "integer",
+              "number",
+              "string"
+            ],
+            "title": "Flow rate"
           },
           "area": {
             "type": "string",
@@ -70,9 +68,16 @@
           "name",
           "output_id",
           "sensor_type"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Virtual energy sensor"
     }
   }

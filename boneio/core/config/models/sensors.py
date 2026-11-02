@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import AfterValidator, BeforeValidator, Field, TypeAdapter, model_validator
+from pydantic import AfterValidator, BeforeValidator, Field, model_validator
 
-from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, str_lower
+from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, section, str_lower
 from boneio.core.config.onewire_address import kernel_address
 from boneio.core.config.yaml_util import _get_schema
 
@@ -25,39 +25,58 @@ Filter = dict[
 ]
 
 
-def _interval(default: str, description: str | None = None):
+_UPDATE = "Update interval. How often to fetch data from sensor. Default to 60s."
+_FILTERS = "List of filters to apply. Allowed filters visible in allowed section."
+_I2C_ID = "Id of I2C to use in pin config"
+_SHOW_IN_HA = "If you want you can disable discovering this input in HA."
+
+
+def _interval(default: str, description: str | None = _UPDATE):
     return Field(default, validate_default=True, description=description)
+
+
+def _round(description: str = _FILTERS):
+    return Field(default_factory=lambda: [{"round": 2}], description=description)
 
 
 # ------------------------------------------------------------------ sensors
 
 
 class OneWireSensor(Model):
-    id: str | None = None
-    name: str | None = None
-    area: str | None = None
+    id: str | None = Field(None, description="Id to use in HA if needed. Default to address.")
+    name: str | None = Field(None, description="Display name for the sensor in Home Assistant.")
+    area: str | None = Field(
+        None, description="Area/room where the sensor is located. Used for HA device grouping."
+    )
     # Stricter than start-up, which lets an unknown address through.
-    address: Annotated[str, BeforeValidator(kernel_address)]
-    show_in_ha: bool = True
-    filters: list[Filter] = Field(default_factory=lambda: [{"round": 2}])
+    address: Annotated[str, BeforeValidator(kernel_address)] = Field(
+        description="Address of Dallas device, as the kernel names it (28-0000098c7df0) or as ESPHome "
+        "writes it (0xc0000000053f3328)"
+    )
+    show_in_ha: bool = Field(True, description=_SHOW_IN_HA)
+    filters: list[Filter] = _round()
     update_interval: StrPeriod = _interval("60s")
     unit_of_measurement: Literal["°C", "°F"] = "°C"
 
 
 class Adc(Model):
-    name: str | None = None
-    id: str | None = None
-    pin: Literal["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
-    area: str | None = None
+    name: str | None = Field(None, description="Display name for the sensor in Home Assistant.")
+    id: str | None = Field(None, description="Id to use for MQTT topic. Default to name or pin number.")
+    pin: Literal["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"] = Field(
+        description="PIN to use."
+    )
+    area: str | None = Field(None, description="Area/Room")
     update_interval: StrPeriod = _interval("60s")
-    show_in_ha: bool = True
-    filters: list[Filter] = Field(default_factory=lambda: [{"multiply": 1.8}, {"round": 2}])
+    show_in_ha: bool = Field(True, description=_SHOW_IN_HA)
+    filters: list[Filter] = Field(
+        default_factory=lambda: [{"multiply": 1.8}, {"round": 2}], description=_FILTERS
+    )
 
 
 class InaSensor(Model):
-    id: str | None = None
+    id: str | None = Field(None, description=_I2C_ID)
     device_class: Literal["current", "power", "voltage"] | None = None
-    filters: list[Filter] = Field(default_factory=lambda: [{"round": 2}])
+    filters: list[Filter] = _round()
 
 
 def _ina_sensors() -> list[InaSensor]:
@@ -68,25 +87,24 @@ def _ina_sensors() -> list[InaSensor]:
     ]
 
 
+# INA219 and INA226 share their fields.
 class Ina(Model):
-    """INA219 and INA226 share their fields."""
-
-    id: str | None = None
-    address: Address = 64
+    id: str | None = Field(None, description=_I2C_ID)
+    address: Address = Field(64, description="Address of I2C")
     sensors: list[InaSensor] = Field(default_factory=_ina_sensors)
     update_interval: StrPeriod = _interval("60s")
 
 
 class Lm75(Model):
-    id: str | None = None
-    address: int = 72
+    id: str | None = Field(None, description=_I2C_ID)
+    address: int = Field(72, description="Address of I2C")
     update_interval: StrPeriod = _interval("60s")
-    filters: list[Filter] = Field(default_factory=lambda: [{"round": 2}])
+    filters: list[Filter] = _round()
     unit_of_measurement: Literal["°C", "°F"] = "°C"
 
 
 class Mcp9808(Lm75):
-    address: Address = 24
+    address: Address = Field(24, description="Address of I2C device")
 
 
 # ------------------------------------------------------------------- modbus
@@ -113,8 +131,6 @@ def _known_model(value: str) -> str:
         raise ValueError(f"unallowed value {value}")
     return value
 
-
-_FILTERS = "List of filters to apply. Allowed filters visible in allowed section."
 
 
 class SensorsFilters(Model):
@@ -195,13 +211,22 @@ class Can(Model):
 
 
 class Expander(Model):
-    id: str | None = None
-    address: int
-    init_sleep: StrPeriod = _interval("0s")
+    id: str | None = Field(None, description=_I2C_ID)
+    # schema.yaml called it "GPIO of I2C SDA", which it is not.
+    address: int = Field(description="I2C address of the expander.")
 
 
 class Mcp23017(Expander):
-    inverted: bool | None = None
+    init_sleep: StrPeriod = _interval("0s", "How long to sleep for MCP to initialize.")
+    inverted: bool | None = Field(None, description="Active-LOW relay board (inverted logic)")
+
+
+class Pcf8575(Expander):
+    init_sleep: StrPeriod = _interval("0s", "How long to sleep for PCF to initialize.")
+
+
+class Pca9685(Expander):
+    init_sleep: StrPeriod = _interval("0s", "How long to sleep for PCA to initialize.")
 
 
 # ----------------------------------------------------- virtual energy sensor
@@ -211,13 +236,17 @@ class VirtualEnergySensor(Model):
     # coerce: str turns a null into "None" in Cerberus, so it passes there.
     nullable = frozenset({"id"})
 
-    id: Str | None = None
-    name: str
-    output_id: str
-    sensor_type: Literal["power", "water"]
-    power_usage: Annotated[Number, BeforeValidator(coerce("power_value_to_watts"))] | None = None
-    flow_rate: Annotated[Number, BeforeValidator(coerce("volume_flow_rate_to_lph"))] | None = None
-    area: str | None = None
+    id: Str | None = Field(None, description="Sensor ID")
+    name: str = Field(description="Sensor Name")
+    output_id: str = Field(description="Output ID")
+    sensor_type: Literal["power", "water"] = Field(description="Sensor Type")
+    power_usage: Annotated[Number, BeforeValidator(coerce("power_value_to_watts"))] | None = Field(
+        None, description="Power Usage", json_schema_extra={"x-dependencies": {"sensor_type": ["power"]}}
+    )
+    flow_rate: Annotated[Number, BeforeValidator(coerce("volume_flow_rate_to_lph"))] | None = Field(
+        None, description="Flow Rate", json_schema_extra={"x-dependencies": {"sensor_type": ["water"]}}
+    )
+    area: str | None = Field(None, description="Area")
 
     @model_validator(mode="after")
     def _reading_fits_the_type(self) -> VirtualEnergySensor:
@@ -229,37 +258,60 @@ class VirtualEnergySensor(Model):
 
 
 SECTION_ADAPTERS = {
-    "sensor": TypeAdapter(list[OneWireSensor]),
-    "adc": TypeAdapter(list[Adc]),
-    "ina219": TypeAdapter(list[Ina]),
-    "ina226": TypeAdapter(list[Ina]),
-    "lm75": TypeAdapter(list[Lm75]),
-    "mcp9808": TypeAdapter(list[Mcp9808]),
-    "modbus": TypeAdapter(
-        Annotated[
-            Modbus,
-            Field(
-                description="https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO "
-                "Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO "
-                "it is uart4. For old boneIO it is uart1."
-            ),
-        ]
+    "sensor": section(
+        list[OneWireSensor],
+        "Sensor list for Dallas 1-Wire temperature sensors (DS18B20, etc.). Detected via kernel w1 subsystem.",
     ),
-    "modbus_devices": TypeAdapter(
-        Annotated[
-            list[ModbusDevice],
-            Field(
-                description="https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus "
-                "sensors. You can use predefined modbus sensors. It would fetch data from them and "
-                "publish to mqtt."
-            ),
-        ]
+    "adc": section(
+        list[Adc],
+        "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC "
+        "sensors in HA. Don't let them hang without use.",
     ),
-    "can": TypeAdapter(
-        Annotated[Can, Field(description="CAN bus configuration for inter-device communication via CANopen protocol.")]
+    "ina219": section(
+        list[Ina],
+        "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one "
+        "INA219 on board, which measures current, voltage and power of boneIO board.",
     ),
-    "mcp23017": TypeAdapter(list[Mcp23017]),
-    "pcf8575": TypeAdapter(list[Expander]),
-    "pca9685": TypeAdapter(list[Expander]),
-    "virtual_energy_sensor": TypeAdapter(list[VirtualEnergySensor]),
+    "ina226": section(
+        list[Ina],
+        "INA226 Power monitor (boneIO Black v1.0). Measures board current, voltage and power. Replaces INA219 "
+        "on v1.0 boards.",
+    ),
+    "lm75": section(
+        list[Lm75],
+        "https://boneio.eu/docs/black/configuration/lm75 \n LM75 Sensor list. All boneIO Black has one LM75 "
+        "on board.",
+    ),
+    "mcp9808": section(
+        list[Mcp9808],
+        "https://boneio.eu/docs/black/configuration/mcp9808 \n MCP9808 Sensor list. Older boneIO Black had "
+        "one MCP9808 instead of LM75on board, which measures temperature.",
+    ),
+    "modbus": section(
+        Modbus,
+        "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables "
+        "modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old "
+        "boneIO it is uart1.",
+    ),
+    "modbus_devices": section(
+        list[ModbusDevice],
+        "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use "
+        "predefined modbus sensors. It would fetch data from them and publish to mqtt.",
+    ),
+    "can": section(Can, "CAN bus configuration for inter-device communication via CANopen protocol."),
+    "mcp23017": section(
+        list[Mcp23017],
+        "https://boneio.eu/docs/black/configuration/mcp23017 \n MCP23017 Pin config. All boneIO Black "
+        "32X10/Cover/Cover Mix/24x16 has two MCP23017 on board. If you use new boneio: section, then you "
+        "don't need to define this.",
+    ),
+    "pcf8575": section(
+        list[Pcf8575], "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE."
+    ),
+    "pca9685": section(list[Pca9685], "https://boneio.eu/docs/black/configuration/pca9685 \n PCA9685 Pin config."),
+    "virtual_energy_sensor": section(
+        list[VirtualEnergySensor],
+        "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home "
+        "Assistant.",
+    ),
 }

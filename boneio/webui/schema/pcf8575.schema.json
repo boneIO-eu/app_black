@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "pcf8575": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -19,29 +12,36 @@
             "title": "Id"
           },
           "address": {
+            "description": "I2C address of the expander.",
             "type": [
               "integer",
               "string"
             ],
-            "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
+            "default": "0s",
+            "description": "How long to sleep for PCF to initialize.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "0s",
-            "description": "How long to sleep for PCF to initialize.",
             "title": "Init sleep"
           }
         },
         "required": [
           "address"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Pcf8575"
     }
   }

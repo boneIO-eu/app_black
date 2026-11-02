@@ -2029,15 +2029,8 @@
       "title": "Modbus devices"
     },
     "lm75": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/lm75 \n LM75 Sensor list. All boneIO Black has one LM75 on board.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2045,69 +2038,77 @@
             "title": "Id"
           },
           "address": {
+            "default": 72,
+            "description": "Address of I2C",
             "type": [
               "integer",
               "string"
             ],
-            "default": 72,
-            "description": "Address of I2C",
             "title": "Address"
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "filters": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "round": 2
               }
             ],
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
             "items": {
+              "additionalProperties": true,
+              "propertyNames": {
+                "enum": [
+                  "offset",
+                  "round",
+                  "multiply",
+                  "filter_out",
+                  "filter_out_greater",
+                  "filter_out_lower"
+                ]
+              },
               "type": [
                 "object",
                 "string"
               ]
             },
-            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Filters"
           },
           "unit_of_measurement": {
-            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",
               "\u00b0F"
             ],
-            "examples": [
-              "\u00b0C"
-            ]
+            "type": "string"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/lm75 \n LM75 Sensor list. All boneIO Black has one LM75 on board.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Lm75"
     },
     "ina219": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2115,38 +2116,45 @@
             "title": "Id"
           },
           "address": {
+            "default": 64,
+            "description": "Address of I2C",
             "type": [
               "integer",
               "string"
             ],
-            "default": 64,
-            "description": "Address of I2C",
             "title": "Address"
           },
           "sensors": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "id": "Board Current",
-                "device_class": "current"
+                "device_class": "current",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               },
               {
                 "id": "Board Power",
-                "device_class": "power"
+                "device_class": "power",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               },
               {
                 "id": "Board Voltage",
-                "device_class": "voltage"
+                "device_class": "voltage",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               }
             ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -2154,63 +2162,79 @@
                   "title": "Id"
                 },
                 "device_class": {
-                  "type": "string",
                   "enum": [
                     "current",
                     "power",
                     "voltage"
                   ],
-                  "examples": [
-                    "current"
-                  ]
+                  "type": "string"
                 },
                 "filters": {
-                  "type": [
-                    "array",
-                    "string"
-                  ],
                   "default": [
                     {
                       "round": 2
                     }
                   ],
+                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
                   "items": {
+                    "additionalProperties": true,
+                    "propertyNames": {
+                      "enum": [
+                        "offset",
+                        "round",
+                        "multiply",
+                        "filter_out",
+                        "filter_out_greater",
+                        "filter_out_lower"
+                      ]
+                    },
                     "type": [
                       "object",
                       "string"
                     ]
                   },
-                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                  "type": [
+                    "array",
+                    "string"
+                  ],
                   "title": "Filters"
                 }
-              }
-            }
+              },
+              "type": [
+                "object",
+                "string"
+              ]
+            },
+            "type": [
+              "array",
+              "string"
+            ]
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Ina219"
     },
     "ina226": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "INA226 Power monitor (boneIO Black v1.0). Measures board current, voltage and power. Replaces INA219 on v1.0 boards.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2218,38 +2242,45 @@
             "title": "Id"
           },
           "address": {
+            "default": 64,
+            "description": "Address of I2C",
             "type": [
               "integer",
               "string"
             ],
-            "default": 64,
-            "description": "Address of I2C",
             "title": "Address"
           },
           "sensors": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "id": "Board Current",
-                "device_class": "current"
+                "device_class": "current",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               },
               {
                 "id": "Board Power",
-                "device_class": "power"
+                "device_class": "power",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               },
               {
                 "id": "Board Voltage",
-                "device_class": "voltage"
+                "device_class": "voltage",
+                "filters": [
+                  {
+                    "round": 2
+                  }
+                ]
               }
             ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -2257,63 +2288,79 @@
                   "title": "Id"
                 },
                 "device_class": {
-                  "type": "string",
                   "enum": [
                     "current",
                     "power",
                     "voltage"
                   ],
-                  "examples": [
-                    "current"
-                  ]
+                  "type": "string"
                 },
                 "filters": {
-                  "type": [
-                    "array",
-                    "string"
-                  ],
                   "default": [
                     {
                       "round": 2
                     }
                   ],
+                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
                   "items": {
+                    "additionalProperties": true,
+                    "propertyNames": {
+                      "enum": [
+                        "offset",
+                        "round",
+                        "multiply",
+                        "filter_out",
+                        "filter_out_greater",
+                        "filter_out_lower"
+                      ]
+                    },
                     "type": [
                       "object",
                       "string"
                     ]
                   },
-                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                  "type": [
+                    "array",
+                    "string"
+                  ],
                   "title": "Filters"
                 }
-              }
-            }
+              },
+              "type": [
+                "object",
+                "string"
+              ]
+            },
+            "type": [
+              "array",
+              "string"
+            ]
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "INA226 Power monitor (boneIO Black v1.0). Measures board current, voltage and power. Replaces INA219 on v1.0 boards.",
-      "title": "Ina226"
-    },
-    "virtual_energy_sensor": {
       "type": [
         "array",
         "string"
       ],
+      "title": "Ina226"
+    },
+    "virtual_energy_sensor": {
+      "description": "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2321,46 +2368,51 @@
             "title": "Id"
           },
           "name": {
-            "type": "string",
             "description": "Sensor Name",
+            "type": "string",
             "title": "Name"
           },
           "output_id": {
-            "type": "string",
             "description": "Output ID",
+            "type": "string",
             "title": "Output id"
           },
           "sensor_type": {
-            "type": "string",
+            "description": "Sensor Type",
             "enum": [
               "power",
               "water"
             ],
-            "examples": [
-              "power"
-            ],
-            "description": "Sensor Type",
+            "type": "string",
             "title": "Sensor type"
           },
           "power_usage": {
-            "type": "string",
             "description": "Power Usage",
-            "title": "Power usage",
             "x-dependencies": {
               "sensor_type": [
                 "power"
               ]
-            }
+            },
+            "type": [
+              "integer",
+              "number",
+              "string"
+            ],
+            "title": "Power usage"
           },
           "flow_rate": {
-            "type": "string",
             "description": "Flow Rate",
-            "title": "Flow rate",
             "x-dependencies": {
               "sensor_type": [
                 "water"
               ]
-            }
+            },
+            "type": [
+              "integer",
+              "number",
+              "string"
+            ],
+            "title": "Flow rate"
           },
           "area": {
             "type": "string",
@@ -2372,21 +2424,21 @@
           "name",
           "output_id",
           "sensor_type"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant.",
-      "title": "Virtual energy sensor"
-    },
-    "mcp9808": {
       "type": [
         "array",
         "string"
       ],
+      "title": "Virtual energy sensor"
+    },
+    "mcp9808": {
+      "description": "https://boneio.eu/docs/black/configuration/mcp9808 \n MCP9808 Sensor list. Older boneIO Black had one MCP9808 instead of LM75on board, which measures temperature.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2394,69 +2446,77 @@
             "title": "Id"
           },
           "address": {
+            "default": 24,
+            "description": "Address of I2C device",
             "type": [
               "integer",
               "string"
             ],
-            "default": 24,
-            "description": "Address of I2C device",
             "title": "Address"
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "filters": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "round": 2
               }
             ],
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
             "items": {
+              "additionalProperties": true,
+              "propertyNames": {
+                "enum": [
+                  "offset",
+                  "round",
+                  "multiply",
+                  "filter_out",
+                  "filter_out_greater",
+                  "filter_out_lower"
+                ]
+              },
               "type": [
                 "object",
                 "string"
               ]
             },
-            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Filters"
           },
           "unit_of_measurement": {
-            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",
               "\u00b0F"
             ],
-            "examples": [
-              "\u00b0C"
-            ]
+            "type": "string"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/mcp9808 \n MCP9808 Sensor list. Older boneIO Black had one MCP9808 instead of LM75on board, which measures temperature.",
-      "title": "Mcp9808"
-    },
-    "mcp23017": {
       "type": [
         "array",
         "string"
       ],
+      "title": "Mcp9808"
+    },
+    "mcp23017": {
+      "description": "https://boneio.eu/docs/black/configuration/mcp23017 \n MCP23017 Pin config. All boneIO Black 32X10/Cover/Cover Mix/24x16 has two MCP23017 on board. If you use new boneio: section, then you don't need to define this.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2464,21 +2524,21 @@
             "title": "Id"
           },
           "address": {
+            "description": "I2C address of the expander.",
             "type": [
               "integer",
               "string"
             ],
-            "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
+            "default": "0s",
+            "description": "How long to sleep for MCP to initialize.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "0s",
-            "description": "How long to sleep for MCP to initialize.",
             "title": "Init sleep"
           },
           "inverted": {
@@ -2505,21 +2565,21 @@
         },
         "required": [
           "address"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/mcp23017 \n MCP23017 Pin config. All boneIO Black 32X10/Cover/Cover Mix/24x16 has two MCP23017 on board. If you use new boneio: section, then you don't need to define this.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Mcp23017"
     },
     "pcf8575": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2527,41 +2587,41 @@
             "title": "Id"
           },
           "address": {
+            "description": "I2C address of the expander.",
             "type": [
               "integer",
               "string"
             ],
-            "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
+            "default": "0s",
+            "description": "How long to sleep for PCF to initialize.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "0s",
-            "description": "How long to sleep for PCF to initialize.",
             "title": "Init sleep"
           }
         },
         "required": [
           "address"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/pcf8575 \n PCF8575 Pin config. UNSTABLE.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Pcf8575"
     },
     "pca9685": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/pca9685 \n PCA9685 Pin config.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -2569,29 +2629,36 @@
             "title": "Id"
           },
           "address": {
+            "description": "I2C address of the expander.",
             "type": [
               "integer",
               "string"
             ],
-            "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
+            "default": "0s",
+            "description": "How long to sleep for PCA to initialize.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "0s",
-            "description": "How long to sleep for PCA to initialize.",
             "title": "Init sleep"
           }
         },
         "required": [
           "address"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/pca9685 \n PCA9685 Pin config.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Pca9685"
     },
     "output": {
@@ -3945,15 +4012,8 @@
       "title": "Event"
     },
     "adc": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC sensors in HA. Don't let them hang without use.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -3966,7 +4026,7 @@
             "title": "Id"
           },
           "pin": {
-            "type": "string",
+            "description": "PIN to use.",
             "enum": [
               "P9_33",
               "P9_35",
@@ -3976,10 +4036,7 @@
               "P9_39",
               "P9_40"
             ],
-            "examples": [
-              "P9_33"
-            ],
-            "description": "PIN to use.",
+            "type": "string",
             "title": "Pin"
           },
           "area": {
@@ -3988,13 +4045,13 @@
             "title": "Area"
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "show_in_ha": {
@@ -4020,10 +4077,6 @@
             "title": "Show in ha"
           },
           "filters": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "multiply": 1.8
@@ -4032,21 +4085,43 @@
                 "round": 2
               }
             ],
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
             "items": {
+              "additionalProperties": true,
+              "propertyNames": {
+                "enum": [
+                  "offset",
+                  "round",
+                  "multiply",
+                  "filter_out",
+                  "filter_out_greater",
+                  "filter_out_lower"
+                ]
+              },
               "type": [
                 "object",
                 "string"
               ]
             },
-            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Filters"
           }
         },
         "required": [
           "pin"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/adc \n GPIO ADC section of boneIO Black. It enables ADC sensors in HA. Don't let them hang without use.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Adc"
     },
     "cover": {
@@ -7671,15 +7746,8 @@
       "title": "Irrigation"
     },
     "sensor": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Sensor list for Dallas 1-Wire temperature sensors (DS18B20, etc.). Detected via kernel w1 subsystem.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -7697,8 +7765,8 @@
             "title": "Area"
           },
           "address": {
-            "type": "string",
             "description": "Address of Dallas device, as the kernel names it (28-0000098c7df0) or as ESPHome writes it (0xc0000000053f3328)",
+            "type": "string",
             "title": "Address"
           },
           "show_in_ha": {
@@ -7724,51 +7792,66 @@
             "title": "Show in ha"
           },
           "filters": {
-            "type": [
-              "array",
-              "string"
-            ],
             "default": [
               {
                 "round": 2
               }
             ],
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
             "items": {
+              "additionalProperties": true,
+              "propertyNames": {
+                "enum": [
+                  "offset",
+                  "round",
+                  "multiply",
+                  "filter_out",
+                  "filter_out_greater",
+                  "filter_out_lower"
+                ]
+              },
               "type": [
                 "object",
                 "string"
               ]
             },
-            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Filters"
           },
           "update_interval": {
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "60s",
-            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
             "title": "Update interval"
           },
           "unit_of_measurement": {
-            "type": "string",
             "default": "\u00b0C",
             "enum": [
               "\u00b0C",
               "\u00b0F"
             ],
-            "examples": [
-              "\u00b0C"
-            ]
+            "type": "string"
           }
         },
         "required": [
           "address"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Sensor list for Dallas 1-Wire temperature sensors (DS18B20, etc.). Detected via kernel w1 subsystem.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Sensor"
     },
     "boneio": {
