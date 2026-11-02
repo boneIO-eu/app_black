@@ -343,9 +343,6 @@ def _verdicts_each(section: str, entries: list) -> list[tuple[list[str], list[st
 #: Where the model refuses what Cerberus lets through, and why that is right:
 #: (end of the error's path, or "" for any; text in the error message).
 STRICTER_ON_PURPOSE = [
-    # required_if in the Cerberus schema only runs for a field that is
-    # present, so an action missing what its type needs passes there.
-    ("", "Field required"),
     # An action without `action` passes Cerberus (nothing requires it) and
     # does nothing at runtime; the model cannot tell which action it is.
     ("", "Unable to extract tag using discriminator"),
@@ -372,6 +369,10 @@ def _on_purpose(errors: list[str]) -> bool:
         # refused as an integer (above), and so as a string too.
         if where.endswith(".str") and "Input should be a valid string" in message:
             return any(e.startswith(where[:-4] + ".int: Input should be a valid integer") for e in errors)
+        # required_if in the Cerberus schema only runs for a field that is
+        # present, so an action missing what its type needs passes there.
+        if "Field required" in message and ".actions" in where:
+            return True
         return any(where.endswith(end) and text in message for end, text in STRICTER_ON_PURPOSE)
 
     return all(explained(e) for e in errors)
@@ -556,3 +557,46 @@ def test_a_binary_sensor_keeps_its_name():
     entry = {"name": "Kontaktron", "boneio_input": "in_01"}
     assert adapter.dump_python(adapter.validate_python([entry]))[0]["name"] == "Kontaktron"
     assert _verdicts("binary_sensor", [entry]) == ([], [])
+
+
+def test_every_factory_config_section_is_accepted_as_written():
+    """What an agent or a person reads in the file is what a save accepts."""
+    checked = 0
+    for path in sorted(glob.glob("boneio/factory_config/*/*/config.yaml")):
+        raw, _ = _run_config_migrations(load_yaml_file(path), config_file=None)
+        for section in models.SECTIONS & raw.keys():
+            assert validate_section(section, raw[section], raw["boneio"]) == [], (path, section)
+            checked += 1
+    assert checked > 20
+
+
+OLD_BOARD = {"config_version": 7, "name": "t", "version": 0.7, "device_type": "24x16A"}
+
+
+@pytest.mark.parametrize(
+    "entry, boneio, accepted",
+    [
+        # The cover board's map gives the type.
+        ({"boneio_output": "01_up"}, {**BONEIO, "device_type": "cover", "version": 1.0}, True),
+        # A 0.7 map does not, so the entry has to.
+        ({"boneio_output": "out_01"}, OLD_BOARD, False),
+        ({"boneio_output": "out_01", "output_type": "light"}, OLD_BOARD, True),
+        # Without a board output nothing else can.
+        ({"id": "r1", "kind": "gpio", "pin": 30}, BONEIO, False),
+    ],
+)
+def test_an_output_takes_its_type_from_the_entry_or_the_board(entry, boneio, accepted):
+    errors = validate_section("output", [entry], boneio)
+    assert errors == ([] if accepted else ["output[0].output_type: required field"])
+
+
+def test_start_up_refuses_an_output_with_no_type():
+    from boneio.core.config.yaml_util import ConfigurationException, load_config_from_string
+
+    config = (
+        "boneio:\n  name: t\n  config_version: 7\n  device_type: 24x16A\n  version: 0.7\n"
+        "output:\n  - boneio_output: out_01\n"
+    )
+    with pytest.raises(ConfigurationException, match=r"output\[0\]\.output_type: required field"):
+        load_config_from_string(config)
+    assert load_config_from_string(config + "    output_type: switch\n")["output"][0]["output_type"] == "switch"

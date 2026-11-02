@@ -1385,6 +1385,7 @@ def load_config_from_string(config_str: str) -> dict:
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
         raise ConfigurationException(error_msg)
+    _refuse_untyped_outputs(merged_doc)
 
     return merged_doc
 
@@ -1467,7 +1468,7 @@ def validate_section(section: str, data: Any, boneio_section: dict | None) -> li
         merge_board_config(doc)
     except ConfigurationException as err:
         return [f"{section}: {err}"]
-    return []
+    return _untyped_outputs(doc) if section == "output" else []
 
 
 def _get_config_cache_path(config_file: str) -> str:
@@ -1785,6 +1786,35 @@ def _iter_actions(entry: dict, actions_key: str | None):
                     yield action
 
 
+def _untyped_outputs(doc: dict) -> list[str]:
+    """Outputs that still have no ``output_type`` once the board map is applied.
+
+    The type may be written in the entry or come from the board's map for the
+    ``boneio_output`` it names, so it can only be required after the merge.
+    Maps from 0.8 on give it for every output; older ones leave it to the entry.
+
+    Args:
+        doc: The configuration after ``merge_board_config``.
+
+    Returns:
+        One ``path: message`` line per output without a type.
+    """
+    return [
+        f"output[{index}].output_type: required field"
+        for index, entry in enumerate(doc.get("output") or [])
+        if isinstance(entry, dict) and not entry.get("output_type")
+    ]
+
+
+def _refuse_untyped_outputs(doc: dict) -> None:
+    """Raise ConfigurationException if ``_untyped_outputs`` finds any."""
+    errors = _untyped_outputs(doc)
+    if errors:
+        raise ConfigurationException(
+            "Configuration validation failed:\n" + "\n".join(f"- {error}" for error in errors)
+        )
+
+
 def _check_virtual_switch_references(doc: dict) -> None:
     """Refuse a reference to a virtual switch the configuration never defines.
 
@@ -1970,6 +2000,7 @@ def _full_config_validation(
     # time and a condition in `event:` points into `virtual_switch:`. Skipped
     # on a downgrade, where the whole validation is already advisory.
     if not _is_downgraded:
+        _refuse_untyped_outputs(merged_doc)
         _check_virtual_switch_references(merged_doc)
 
     # Save to cache for next startup — unless a migration just rewrote the

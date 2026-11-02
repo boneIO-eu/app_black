@@ -214,13 +214,10 @@
             "examples": [
               "switch"
             ],
-            "description": "If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
+            "description": "Taken from the board when boneio_output names an output it maps; required otherwise. If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "title": "Output type"
           }
-        },
-        "required": [
-          "output_type"
-        ]
+        }
       },
       "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
       "title": "Output"

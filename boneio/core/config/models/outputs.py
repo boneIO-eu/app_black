@@ -3,6 +3,8 @@
 Mirrors boneio/schema/schema.yaml for the section. The board mapping fills in
 ``kind``, ``pin`` and the expander id for an output named by
 ``boneio_output``; the model checks the entry as written, before that.
+Since the map may also supply ``output_type``, the model leaves it optional
+and ``yaml_util`` requires it once the map is applied.
 """
 
 from __future__ import annotations
@@ -43,8 +45,8 @@ class Output(Model):
     interlock_group: Union[str, list] | None = None
     percentage_default_brightness: int | None = None
     output_type: Annotated[
-        Literal["switch", "light", "cover", "valve", "none"], BeforeValidator(_lower)
-    ]
+        Literal["switch", "light", "cover", "valve", "none"] | None, BeforeValidator(_lower)
+    ] = None
 
 
 SECTION_ADAPTERS = {

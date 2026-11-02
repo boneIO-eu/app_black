@@ -1234,11 +1234,11 @@ output:
           label: When the brightness is not set in ha, and we switch led to turn this value will be used
       output_type:
         type: string
-        required: True
+        required: False
         allowed: ['switch', 'light', 'cover', 'valve', 'none']
         coerce: lower
         meta:
-          label: If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).
+          label: Taken from the board when boneio_output names an output it maps; required otherwise. If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).
 
 output_group:
   type: list
