@@ -965,6 +965,19 @@
                         ]
                       }
                     },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "action_mqtt_msg",
+                          "boneio_id",
+                          "cover_id",
+                          "output_id",
+                          "remote_device",
+                          "topic",
+                          "transition"
+                        ]
+                      }
+                    },
                     "required": [
                       "boneio_output",
                       "action"
@@ -1196,6 +1209,19 @@
                         ]
                       }
                     },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "action_mqtt_msg",
+                          "boneio_id",
+                          "cover_id",
+                          "output_id",
+                          "remote_device",
+                          "topic",
+                          "transition"
+                        ]
+                      }
+                    },
                     "required": [
                       "boneio_cover",
                       "action"
@@ -1393,6 +1419,17 @@
                           "MQTT",
                           "Mqtt",
                           "mqtt"
+                        ]
+                      }
+                    },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "boneio_id",
+                          "cover_id",
+                          "output_id",
+                          "remote_device",
+                          "transition"
                         ]
                       }
                     },
@@ -1948,6 +1985,16 @@
                         ]
                       }
                     },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "cover_id",
+                          "output_id",
+                          "remote_device",
+                          "transition"
+                        ]
+                      }
+                    },
                     "required": [
                       "boneio_output",
                       "action_mqtt_msg",
@@ -2188,6 +2235,17 @@
                           "COVER_OVER_MQTT",
                           "Cover_Over_Mqtt",
                           "cover_over_mqtt"
+                        ]
+                      }
+                    },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "cover_id",
+                          "output_id",
+                          "remote_device",
+                          "topic",
+                          "transition"
                         ]
                       }
                     },
@@ -2440,6 +2498,16 @@
                         ]
                       }
                     },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "action_mqtt_msg",
+                          "boneio_id",
+                          "cover_id",
+                          "topic"
+                        ]
+                      }
+                    },
                     "required": [
                       "remote_device",
                       "output_id",
@@ -2679,6 +2747,17 @@
                           "REMOTE_COVER",
                           "Remote_Cover",
                           "remote_cover"
+                        ]
+                      }
+                    },
+                    "propertyNames": {
+                      "not": {
+                        "enum": [
+                          "action_mqtt_msg",
+                          "boneio_id",
+                          "output_id",
+                          "topic",
+                          "transition"
                         ]
                       }
                     },
@@ -7494,6 +7573,19 @@
                       ]
                     }
                   },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "action_mqtt_msg",
+                        "boneio_id",
+                        "cover_id",
+                        "output_id",
+                        "remote_device",
+                        "topic",
+                        "transition"
+                      ]
+                    }
+                  },
                   "required": [
                     "boneio_output",
                     "action"
@@ -7725,6 +7817,19 @@
                       ]
                     }
                   },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "action_mqtt_msg",
+                        "boneio_id",
+                        "cover_id",
+                        "output_id",
+                        "remote_device",
+                        "topic",
+                        "transition"
+                      ]
+                    }
+                  },
                   "required": [
                     "boneio_cover",
                     "action"
@@ -7922,6 +8027,17 @@
                         "MQTT",
                         "Mqtt",
                         "mqtt"
+                      ]
+                    }
+                  },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "boneio_id",
+                        "cover_id",
+                        "output_id",
+                        "remote_device",
+                        "transition"
                       ]
                     }
                   },
@@ -8477,6 +8593,16 @@
                       ]
                     }
                   },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "cover_id",
+                        "output_id",
+                        "remote_device",
+                        "transition"
+                      ]
+                    }
+                  },
                   "required": [
                     "boneio_output",
                     "action_mqtt_msg",
@@ -8717,6 +8843,17 @@
                         "COVER_OVER_MQTT",
                         "Cover_Over_Mqtt",
                         "cover_over_mqtt"
+                      ]
+                    }
+                  },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "cover_id",
+                        "output_id",
+                        "remote_device",
+                        "topic",
+                        "transition"
                       ]
                     }
                   },
@@ -8969,6 +9106,16 @@
                       ]
                     }
                   },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "action_mqtt_msg",
+                        "boneio_id",
+                        "cover_id",
+                        "topic"
+                      ]
+                    }
+                  },
                   "required": [
                     "remote_device",
                     "output_id",
@@ -9208,6 +9355,17 @@
                         "REMOTE_COVER",
                         "Remote_Cover",
                         "remote_cover"
+                      ]
+                    }
+                  },
+                  "propertyNames": {
+                    "not": {
+                      "enum": [
+                        "action_mqtt_msg",
+                        "boneio_id",
+                        "output_id",
+                        "topic",
+                        "transition"
                       ]
                     }
                   },
@@ -10286,6 +10444,19 @@
           ]
         }
       },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "action_mqtt_msg",
+            "boneio_id",
+            "cover_id",
+            "output_id",
+            "remote_device",
+            "topic",
+            "transition"
+          ]
+        }
+      },
       "required": [
         "boneio_cover",
         "action"
@@ -10527,6 +10698,17 @@
           ]
         }
       },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "cover_id",
+            "output_id",
+            "remote_device",
+            "topic",
+            "transition"
+          ]
+        }
+      },
       "required": [
         "boneio_cover",
         "action_mqtt_msg",
@@ -10726,6 +10908,17 @@
             "MQTT",
             "Mqtt",
             "mqtt"
+          ]
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "boneio_id",
+            "cover_id",
+            "output_id",
+            "remote_device",
+            "transition"
           ]
         }
       },
@@ -10955,6 +11148,19 @@
             "OUTPUT",
             "Output",
             "output"
+          ]
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "action_mqtt_msg",
+            "boneio_id",
+            "cover_id",
+            "output_id",
+            "remote_device",
+            "topic",
+            "transition"
           ]
         }
       },
@@ -11201,6 +11407,16 @@
           ]
         }
       },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "cover_id",
+            "output_id",
+            "remote_device",
+            "transition"
+          ]
+        }
+      },
       "required": [
         "boneio_output",
         "action_mqtt_msg",
@@ -11441,6 +11657,17 @@
             "REMOTE_COVER",
             "Remote_Cover",
             "remote_cover"
+          ]
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "action_mqtt_msg",
+            "boneio_id",
+            "output_id",
+            "topic",
+            "transition"
           ]
         }
       },
@@ -11689,6 +11916,16 @@
             "REMOTE_OUTPUT",
             "Remote_Output",
             "remote_output"
+          ]
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "action_mqtt_msg",
+            "boneio_id",
+            "cover_id",
+            "topic"
           ]
         }
       },

@@ -281,7 +281,7 @@ def test_model_schema_matches_schema_yaml(section):
 def test_model_schema_has_nothing_the_panel_cannot_read(section):
     node, defs = section_schema(section)
     text = json.dumps([node, defs])
-    for keyword in ('"anyOf"', '"null"', '"ge"', '"le"'):
+    for keyword in ('"anyOf"', '"null"', '"ge"', '"le"', '"enum": []'):
         assert keyword not in text
     assert '"$defs"' not in json.dumps(node)
     # Every reference points to a definition served at the document's root.
@@ -297,6 +297,14 @@ def test_an_action_type_lists_only_its_own_fields():
     assert set(mqtt["required"]) == {"action", "topic", "action_mqtt_msg"}
     # A field the type makes required keeps the description it has on every type.
     assert defs["OutputAction"]["properties"]["boneio_output"]["description"] == "Output ID"
+
+
+def test_an_action_type_refuses_another_types_fields():
+    _, defs = section_schema("event")
+    refused = defs["OutputAction"]["propertyNames"]["not"]["enum"]
+    assert {"topic", "action_mqtt_msg", "boneio_id"} <= set(refused)
+    # Start-up fills action_cover: TOGGLE into every action; the model takes it.
+    assert "action_cover" not in refused
 
 
 def test_modbus_device_models_are_not_in_the_schema():

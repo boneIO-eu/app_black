@@ -114,6 +114,11 @@ def _action_schema(schema: dict, cls: type) -> None:
     """
     for key in cls.forbidden:  # type: ignore[attr-defined]
         schema["properties"].pop(key, None)
+    # Another type's field is refused, so the editor flags it too; not the
+    # TOGGLE start-up fills in, which an action may carry whatever its type.
+    refused = sorted(cls.forbidden - _FILLED_DEFAULTS.keys())  # type: ignore[attr-defined]
+    if refused:
+        schema["propertyNames"] = {"not": {"enum": refused}}
     schema["properties"]["action"].update(ANY_CASE)  # lowered by _lower_action
     for key, prop in schema["properties"].items():
         base = _Action.model_fields.get(key)
