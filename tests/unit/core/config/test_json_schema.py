@@ -103,6 +103,16 @@ ADDED = {
         "items/properties/power_usage": {"type": ["integer", "number", "string"]},
         "items/properties/flow_rate": {"type": ["integer", "number", "string"]},
     },
+    "cover": {
+        "items/properties/endstop_overrun": {"minimum": 0, "maximum": 100},
+        "items/properties/facade_azimuth": {"minimum": 0, "maximum": 359},
+        "items/properties/facade_min_elevation": {"minimum": 0, "maximum": 45},
+    },
+    "irrigation": {
+        "items/properties/zones/items/properties/run_every_n": {"minimum": 1},
+        # An integer is a number already; the model says both.
+        "items/properties/multiplier": {"type": ["integer", "number", "string"]},
+    },
     "binary_sensor": {
         **_input_added(),
         # Read at start-up as the entity's name; schema.yaml never listed it.
@@ -120,6 +130,7 @@ REMOVED = {
     },
 }
 REMOVED["binary_sensor"] = REMOVED["event"]
+REMOVED["irrigation"] = {"items/properties/multiplier": {"type": ["number", "string"]}}
 REMOVED["virtual_energy_sensor"] = {
     "items/properties/power_usage": {"type": "string"},
     "items/properties/flow_rate": {"type": "string"},

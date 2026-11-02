@@ -43,21 +43,27 @@ class Zone(Model):
 
 
 class WaterSource(Model):
-    id: str | None = None
-    name: str | None = None
-    outputs: list
-    output_start_delay: StrPeriod | None = None
-    output_stop_delay: StrPeriod | None = None
-    pump_switch_off_during_valve_open_delay: bool = False
-    pump_start_pump_delay: StrPeriod | None = None
-    pump_start_valve_delay: StrPeriod | None = None
-    pump_stop_pump_delay: StrPeriod | None = None
-    pump_stop_valve_delay: StrPeriod | None = None
+    id: str | None = Field(None, description="Id of I2C to use in pin config")
+    name: str | None = Field(None, description="Display name for the water source.")
+    outputs: list = Field(description="Output IDs to activate when this water source is used.")
+    output_start_delay: StrPeriod | None = Field(
+        None, description="Delay between activating each output (sequential ON, in order)."
+    )
+    output_stop_delay: StrPeriod | None = Field(
+        None, description="Delay between deactivating each output (sequential OFF, reverse order)."
+    )
+    pump_switch_off_during_valve_open_delay: bool = Field(
+        False, description="Turn off source outputs during valve_open_delay interval."
+    )
+    pump_start_pump_delay: StrPeriod | None = Field(None, description="Delay from valve open to source activation.")
+    pump_start_valve_delay: StrPeriod | None = Field(None, description="Delay from source activation to valve open.")
+    pump_stop_pump_delay: StrPeriod | None = Field(None, description="Delay from valve close to source deactivation.")
+    pump_stop_valve_delay: StrPeriod | None = Field(None, description="Delay from source deactivation to valve close.")
 
 
 class Run(Model):
-    time: str
-    days: Days = "daily"
+    time: str = Field(description="Start time in HH:MM format. Example: 06:00.")
+    days: Days = Field("daily", description="Days when this schedule is active.")
 
 
 class Template(Model):

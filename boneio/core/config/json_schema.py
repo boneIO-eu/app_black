@@ -33,6 +33,7 @@ FROM_MODELS = frozenset({
     "modbus", "can", "location", "lox_udp", "logger", "usage_history", "oled", "areas",
     "sensor", "adc", "ina219", "ina226", "lm75", "mcp9808",
     "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor",
+    "output", "output_group", "cover", "irrigation",
 })
 
 _BOOLEAN = [
@@ -110,6 +111,17 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
     if "default" in node and node["default"] is None:
         del node["default"]
 
+    if "anyOf" in node:
+        # An optional field is one that may be left out, not one that may be null.
+        # A plain ``list`` in a union says nothing of its items.
+        branches = [{k: v for k, v in b.items() if (k, v) != ("items", {})}
+                    for b in node.pop("anyOf") if b != {"type": "null"}]
+        if len(branches) == 1:
+            return _panel({**branches[0], **node}, defs, shared, name)
+        if not all(set(b) == {"type"} for b in branches):
+            raise ValueError(f"{name}: a union the panel cannot read")
+        node["type"] = [b["type"] for b in branches]
+
     if node.pop("x-any-case", False):
         # Read in any case (the model lowers or uppers it), so the editor must
         # not flag IN_01 or toggle_open; the spellings schema.yaml's converter
@@ -117,14 +129,6 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
         values = node.pop("enum", None) or [node.pop("const")]
         node["enum"] = sorted({c for v in values for c in (v, v.lower(), v.upper(), v.title())})
 
-    if "anyOf" in node:
-        # An optional field is one that may be left out, not one that may be null.
-        branches = [b for b in node.pop("anyOf") if b != {"type": "null"}]
-        if len(branches) == 1:
-            return _panel({**branches[0], **node}, defs, shared, name)
-        if not all(set(b) == {"type"} for b in branches):
-            raise ValueError(f"{name}: a union the panel cannot read")
-        node["type"] = [b["type"] for b in branches]
     if "oneOf" in node:
         # A tagged union (an action of one of its types); each member is
         # written like any other schema.

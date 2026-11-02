@@ -2662,15 +2662,8 @@
       "title": "Pca9685"
     },
     "output": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -2693,7 +2686,6 @@
             "title": "Area"
           },
           "kind": {
-            "type": "string",
             "enum": [
               "gpio",
               "mcp",
@@ -2701,9 +2693,7 @@
               "pcf",
               "buzzer"
             ],
-            "examples": [
-              "gpio"
-            ],
+            "type": "string",
             "description": "Output kind (mcp, gpio, buzzer, etc)",
             "title": "Kind"
           },
@@ -2741,7 +2731,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
+            "description": "How long can this relay be on. Can't be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
@@ -2750,7 +2740,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
+            "description": "How long can this relay be off. Can't be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
           "adjustable_duration": {
@@ -2803,16 +2793,13 @@
             "title": "Duration max"
           },
           "duration_unit": {
-            "type": "string",
             "default": "s",
+            "description": "Unit displayed on Home Assistant duration slider.",
             "enum": [
               "s",
               "min"
             ],
-            "examples": [
-              "s"
-            ],
-            "description": "Unit displayed on Home Assistant duration slider.",
+            "type": "string",
             "title": "Duration unit"
           },
           "restore_state": {
@@ -2836,11 +2823,11 @@
             "default": true
           },
           "interlock_group": {
+            "description": "Interlock group name or list",
             "type": [
               "array",
               "string"
             ],
-            "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
@@ -2853,6 +2840,7 @@
           },
           "output_type": {
             "type": "string",
+            "description": "Taken from the board when boneio_output names an output it maps; required otherwise. If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "enum": [
               "COVER",
               "Cover",
@@ -2870,31 +2858,27 @@
               "switch",
               "valve"
             ],
-            "examples": [
-              "switch"
-            ],
-            "description": "Taken from the board when boneio_output names an output it maps; required otherwise. If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "title": "Output type"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
-      "title": "Output"
-    },
-    "output_group": {
       "type": [
         "array",
         "string"
       ],
+      "title": "Output"
+    },
+    "output_group": {
+      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
-            "type": "string",
             "description": "Group ID",
+            "type": "string",
             "title": "Id"
           },
           "name": {
@@ -2903,11 +2887,11 @@
             "title": "Name"
           },
           "outputs": {
+            "description": "Output IDs",
             "type": [
               "array",
               "string"
             ],
-            "description": "Output IDs",
             "title": "Outputs"
           },
           "all_on_behaviour": {
@@ -2933,8 +2917,9 @@
             "title": "All on behaviour"
           },
           "output_type": {
-            "type": "string",
             "default": "switch",
+            "description": "If HA discovery is used device if relay is light or switch.",
+            "type": "string",
             "enum": [
               "LIGHT",
               "Light",
@@ -2943,19 +2928,22 @@
               "light",
               "switch"
             ],
-            "examples": [
-              "switch"
-            ],
-            "description": "If HA discovery is used device if relay is light or switch.",
             "title": "Output type"
           }
         },
         "required": [
           "id",
           "outputs"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Output group"
     },
     "binary_sensor": {
@@ -4125,15 +4113,8 @@
       "title": "Adc"
     },
     "cover": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/cover \n Cover section of boneIO Black. It enables cover entities in HA. You'd need output config to use it first.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -4173,44 +4154,41 @@
             "title": "Restore state"
           },
           "open_relay": {
-            "type": "string",
             "description": "ID of open relay of output.",
+            "type": "string",
             "title": "Open relay"
           },
           "close_relay": {
-            "type": "string",
             "description": "ID of close relay of output.",
+            "type": "string",
             "title": "Close relay"
           },
           "platform": {
-            "type": "string",
             "default": "time_based",
+            "description": "Platform to use for cover.",
             "enum": [
               "time_based",
               "venetian"
             ],
-            "examples": [
-              "time_based"
-            ],
-            "description": "Platform to use for cover.",
+            "type": "string",
             "title": "Platform"
           },
           "open_time": {
+            "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "title": "Open time"
           },
           "close_time": {
+            "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
           },
           "tilt_duration": {
@@ -4232,22 +4210,24 @@
             "title": "Actuator activation duration"
           },
           "endstop_overrun": {
+            "default": 10,
+            "description": "Extra relay time when the cover moves to fully open or fully closed, as a percent of open_time/close_time. The cover runs into its endstop, so the time-based position is exact again at 0% and 100%. 0 disables it.",
+            "maximum": 100,
+            "minimum": 0,
             "type": [
               "integer",
               "string"
             ],
-            "default": 10,
-            "description": "Extra relay time when the cover moves to fully open or fully closed, as a percent of open_time/close_time. The cover runs into its endstop, so the time-based position is exact again at 0% and 100%. 0 disables it.",
             "title": "Endstop overrun"
           },
           "direction_change_wait_time": {
+            "default": "500ms",
+            "description": "Pause before the cover is driven in the opposite direction, so the motor stops before it reverses. 0ms disables it.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "500ms",
-            "description": "Pause before the cover is driven in the opposite direction, so the motor stops before it reverses. 0ms disables it.",
             "title": "Direction change wait time"
           },
           "tilt_restore_after_close": {
@@ -4273,7 +4253,6 @@
             "title": "Tilt restore after close"
           },
           "device_class": {
-            "type": "string",
             "enum": [
               "awning",
               "blind",
@@ -4286,9 +4265,7 @@
               "shutter",
               "window"
             ],
-            "examples": [
-              "awning"
-            ],
+            "type": "string",
             "description": "Device class to use in HA",
             "title": "Device class"
           },
@@ -4315,6 +4292,8 @@
             "title": "Show in ha"
           },
           "facade_azimuth": {
+            "maximum": 359,
+            "minimum": 0,
             "type": [
               "integer",
               "string"
@@ -4323,12 +4302,14 @@
             "title": "Facade azimuth"
           },
           "facade_min_elevation": {
+            "default": 0,
+            "description": "The sun counts as on the window only above this many degrees over the horizon - raise it when a neighbouring house or trees shade the window while the sun is low.",
+            "maximum": 45,
+            "minimum": 0,
             "type": [
               "integer",
               "string"
             ],
-            "default": 0,
-            "description": "The sun counts as on the window only above this many degrees over the horizon - raise it when a neighbouring house or trees shade the window while the sun is low.",
             "title": "Facade min elevation"
           }
         },
@@ -4337,9 +4318,16 @@
           "close_relay",
           "open_time",
           "close_time"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/cover \n Cover section of boneIO Black. It enables cover entities in HA. You'd need output config to use it first.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Cover"
     },
     "template": {
@@ -7373,15 +7361,8 @@
       "title": "Schedule"
     },
     "irrigation": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Irrigation controllers \u2014 manage watering zones with schedules, per-zone intervals, and master valve support.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -7394,15 +7375,7 @@
             "title": "Name"
           },
           "water_sources": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -7415,11 +7388,11 @@
                   "title": "Name"
                 },
                 "outputs": {
+                  "description": "Output IDs to activate when this water source is used.",
                   "type": [
                     "array",
                     "string"
                   ],
-                  "description": "Output IDs to activate when this water source is used.",
                   "title": "Outputs"
                 },
                 "output_start_delay": {
@@ -7501,8 +7474,16 @@
               },
               "required": [
                 "outputs"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
+            "type": [
+              "array",
+              "string"
+            ],
             "description": "Water sources \u2014 each defines outputs to activate and per-source pump timing.",
             "title": "Water sources"
           },
@@ -7547,21 +7528,22 @@
             "title": "Valve overlap"
           },
           "multiplier": {
+            "default": 1.0,
+            "description": "Duration multiplier applied to all zone run times. 1.0 = 100%.",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 1.0,
-            "description": "Duration multiplier applied to all zone run times. 1.0 = 100%.",
             "title": "Multiplier"
           },
           "repeat": {
+            "default": 0,
+            "description": "Number of times to repeat the full cycle. 0 = run once.",
             "type": [
               "integer",
               "string"
             ],
-            "default": 0,
-            "description": "Number of times to repeat the full cycle. 0 = run once.",
             "title": "Repeat"
           },
           "auto_advance": {
@@ -7618,24 +7600,16 @@
             "title": "Pause timeout"
           },
           "schedule": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "time": {
-                  "type": "string",
                   "description": "Start time in HH:MM format. Example: 06:00.",
+                  "type": "string",
                   "title": "Time"
                 },
                 "days": {
-                  "type": "string",
                   "default": "daily",
+                  "description": "Days when this schedule is active.",
                   "enum": [
                     "daily",
                     "weekdays",
@@ -7648,30 +7622,28 @@
                     "sat",
                     "sun"
                   ],
-                  "examples": [
-                    "daily"
-                  ],
-                  "description": "Days when this schedule is active.",
+                  "type": "string",
                   "title": "Days"
                 }
               },
               "required": [
                 "time"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
-            "description": "Scheduled start times for this controller.",
-            "title": "Schedule"
-          },
-          "zones": {
             "type": [
               "array",
               "string"
             ],
+            "description": "Scheduled start times for this controller.",
+            "title": "Schedule"
+          },
+          "zones": {
+            "description": "Irrigation zones \u2014 each zone controls a single valve output.",
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -7684,17 +7656,17 @@
                   "title": "Name"
                 },
                 "valve_id": {
-                  "type": "string",
                   "description": "Output ID of the valve relay to control.",
+                  "type": "string",
                   "title": "Valve id"
                 },
                 "run_duration": {
+                  "description": "How long to run this zone. Example 5min or 300s.",
                   "type": [
                     "number",
                     "string"
                   ],
                   "x-timeperiod": true,
-                  "description": "How long to run this zone. Example 5min or 300s.",
                   "title": "Run duration"
                 },
                 "enabled": {
@@ -7720,29 +7692,44 @@
                   "title": "Enabled"
                 },
                 "run_every_n": {
+                  "default": 1,
+                  "description": "Run zone every Nth scheduled cycle. 1 = every time.",
+                  "minimum": 1,
                   "type": [
                     "integer",
                     "string"
                   ],
-                  "default": 1,
-                  "description": "Run zone every Nth scheduled cycle. 1 = every time.",
                   "title": "Run every n"
                 }
               },
               "required": [
                 "valve_id",
                 "run_duration"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
-            "description": "Irrigation zones \u2014 each zone controls a single valve output.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Zones"
           }
         },
         "required": [
           "zones"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Irrigation controllers \u2014 manage watering zones with schedules, per-zone intervals, and master valve support.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Irrigation"
     },
     "sensor": {

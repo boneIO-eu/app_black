@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "output": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -34,7 +27,6 @@
             "title": "Area"
           },
           "kind": {
-            "type": "string",
             "enum": [
               "gpio",
               "mcp",
@@ -42,9 +34,7 @@
               "pcf",
               "buzzer"
             ],
-            "examples": [
-              "gpio"
-            ],
+            "type": "string",
             "description": "Output kind (mcp, gpio, buzzer, etc)",
             "title": "Kind"
           },
@@ -82,7 +72,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
+            "description": "How long can this relay be on. Can't be used if output_type is \"none\".",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
@@ -91,7 +81,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
+            "description": "How long can this relay be off. Can't be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
           "adjustable_duration": {
@@ -144,16 +134,13 @@
             "title": "Duration max"
           },
           "duration_unit": {
-            "type": "string",
             "default": "s",
+            "description": "Unit displayed on Home Assistant duration slider.",
             "enum": [
               "s",
               "min"
             ],
-            "examples": [
-              "s"
-            ],
-            "description": "Unit displayed on Home Assistant duration slider.",
+            "type": "string",
             "title": "Duration unit"
           },
           "restore_state": {
@@ -177,11 +164,11 @@
             "default": true
           },
           "interlock_group": {
+            "description": "Interlock group name or list",
             "type": [
               "array",
               "string"
             ],
-            "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
@@ -194,6 +181,7 @@
           },
           "output_type": {
             "type": "string",
+            "description": "Taken from the board when boneio_output names an output it maps; required otherwise. If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "enum": [
               "COVER",
               "Cover",
@@ -211,15 +199,18 @@
               "switch",
               "valve"
             ],
-            "examples": [
-              "switch"
-            ],
-            "description": "Taken from the board when boneio_output names an output it maps; required otherwise. If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).",
             "title": "Output type"
           }
-        }
+        },
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/output \n List of outputs to define.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Output"
     }
   }

@@ -3,19 +3,12 @@
   "type": "object",
   "properties": {
     "output_group": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
-            "type": "string",
             "description": "Group ID",
+            "type": "string",
             "title": "Id"
           },
           "name": {
@@ -24,11 +17,11 @@
             "title": "Name"
           },
           "outputs": {
+            "description": "Output IDs",
             "type": [
               "array",
               "string"
             ],
-            "description": "Output IDs",
             "title": "Outputs"
           },
           "all_on_behaviour": {
@@ -54,8 +47,9 @@
             "title": "All on behaviour"
           },
           "output_type": {
-            "type": "string",
             "default": "switch",
+            "description": "If HA discovery is used device if relay is light or switch.",
+            "type": "string",
             "enum": [
               "LIGHT",
               "Light",
@@ -64,19 +58,22 @@
               "light",
               "switch"
             ],
-            "examples": [
-              "switch"
-            ],
-            "description": "If HA discovery is used device if relay is light or switch.",
             "title": "Output type"
           }
         },
         "required": [
           "id",
           "outputs"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Output group"
     }
   }

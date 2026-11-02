@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "irrigation": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Irrigation controllers \u2014 manage watering zones with schedules, per-zone intervals, and master valve support.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -24,15 +17,7 @@
             "title": "Name"
           },
           "water_sources": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -45,11 +30,11 @@
                   "title": "Name"
                 },
                 "outputs": {
+                  "description": "Output IDs to activate when this water source is used.",
                   "type": [
                     "array",
                     "string"
                   ],
-                  "description": "Output IDs to activate when this water source is used.",
                   "title": "Outputs"
                 },
                 "output_start_delay": {
@@ -131,8 +116,16 @@
               },
               "required": [
                 "outputs"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
+            "type": [
+              "array",
+              "string"
+            ],
             "description": "Water sources \u2014 each defines outputs to activate and per-source pump timing.",
             "title": "Water sources"
           },
@@ -177,21 +170,22 @@
             "title": "Valve overlap"
           },
           "multiplier": {
+            "default": 1.0,
+            "description": "Duration multiplier applied to all zone run times. 1.0 = 100%.",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 1.0,
-            "description": "Duration multiplier applied to all zone run times. 1.0 = 100%.",
             "title": "Multiplier"
           },
           "repeat": {
+            "default": 0,
+            "description": "Number of times to repeat the full cycle. 0 = run once.",
             "type": [
               "integer",
               "string"
             ],
-            "default": 0,
-            "description": "Number of times to repeat the full cycle. 0 = run once.",
             "title": "Repeat"
           },
           "auto_advance": {
@@ -248,24 +242,16 @@
             "title": "Pause timeout"
           },
           "schedule": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "time": {
-                  "type": "string",
                   "description": "Start time in HH:MM format. Example: 06:00.",
+                  "type": "string",
                   "title": "Time"
                 },
                 "days": {
-                  "type": "string",
                   "default": "daily",
+                  "description": "Days when this schedule is active.",
                   "enum": [
                     "daily",
                     "weekdays",
@@ -278,30 +264,28 @@
                     "sat",
                     "sun"
                   ],
-                  "examples": [
-                    "daily"
-                  ],
-                  "description": "Days when this schedule is active.",
+                  "type": "string",
                   "title": "Days"
                 }
               },
               "required": [
                 "time"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
-            "description": "Scheduled start times for this controller.",
-            "title": "Schedule"
-          },
-          "zones": {
             "type": [
               "array",
               "string"
             ],
+            "description": "Scheduled start times for this controller.",
+            "title": "Schedule"
+          },
+          "zones": {
+            "description": "Irrigation zones \u2014 each zone controls a single valve output.",
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -314,17 +298,17 @@
                   "title": "Name"
                 },
                 "valve_id": {
-                  "type": "string",
                   "description": "Output ID of the valve relay to control.",
+                  "type": "string",
                   "title": "Valve id"
                 },
                 "run_duration": {
+                  "description": "How long to run this zone. Example 5min or 300s.",
                   "type": [
                     "number",
                     "string"
                   ],
                   "x-timeperiod": true,
-                  "description": "How long to run this zone. Example 5min or 300s.",
                   "title": "Run duration"
                 },
                 "enabled": {
@@ -350,29 +334,44 @@
                   "title": "Enabled"
                 },
                 "run_every_n": {
+                  "default": 1,
+                  "description": "Run zone every Nth scheduled cycle. 1 = every time.",
+                  "minimum": 1,
                   "type": [
                     "integer",
                     "string"
                   ],
-                  "default": 1,
-                  "description": "Run zone every Nth scheduled cycle. 1 = every time.",
                   "title": "Run every n"
                 }
               },
               "required": [
                 "valve_id",
                 "run_duration"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
-            "description": "Irrigation zones \u2014 each zone controls a single valve output.",
+            "type": [
+              "array",
+              "string"
+            ],
             "title": "Zones"
           }
         },
         "required": [
           "zones"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Irrigation controllers \u2014 manage watering zones with schedules, per-zone intervals, and master valve support.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Irrigation"
     }
   }

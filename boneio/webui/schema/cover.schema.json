@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "cover": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "https://boneio.eu/docs/black/configuration/cover \n Cover section of boneIO Black. It enables cover entities in HA. You'd need output config to use it first.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "name": {
             "type": "string",
@@ -51,44 +44,41 @@
             "title": "Restore state"
           },
           "open_relay": {
-            "type": "string",
             "description": "ID of open relay of output.",
+            "type": "string",
             "title": "Open relay"
           },
           "close_relay": {
-            "type": "string",
             "description": "ID of close relay of output.",
+            "type": "string",
             "title": "Close relay"
           },
           "platform": {
-            "type": "string",
             "default": "time_based",
+            "description": "Platform to use for cover.",
             "enum": [
               "time_based",
               "venetian"
             ],
-            "examples": [
-              "time_based"
-            ],
-            "description": "Platform to use for cover.",
+            "type": "string",
             "title": "Platform"
           },
           "open_time": {
+            "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "description": "Time to open cover. Example 30s. Minimum is 1s.",
             "title": "Open time"
           },
           "close_time": {
+            "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "description": "Time to close cover. Example 30s. Minimum is 1s.",
             "title": "Close time"
           },
           "tilt_duration": {
@@ -110,22 +100,24 @@
             "title": "Actuator activation duration"
           },
           "endstop_overrun": {
+            "default": 10,
+            "description": "Extra relay time when the cover moves to fully open or fully closed, as a percent of open_time/close_time. The cover runs into its endstop, so the time-based position is exact again at 0% and 100%. 0 disables it.",
+            "maximum": 100,
+            "minimum": 0,
             "type": [
               "integer",
               "string"
             ],
-            "default": 10,
-            "description": "Extra relay time when the cover moves to fully open or fully closed, as a percent of open_time/close_time. The cover runs into its endstop, so the time-based position is exact again at 0% and 100%. 0 disables it.",
             "title": "Endstop overrun"
           },
           "direction_change_wait_time": {
+            "default": "500ms",
+            "description": "Pause before the cover is driven in the opposite direction, so the motor stops before it reverses. 0ms disables it.",
             "type": [
               "number",
               "string"
             ],
             "x-timeperiod": true,
-            "default": "500ms",
-            "description": "Pause before the cover is driven in the opposite direction, so the motor stops before it reverses. 0ms disables it.",
             "title": "Direction change wait time"
           },
           "tilt_restore_after_close": {
@@ -151,7 +143,6 @@
             "title": "Tilt restore after close"
           },
           "device_class": {
-            "type": "string",
             "enum": [
               "awning",
               "blind",
@@ -164,9 +155,7 @@
               "shutter",
               "window"
             ],
-            "examples": [
-              "awning"
-            ],
+            "type": "string",
             "description": "Device class to use in HA",
             "title": "Device class"
           },
@@ -193,6 +182,8 @@
             "title": "Show in ha"
           },
           "facade_azimuth": {
+            "maximum": 359,
+            "minimum": 0,
             "type": [
               "integer",
               "string"
@@ -201,12 +192,14 @@
             "title": "Facade azimuth"
           },
           "facade_min_elevation": {
+            "default": 0,
+            "description": "The sun counts as on the window only above this many degrees over the horizon - raise it when a neighbouring house or trees shade the window while the sun is low.",
+            "maximum": 45,
+            "minimum": 0,
             "type": [
               "integer",
               "string"
             ],
-            "default": 0,
-            "description": "The sun counts as on the window only above this many degrees over the horizon - raise it when a neighbouring house or trees shade the window while the sun is low.",
             "title": "Facade min elevation"
           }
         },
@@ -215,9 +208,16 @@
           "close_relay",
           "open_time",
           "close_time"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/cover \n Cover section of boneIO Black. It enables cover entities in HA. You'd need output config to use it first.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Cover"
     }
   }

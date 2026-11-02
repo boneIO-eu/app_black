@@ -1156,7 +1156,7 @@ output:
           - positive_time_period
         required: False
         meta:
-          label: How long can this relay be off. Can"t be used if output_type is "none".
+          label: How long can this relay be on. Can't be used if output_type is "none".
       momentary_turn_off:
         type:
           - string
@@ -1166,7 +1166,7 @@ output:
           - positive_time_period
         required: False
         meta:
-          label: How long can this relay be on. Can"t be used if output_type is "none".
+          label: How long can this relay be off. Can't be used if output_type is "none".
       # --- Adjustable duration (editable momentary_turn_on via HA slider) ---
       adjustable_duration:
         type: boolean
@@ -1225,8 +1225,6 @@ output:
           description: |
             Assigns this output to a software interlock group (or groups). Outputs with the same group name cannot be active at the same time.
             You can provide a single group name (string) or a list of names (if the output should belong to multiple groups).
-        meta:
-          label: Restore saved state of boneio. Not used for "none" and output_type!
       percentage_default_brightness:
         type: integer
         required: False
