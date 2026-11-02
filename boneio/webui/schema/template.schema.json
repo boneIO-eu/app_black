@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "template": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Template entities \u2014 composite virtual entities like thermostats and alarm panels.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -24,17 +17,14 @@
             "title": "Name"
           },
           "platform": {
-            "type": "string",
+            "description": "Template platform type.",
             "enum": [
               "thermostat",
               "alarm_control_panel",
               "gate_cover",
               "irrigation"
             ],
-            "examples": [
-              "thermostat"
-            ],
-            "description": "Template platform type.",
+            "type": "string",
             "title": "Platform"
           },
           "area": {
@@ -61,81 +51,83 @@
             "title": "Output id"
           },
           "mode": {
-            "type": "string",
             "default": "heat",
+            "description": "Initial climate mode (thermostat only).",
             "enum": [
               "heat",
               "off"
             ],
-            "examples": [
-              "heat"
-            ],
-            "description": "Initial climate mode (thermostat only).",
+            "type": "string",
             "title": "Mode"
           },
           "target_temperature": {
+            "default": 21.0,
+            "description": "Initial target temperature in \u00b0C (thermostat only).",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 21.0,
-            "description": "Initial target temperature in \u00b0C (thermostat only).",
             "title": "Target temperature"
           },
           "hysteresis": {
+            "default": 0.5,
+            "description": "Temperature hysteresis in \u00b0C (thermostat only).",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 0.5,
-            "description": "Temperature hysteresis in \u00b0C (thermostat only).",
             "title": "Hysteresis"
           },
           "min_temperature": {
+            "default": 5.0,
+            "description": "Minimum settable temperature (thermostat only).",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 5.0,
-            "description": "Minimum settable temperature (thermostat only).",
             "title": "Min temperature"
           },
           "max_temperature": {
+            "default": 35.0,
+            "description": "Maximum settable temperature (thermostat only).",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 35.0,
-            "description": "Maximum settable temperature (thermostat only).",
             "title": "Max temperature"
           },
           "codes": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "name": {
-                  "type": "string",
                   "description": "User name (used in logs to identify who disarmed).",
+                  "type": "string",
                   "title": "Name"
                 },
                 "code": {
-                  "type": "string",
                   "description": "Numeric PIN code (digits only), or its SHA-256 hash.",
+                  "pattern": "^([0-9]+|[0-9a-fA-F]{64})$",
+                  "type": "string",
                   "title": "Code"
                 }
               },
               "required": [
                 "name",
                 "code"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
+            "type": [
+              "array",
+              "string"
+            ],
             "description": "List of PIN codes with user names for arming/disarming the alarm.",
             "title": "Codes"
           },
@@ -189,54 +181,43 @@
             "title": "Trigger time"
           },
           "outputs": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
-                  "type": "string",
                   "description": "Output relay ID.",
+                  "type": "string",
                   "title": "Id"
                 },
                 "type": {
-                  "type": "string",
                   "default": "siren",
+                  "description": "Output type (siren, notification, light, custom).",
                   "enum": [
                     "siren",
                     "notification",
                     "light",
                     "custom"
                   ],
-                  "examples": [
-                    "siren"
-                  ],
-                  "description": "Output type (siren, notification, light, custom).",
+                  "type": "string",
                   "title": "Type"
                 }
               },
               "required": [
                 "id"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
-            "description": "List of outputs activated when alarm triggers.",
-            "title": "Outputs"
-          },
-          "zones": {
             "type": [
               "array",
               "string"
             ],
+            "description": "List of outputs activated when alarm triggers.",
+            "title": "Outputs"
+          },
+          "zones": {
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "name": {
                   "type": "string",
@@ -323,46 +304,49 @@
                   "title": "Enabled"
                 },
                 "run_every_n": {
+                  "default": 1,
+                  "description": "Run zone every Nth scheduled cycle. 1 = every time (irrigation only).",
+                  "minimum": 1,
                   "type": [
                     "integer",
                     "string"
                   ],
-                  "default": 1,
-                  "description": "Run zone every Nth scheduled cycle. 1 = every time (irrigation only).",
                   "title": "Run every n"
                 }
-              }
+              },
+              "type": [
+                "object",
+                "string"
+              ]
             },
+            "type": [
+              "array",
+              "string"
+            ],
             "description": "Zones \u2014 alarm zones or irrigation zones depending on platform.",
             "title": "Zones"
           },
           "control_mode": {
-            "type": "string",
             "default": "cycle",
+            "description": "Gate control mode (gate_cover only).",
             "enum": [
               "cycle",
               "separate",
               "open_only"
             ],
-            "examples": [
-              "cycle"
-            ],
-            "description": "Gate control mode (gate_cover only).",
+            "type": "string",
             "title": "Control mode"
           },
           "device_class": {
-            "type": "string",
             "default": "gate",
+            "description": "HA device class for the cover entity (gate_cover only).",
             "enum": [
               "gate",
               "garage_door",
               "barrier",
               "door"
             ],
-            "examples": [
-              "gate"
-            ],
-            "description": "HA device class for the cover entity (gate_cover only).",
+            "type": "string",
             "title": "Device class"
           },
           "pulse_output": {
@@ -405,15 +389,7 @@
             "title": "Open sensor"
           },
           "water_sources": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "id": {
                   "type": "string",
@@ -426,11 +402,11 @@
                   "title": "Name"
                 },
                 "outputs": {
+                  "description": "Output IDs to activate when this water source is used.",
                   "type": [
                     "array",
                     "string"
                   ],
-                  "description": "Output IDs to activate when this water source is used.",
                   "title": "Outputs"
                 },
                 "output_start_delay": {
@@ -512,8 +488,16 @@
               },
               "required": [
                 "outputs"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
+            "type": [
+              "array",
+              "string"
+            ],
             "description": "Water sources \u2014 each defines outputs to activate and per-source pump timing (irrigation only).",
             "title": "Water sources"
           },
@@ -558,21 +542,22 @@
             "title": "Valve overlap"
           },
           "multiplier": {
+            "default": 1.0,
+            "description": "Duration multiplier for all zone run times (irrigation only).",
             "type": [
+              "integer",
               "number",
               "string"
             ],
-            "default": 1.0,
-            "description": "Duration multiplier for all zone run times (irrigation only).",
             "title": "Multiplier"
           },
           "repeat": {
+            "default": 0,
+            "description": "Number of times to repeat the full cycle (irrigation only).",
             "type": [
               "integer",
               "string"
             ],
-            "default": 0,
-            "description": "Number of times to repeat the full cycle (irrigation only).",
             "title": "Repeat"
           },
           "auto_advance": {
@@ -629,24 +614,16 @@
             "title": "Pause timeout"
           },
           "schedule": {
-            "type": [
-              "array",
-              "string"
-            ],
             "items": {
-              "type": [
-                "object",
-                "string"
-              ],
               "properties": {
                 "time": {
+                  "description": "Start time in HH:MM format. Example: 06:00.",
                   "type": "string",
-                  "description": "Start time in HH:MM format.",
                   "title": "Time"
                 },
                 "days": {
-                  "type": "string",
                   "default": "daily",
+                  "description": "Days when this schedule is active.",
                   "enum": [
                     "daily",
                     "weekdays",
@@ -659,26 +636,38 @@
                     "sat",
                     "sun"
                   ],
-                  "examples": [
-                    "daily"
-                  ],
-                  "description": "Days when this schedule is active.",
+                  "type": "string",
                   "title": "Days"
                 }
               },
               "required": [
                 "time"
+              ],
+              "type": [
+                "object",
+                "string"
               ]
             },
+            "type": [
+              "array",
+              "string"
+            ],
             "description": "Scheduled start times (irrigation only).",
             "title": "Schedule"
           }
         },
         "required": [
           "platform"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Template entities \u2014 composite virtual entities like thermostats and alarm panels.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Template"
     }
   }

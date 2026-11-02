@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "remote_outputs": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Remote outputs from ESPHome, CAN, or other remote devices.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -24,42 +17,36 @@
             "title": "Name"
           },
           "remote_source": {
-            "type": "string",
+            "description": "Remote Source Protocol",
             "enum": [
               "esphome_api",
               "can",
               "mqtt",
               "wled"
             ],
-            "examples": [
-              "esphome_api"
-            ],
-            "description": "Remote Source Protocol",
+            "type": "string",
             "title": "Remote source"
           },
           "device_id": {
-            "type": "string",
             "description": "Remote Device ID",
+            "type": "string",
             "title": "Device id"
           },
           "output_id": {
-            "type": "string",
             "description": "Output/Entity ID",
+            "type": "string",
             "title": "Output id"
           },
           "output_type": {
-            "type": "string",
             "default": "switch",
+            "description": "Output Type",
             "enum": [
               "switch",
               "light",
               "valve",
               "cover"
             ],
-            "examples": [
-              "switch"
-            ],
-            "description": "Output Type",
+            "type": "string",
             "title": "Output type"
           },
           "show_in_ha": {
@@ -90,16 +77,13 @@
             "title": "Area"
           },
           "on_disconnect": {
-            "type": "string",
             "default": "ignore",
+            "description": "On Disconnect Behavior",
             "enum": [
               "ignore",
               "turn_off"
             ],
-            "examples": [
-              "ignore"
-            ],
-            "description": "On Disconnect Behavior",
+            "type": "string",
             "title": "On disconnect"
           },
           "momentary_turn_on": {
@@ -170,25 +154,25 @@
             "title": "Duration max"
           },
           "duration_unit": {
-            "type": "string",
             "default": "s",
+            "description": "Unit displayed on Home Assistant duration slider.",
             "enum": [
               "s",
               "min"
             ],
-            "examples": [
-              "s"
-            ],
-            "description": "Unit displayed on Home Assistant duration slider.",
+            "type": "string",
             "title": "Duration unit"
           },
           "interlock_group": {
+            "default": [],
+            "description": "Interlock Groups",
             "type": [
               "array",
               "string"
             ],
-            "default": [],
-            "description": "Interlock Groups",
+            "items": {
+              "type": "string"
+            },
             "title": "Interlock group"
           },
           "enforce_interlock": {
@@ -218,9 +202,16 @@
           "remote_source",
           "device_id",
           "output_id"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Remote outputs from ESPHome, CAN, or other remote devices.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Remote outputs"
     }
   }

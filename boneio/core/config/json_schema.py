@@ -34,6 +34,7 @@ FROM_MODELS = frozenset({
     "sensor", "adc", "ina219", "ina226", "lm75", "mcp9808",
     "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor",
     "output", "output_group", "cover", "irrigation",
+    "remote_devices", "remote_inputs", "remote_outputs", "virtual_switch", "schedule", "template",
 })
 
 _BOOLEAN = [
@@ -118,9 +119,11 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
                     for b in node.pop("anyOf") if b != {"type": "null"}]
         if len(branches) == 1:
             return _panel({**branches[0], **node}, defs, shared, name)
-        if not all(set(b) == {"type"} for b in branches):
+        if not all(set(b) <= {"type", "items"} for b in branches):
             raise ValueError(f"{name}: a union the panel cannot read")
         node["type"] = [b["type"] for b in branches]
+        # ``items`` only applies to the list the value may also be.
+        node.update(b for branch in branches for b in branch.items() if b[0] == "items")
 
     if node.pop("x-any-case", False):
         # Read in any case (the model lowers or uppers it), so the editor must

@@ -3,15 +3,8 @@
   "type": "object",
   "properties": {
     "remote_inputs": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Remote binary sensor inputs from ESPHome, CAN, or other remote devices.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
             "type": "string",
@@ -24,26 +17,23 @@
             "title": "Name"
           },
           "remote_source": {
-            "type": "string",
+            "description": "Remote Source Protocol",
             "enum": [
               "esphome_api",
               "can",
               "mqtt"
             ],
-            "examples": [
-              "esphome_api"
-            ],
-            "description": "Remote Source Protocol",
+            "type": "string",
             "title": "Remote source"
           },
           "device_id": {
-            "type": "string",
             "description": "Remote Device ID",
+            "type": "string",
             "title": "Device id"
           },
           "input_id": {
-            "type": "string",
             "description": "Input/Sensor ID",
+            "type": "string",
             "title": "Input id"
           },
           "topic": {
@@ -52,16 +42,13 @@
             "title": "Topic"
           },
           "mode": {
-            "type": "string",
             "default": "binary_sensor",
+            "description": "Mode",
             "enum": [
               "binary_sensor",
               "event"
             ],
-            "examples": [
-              "binary_sensor"
-            ],
-            "description": "Mode",
+            "type": "string",
             "title": "Mode"
           },
           "device_class": {
@@ -135,26 +122,20 @@
             "title": "Long press duration"
           },
           "sequence_mode": {
-            "type": "string",
             "enum": [
               "immediate",
               "exclusive"
             ],
-            "examples": [
-              "immediate"
-            ],
+            "type": "string",
             "description": "Sequence Mode",
             "title": "Sequence mode"
           },
           "long_press_mqtt_mode": {
-            "type": "string",
             "enum": [
               "single",
               "periodic"
             ],
-            "examples": [
-              "single"
-            ],
+            "type": "string",
             "description": "Long Press MQTT Mode",
             "title": "Long press mqtt mode"
           },
@@ -181,6 +162,1962 @@
             "title": "Enable triple click"
           },
           "actions": {
+            "additionalProperties": {
+              "items": {
+                "oneOf": [
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "description": "Output ID",
+                        "type": "string",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "type": "string",
+                        "description": "Cover ID",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "action_output": {
+                        "default": "TOGGLE",
+                        "description": "If output action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "BRIGHTNESS_DOWN",
+                          "BRIGHTNESS_DOWN_CYCLE",
+                          "BRIGHTNESS_UP",
+                          "BRIGHTNESS_UP_CYCLE",
+                          "Brightness_Down",
+                          "Brightness_Down_Cycle",
+                          "Brightness_Up",
+                          "Brightness_Up_Cycle",
+                          "CYCLE_COLOR",
+                          "CYCLE_PRESET",
+                          "Cycle_Color",
+                          "Cycle_Preset",
+                          "OFF",
+                          "ON",
+                          "Off",
+                          "On",
+                          "SET_BRIGHTNESS",
+                          "Set_Brightness",
+                          "TOGGLE",
+                          "Toggle",
+                          "brightness_down",
+                          "brightness_down_cycle",
+                          "brightness_up",
+                          "brightness_up_cycle",
+                          "cycle_color",
+                          "cycle_preset",
+                          "off",
+                          "on",
+                          "set_brightness",
+                          "toggle"
+                        ],
+                        "title": "Action output"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "OUTPUT",
+                          "Output",
+                          "output"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "boneio_output",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "type": "string",
+                        "description": "Output ID",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "description": "Cover ID",
+                        "type": "string",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "action_cover": {
+                        "default": "TOGGLE",
+                        "description": "If cover action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "CLOSE",
+                          "Close",
+                          "OPEN",
+                          "Open",
+                          "SET_POSITION",
+                          "SMART_TOGGLE",
+                          "STOP",
+                          "Set_Position",
+                          "Smart_Toggle",
+                          "Stop",
+                          "TILT",
+                          "TILT_CLOSE",
+                          "TILT_OPEN",
+                          "TOGGLE",
+                          "TOGGLE_CLOSE",
+                          "TOGGLE_OPEN",
+                          "Tilt",
+                          "Tilt_Close",
+                          "Tilt_Open",
+                          "Toggle",
+                          "Toggle_Close",
+                          "Toggle_Open",
+                          "close",
+                          "open",
+                          "set_position",
+                          "smart_toggle",
+                          "stop",
+                          "tilt",
+                          "tilt_close",
+                          "tilt_open",
+                          "toggle",
+                          "toggle_close",
+                          "toggle_open"
+                        ],
+                        "title": "Action cover"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "COVER",
+                          "Cover",
+                          "cover"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "boneio_cover",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "type": "string",
+                        "description": "Output ID",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "type": "string",
+                        "description": "Cover ID",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "topic": {
+                        "description": "If mqtt action then topic to send",
+                        "type": "string",
+                        "title": "Topic"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "action_mqtt_msg": {
+                        "description": "What message to send to mqtt topic",
+                        "type": "string",
+                        "title": "Action mqtt msg"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "MQTT",
+                          "Mqtt",
+                          "mqtt"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "topic",
+                      "action_mqtt_msg",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "type": "string",
+                        "description": "Output ID",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "type": "string",
+                        "description": "Cover ID",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "description": "Virtual switch ID",
+                        "type": "string",
+                        "title": "Boneio virtual switch"
+                      },
+                      "topic": {
+                        "type": "string",
+                        "description": "If mqtt action then topic to send",
+                        "title": "Topic"
+                      },
+                      "action_cover": {
+                        "default": "TOGGLE",
+                        "description": "If cover action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "CLOSE",
+                          "Close",
+                          "OPEN",
+                          "Open",
+                          "SET_POSITION",
+                          "SMART_TOGGLE",
+                          "STOP",
+                          "Set_Position",
+                          "Smart_Toggle",
+                          "Stop",
+                          "TILT",
+                          "TILT_CLOSE",
+                          "TILT_OPEN",
+                          "TOGGLE",
+                          "TOGGLE_CLOSE",
+                          "TOGGLE_OPEN",
+                          "Tilt",
+                          "Tilt_Close",
+                          "Tilt_Open",
+                          "Toggle",
+                          "Toggle_Close",
+                          "Toggle_Open",
+                          "close",
+                          "open",
+                          "set_position",
+                          "smart_toggle",
+                          "stop",
+                          "tilt",
+                          "tilt_close",
+                          "tilt_open",
+                          "toggle",
+                          "toggle_close",
+                          "toggle_open"
+                        ],
+                        "title": "Action cover"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "action_output": {
+                        "default": "TOGGLE",
+                        "description": "If output action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "BRIGHTNESS_DOWN",
+                          "BRIGHTNESS_DOWN_CYCLE",
+                          "BRIGHTNESS_UP",
+                          "BRIGHTNESS_UP_CYCLE",
+                          "Brightness_Down",
+                          "Brightness_Down_Cycle",
+                          "Brightness_Up",
+                          "Brightness_Up_Cycle",
+                          "CYCLE_COLOR",
+                          "CYCLE_PRESET",
+                          "Cycle_Color",
+                          "Cycle_Preset",
+                          "OFF",
+                          "ON",
+                          "Off",
+                          "On",
+                          "SET_BRIGHTNESS",
+                          "Set_Brightness",
+                          "TOGGLE",
+                          "Toggle",
+                          "brightness_down",
+                          "brightness_down_cycle",
+                          "brightness_up",
+                          "brightness_up_cycle",
+                          "cycle_color",
+                          "cycle_preset",
+                          "off",
+                          "on",
+                          "set_brightness",
+                          "toggle"
+                        ],
+                        "title": "Action output"
+                      },
+                      "action_mqtt_msg": {
+                        "type": "string",
+                        "description": "What message to send to mqtt topic",
+                        "title": "Action mqtt msg"
+                      },
+                      "boneio_id": {
+                        "type": "string",
+                        "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                        "title": "Boneio id"
+                      },
+                      "remote_device": {
+                        "type": "string",
+                        "description": "Remote Device ID",
+                        "title": "Remote device"
+                      },
+                      "output_id": {
+                        "type": "string",
+                        "description": "Remote Output ID",
+                        "title": "Output id"
+                      },
+                      "cover_id": {
+                        "type": "string",
+                        "description": "Remote Cover ID",
+                        "title": "Cover id"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "transition": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Transition Time",
+                        "title": "Transition"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "VIRTUAL_SWITCH",
+                          "Virtual_Switch",
+                          "virtual_switch"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "boneio_virtual_switch",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "description": "Output ID",
+                        "type": "string",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "type": "string",
+                        "description": "Cover ID",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "topic": {
+                        "type": "string",
+                        "description": "If mqtt action then topic to send",
+                        "title": "Topic"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "action_output": {
+                        "default": "TOGGLE",
+                        "description": "If output action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "BRIGHTNESS_DOWN",
+                          "BRIGHTNESS_DOWN_CYCLE",
+                          "BRIGHTNESS_UP",
+                          "BRIGHTNESS_UP_CYCLE",
+                          "Brightness_Down",
+                          "Brightness_Down_Cycle",
+                          "Brightness_Up",
+                          "Brightness_Up_Cycle",
+                          "CYCLE_COLOR",
+                          "CYCLE_PRESET",
+                          "Cycle_Color",
+                          "Cycle_Preset",
+                          "OFF",
+                          "ON",
+                          "Off",
+                          "On",
+                          "SET_BRIGHTNESS",
+                          "Set_Brightness",
+                          "TOGGLE",
+                          "Toggle",
+                          "brightness_down",
+                          "brightness_down_cycle",
+                          "brightness_up",
+                          "brightness_up_cycle",
+                          "cycle_color",
+                          "cycle_preset",
+                          "off",
+                          "on",
+                          "set_brightness",
+                          "toggle"
+                        ],
+                        "title": "Action output"
+                      },
+                      "action_mqtt_msg": {
+                        "description": "What message to send to mqtt topic",
+                        "type": "string",
+                        "title": "Action mqtt msg"
+                      },
+                      "boneio_id": {
+                        "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                        "type": "string",
+                        "title": "Boneio id"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "OUTPUT_OVER_MQTT",
+                          "Output_Over_Mqtt",
+                          "output_over_mqtt"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "boneio_output",
+                      "action_mqtt_msg",
+                      "boneio_id",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "type": "string",
+                        "description": "Output ID",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "description": "Cover ID",
+                        "type": "string",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "action_cover": {
+                        "default": "TOGGLE",
+                        "description": "If cover action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "CLOSE",
+                          "Close",
+                          "OPEN",
+                          "Open",
+                          "SET_POSITION",
+                          "SMART_TOGGLE",
+                          "STOP",
+                          "Set_Position",
+                          "Smart_Toggle",
+                          "Stop",
+                          "TILT",
+                          "TILT_CLOSE",
+                          "TILT_OPEN",
+                          "TOGGLE",
+                          "TOGGLE_CLOSE",
+                          "TOGGLE_OPEN",
+                          "Tilt",
+                          "Tilt_Close",
+                          "Tilt_Open",
+                          "Toggle",
+                          "Toggle_Close",
+                          "Toggle_Open",
+                          "close",
+                          "open",
+                          "set_position",
+                          "smart_toggle",
+                          "stop",
+                          "tilt",
+                          "tilt_close",
+                          "tilt_open",
+                          "toggle",
+                          "toggle_close",
+                          "toggle_open"
+                        ],
+                        "title": "Action cover"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "action_mqtt_msg": {
+                        "description": "What message to send to mqtt topic",
+                        "type": "string",
+                        "title": "Action mqtt msg"
+                      },
+                      "boneio_id": {
+                        "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
+                        "type": "string",
+                        "title": "Boneio id"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "COVER_OVER_MQTT",
+                          "Cover_Over_Mqtt",
+                          "cover_over_mqtt"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "boneio_cover",
+                      "action_mqtt_msg",
+                      "boneio_id",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "type": "string",
+                        "description": "Output ID",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "type": "string",
+                        "description": "Cover ID",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "action_output": {
+                        "default": "TOGGLE",
+                        "description": "If output action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "BRIGHTNESS_DOWN",
+                          "BRIGHTNESS_DOWN_CYCLE",
+                          "BRIGHTNESS_UP",
+                          "BRIGHTNESS_UP_CYCLE",
+                          "Brightness_Down",
+                          "Brightness_Down_Cycle",
+                          "Brightness_Up",
+                          "Brightness_Up_Cycle",
+                          "CYCLE_COLOR",
+                          "CYCLE_PRESET",
+                          "Cycle_Color",
+                          "Cycle_Preset",
+                          "OFF",
+                          "ON",
+                          "Off",
+                          "On",
+                          "SET_BRIGHTNESS",
+                          "Set_Brightness",
+                          "TOGGLE",
+                          "Toggle",
+                          "brightness_down",
+                          "brightness_down_cycle",
+                          "brightness_up",
+                          "brightness_up_cycle",
+                          "cycle_color",
+                          "cycle_preset",
+                          "off",
+                          "on",
+                          "set_brightness",
+                          "toggle"
+                        ],
+                        "title": "Action output"
+                      },
+                      "remote_device": {
+                        "description": "Remote Device ID",
+                        "type": "string",
+                        "title": "Remote device"
+                      },
+                      "output_id": {
+                        "description": "Remote Output ID",
+                        "type": "string",
+                        "title": "Output id"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "transition": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Transition Time",
+                        "title": "Transition"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "REMOTE_OUTPUT",
+                          "Remote_Output",
+                          "remote_output"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "remote_device",
+                      "output_id",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "boneio_output": {
+                        "type": "string",
+                        "description": "Output ID",
+                        "title": "Boneio output"
+                      },
+                      "boneio_cover": {
+                        "type": "string",
+                        "description": "Cover ID",
+                        "title": "Boneio cover"
+                      },
+                      "boneio_virtual_switch": {
+                        "type": "string",
+                        "description": "Virtual switch ID",
+                        "title": "Boneio virtual switch"
+                      },
+                      "action_cover": {
+                        "default": "TOGGLE",
+                        "description": "If cover action chosen then what action to perform.",
+                        "type": "string",
+                        "enum": [
+                          "CLOSE",
+                          "Close",
+                          "OPEN",
+                          "Open",
+                          "SET_POSITION",
+                          "SMART_TOGGLE",
+                          "STOP",
+                          "Set_Position",
+                          "Smart_Toggle",
+                          "Stop",
+                          "TILT",
+                          "TILT_CLOSE",
+                          "TILT_OPEN",
+                          "TOGGLE",
+                          "TOGGLE_CLOSE",
+                          "TOGGLE_OPEN",
+                          "Tilt",
+                          "Tilt_Close",
+                          "Tilt_Open",
+                          "Toggle",
+                          "Toggle_Close",
+                          "Toggle_Open",
+                          "close",
+                          "open",
+                          "set_position",
+                          "smart_toggle",
+                          "stop",
+                          "tilt",
+                          "tilt_close",
+                          "tilt_open",
+                          "toggle",
+                          "toggle_close",
+                          "toggle_open"
+                        ],
+                        "title": "Action cover"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/ActionData",
+                        "description": "Extra data for cover actions (position, tilt, smart toggle threshold).",
+                        "title": "Data"
+                      },
+                      "restore_tilt": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Restore Tilt After Movement",
+                        "title": "Restore tilt"
+                      },
+                      "remote_device": {
+                        "description": "Remote Device ID",
+                        "type": "string",
+                        "title": "Remote device"
+                      },
+                      "cover_id": {
+                        "description": "Remote Cover ID",
+                        "type": "string",
+                        "title": "Cover id"
+                      },
+                      "brightness": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness (0-255)",
+                        "title": "Brightness"
+                      },
+                      "brightness_step": {
+                        "maximum": 50,
+                        "minimum": 1,
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Brightness step (1-50%)",
+                        "title": "Brightness step"
+                      },
+                      "color_temp": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "Color Temperature (mireds)",
+                        "title": "Color temp"
+                      },
+                      "rgb": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "RGB Color [R, G, B]",
+                        "title": "Rgb"
+                      },
+                      "colors": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Color List for CYCLE_COLOR",
+                        "title": "Colors"
+                      },
+                      "presets": {
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Preset/Effect List for CYCLE_PRESET",
+                        "title": "Presets"
+                      },
+                      "repeat": {
+                        "oneOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "no",
+                              "true",
+                              "false",
+                              "on",
+                              "off"
+                            ],
+                            "x-yaml-boolean": true
+                          }
+                        ],
+                        "default": false,
+                        "description": "Repeat on Hold",
+                        "title": "Repeat"
+                      },
+                      "repeat_interval": {
+                        "default": "800ms",
+                        "description": "Repeat Interval",
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "title": "Repeat interval"
+                      },
+                      "probability": {
+                        "description": "Chance of running",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "type": [
+                          "integer",
+                          "number",
+                          "string"
+                        ],
+                        "title": "Probability"
+                      },
+                      "delay": {
+                        "type": [
+                          "number",
+                          "string"
+                        ],
+                        "x-timeperiod": true,
+                        "description": "Delay Before Execution",
+                        "title": "Delay"
+                      },
+                      "delay_cancel_on": {
+                        "items": {
+                          "enum": [
+                            "pressed",
+                            "released",
+                            "single",
+                            "double",
+                            "long"
+                          ],
+                          "type": "string"
+                        },
+                        "type": [
+                          "array",
+                          "string"
+                        ],
+                        "description": "Cancel Delay On Events",
+                        "title": "Delay cancel on"
+                      },
+                      "condition": {
+                        "$ref": "#/$defs/Condition"
+                      },
+                      "conditions": {
+                        "$ref": "#/$defs/Conditions"
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "REMOTE_COVER",
+                          "Remote_Cover",
+                          "remote_cover"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "remote_device",
+                      "cover_id",
+                      "action"
+                    ],
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  }
+                ]
+              },
+              "type": [
+                "array",
+                "string"
+              ]
+            },
             "type": [
               "object",
               "string"
@@ -193,10 +2130,206 @@
           "remote_source",
           "device_id",
           "input_id"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Remote binary sensor inputs from ESPHome, CAN, or other remote devices.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Remote inputs"
+    }
+  },
+  "$defs": {
+    "ActionData": {
+      "properties": {
+        "position": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Position to set cover to for SET_POSITION. 0 means closed, 100 means opened.",
+          "title": "Position"
+        },
+        "tilt_position": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
+          "title": "Tilt position"
+        },
+        "always_open_till": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Smart toggle threshold (0-100%).",
+          "title": "Always open till"
+        }
+      },
+      "type": [
+        "object",
+        "string"
+      ]
+    },
+    "Condition": {
+      "properties": {
+        "type": {
+          "description": "Condition type",
+          "enum": [
+            "time",
+            "date",
+            "state",
+            "sun"
+          ],
+          "type": "string",
+          "title": "Type"
+        },
+        "after": {
+          "type": "string",
+          "description": "After (start of range)",
+          "title": "After"
+        },
+        "before": {
+          "type": "string",
+          "description": "Before (end of range)",
+          "title": "Before"
+        },
+        "after_offset": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Offset from the 'after' anchor (sun only)",
+          "minimum": -43200,
+          "maximum": 43200,
+          "title": "After offset"
+        },
+        "before_offset": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Offset from the 'before' anchor (sun only)",
+          "minimum": -43200,
+          "maximum": 43200,
+          "title": "Before offset"
+        },
+        "phase": {
+          "enum": [
+            "day",
+            "civil_twilight",
+            "nautical_twilight",
+            "astronomical_twilight",
+            "night",
+            "golden_hour",
+            "blue_hour"
+          ],
+          "type": "string",
+          "description": "Sun phase (sun only)",
+          "title": "Phase"
+        },
+        "above": {
+          "description": "Sun elevation above (degrees, sun only)",
+          "minimum": -90,
+          "maximum": 90,
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ],
+          "title": "Above"
+        },
+        "below": {
+          "description": "Sun elevation below (degrees, sun only)",
+          "minimum": -90,
+          "maximum": 90,
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ],
+          "title": "Below"
+        },
+        "entity": {
+          "enum": [
+            "binary_sensor",
+            "cover",
+            "output",
+            "light",
+            "virtual_switch",
+            "remote_input",
+            "remote_output",
+            "remote_cover"
+          ],
+          "type": "string",
+          "description": "Entity type (for state condition)",
+          "title": "Entity"
+        },
+        "entity_id": {
+          "type": "string",
+          "description": "Entity ID (for state condition)",
+          "title": "Entity id"
+        },
+        "state": {
+          "enum": [
+            "is_on",
+            "is_off",
+            "is_open",
+            "is_closed"
+          ],
+          "type": "string",
+          "description": "Expected state (for state condition)",
+          "title": "State"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": [
+        "object",
+        "string"
+      ]
+    },
+    "Conditions": {
+      "properties": {
+        "mode": {
+          "default": "and",
+          "description": "Condition mode",
+          "enum": [
+            "and",
+            "or"
+          ],
+          "type": "string",
+          "title": "Mode"
+        },
+        "list": {
+          "description": "List of conditions",
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "type": [
+            "array",
+            "string"
+          ],
+          "title": "List"
+        }
+      },
+      "required": [
+        "list"
+      ],
+      "type": [
+        "object",
+        "string"
+      ]
     }
   }
 }

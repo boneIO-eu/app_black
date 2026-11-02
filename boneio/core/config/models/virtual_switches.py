@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import AfterValidator, TypeAdapter, model_validator
+from pydantic import AfterValidator, Field, model_validator
 
-from boneio.core.config.models.base import Model, Str, unique_resolved_ids
+from boneio.core.config.models.base import Model, Str, section, unique_resolved_ids
 from boneio.core.config.models.inputs import UNION_TAGS, Action  # noqa: F401 - UNION_TAGS for error paths
 from boneio.core.utils.naming import resolve_id
 
@@ -24,15 +24,15 @@ class VirtualSwitch(Model):
     # coerce: str turns a null into "None" in Cerberus, so it passes there.
     nullable = frozenset({"id"})
 
-    name: str
-    description: str | None = None
-    id: Str | None = None
-    area: str | None = None
-    icon: str | None = None
-    restore_state: bool = True
-    initial: bool = False
-    show_in_ha: bool = True
-    actions: SwitchActions | None = None
+    name: str = Field(description="Name")
+    description: str | None = Field(None, description="What this flag is for.")
+    id: Str | None = Field(None, description="Identifier, if the one made from the name will not do.")
+    area: str | None = Field(None, description="Area/room for Home Assistant grouping.")
+    icon: str | None = Field(None, description="Home Assistant icon, e.g. `mdi:weather-night`.")
+    restore_state: bool = Field(True, description="Remember the state across a restart.")
+    initial: bool = Field(False, description="State to start in when there is nothing to restore.")
+    show_in_ha: bool = Field(True, description="Announce this switch to Home Assistant.")
+    actions: SwitchActions | None = Field(None, description="Actions to run when this switch changes.")
 
     @model_validator(mode="after")
     def _does_not_set_itself(self) -> VirtualSwitch:
@@ -53,5 +53,8 @@ class VirtualSwitch(Model):
 
 
 SECTION_ADAPTERS = {
-    "virtual_switch": TypeAdapter(Annotated[list[VirtualSwitch], AfterValidator(unique_resolved_ids)]),
+    "virtual_switch": section(
+        Annotated[list[VirtualSwitch], AfterValidator(unique_resolved_ids)],
+        "Virtual switches — an on/off flag with no relay behind it.",
+    ),
 }

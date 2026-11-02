@@ -34,6 +34,11 @@ _INA_DEFAULT = [
 ]
 
 _ACTION = "items/properties/actions/properties/*/items/properties"
+_SCHEDULE_ACTION = "items/properties/actions/items/properties"
+_CLOCK = {"pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"}
+_MIREDS = "items/properties/esphome_api/properties/lights/items/properties"
+_TEMPLATE_NUMBERS = ("target_temperature", "hysteresis", "min_temperature", "max_temperature", "multiplier")
+_NUMBER = {"type": ["integer", "number", "string"]}
 _CONDITION_BOUNDS = {
     "above": {"minimum": -90, "maximum": 90},
     "below": {"minimum": -90, "maximum": 90},
@@ -53,24 +58,41 @@ _COVER_COMMANDS = ["TOGGLE", "OPEN", "CLOSE", "STOP", "TOGGLE_OPEN", "TOGGLE_CLO
                    "SET_POSITION", "TILT", "TILT_OPEN", "TILT_CLOSE"]
 
 
-def _input_added() -> dict:
-    """What the models say about inputs and actions that schema.yaml did not."""
-    added = {
+def _condition_bounds(at: str) -> dict:
+    bounds = {}
+    for field, limits in _CONDITION_BOUNDS.items():
+        bounds[f"{at}/condition/properties/{field}"] = limits
+        bounds[f"{at}/conditions/properties/list/items/properties/{field}"] = limits
+    return bounds
+
+
+def _input_added(at: str = _ACTION) -> dict:
+    """What the models say about actions that schema.yaml did not."""
+    return {
         # Ranges the models check, which schema.yaml left to the validators.
-        f"{_ACTION}/brightness": {"minimum": 0, "maximum": 255},
-        f"{_ACTION}/brightness_step": {"minimum": 1, "maximum": 50},
-        f"{_ACTION}/probability": {"minimum": 0, "maximum": 1, "type": ["integer", "number", "string"]},
-        f"{_ACTION}/data/properties/position": {"minimum": 0, "maximum": 100},
-        f"{_ACTION}/data/properties/always_open_till": {"minimum": 0, "maximum": 100},
+        f"{at}/brightness": {"minimum": 0, "maximum": 255},
+        f"{at}/brightness_step": {"minimum": 1, "maximum": 50},
+        f"{at}/probability": {"minimum": 0, "maximum": 1, "type": ["integer", "number", "string"]},
+        f"{at}/data/properties/position": {"minimum": 0, "maximum": 100},
+        f"{at}/data/properties/always_open_till": {"minimum": 0, "maximum": 100},
         # Read in any case; schema.yaml listed upper case only, so the editor
         # flagged the factory configs' own "toggle_open".
-        f"{_ACTION}/action_output": {"enum": _any_case(_OUTPUT_COMMANDS)},
-        f"{_ACTION}/action_cover": {"enum": _any_case(_COVER_COMMANDS)},
+        f"{at}/action_output": {"enum": _any_case(_OUTPUT_COMMANDS)},
+        f"{at}/action_cover": {"enum": _any_case(_COVER_COMMANDS)},
+        **_condition_bounds(at),
     }
-    for field, bounds in _CONDITION_BOUNDS.items():
-        added[f"{_ACTION}/condition/properties/{field}"] = bounds
-        added[f"{_ACTION}/conditions/properties/list/items/properties/{field}"] = bounds
-    return added
+
+
+def _input_removed(at: str = _ACTION) -> dict:
+    """What schema.yaml said about actions that the models do not."""
+    return {
+        f"{at}/probability": {"type": ["number", "string"]},
+        f"{at}/data": {"default": {}},
+        f"{at}/action_output": {"enum": _OUTPUT_COMMANDS},
+        f"{at}/action_cover": {"enum": _COVER_COMMANDS},
+    }
+
+
 
 
 #: What the model says that schema.yaml did not, by section and path.
@@ -113,6 +135,24 @@ ADDED = {
         # An integer is a number already; the model says both.
         "items/properties/multiplier": {"type": ["integer", "number", "string"]},
     },
+    "virtual_switch": _input_added(),
+    "schedule": {
+        **_input_added(_SCHEDULE_ACTION),
+        **_condition_bounds("items/properties"),
+        "items/properties/catch_up": {"minimum": 0, "maximum": 21600},
+        "items/properties/trigger/properties/jitter": {"minimum": 0, "maximum": 21600},
+        "items/properties/trigger/properties/offset": {"minimum": -43200, "maximum": 43200},
+        **{f"items/properties/trigger/properties/{field}": _CLOCK for field in ("at", "earliest", "latest")},
+    },
+    "remote_outputs": {"items/properties/interlock_group": {"items": {"type": "string"}}},
+    "remote_devices": {f"{_MIREDS}/{bound}_mireds": _NUMBER for bound in ("min", "max")},
+    "template": {
+        "items/properties/codes/items/properties/code": {"pattern": "^([0-9]+|[0-9a-fA-F]{64})$"},
+        "items/properties/zones/items/properties/run_every_n": {"minimum": 1},
+        **{f"items/properties/{field}": _NUMBER for field in _TEMPLATE_NUMBERS},
+        # One model for both: irrigation's fuller description wins.
+        "items/properties/schedule/items/properties/time": {"description": "Start time in HH:MM format. Example: 06:00."},
+    },
     "binary_sensor": {
         **_input_added(),
         # Read at start-up as the entity's name; schema.yaml never listed it.
@@ -122,14 +162,16 @@ ADDED = {
 
 #: What schema.yaml said that the model does not, by section and path.
 REMOVED = {
-    "event": {
-        f"{_ACTION}/probability": {"type": ["number", "string"]},
-        f"{_ACTION}/data": {"default": {}},
-        f"{_ACTION}/action_output": {"enum": _OUTPUT_COMMANDS},
-        f"{_ACTION}/action_cover": {"enum": _COVER_COMMANDS},
+    "event": _input_removed(),
+    "binary_sensor": _input_removed(),
+    "virtual_switch": _input_removed(),
+    "schedule": _input_removed(_SCHEDULE_ACTION),
+    "remote_devices": {f"{_MIREDS}/{bound}_mireds": {"type": ["number", "string"]} for bound in ("min", "max")},
+    "template": {
+        **{f"items/properties/{field}": {"type": ["number", "string"]} for field in _TEMPLATE_NUMBERS},
+        "items/properties/schedule/items/properties/time": {"description": "Start time in HH:MM format."},
     },
 }
-REMOVED["binary_sensor"] = REMOVED["event"]
 REMOVED["irrigation"] = {"items/properties/multiplier": {"type": ["number", "string"]}}
 REMOVED["virtual_energy_sensor"] = {
     "items/properties/power_usage": {"type": "string"},
@@ -215,6 +257,15 @@ def _without_examples(node):
     if isinstance(node, list):
         return [_without_examples(v) for v in node]
     return node
+
+
+def _event_actions() -> dict:
+    node, defs = section_schema("event")
+    return _flat_actions(_resolved(node, defs))["items"]["properties"]["actions"]["properties"]["single"]
+
+
+# schema.yaml left remote inputs' actions any dictionary; they are an input's.
+ADDED["remote_inputs"] = {"items/properties/actions": {"additionalProperties": _event_actions()}}
 
 
 @pytest.mark.parametrize("section", sorted(FROM_MODELS))

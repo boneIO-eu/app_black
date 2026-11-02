@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BeforeValidator, Field, TypeAdapter, model_validator
+from pydantic import AfterValidator, BeforeValidator, Field, model_validator
 
-from boneio.core.config.models.base import Model, Str, coerce, unique_resolved_ids
+from boneio.core.config.models.base import Model, Str, coerce, section, unique_resolved_ids
 from boneio.core.config.models.inputs import (  # noqa: F401 - UNION_TAGS for error paths
     UNION_TAGS,
     Action,
@@ -28,29 +28,31 @@ class Trigger(Model):
     # sun_offset turns a null into 0, so Cerberus takes it.
     nullable = frozenset({"offset"})
 
-    type: Literal["sun", "time"] = "sun"
-    event: str | None = None
-    cover: str | None = None
-    at: ClockTime | None = None
-    offset: SunOffset | None = None
-    earliest: ClockTime | None = None
-    latest: ClockTime | None = None
-    jitter: Seconds = 0
+    type: Literal["sun", "time"] = Field("sun", description="Trigger type")
+    event: str | None = Field(None, description="Sun event (sun triggers only)")
+    cover: str | None = Field(None, description="Cover whose window the Sun reaches or leaves (facade events only)")
+    at: ClockTime | None = Field(None, description="Clock time in HH:MM (time triggers only)")
+    offset: SunOffset | None = Field(None, description="Shift the moment")
+    earliest: ClockTime | None = Field(None, description="Not before this clock time (sun triggers only)")
+    latest: ClockTime | None = Field(None, description="Not after this clock time (sun triggers only)")
+    jitter: Seconds = Field(0, description="Random spread")
     days: Literal["daily", "weekdays", "weekend", "mon", "tue", "wed", "thu", "fri", "sat",
-                  "sun"] = "daily"
+                  "sun"] = Field("daily", description="Days this schedule is active.")
 
 
 class Schedule(Model):
     # coerce: str turns a null into "None" in Cerberus, so it passes there.
     nullable = frozenset({"id"})
 
-    name: str
-    description: str | None = None
-    id: Str | None = None
-    enabled: bool = True
-    trigger: Trigger
-    on_missed: Literal["skip", "run"] = "skip"
-    catch_up: Seconds = 900
+    name: str = Field(description="Name")
+    description: str | None = Field(None, description="What this schedule is for.")
+    id: Str | None = Field(None, description="Identifier, if the one made from the name will not do.")
+    enabled: bool = Field(True, description="Whether this schedule is armed.")
+    trigger: Trigger = Field(description="When this schedule fires.")
+    on_missed: Literal["skip", "run"] = Field(
+        "skip", description="What to do about a firing missed while the device was off."
+    )
+    catch_up: Seconds = Field(900, description="How late a missed firing may still run (on_missed - run).")
     condition: ShapedCondition | None = None
     conditions: Conditions | None = None
     actions: list[Action] | None = None
@@ -66,5 +68,8 @@ class Schedule(Model):
 
 
 SECTION_ADAPTERS = {
-    "schedule": TypeAdapter(Annotated[list[Schedule], AfterValidator(unique_resolved_ids)]),
+    "schedule": section(
+        Annotated[list[Schedule], AfterValidator(unique_resolved_ids)],
+        "Time and sun driven schedules — run actions without anyone pressing anything.",
+    ),
 }
