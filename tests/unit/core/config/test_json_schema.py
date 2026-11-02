@@ -51,6 +51,8 @@ def _any_case(values: list[str]) -> list[str]:
     return sorted({c for v in values for c in (v, v.lower(), v.upper(), v.title())})
 
 
+_DEVICE_TYPES = ["32x10A", "32x10", "32", "32x5A", "32x5", "24x16A", "24x16", "24", "48x4A", "48x4", "48", "cover",
+                 "cover mix", "cm"]
 _LOG_LEVELS = ["critical", "error", "warning", "info", "debug"]
 _OUTPUT_COMMANDS = ["TOGGLE", "ON", "OFF", "BRIGHTNESS_UP", "BRIGHTNESS_DOWN", "BRIGHTNESS_UP_CYCLE",
                     "BRIGHTNESS_DOWN_CYCLE", "SET_BRIGHTNESS", "CYCLE_COLOR", "CYCLE_PRESET"]
@@ -153,6 +155,18 @@ ADDED = {
         # One model for both: irrigation's fuller description wins.
         "items/properties/schedule/items/properties/time": {"description": "Start time in HH:MM format. Example: 06:00."},
     },
+    # A section's defaults written out; schema.yaml's converter wrote {}.
+    "mqtt": {"properties/ha_discovery": {"default": {"enabled": True, "topic_prefix": "homeassistant"}}},
+    "web": {
+        "properties/cloud": {"default": {"enabled": False, "declined": False}},
+        "properties/security": {"default": {"map_tiles": False}},
+        "properties/auth": {"default": {"allow_anonymous": False}},
+        "properties/security/properties/frame_ancestors": {"items": {"type": "string"}},
+    },
+    "boneio": {
+        "properties/serial_override": {"pattern": "^blk[a-f0-9]{6}$"},
+        "properties/device_type": {"enum": _any_case(_DEVICE_TYPES)},
+    },
     "binary_sensor": {
         **_input_added(),
         # Read at start-up as the entity's name; schema.yaml never listed it.
@@ -181,6 +195,12 @@ REMOVED["logger"] = {
     "properties/logs/additionalProperties": {"enum": _LOG_LEVELS},
     "properties/logs": {"type": "object"},
 }
+REMOVED["mqtt"] = {"properties/ha_discovery": {"default": {}}}
+REMOVED["web"] = {f"properties/{field}": {"default": {}} for field in ("cloud", "security", "auth")}
+# schema.yaml's converter also mixed the case of each word of "cover mix".
+REMOVED["boneio"] = {"properties/device_type": {"enum": sorted({
+    *_any_case(_DEVICE_TYPES), *(f"{a} {b}" for a in ("cover", "COVER", "Cover") for b in ("mix", "MIX", "Mix"))
+})}}
 # It said the opposite of what the field does.
 REMOVED["oled"] = {"properties/enabled": {"description": "Disable builtin screen."}}
 
@@ -281,7 +301,8 @@ def test_model_schema_matches_schema_yaml(section):
 def test_model_schema_has_nothing_the_panel_cannot_read(section):
     node, defs = section_schema(section)
     text = json.dumps([node, defs])
-    for keyword in ('"anyOf"', '"null"', '"ge"', '"le"', '"enum": []'):
+    # A null only where schema.yaml's ``nullable`` put one, in a list of types.
+    for keyword in ('"anyOf"', '{"type": "null"}', '"type": "null"', '"ge"', '"le"', '"enum": []'):
         assert keyword not in text
     assert '"$defs"' not in json.dumps(node)
     # Every reference points to a definition served at the document's root.

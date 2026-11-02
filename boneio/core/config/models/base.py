@@ -50,6 +50,8 @@ Str = Annotated[str, BeforeValidator(str)]
 
 #: Marks a value read in any case; the panel's schema lists its spellings.
 ANY_CASE = {"x-any-case": True}
+#: Marks a value that may be written as a null, as schema.yaml's ``nullable``.
+NULL = {"x-null": True}
 
 
 def section(model: Any, description: str, **extra: Any) -> TypeAdapter:

@@ -3074,10 +3074,6 @@
       "title": "Lox udp"
     },
     "mqtt": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -3102,8 +3098,8 @@
           "title": "Enabled"
         },
         "host": {
-          "type": "string",
           "description": "Mqtt broker hostname or IP address",
+          "type": "string",
           "title": "Host"
         },
         "username": {
@@ -3117,20 +3113,15 @@
           "title": "Password"
         },
         "port": {
+          "default": 1883,
+          "description": "Port to connect to mqtt broker",
           "type": [
             "integer",
             "string"
           ],
-          "default": 1883,
-          "description": "Port to connect to mqtt broker",
           "title": "Port"
         },
         "ha_discovery": {
-          "type": [
-            "object",
-            "string"
-          ],
-          "default": {},
           "properties": {
             "enabled": {
               "oneOf": [
@@ -3155,11 +3146,19 @@
               "title": "Enabled"
             },
             "topic_prefix": {
-              "type": "string",
               "default": "homeassistant",
               "description": "Prefix topic of HA discovery.",
+              "type": "string",
               "title": "Topic prefix"
             }
+          },
+          "type": [
+            "object",
+            "string"
+          ],
+          "default": {
+            "enabled": true,
+            "topic_prefix": "homeassistant"
           },
           "description": "Ha discovery sub section",
           "title": "Ha discovery"
@@ -3209,23 +3208,16 @@
           "title": "Receive boneio autodiscovery"
         },
         "update_channel": {
-          "type": "string",
           "default": "stable",
+          "description": "Update channel",
           "enum": [
             "stable",
             "dev"
           ],
-          "examples": [
-            "stable"
-          ],
-          "description": "Update channel",
+          "type": "string",
           "title": "Update channel"
         },
         "tls": {
-          "type": [
-            "object",
-            "string"
-          ],
           "properties": {
             "enabled": {
               "oneOf": [
@@ -3257,14 +3249,14 @@
             "certfile": {
               "type": "string",
               "description": "Client certificate (PEM), for brokers that require one",
-              "title": "Certfile",
-              "x-dependencies": "keyfile"
+              "x-dependencies": "keyfile",
+              "title": "Certfile"
             },
             "keyfile": {
               "type": "string",
               "description": "Private key of the client certificate (PEM, unencrypted)",
-              "title": "Keyfile",
-              "x-dependencies": "certfile"
+              "x-dependencies": "certfile",
+              "title": "Keyfile"
             },
             "insecure": {
               "oneOf": [
@@ -3289,6 +3281,10 @@
               "title": "Insecure"
             }
           },
+          "type": [
+            "object",
+            "string"
+          ],
           "description": "Encrypt the connection to the broker (TLS)",
           "title": "Tls"
         }
@@ -3296,23 +3292,22 @@
       "required": [
         "host"
       ],
+      "type": [
+        "object",
+        "string"
+      ],
       "description": "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system.",
       "title": "Mqtt"
     },
     "web": {
-      "type": [
-        "null",
-        "object",
-        "string"
-      ],
       "properties": {
         "port": {
+          "default": 8090,
+          "description": "Port to run web server",
           "type": [
             "integer",
             "string"
           ],
-          "default": 8090,
-          "description": "Port to run web server",
           "title": "Port"
         },
         "proxy_port": {
@@ -3325,25 +3320,16 @@
           "title": "Proxy port"
         },
         "expose": {
-          "type": "string",
           "default": "all",
+          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise. The proxy reaches the panel over the loopback when Caddy runs as a system service, or over the Docker bridge when it runs in a container; Node-RED always uses the bridge.",
           "enum": [
             "all",
             "proxy"
           ],
-          "examples": [
-            "all"
-          ],
-          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise. The proxy reaches the panel over the loopback when Caddy runs as a system service, or over the Docker bridge when it runs in a container; Node-RED always uses the bridge.",
+          "type": "string",
           "title": "Expose"
         },
         "cloud": {
-          "type": [
-            "null",
-            "object",
-            "string"
-          ],
-          "default": {},
           "properties": {
             "enabled": {
               "oneOf": [
@@ -3398,16 +3384,19 @@
               "title": "Pwa name"
             }
           },
-          "description": "boneIO Cloud registration for PWA support",
-          "title": "Cloud"
-        },
-        "security": {
           "type": [
             "null",
             "object",
             "string"
           ],
-          "default": {},
+          "default": {
+            "enabled": false,
+            "declined": false
+          },
+          "description": "boneIO Cloud registration for PWA support",
+          "title": "Cloud"
+        },
+        "security": {
           "properties": {
             "map_tiles": {
               "oneOf": [
@@ -3432,25 +3421,30 @@
               "title": "Map tiles"
             },
             "frame_ancestors": {
+              "description": "Which sites may embed this panel in a frame",
               "type": [
                 "array",
                 "null",
                 "string"
               ],
-              "description": "Which sites may embed this panel in a frame",
+              "items": {
+                "type": "string"
+              },
               "title": "Frame ancestors"
             }
           },
-          "description": "Web security headers",
-          "title": "Security"
-        },
-        "auth": {
           "type": [
             "null",
             "object",
             "string"
           ],
-          "default": {},
+          "default": {
+            "map_tiles": false
+          },
+          "description": "Web security headers",
+          "title": "Security"
+        },
+        "auth": {
           "properties": {
             "username": {
               "type": "string",
@@ -3485,10 +3479,23 @@
               "title": "Allow anonymous"
             }
           },
+          "type": [
+            "null",
+            "object",
+            "string"
+          ],
+          "default": {
+            "allow_anonymous": false
+          },
           "description": "Auth if defined",
           "title": "Auth"
         }
       },
+      "type": [
+        "null",
+        "object",
+        "string"
+      ],
       "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/web \n Web section of boneIO Black. It enables web interface. Default on port 8090.",
       "title": "Web"
     },
@@ -9884,30 +9891,22 @@
       "title": "Sensor"
     },
     "boneio": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "config_version": {
+          "default": 0,
+          "description": "Schema version for config migrations. Managed automatically.",
           "type": [
             "integer",
             "string"
           ],
-          "default": 0,
-          "description": "Schema version for config migrations. Managed automatically.",
           "title": "Config version"
         },
         "name": {
-          "type": "string",
           "description": "Name of boneio. Default is Black.",
+          "type": "string",
           "title": "Name"
         },
         "version": {
-          "type": [
-            "number",
-            "string"
-          ],
           "enum": [
             "0.2",
             "0.3",
@@ -9928,14 +9927,16 @@
             1.0,
             1.1
           ],
-          "examples": [
-            "0.2"
+          "type": [
+            "number",
+            "string"
           ],
           "description": "BoneIO Black Hardware version",
           "title": "Version"
         },
         "device_type": {
           "type": "string",
+          "description": "Predefined device type configuration",
           "enum": [
             "24",
             "24X16",
@@ -9963,23 +9964,13 @@
             "CM",
             "COVER",
             "COVER MIX",
-            "COVER Mix",
-            "COVER mix",
             "Cm",
             "Cover",
-            "Cover MIX",
             "Cover Mix",
-            "Cover mix",
             "cm",
             "cover",
-            "cover MIX",
-            "cover Mix",
             "cover mix"
           ],
-          "examples": [
-            "32x10A"
-          ],
-          "description": "Predefined device type configuration",
           "title": "Device type"
         },
         "ha_child_devices": {
@@ -10005,20 +9996,18 @@
           "title": "Ha child devices"
         },
         "ha_child_devices_naming": {
-          "type": "string",
           "default": "default",
+          "description": "Child device naming style",
           "enum": [
             "default",
             "device_name",
             "device_name_area"
           ],
-          "examples": [
-            "default"
-          ],
-          "description": "Child device naming style",
+          "type": "string",
           "title": "Ha child devices naming"
         },
         "serial_override": {
+          "pattern": "^blk[a-f0-9]{6}$",
           "type": [
             "null",
             "string"
@@ -10029,6 +10018,10 @@
       },
       "required": [
         "name"
+      ],
+      "type": [
+        "object",
+        "string"
       ],
       "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/boneio \n BoneIO configuration section. It's new section for boneIO Black. It enables you to use predefined device types. For now only 0.7 and 0.8 devices are supported.",
       "title": "Boneio"

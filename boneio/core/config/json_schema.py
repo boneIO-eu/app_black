@@ -4,7 +4,7 @@ The panel reads one dialect, the one schema_converter.py writes from
 schema.yaml: no ``anyOf`` (the forms read ``type``), ``"string"`` beside every
 type (a value may be an ``!include``), a boolean as a ``oneOf`` with the YAML
 words for it, and a time period as ``x-timeperiod``. pydantic's own output is
-rewritten into that.
+rewritten into that; a ``null`` is offered only where the model marks it.
 
 A definition used once is written in place, so the forms find the fields
 where they look for them. One used more than once (an action type, used by
@@ -35,6 +35,7 @@ FROM_MODELS = frozenset({
     "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor",
     "output", "output_group", "cover", "irrigation",
     "remote_devices", "remote_inputs", "remote_outputs", "virtual_switch", "schedule", "template",
+    "mqtt", "web", "boneio",
 })
 
 _BOOLEAN = [
@@ -137,12 +138,16 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
         # written like any other schema.
         node["oneOf"] = [_panel(branch, defs, shared, name) for branch in node["oneOf"]]
 
+    # Only where schema.yaml says ``nullable``: the null Cerberus would turn
+    # into a field's default is still flagged, as it always was.
+    may_be_null = node.pop("x-null", False)
     kind = node.get("type")
     if kind == "boolean":
         del node["type"]
         node = {"oneOf": _BOOLEAN, **node}
     elif kind is not None:
-        kinds = sorted({kind, "string"} if isinstance(kind, str) else {*kind, "string"})
+        kinds = {kind, "string"} if isinstance(kind, str) else {*kind, "string"}
+        kinds = sorted(kinds | {"null"} if may_be_null else kinds)
         node["type"] = kinds[0] if len(kinds) == 1 else kinds
 
     if "properties" in node:

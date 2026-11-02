@@ -3,10 +3,6 @@
   "type": "object",
   "properties": {
     "mqtt": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -31,8 +27,8 @@
           "title": "Enabled"
         },
         "host": {
-          "type": "string",
           "description": "Mqtt broker hostname or IP address",
+          "type": "string",
           "title": "Host"
         },
         "username": {
@@ -46,20 +42,15 @@
           "title": "Password"
         },
         "port": {
+          "default": 1883,
+          "description": "Port to connect to mqtt broker",
           "type": [
             "integer",
             "string"
           ],
-          "default": 1883,
-          "description": "Port to connect to mqtt broker",
           "title": "Port"
         },
         "ha_discovery": {
-          "type": [
-            "object",
-            "string"
-          ],
-          "default": {},
           "properties": {
             "enabled": {
               "oneOf": [
@@ -84,11 +75,19 @@
               "title": "Enabled"
             },
             "topic_prefix": {
-              "type": "string",
               "default": "homeassistant",
               "description": "Prefix topic of HA discovery.",
+              "type": "string",
               "title": "Topic prefix"
             }
+          },
+          "type": [
+            "object",
+            "string"
+          ],
+          "default": {
+            "enabled": true,
+            "topic_prefix": "homeassistant"
           },
           "description": "Ha discovery sub section",
           "title": "Ha discovery"
@@ -138,23 +137,16 @@
           "title": "Receive boneio autodiscovery"
         },
         "update_channel": {
-          "type": "string",
           "default": "stable",
+          "description": "Update channel",
           "enum": [
             "stable",
             "dev"
           ],
-          "examples": [
-            "stable"
-          ],
-          "description": "Update channel",
+          "type": "string",
           "title": "Update channel"
         },
         "tls": {
-          "type": [
-            "object",
-            "string"
-          ],
           "properties": {
             "enabled": {
               "oneOf": [
@@ -186,14 +178,14 @@
             "certfile": {
               "type": "string",
               "description": "Client certificate (PEM), for brokers that require one",
-              "title": "Certfile",
-              "x-dependencies": "keyfile"
+              "x-dependencies": "keyfile",
+              "title": "Certfile"
             },
             "keyfile": {
               "type": "string",
               "description": "Private key of the client certificate (PEM, unencrypted)",
-              "title": "Keyfile",
-              "x-dependencies": "certfile"
+              "x-dependencies": "certfile",
+              "title": "Keyfile"
             },
             "insecure": {
               "oneOf": [
@@ -218,12 +210,20 @@
               "title": "Insecure"
             }
           },
+          "type": [
+            "object",
+            "string"
+          ],
           "description": "Encrypt the connection to the broker (TLS)",
           "title": "Tls"
         }
       },
       "required": [
         "host"
+      ],
+      "type": [
+        "object",
+        "string"
       ],
       "description": "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system.",
       "title": "Mqtt"

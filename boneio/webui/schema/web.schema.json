@@ -3,19 +3,14 @@
   "type": "object",
   "properties": {
     "web": {
-      "type": [
-        "null",
-        "object",
-        "string"
-      ],
       "properties": {
         "port": {
+          "default": 8090,
+          "description": "Port to run web server",
           "type": [
             "integer",
             "string"
           ],
-          "default": 8090,
-          "description": "Port to run web server",
           "title": "Port"
         },
         "proxy_port": {
@@ -28,25 +23,16 @@
           "title": "Proxy port"
         },
         "expose": {
-          "type": "string",
           "default": "all",
+          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise. The proxy reaches the panel over the loopback when Caddy runs as a system service, or over the Docker bridge when it runs in a container; Node-RED always uses the bridge.",
           "enum": [
             "all",
             "proxy"
           ],
-          "examples": [
-            "all"
-          ],
-          "description": "Which addresses the panel answers on. 'all' serves it on every interface, including in the clear on the LAN. 'proxy' limits it to the loopback and the Docker bridge, so it is reachable over TLS on the proxy port or through an SSH tunnel, and not otherwise. The proxy reaches the panel over the loopback when Caddy runs as a system service, or over the Docker bridge when it runs in a container; Node-RED always uses the bridge.",
+          "type": "string",
           "title": "Expose"
         },
         "cloud": {
-          "type": [
-            "null",
-            "object",
-            "string"
-          ],
-          "default": {},
           "properties": {
             "enabled": {
               "oneOf": [
@@ -101,16 +87,19 @@
               "title": "Pwa name"
             }
           },
-          "description": "boneIO Cloud registration for PWA support",
-          "title": "Cloud"
-        },
-        "security": {
           "type": [
             "null",
             "object",
             "string"
           ],
-          "default": {},
+          "default": {
+            "enabled": false,
+            "declined": false
+          },
+          "description": "boneIO Cloud registration for PWA support",
+          "title": "Cloud"
+        },
+        "security": {
           "properties": {
             "map_tiles": {
               "oneOf": [
@@ -135,25 +124,30 @@
               "title": "Map tiles"
             },
             "frame_ancestors": {
+              "description": "Which sites may embed this panel in a frame",
               "type": [
                 "array",
                 "null",
                 "string"
               ],
-              "description": "Which sites may embed this panel in a frame",
+              "items": {
+                "type": "string"
+              },
               "title": "Frame ancestors"
             }
           },
-          "description": "Web security headers",
-          "title": "Security"
-        },
-        "auth": {
           "type": [
             "null",
             "object",
             "string"
           ],
-          "default": {},
+          "default": {
+            "map_tiles": false
+          },
+          "description": "Web security headers",
+          "title": "Security"
+        },
+        "auth": {
           "properties": {
             "username": {
               "type": "string",
@@ -188,10 +182,23 @@
               "title": "Allow anonymous"
             }
           },
+          "type": [
+            "null",
+            "object",
+            "string"
+          ],
+          "default": {
+            "allow_anonymous": false
+          },
           "description": "Auth if defined",
           "title": "Auth"
         }
       },
+      "type": [
+        "null",
+        "object",
+        "string"
+      ],
       "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/web \n Web section of boneIO Black. It enables web interface. Default on port 8090.",
       "title": "Web"
     }
