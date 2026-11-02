@@ -3,10 +3,6 @@
   "type": "object",
   "properties": {
     "usage_history": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -31,15 +27,21 @@
           "title": "Enabled"
         },
         "days": {
+          "default": 30,
+          "description": "Days kept",
+          "maximum": 90,
+          "minimum": 7,
           "type": [
             "integer",
             "string"
           ],
-          "default": 30,
-          "description": "Days kept",
           "title": "Days"
         }
       },
+      "type": [
+        "object",
+        "string"
+      ],
       "description": "Hourly counts of how outputs, covers and inputs are used, kept on the controller, for an AI assistant to suggest automations from. Off unless turned on; turning it off deletes what was collected.",
       "title": "Usage history"
     }

@@ -25,8 +25,8 @@ Filter = dict[
 ]
 
 
-def _interval(default: str):
-    return Field(default, validate_default=True)
+def _interval(default: str, description: str | None = None):
+    return Field(default, validate_default=True, description=description)
 
 
 # ------------------------------------------------------------------ sensors
@@ -93,13 +93,17 @@ class Mcp9808(Lm75):
 
 
 class Modbus(Model):
-    uart: Literal["uart1", "uart2", "uart3", "uart4", "uart5"]
+    uart: Literal["uart1", "uart2", "uart3", "uart4", "uart5"] = Field(description="Uart ID to use")
     baudrate: int = 9600
     stopbits: Literal[1, 2] = 1
     bytesize: int = 8
     parity: Literal["N", "E", "O"] = "N"
-    timeout: StrPeriod = _interval("1500ms")
-    inter_device_delay: StrPeriod = _interval("5ms")
+    timeout: StrPeriod = _interval("1500ms", "Response timeout. Increase for slow devices or long cables.")
+    inter_device_delay: StrPeriod = _interval(
+        "5ms",
+        "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need "
+        "time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
+    )
 
 
 def _known_model(value: str) -> str:
@@ -176,13 +180,15 @@ class ModbusDevice(Model):
 
 
 class Can(Model):
-    enabled: bool = False
-    channel: str = "can0"
-    bitrate: Literal[10000, 20000, 50000, 100000, 125000, 250000, 500000, 1000000] = 125000
-    node_id: Address = "auto"
-    mode: Literal["master", "slave"] = "master"
-    auto_setup: bool = True
-    restart_on_error: bool = True
+    enabled: bool = Field(False, description="Enable CAN bus communication.")
+    channel: str = Field("can0", description="CAN interface name")
+    bitrate: Literal[10000, 20000, 50000, 100000, 125000, 250000, 500000, 1000000] = Field(
+        125000, description="CAN bus bitrate in bps"
+    )
+    node_id: Address = Field("auto", description="CANopen node ID (1-127 or 'auto')")
+    mode: Literal["master", "slave"] = Field("master", description="CAN bus mode")
+    auto_setup: bool = Field(True, description="Auto-setup CAN interface")
+    restart_on_error: bool = Field(True, description="Restart CAN interface on bus-off error")
 
 
 # ---------------------------------------------------------------- expanders
@@ -229,7 +235,16 @@ SECTION_ADAPTERS = {
     "ina226": TypeAdapter(list[Ina]),
     "lm75": TypeAdapter(list[Lm75]),
     "mcp9808": TypeAdapter(list[Mcp9808]),
-    "modbus": TypeAdapter(Modbus),
+    "modbus": TypeAdapter(
+        Annotated[
+            Modbus,
+            Field(
+                description="https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO "
+                "Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO "
+                "it is uart4. For old boneIO it is uart1."
+            ),
+        ]
+    ),
     "modbus_devices": TypeAdapter(
         Annotated[
             list[ModbusDevice],
@@ -240,7 +255,9 @@ SECTION_ADAPTERS = {
             ),
         ]
     ),
-    "can": TypeAdapter(Can),
+    "can": TypeAdapter(
+        Annotated[Can, Field(description="CAN bus configuration for inter-device communication via CANopen protocol.")]
+    ),
     "mcp23017": TypeAdapter(list[Mcp23017]),
     "pcf8575": TypeAdapter(list[Expander]),
     "pca9685": TypeAdapter(list[Expander]),

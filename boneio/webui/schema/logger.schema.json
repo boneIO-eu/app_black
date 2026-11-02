@@ -3,13 +3,10 @@
   "type": "object",
   "properties": {
     "logger": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "default": {
           "type": "string",
+          "description": "Module which you want logger to set. Default for app logger.",
           "enum": [
             "CRITICAL",
             "Critical",
@@ -27,29 +24,39 @@
             "info",
             "warning"
           ],
-          "examples": [
-            "critical"
-          ],
-          "description": "Module which you want logger to set. Default for app logger.",
           "title": "Default"
         },
         "logs": {
-          "type": "object",
           "additionalProperties": {
             "type": "string",
             "enum": [
+              "CRITICAL",
+              "Critical",
+              "DEBUG",
+              "Debug",
+              "ERROR",
+              "Error",
+              "INFO",
+              "Info",
+              "WARNING",
+              "Warning",
               "critical",
+              "debug",
               "error",
-              "warning",
               "info",
-              "debug"
-            ],
-            "examples": [
-              "critical"
+              "warning"
             ]
-          }
+          },
+          "type": [
+            "object",
+            "string"
+          ]
         }
       },
+      "type": [
+        "object",
+        "string"
+      ],
       "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",
       "title": "Logger"
     }

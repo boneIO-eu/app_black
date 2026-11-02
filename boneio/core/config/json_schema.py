@@ -28,7 +28,10 @@ from boneio.core.config.models import _MODULES
 from boneio.core.utils import TimePeriod
 
 #: Sections whose schema comes from the model; the rest still from schema.yaml.
-FROM_MODELS = frozenset({"modbus_devices", "event", "binary_sensor"})
+FROM_MODELS = frozenset({
+    "modbus_devices", "event", "binary_sensor",
+    "modbus", "can", "location", "lox_udp", "logger", "usage_history", "oled", "areas",
+})
 
 _BOOLEAN = [
     {"type": "boolean"},

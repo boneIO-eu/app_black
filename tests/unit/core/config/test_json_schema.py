@@ -17,6 +17,7 @@ import json
 import pytest
 
 from boneio.core.config.json_schema import FROM_MODELS, section_schema
+from boneio.core.config.models.misc import _HOST
 from boneio.core.config.schema_converter import convert_cerberus_to_json_schema, load_schema_yaml
 
 _FILTER_ITEM = {
@@ -39,6 +40,7 @@ def _any_case(values: list[str]) -> list[str]:
     return sorted({c for v in values for c in (v, v.lower(), v.upper(), v.title())})
 
 
+_LOG_LEVELS = ["critical", "error", "warning", "info", "debug"]
 _OUTPUT_COMMANDS = ["TOGGLE", "ON", "OFF", "BRIGHTNESS_UP", "BRIGHTNESS_DOWN", "BRIGHTNESS_UP_CYCLE",
                     "BRIGHTNESS_DOWN_CYCLE", "SET_BRIGHTNESS", "CYCLE_COLOR", "CYCLE_PRESET"]
 _COVER_COMMANDS = ["TOGGLE", "OPEN", "CLOSE", "STOP", "TOGGLE_OPEN", "TOGGLE_CLOSE", "SMART_TOGGLE",
@@ -73,6 +75,22 @@ ADDED = {
         "items/properties/sensors_filters/properties/humidity/items": _FILTER_ITEM,
     },
     "event": _input_added(),
+    "location": {
+        "properties/latitude": {"minimum": -90, "maximum": 90},
+        "properties/longitude": {"minimum": -180, "maximum": 180},
+        "properties/elevation": {"minimum": -500, "maximum": 9000},
+    },
+    "usage_history": {"properties/days": {"minimum": 7, "maximum": 90}},
+    "lox_udp": {"properties/host": {"pattern": _HOST}},
+    "logger": {
+        # Read in any case (the model lowers it), as default already was.
+        "properties/logs/additionalProperties": {"enum": _any_case(_LOG_LEVELS)},
+        "properties/logs": {"type": ["object", "string"]},
+    },
+    "oled": {
+        "properties/screens/items": {"type": "string"},
+        "properties/enabled": {"description": "Turn the built-in screen on."},
+    },
     "binary_sensor": {
         **_input_added(),
         # Read at start-up as the entity's name; schema.yaml never listed it.
@@ -90,6 +108,12 @@ REMOVED = {
     },
 }
 REMOVED["binary_sensor"] = REMOVED["event"]
+REMOVED["logger"] = {
+    "properties/logs/additionalProperties": {"enum": _LOG_LEVELS},
+    "properties/logs": {"type": "object"},
+}
+# It said the opposite of what the field does.
+REMOVED["oled"] = {"properties/enabled": {"description": "Disable builtin screen."}}
 
 
 def _nodes(schema: dict, path: str):

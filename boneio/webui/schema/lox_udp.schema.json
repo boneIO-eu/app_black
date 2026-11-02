@@ -3,10 +3,6 @@
   "type": "object",
   "properties": {
     "lox_udp": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -31,31 +27,36 @@
           "title": "Enabled"
         },
         "host": {
-          "type": "string",
           "description": "Target host",
+          "pattern": "^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$",
+          "type": "string",
           "title": "Host"
         },
         "send_port": {
+          "default": 4444,
+          "description": "Port to send UDP messages",
           "type": [
             "integer",
             "string"
           ],
-          "default": 4444,
-          "description": "Port to send UDP messages",
           "title": "Send port"
         },
         "listen_port": {
+          "default": 4445,
+          "description": "Port to listen for incoming UDP messages",
           "type": [
             "integer",
             "string"
           ],
-          "default": 4445,
-          "description": "Port to listen for incoming UDP messages",
           "title": "Listen port"
         }
       },
       "required": [
         "host"
+      ],
+      "type": [
+        "object",
+        "string"
       ],
       "description": "Lox UDP Messaging",
       "title": "Lox udp"

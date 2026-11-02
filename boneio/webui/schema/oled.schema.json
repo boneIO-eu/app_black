@@ -3,11 +3,6 @@
   "type": "object",
   "properties": {
     "oled": {
-      "type": [
-        "object",
-        "string"
-      ],
-      "default": {},
       "properties": {
         "enabled": {
           "oneOf": [
@@ -28,14 +23,10 @@
             }
           ],
           "default": false,
-          "description": "Disable builtin screen.",
+          "description": "Turn the built-in screen on.",
           "title": "Enabled"
         },
         "screens": {
-          "type": [
-            "array",
-            "string"
-          ],
           "default": [
             "uptime",
             "network",
@@ -61,31 +52,22 @@
               "extra_sensors",
               "web"
             ],
-            "examples": [
-              "uptime"
-            ]
-          }
-        },
-        "extra_screen_sensors": {
+            "type": "string"
+          },
           "type": [
             "array",
             "string"
-          ],
+          ]
+        },
+        "extra_screen_sensors": {
           "items": {
-            "type": [
-              "object",
-              "string"
-            ],
             "properties": {
               "sensor_type": {
-                "type": "string",
                 "enum": [
                   "modbus",
                   "dallas"
                 ],
-                "examples": [
-                  "modbus"
-                ]
+                "type": "string"
               },
               "modbus_id": {
                 "type": "string",
@@ -99,22 +81,35 @@
             "required": [
               "sensor_type",
               "sensor_id"
+            ],
+            "type": [
+              "object",
+              "string"
             ]
           },
+          "type": [
+            "array",
+            "string"
+          ],
           "description": "Extra sensors",
           "title": "Extra screen sensors"
         },
         "screensaver_timeout": {
+          "default": "60s",
+          "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "type": [
             "number",
             "string"
           ],
           "x-timeperiod": true,
-          "default": "60s",
-          "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "title": "Screensaver timeout"
         }
       },
+      "type": [
+        "object",
+        "string"
+      ],
+      "default": {},
       "description": "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled screen. You'd need enabled: true to make it work.",
       "title": "Oled"
     }

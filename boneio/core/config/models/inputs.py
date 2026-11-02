@@ -15,7 +15,7 @@ from pydantic import (
     AfterValidator, BeforeValidator, ConfigDict, Discriminator, Field, Tag, TypeAdapter, model_validator,
 )
 
-from boneio.core.config.models.base import Model, Period, Str, StrPeriod, coerce, str_lower
+from boneio.core.config.models.base import ANY_CASE, Model, Period, Str, StrPeriod, coerce, str_lower
 from boneio.core.config.yaml_util import condition_shape_errors
 
 
@@ -25,9 +25,6 @@ def _upper(value: Any) -> Any:
 
 SunOffset = Annotated[float, BeforeValidator(coerce("sun_offset")), Field(ge=-43200, le=43200)]
 Elevation = Annotated[Union[float, int], Field(ge=-90, le=90)]
-
-#: Marks a value read in any case; the panel's schema lists its spellings.
-ANY_CASE = {"x-any-case": True}
 
 OutputCommand = Annotated[
     Literal["TOGGLE", "ON", "OFF", "BRIGHTNESS_UP", "BRIGHTNESS_DOWN", "BRIGHTNESS_UP_CYCLE",

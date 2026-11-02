@@ -46,6 +46,9 @@ def str_lower(value: Any) -> Any:
 Period = Annotated[TimePeriod, BeforeValidator(_time_period)]
 StrPeriod = Annotated[TimePeriod, BeforeValidator(_str_time_period)]
 Str = Annotated[str, BeforeValidator(str)]
+
+#: Marks a value read in any case; the panel's schema lists its spellings.
+ANY_CASE = {"x-any-case": True}
 """``coerce: str``: anything but a null becomes its string."""
 
 

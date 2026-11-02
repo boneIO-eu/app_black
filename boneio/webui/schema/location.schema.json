@@ -3,43 +3,49 @@
   "type": "object",
   "properties": {
     "location": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "latitude": {
+          "description": "Latitude",
+          "minimum": -90,
+          "maximum": 90,
           "type": [
             "integer",
             "number",
             "string"
           ],
-          "description": "Latitude",
           "title": "Latitude"
         },
         "longitude": {
+          "description": "Longitude",
+          "minimum": -180,
+          "maximum": 180,
           "type": [
             "integer",
             "number",
             "string"
           ],
-          "description": "Longitude",
           "title": "Longitude"
         },
         "elevation": {
+          "default": 0,
+          "description": "Elevation above sea level (m)",
+          "minimum": -500,
+          "maximum": 9000,
           "type": [
             "integer",
             "number",
             "string"
           ],
-          "default": 0,
-          "description": "Elevation above sea level (m)",
           "title": "Elevation"
         }
       },
       "required": [
         "latitude",
         "longitude"
+      ],
+      "type": [
+        "object",
+        "string"
       ],
       "description": "Geographic location of the controller. Required for sun-based conditions and for the sunrise/sunset times shown in the panel.",
       "title": "Location"

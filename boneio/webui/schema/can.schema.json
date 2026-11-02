@@ -3,10 +3,6 @@
   "type": "object",
   "properties": {
     "can": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -31,17 +27,14 @@
           "title": "Enabled"
         },
         "channel": {
-          "type": "string",
           "default": "can0",
           "description": "CAN interface name",
+          "type": "string",
           "title": "Channel"
         },
         "bitrate": {
-          "type": [
-            "integer",
-            "string"
-          ],
           "default": 125000,
+          "description": "CAN bus bitrate in bps",
           "enum": [
             10000,
             20000,
@@ -52,32 +45,29 @@
             500000,
             1000000
           ],
-          "examples": [
-            10000
-          ],
-          "description": "CAN bus bitrate in bps",
-          "title": "Bitrate"
-        },
-        "node_id": {
           "type": [
             "integer",
             "string"
           ],
+          "title": "Bitrate"
+        },
+        "node_id": {
           "default": "auto",
           "description": "CANopen node ID (1-127 or 'auto')",
+          "type": [
+            "integer",
+            "string"
+          ],
           "title": "Node id"
         },
         "mode": {
-          "type": "string",
           "default": "master",
+          "description": "CAN bus mode",
           "enum": [
             "master",
             "slave"
           ],
-          "examples": [
-            "master"
-          ],
-          "description": "CAN bus mode",
+          "type": "string",
           "title": "Mode"
         },
         "auto_setup": {
@@ -125,6 +115,10 @@
           "title": "Restart on error"
         }
       },
+      "type": [
+        "object",
+        "string"
+      ],
       "description": "CAN bus configuration for inter-device communication via CANopen protocol.",
       "title": "Can"
     }

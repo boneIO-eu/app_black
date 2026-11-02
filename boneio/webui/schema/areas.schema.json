@@ -3,33 +3,33 @@
   "type": "object",
   "properties": {
     "areas": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
-            "type": "string",
             "description": "Area ID",
+            "type": "string",
             "title": "Id"
           },
           "name": {
-            "type": "string",
             "description": "Area Name",
+            "type": "string",
             "title": "Name"
           }
         },
         "required": [
           "id",
           "name"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Areas"
     }
   }

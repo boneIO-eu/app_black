@@ -3,40 +3,36 @@
   "type": "object",
   "properties": {
     "areas": {
-      "type": [
-        "array",
-        "string"
-      ],
+      "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
       "items": {
-        "type": [
-          "object",
-          "string"
-        ],
         "properties": {
           "id": {
-            "type": "string",
             "description": "Area ID",
+            "type": "string",
             "title": "Id"
           },
           "name": {
-            "type": "string",
             "description": "Area Name",
+            "type": "string",
             "title": "Name"
           }
         },
         "required": [
           "id",
           "name"
+        ],
+        "type": [
+          "object",
+          "string"
         ]
       },
-      "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
+      "type": [
+        "array",
+        "string"
+      ],
       "title": "Areas"
     },
     "usage_history": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -61,56 +57,68 @@
           "title": "Enabled"
         },
         "days": {
+          "default": 30,
+          "description": "Days kept",
+          "maximum": 90,
+          "minimum": 7,
           "type": [
             "integer",
             "string"
           ],
-          "default": 30,
-          "description": "Days kept",
           "title": "Days"
         }
       },
-      "description": "Hourly counts of how outputs, covers and inputs are used, kept on the controller, for an AI assistant to suggest automations from. Off unless turned on; turning it off deletes what was collected.",
-      "title": "Usage history"
-    },
-    "location": {
       "type": [
         "object",
         "string"
       ],
+      "description": "Hourly counts of how outputs, covers and inputs are used, kept on the controller, for an AI assistant to suggest automations from. Off unless turned on; turning it off deletes what was collected.",
+      "title": "Usage history"
+    },
+    "location": {
       "properties": {
         "latitude": {
+          "description": "Latitude",
+          "minimum": -90,
+          "maximum": 90,
           "type": [
             "integer",
             "number",
             "string"
           ],
-          "description": "Latitude",
           "title": "Latitude"
         },
         "longitude": {
+          "description": "Longitude",
+          "minimum": -180,
+          "maximum": 180,
           "type": [
             "integer",
             "number",
             "string"
           ],
-          "description": "Longitude",
           "title": "Longitude"
         },
         "elevation": {
+          "default": 0,
+          "description": "Elevation above sea level (m)",
+          "minimum": -500,
+          "maximum": 9000,
           "type": [
             "integer",
             "number",
             "string"
           ],
-          "default": 0,
-          "description": "Elevation above sea level (m)",
           "title": "Elevation"
         }
       },
       "required": [
         "latitude",
         "longitude"
+      ],
+      "type": [
+        "object",
+        "string"
       ],
       "description": "Geographic location of the controller. Required for sun-based conditions and for the sunrise/sunset times shown in the panel.",
       "title": "Location"
@@ -997,10 +1005,6 @@
       "title": "Remote outputs"
     },
     "lox_udp": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "enabled": {
           "oneOf": [
@@ -1025,31 +1029,36 @@
           "title": "Enabled"
         },
         "host": {
-          "type": "string",
           "description": "Target host",
+          "pattern": "^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$",
+          "type": "string",
           "title": "Host"
         },
         "send_port": {
+          "default": 4444,
+          "description": "Port to send UDP messages",
           "type": [
             "integer",
             "string"
           ],
-          "default": 4444,
-          "description": "Port to send UDP messages",
           "title": "Send port"
         },
         "listen_port": {
+          "default": 4445,
+          "description": "Port to listen for incoming UDP messages",
           "type": [
             "integer",
             "string"
           ],
-          "default": 4445,
-          "description": "Port to listen for incoming UDP messages",
           "title": "Listen port"
         }
       },
       "required": [
         "host"
+      ],
+      "type": [
+        "object",
+        "string"
       ],
       "description": "Lox UDP Messaging",
       "title": "Lox udp"
@@ -1474,13 +1483,10 @@
       "title": "Web"
     },
     "logger": {
-      "type": [
-        "object",
-        "string"
-      ],
       "properties": {
         "default": {
           "type": "string",
+          "description": "Module which you want logger to set. Default for app logger.",
           "enum": [
             "CRITICAL",
             "Critical",
@@ -1498,38 +1504,43 @@
             "info",
             "warning"
           ],
-          "examples": [
-            "critical"
-          ],
-          "description": "Module which you want logger to set. Default for app logger.",
           "title": "Default"
         },
         "logs": {
-          "type": "object",
           "additionalProperties": {
             "type": "string",
             "enum": [
+              "CRITICAL",
+              "Critical",
+              "DEBUG",
+              "Debug",
+              "ERROR",
+              "Error",
+              "INFO",
+              "Info",
+              "WARNING",
+              "Warning",
               "critical",
+              "debug",
               "error",
-              "warning",
               "info",
-              "debug"
-            ],
-            "examples": [
-              "critical"
+              "warning"
             ]
-          }
+          },
+          "type": [
+            "object",
+            "string"
+          ]
         }
       },
-      "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",
-      "title": "Logger"
-    },
-    "oled": {
       "type": [
         "object",
         "string"
       ],
-      "default": {},
+      "description": "https://boneio.eu/docs/black/configuration/logger \n Logger section of boneIO Black. It enables logging level. If run as systemd service, then it will log to journal. If not, then it will log to /tmp/boneio.log",
+      "title": "Logger"
+    },
+    "oled": {
       "properties": {
         "enabled": {
           "oneOf": [
@@ -1550,14 +1561,10 @@
             }
           ],
           "default": false,
-          "description": "Disable builtin screen.",
+          "description": "Turn the built-in screen on.",
           "title": "Enabled"
         },
         "screens": {
-          "type": [
-            "array",
-            "string"
-          ],
           "default": [
             "uptime",
             "network",
@@ -1583,31 +1590,22 @@
               "extra_sensors",
               "web"
             ],
-            "examples": [
-              "uptime"
-            ]
-          }
-        },
-        "extra_screen_sensors": {
+            "type": "string"
+          },
           "type": [
             "array",
             "string"
-          ],
+          ]
+        },
+        "extra_screen_sensors": {
           "items": {
-            "type": [
-              "object",
-              "string"
-            ],
             "properties": {
               "sensor_type": {
-                "type": "string",
                 "enum": [
                   "modbus",
                   "dallas"
                 ],
-                "examples": [
-                  "modbus"
-                ]
+                "type": "string"
               },
               "modbus_id": {
                 "type": "string",
@@ -1621,33 +1619,42 @@
             "required": [
               "sensor_type",
               "sensor_id"
+            ],
+            "type": [
+              "object",
+              "string"
             ]
           },
+          "type": [
+            "array",
+            "string"
+          ],
           "description": "Extra sensors",
           "title": "Extra screen sensors"
         },
         "screensaver_timeout": {
+          "default": "60s",
+          "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "type": [
             "number",
             "string"
           ],
           "x-timeperiod": true,
-          "default": "60s",
-          "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
           "title": "Screensaver timeout"
         }
       },
-      "description": "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled screen. You'd need enabled: true to make it work.",
-      "title": "Oled"
-    },
-    "modbus": {
       "type": [
         "object",
         "string"
       ],
+      "default": {},
+      "description": "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled screen. You'd need enabled: true to make it work.",
+      "title": "Oled"
+    },
+    "modbus": {
       "properties": {
         "uart": {
-          "type": "string",
+          "description": "Uart ID to use",
           "enum": [
             "uart1",
             "uart2",
@@ -1655,84 +1662,75 @@
             "uart4",
             "uart5"
           ],
-          "examples": [
-            "uart1"
-          ],
-          "description": "Uart ID to use",
+          "type": "string",
           "title": "Uart"
         },
         "baudrate": {
+          "default": 9600,
           "type": [
             "integer",
             "string"
-          ],
-          "default": 9600
+          ]
         },
         "stopbits": {
-          "type": [
-            "integer",
-            "string"
-          ],
           "default": 1,
           "enum": [
             1,
             2
           ],
-          "examples": [
-            1
-          ]
-        },
-        "bytesize": {
           "type": [
             "integer",
             "string"
-          ],
-          "default": 8
+          ]
+        },
+        "bytesize": {
+          "default": 8,
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "parity": {
-          "type": "string",
           "default": "N",
           "enum": [
             "N",
             "E",
             "O"
           ],
-          "examples": [
-            "N"
-          ]
+          "type": "string"
         },
         "timeout": {
+          "default": "1500ms",
+          "description": "Response timeout. Increase for slow devices or long cables.",
           "type": [
             "number",
             "string"
           ],
           "x-timeperiod": true,
-          "default": "1500ms",
-          "description": "Response timeout. Increase for slow devices or long cables.",
           "title": "Timeout"
         },
         "inter_device_delay": {
+          "default": "5ms",
+          "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
           "type": [
             "number",
             "string"
           ],
           "x-timeperiod": true,
-          "default": "5ms",
-          "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
           "title": "Inter device delay"
         }
       },
       "required": [
         "uart"
       ],
-      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
-      "title": "Modbus"
-    },
-    "can": {
       "type": [
         "object",
         "string"
       ],
+      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
+      "title": "Modbus"
+    },
+    "can": {
       "properties": {
         "enabled": {
           "oneOf": [
@@ -1757,17 +1755,14 @@
           "title": "Enabled"
         },
         "channel": {
-          "type": "string",
           "default": "can0",
           "description": "CAN interface name",
+          "type": "string",
           "title": "Channel"
         },
         "bitrate": {
-          "type": [
-            "integer",
-            "string"
-          ],
           "default": 125000,
+          "description": "CAN bus bitrate in bps",
           "enum": [
             10000,
             20000,
@@ -1778,32 +1773,29 @@
             500000,
             1000000
           ],
-          "examples": [
-            10000
-          ],
-          "description": "CAN bus bitrate in bps",
-          "title": "Bitrate"
-        },
-        "node_id": {
           "type": [
             "integer",
             "string"
           ],
+          "title": "Bitrate"
+        },
+        "node_id": {
           "default": "auto",
           "description": "CANopen node ID (1-127 or 'auto')",
+          "type": [
+            "integer",
+            "string"
+          ],
           "title": "Node id"
         },
         "mode": {
-          "type": "string",
           "default": "master",
+          "description": "CAN bus mode",
           "enum": [
             "master",
             "slave"
           ],
-          "examples": [
-            "master"
-          ],
-          "description": "CAN bus mode",
+          "type": "string",
           "title": "Mode"
         },
         "auto_setup": {
@@ -1851,6 +1843,10 @@
           "title": "Restart on error"
         }
       },
+      "type": [
+        "object",
+        "string"
+      ],
       "description": "CAN bus configuration for inter-device communication via CANopen protocol.",
       "title": "Can"
     },
