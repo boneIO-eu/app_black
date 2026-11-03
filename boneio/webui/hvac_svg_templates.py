@@ -122,7 +122,7 @@ def generate_recuperator_card(
     t_zewn = _eid("sensor", "temperaturazewnetrzna")
     t_pom = _eid("sensor", "temperaturapomieszczenia")
     t_naw = _eid("sensor", "temperaturanawiewu")
-    t_wyrz = _eid("sensor", "temperaturawywrzutowa")
+    t_wyrz = _eid("sensor", "temperaturawyrzutowa")
     w_naw = _eid("sensor", "wydateknawiewu")
     w_wyw = _eid("sensor", "wydatekwywiewu")
     b_naw = _eid("sensor", "biegnawiewu")

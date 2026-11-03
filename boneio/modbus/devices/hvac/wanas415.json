@@ -7,41 +7,31 @@
   "default_update_interval": "30s",
   "registers_base": [
     {
-      "base": 4001,
+      "base": 0,
       "length": 24,
       "register_type": "holding",
       "registers": [
         {
           "name": "Wydatek nawiewu",
-          "address": 4001,
+          "address": 0,
           "entity_type": "sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
           "unit_of_measurement": "m³/h",
-          "device_class": "volume_flow_rate",
-          "filters": [
-            {
-              "multiply": 10
-            }
-          ]
+          "device_class": "volume_flow_rate"
         },
         {
           "name": "Wydatek wywiewu",
-          "address": 4002,
+          "address": 1,
           "entity_type": "sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
           "unit_of_measurement": "m³/h",
-          "device_class": "volume_flow_rate",
-          "filters": [
-            {
-              "multiply": 10
-            }
-          ]
+          "device_class": "volume_flow_rate"
         },
         {
           "name": "Bieg nawiewu",
-          "address": 4003,
+          "address": 2,
           "entity_type": "text_sensor",
           "value_type": "U_WORD",
           "x_mapping": {
@@ -53,7 +43,7 @@
         },
         {
           "name": "Bieg wywiewu",
-          "address": 4004,
+          "address": 3,
           "entity_type": "text_sensor",
           "value_type": "U_WORD",
           "x_mapping": {
@@ -65,7 +55,7 @@
         },
         {
           "name": "Temperatura zewnętrzna",
-          "address": 4005,
+          "address": 4,
           "entity_type": "sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
@@ -81,8 +71,8 @@
           ]
         },
         {
-          "name": "Temperatura pomieszczenia",
-          "address": 4006,
+          "name": "Temperatura wyrzutowa",
+          "address": 5,
           "entity_type": "sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
@@ -99,7 +89,7 @@
         },
         {
           "name": "Temperatura nawiewu",
-          "address": 4007,
+          "address": 6,
           "entity_type": "sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
@@ -115,8 +105,8 @@
           ]
         },
         {
-          "name": "Temperatura wywrzutowa",
-          "address": 4008,
+          "name": "Temperatura pomieszczenia",
+          "address": 7,
           "entity_type": "sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
@@ -133,8 +123,8 @@
         },
         {
           "name": "Dzień tygodnia",
-          "address": 4009,
-          "write_address": 4009,
+          "address": 8,
+          "write_address": 8,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -150,8 +140,8 @@
         },
         {
           "name": "Koniec strefy 1",
-          "address": 4011,
-          "write_address": 4011,
+          "address": 10,
+          "write_address": 10,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -159,8 +149,8 @@
         },
         {
           "name": "Koniec strefy 2",
-          "address": 4012,
-          "write_address": 4012,
+          "address": 11,
+          "write_address": 11,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -168,8 +158,8 @@
         },
         {
           "name": "Koniec strefy 3",
-          "address": 4013,
-          "write_address": 4013,
+          "address": 12,
+          "write_address": 12,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -177,17 +167,17 @@
         },
         {
           "name": "Koniec strefy 4",
-          "address": 4014,
-          "write_address": 4014,
+          "address": 13,
+          "write_address": 13,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
           "unit_of_measurement": "min"
         },
         {
-          "name": "Błąd strefy 1",
-          "address": 4015,
-          "write_address": 4015,
+          "name": "Bieg strefy 1",
+          "address": 14,
+          "write_address": 14,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -199,9 +189,9 @@
           }
         },
         {
-          "name": "Błąd strefy 2",
-          "address": 4016,
-          "write_address": 4016,
+          "name": "Bieg strefy 2",
+          "address": 15,
+          "write_address": 15,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -213,9 +203,9 @@
           }
         },
         {
-          "name": "Błąd strefy 3",
-          "address": 4017,
-          "write_address": 4017,
+          "name": "Bieg strefy 3",
+          "address": 16,
+          "write_address": 16,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -227,9 +217,9 @@
           }
         },
         {
-          "name": "Błąd strefy 4",
-          "address": 4018,
-          "write_address": 4018,
+          "name": "Bieg strefy 4",
+          "address": 17,
+          "write_address": 17,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -241,9 +231,9 @@
           }
         },
         {
-          "name": "Błąd strefy 5",
-          "address": 4019,
-          "write_address": 4019,
+          "name": "Bieg strefy 5",
+          "address": 18,
+          "write_address": 18,
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "U_WORD",
@@ -256,93 +246,53 @@
         },
         {
           "name": "Temperatura strefy 1",
-          "address": 4020,
-          "write_address": 4020,
+          "address": 19,
+          "write_address": 19,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
-          "device_class": "temperature",
-          "filters": [
-            {
-              "multiply": 0.1
-            },
-            {
-              "round": 1
-            }
-          ]
+          "device_class": "temperature"
         },
         {
           "name": "Temperatura strefy 2",
-          "address": 4021,
-          "write_address": 4021,
+          "address": 20,
+          "write_address": 20,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
-          "device_class": "temperature",
-          "filters": [
-            {
-              "multiply": 0.1
-            },
-            {
-              "round": 1
-            }
-          ]
+          "device_class": "temperature"
         },
         {
           "name": "Temperatura strefy 3",
-          "address": 4022,
-          "write_address": 4022,
+          "address": 21,
+          "write_address": 21,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
-          "device_class": "temperature",
-          "filters": [
-            {
-              "multiply": 0.1
-            },
-            {
-              "round": 1
-            }
-          ]
+          "device_class": "temperature"
         },
         {
           "name": "Temperatura strefy 4",
-          "address": 4023,
-          "write_address": 4023,
+          "address": 22,
+          "write_address": 22,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
-          "device_class": "temperature",
-          "filters": [
-            {
-              "multiply": 0.1
-            },
-            {
-              "round": 1
-            }
-          ]
+          "device_class": "temperature"
         },
         {
           "name": "Temperatura strefy 5",
-          "address": 4024,
-          "write_address": 4024,
+          "address": 23,
+          "write_address": 23,
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
-          "device_class": "temperature",
-          "filters": [
-            {
-              "multiply": 0.1
-            },
-            {
-              "round": 1
-            }
-          ]
+          "device_class": "temperature"
         }
       ]
     }
@@ -363,8 +313,8 @@
       }
     },
     {
-      "name": "Błąd strefy 1 switch",
-      "source": "blad_strefy_1",
+      "name": "Bieg strefy 1",
+      "source": "bieg_strefy_1",
       "entity_type": "select",
       "x_mapping": {
         "0": "postój",
@@ -374,8 +324,8 @@
       }
     },
     {
-      "name": "Błąd strefy 2 switch",
-      "source": "blad_strefy_2",
+      "name": "Bieg strefy 2",
+      "source": "bieg_strefy_2",
       "entity_type": "select",
       "x_mapping": {
         "0": "postój",
@@ -385,8 +335,8 @@
       }
     },
     {
-      "name": "Błąd strefy 3 switch",
-      "source": "blad_strefy_3",
+      "name": "Bieg strefy 3",
+      "source": "bieg_strefy_3",
       "entity_type": "select",
       "x_mapping": {
         "0": "postój",
@@ -396,8 +346,8 @@
       }
     },
     {
-      "name": "Błąd strefy 4 switch",
-      "source": "blad_strefy_4",
+      "name": "Bieg strefy 4",
+      "source": "bieg_strefy_4",
       "entity_type": "select",
       "x_mapping": {
         "0": "postój",
@@ -407,8 +357,8 @@
       }
     },
     {
-      "name": "Błąd strefy 5 switch",
-      "source": "blad_strefy_5",
+      "name": "Bieg strefy 5",
+      "source": "bieg_strefy_5",
       "entity_type": "select",
       "x_mapping": {
         "0": "postój",
