@@ -198,7 +198,8 @@ class RemoteDeviceManager:
         device_id = config.get("id")
         name = config.get("name") or device_id or "unknown"
         protocol_str = config.get("protocol", "mqtt")
-        device_type_str = config.get("device_type", "generic")
+        # Match the schema default: hot-reload skips Cerberus normalization.
+        device_type_str = config.get("device_type", RemoteDeviceType.BONEIO_BLACK.value)
 
         if not device_id:
             _LOGGER.error("Remote device config missing 'id'")
