@@ -1,29 +1,26 @@
-# boneIO Black 1.6.4
+# boneIO Black 1.6.5
 
-A small fix release after 1.6.3. On a controller already running 1.6.0 to
-1.6.3 it brings the fixes below. Coming from 1.5.x, this is your update
-to the 1.6 series: read "Before you update" first.
+A small fix release after 1.6.4, for Modbus devices. On a controller already
+running 1.6.0 to 1.6.4 it brings the fixes below. Coming from 1.5.x, this is
+your update to the 1.6 series: read "Before you update" first.
 
-## What 1.6.4 fixes
+## What 1.6.5 fixes
 
-- **Button presses are no longer lost in the "Event entities" mode.** On some
-  wiring, for example bell push buttons, up to two thirds of the clicks never
-  reached Home Assistant. A press is now counted even when a short glitch
-  precedes it. Inputs used as binary sensors were never affected. The warning
-  about a release that was not seen no longer says it comes from boot.
-- **After changing the configuration in settings, it could not be loaded.**
-  Changing the controller type (for example to 32x10A) opens the "Device type
-  change warning" dialog. It was clipped to the form card, so the Cancel and
-  "Load and apply" buttons were out of view and the change could not be
-  confirmed. The same happened to other dialogs opened from settings cards,
-  such as Web server and Self-test. The dialogs now open over the whole
-  screen again. This was present since 1.6.0.
-- **The controller announces itself on the local network** over mDNS, as
-  `_boneio._tcp`, so Home Assistant and other tools can find it without knowing
-  its address. It uses the `avahi-daemon` already running in the image and
-  needs nothing from you.
-- **Dependencies:** PyJWT 2.15.1 and `multidict` 6.9.1 or newer.
-- The first-run wizard now says "controller" instead of "board".
+- **Modbus coils work.** A block of type `coil` returned nothing, so coil
+  sensors never showed a value. Coils are now read with FC01, and entities of a
+  coil block are written with FC05, which is the only write that relay modules
+  such as the Waveshare Modbus RTU Relay 16CH accept. That module is now in the
+  device list, with 16 relay switches.
+- **The Wanas 415 ventilation unit shows real values.** The definition used the
+  register numbers from the manual as they are printed (from 4001), while on
+  the wire they start at 0, so the unit refused every read and no
+  entity got a value. It now reads the registers the manual describes: air
+  flows and zone temperatures are in whole units, the exhaust and room
+  temperatures are no longer swapped, and the entities called "Błąd strefy N"
+  are now "Bieg strefy N", because they hold the zone fan speed. Renamed
+  entities appear in Home Assistant under new entity IDs, so automations that
+  used the old ones need updating. Set the slave address of your unit in the
+  device.
 
 ## Before you update
 

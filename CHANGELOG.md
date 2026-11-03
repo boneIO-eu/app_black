@@ -6,6 +6,37 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.5 (2026-11-03) — 1.6.x security series
+
+Modbus coil devices work, and the Wanas 415 ventilation unit reads real values.
+See RELEASE_NOTES.md before updating.
+
+### 🔌 Modbus
+
+- **Coil blocks now work, and relay modules that only accept coil commands can
+  be driven.** A block of type `coil` returned no value at all, so the two coil
+  sensors of the Thessla Green definition never updated. Coils are now read
+  with FC01 and appear as 0/1. Entities of a coil block are written with FC05
+  (write single coil); everything else is still written with FC06. Relay
+  modules such as the Waveshare Modbus RTU Relay 16CH accept only FC01/FC05 for
+  their relays.
+- **New device: Waveshare Modbus RTU Relay 16CH** (16 relay switches; the slave
+  address and baud rate can be changed from the device), contributed by a user
+  in #73. `coil` can also be chosen in the device creator, and the Modbus
+  helper reads, searches and writes coils.
+- **Wanas 415 now shows values.** The definition followed the register numbers
+  of the ST-340 V2 manual (4001 and up) literally, but on the wire the first
+  register is address 0, so the unit refused the read and no entity ever got a
+  value. Addresses now start at 0, and the scaling follows the manual: air
+  flows are in whole m³/h and zone temperatures in whole °C, no longer
+  multiplied. The exhaust and room temperatures, which were swapped, are
+  back in place, and "Temperatura wywrzutowa" is now "Temperatura wyrzutowa".
+  The zone entities that were named "Błąd strefy N" hold the zone fan speed
+  and are now "Bieg strefy N". **Renamed entities get new entity IDs in Home
+  Assistant**, and the slave address of your own unit still has to be set in
+  the device.
+- **System migrations 1.6.1–1.6.46**, signed; no new migration since 1.6.4.
+
 ## v1.6.4 (2026-10-28) — 1.6.x security series
 
 Lost button presses in event mode, and settings dialogs that open over the
