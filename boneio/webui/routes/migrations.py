@@ -111,7 +111,9 @@ async def bootstrap_migration_helper(
     if runner is None:
         raise HTTPException(status_code=503, detail="Migration runner not available")
 
-    if runner._helper_installed():
+    # Either helper counts. Checking only the legacy one would, once 1.6.6 has
+    # retired it, put it back beside v2 — the path the retirement closed.
+    if await asyncio.get_running_loop().run_in_executor(None, runner._any_helper_available):
         return {"success": True, "message": "Helper already installed."}
 
     password = request.password.get_secret_value()
@@ -157,7 +159,9 @@ async def apply_migrations(
     if runner is None:
         raise HTTPException(status_code=503, detail="Migration runner not available")
 
-    if not runner._helper_installed():
+    # v2 is the only helper left after 1.6.6, so the legacy path alone says
+    # nothing about whether migrations can be applied.
+    if not await asyncio.get_running_loop().run_in_executor(None, runner._any_helper_available):
         raise HTTPException(
             status_code=400,
             detail="boneio-migrate helper not installed. Complete bootstrap first.",
