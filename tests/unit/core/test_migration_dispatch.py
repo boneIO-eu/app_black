@@ -148,6 +148,26 @@ def test_a_device_still_on_15x_does_not_stall_before_the_pivot(runner, monkeypat
     assert runner._pivot_first(backlog)[0].version == "1.6.5"
 
 
+def test_a_helper_refresh_runs_before_the_migrations_that_need_it(runner):
+    """A device whose v2 predates an action must get the new helper first.
+
+    A helper installed by an early 1.6.0 development build has no
+    ``remove_from_group``. Its pivot is already applied, so the only way to a
+    newer helper is a later migration that reinstalls it — and in version order
+    those sit behind 1.6.11, which that helper refuses, stopping the queue for
+    good.
+    """
+    backlog = [_info(v) for v in ("1.6.10", "1.6.11", "1.6.16", "1.6.20", "1.6.36", "1.6.37")]
+    ordered = [m.version for m in runner._pivot_first(backlog)]
+    assert ordered == ["1.6.16", "1.6.36", "1.6.10", "1.6.11", "1.6.20", "1.6.37"]
+
+
+def test_helper_refreshes_wait_for_the_pivot(runner):
+    """Before 1.6.5 there is no v2 to refresh, and nothing that may install it."""
+    backlog = [_info(v) for v in ("1.6.5", "1.6.6", "1.6.16")]
+    assert [m.version for m in runner._pivot_first(backlog)] == ["1.6.5", "1.6.6", "1.6.16"]
+
+
 # ------------------------------------------------------------------- dispatch
 
 

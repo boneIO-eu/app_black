@@ -782,31 +782,61 @@ class MigrationRunner:
         return all_ok
 
     def _pivot_first(self, pending: list[MigrationInfo]) -> list[MigrationInfo]:
-        """Put the hardening migrations at the front of the queue.
+        """Put the hardening migrations, then the v2 reinstalls, at the front.
 
         See :data:`HARDENING_FIRST` for why. Unconditional: even when v2 is
         already present, running the pair first keeps the retirement of the
-        legacy helper from sitting behind a migration that can fail.
+        legacy helper from sitting behind a migration that can fail. The
+        reinstalls follow so that nothing is sent to a v2 too old to know it.
 
         Args:
             pending: Migrations in version order.
 
         Returns:
-            The same migrations, hardening first.
+            The same migrations, hardening and helper reinstalls first.
         """
         by_version = {m.version: m for m in pending}
         hoisted = [by_version[v] for v in HARDENING_FIRST if v in by_version]
+        # Then every reinstall of v2. A device can carry a v2 older than the
+        # actions later plans use, and the reinstalls sit behind those plans in
+        # version order: the first refusal would stop the queue in front of the
+        # very migration that fixes it, on every start.
+        hoisted += [
+            m for m in pending
+            if m.version not in HARDENING_FIRST and self._reinstalls_helper(m.version)
+        ]
         if not hoisted:
             return pending
-        rest = [m for m in pending if m.version not in HARDENING_FIRST]
+        rest = [m for m in pending if m not in hoisted]
         _LOGGER.info(
             "Applying %s before the other %d pending migration(s), so the rest "
-            "go through the signing helper and an unrelated failure cannot block "
-            "the hardening.",
+            "go through the current signing helper and an unrelated failure "
+            "cannot block the hardening.",
             ", ".join(m.version for m in hoisted),
             len(rest),
         )
         return hoisted + rest
+
+    @staticmethod
+    def _reinstalls_helper(version: str) -> bool:
+        """Whether the signed plan for *version* installs the v2 helper.
+
+        Read from the plan the helper itself will run, so the next helper bump
+        is picked up without anyone remembering to list it here.
+
+        Args:
+            version: Migration version.
+
+        Returns:
+            True when the plan writes :data:`HELPER_V2_PATH`.
+        """
+        try:
+            actions = json.loads(
+                (PACKAGE_ROOT / "migrations" / "plans" / f"{version}.json").read_bytes()
+            )
+        except (OSError, ValueError):
+            return False
+        return any(action.get("dst") == HELPER_V2_PATH for action in actions)
 
     def _apply_one(self, migration: MigrationInfo) -> bool:
         """Apply a single migration through whichever helper is allowed.
