@@ -124,6 +124,16 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "defaultUpdateInterval": "30s",
     "hasSetBase": false
   },
+  "kaisai-phnix": {
+    "modelKey": "kaisai-phnix",
+    "displayName": "Kaisai Phnix Heat Pump",
+    "manufacturer": "Kaisai",
+    "description": "Kaisai air-to-water heat pump with Phnix controller",
+    "category": "hvac",
+    "defaultAddress": 1,
+    "defaultUpdateInterval": "30s",
+    "hasSetBase": true
+  },
   "thessla": {
     "modelKey": "thessla",
     "displayName": "Thessla Green",

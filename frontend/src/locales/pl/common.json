@@ -2398,6 +2398,9 @@
     "gdfx": {
       "description": "Przepływomierz serii GD (GDFX)"
     },
+    "kaisai-phnix": {
+      "description": "Pompa ciepła powietrze-woda Kaisai ze sterownikiem Phnix"
+    },
     "le-03mw": {
       "description": "3-fazowy licznik energii F&F LE-03MW"
     },

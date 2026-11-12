@@ -1,0 +1,354 @@
+{
+  "model": "Kaisai Phnix Heat Pump",
+  "manufacturer": "Kaisai",
+  "description": "Kaisai air-to-water heat pump with Phnix controller",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
+  "set_base": {
+    "set_address_address": 1024
+  },
+  "registers_base": [
+    {
+      "base": 1011,
+      "length": 2,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Power",
+          "address": 1011,
+          "write_address": 1011,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Mode",
+          "address": 1012,
+          "write_address": 1012,
+          "entity_type": "writeable_sensor_discrete",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Hot water",
+            "1": "Heating",
+            "2": "Cooling",
+            "3": "Hot water + heating",
+            "4": "Hot water + cooling"
+          }
+        }
+      ]
+    },
+    {
+      "base": 1157,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "DHW target temperature",
+          "address": 1157,
+          "write_address": 1157,
+          "entity_type": "writeable_sensor",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "step": 0.5,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Heating target temperature",
+          "address": 1158,
+          "write_address": 1158,
+          "entity_type": "writeable_sensor",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "step": 0.5,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Cooling target temperature",
+          "address": 1159,
+          "write_address": 1159,
+          "entity_type": "writeable_sensor",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "step": 0.5,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2011,
+      "length": 2,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Power state",
+          "address": 2011,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Operating state",
+          "address": 2012,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Cooling",
+            "1": "Heating",
+            "2": "Defrost",
+            "3": "Disinfection",
+            "4": "Hot water"
+          }
+        }
+      ]
+    },
+    {
+      "base": 2045,
+      "length": 10,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Inlet water temperature",
+          "address": 2045,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Outlet water temperature",
+          "address": 2046,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "DHW tank temperature",
+          "address": 2047,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Ambient temperature",
+          "address": 2048,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Buffer tank temperature",
+          "address": 2052,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Power input",
+          "address": 2054,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2058,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Room temperature",
+          "address": 2058,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Heat output",
+          "address": 2059,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "COP",
+          "address": 2060,
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 2072,
+      "length": 8,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Compressor frequency",
+          "address": 2072,
+          "unit_of_measurement": "Hz",
+          "state_class": "measurement",
+          "device_class": "frequency",
+          "value_type": "U_WORD"
+        },
+        {
+          "name": "Energy consumption",
+          "address": 2078,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "U_DWORD"
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "Power switch",
+      "source": "power",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Mode select",
+      "source": "mode",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Hot water",
+        "1": "Heating",
+        "2": "Cooling",
+        "3": "Hot water + heating",
+        "4": "Hot water + cooling"
+      }
+    }
+  ]
+}

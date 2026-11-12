@@ -2399,6 +2399,9 @@
     "gdfx": {
       "description": "GD series flow sensor (GDFX)"
     },
+    "kaisai-phnix": {
+      "description": "Kaisai air-to-water heat pump with Phnix controller"
+    },
     "le-03mw": {
       "description": "F&F LE-03MW 3-phase energy meter"
     },
