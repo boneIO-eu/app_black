@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pymodbus.pdu import ExceptionResponse
-from pymodbus.pdu.bit_message import ReadCoilsResponse
+from pymodbus.pdu.bit_message import ReadCoilsResponse, ReadDiscreteInputsResponse
 
 from boneio.modbus.client import FailureLog, Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -49,6 +49,19 @@ def test_refused_coil_read_stays_an_exception_response(modbus):
 
     assert isinstance(result, ExceptionResponse)
     assert result.registers == []
+
+
+def test_discrete_input_read_uses_fc02(modbus):
+    bits = [False, True] + [False] * 6
+    modbus._client.read_discrete_inputs.return_value = ReadDiscreteInputsResponse(bits=bits)
+
+    result = modbus.read_registers_blocking(unit=1, address=4, count=2, method="discrete_input")
+
+    modbus._client.read_discrete_inputs.assert_called_once_with(
+        address=4, count=2, device_id=1, no_response_expected=False
+    )
+    modbus._client.read_coils.assert_not_called()
+    assert result.registers == [0, 1]
 
 
 @pytest.mark.parametrize(("value", "state"), [(1, True), (0, False), (255, True)])

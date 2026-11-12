@@ -512,7 +512,7 @@ async def get_modbus_config(boneio_manager: Manager = Depends(get_manager)):
     
     return {
         "configured": modbus_client is not None,
-        "register_types": ["holding", "input", "coil"],
+        "register_types": ["holding", "input", "coil", "discrete_input"],
         "value_types": [
             "U_WORD", "S_WORD", 
             "U_DWORD", "S_DWORD", "U_DWORD_R", "S_DWORD_R",

@@ -422,11 +422,14 @@ class Modbus:
                 result = self._client.read_input_registers(**kwargs, no_response_expected=False)
             elif method == "holding":
                 result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
-            elif method == "coil":
-                result = self._client.read_coils(**kwargs, no_response_expected=False)
-                # pymodbus puts coils in ``bits`` (padded to a byte) and leaves
-                # ``registers`` empty. One 0/1 register per coil lets coil blocks
-                # decode like any U_WORD register.
+            elif method in ("coil", "discrete_input"):
+                read_bits = (
+                    self._client.read_coils if method == "coil" else self._client.read_discrete_inputs
+                )
+                result = read_bits(**kwargs, no_response_expected=False)
+                # pymodbus puts coils and discrete inputs in ``bits`` (padded to
+                # a byte) and leaves ``registers`` empty. One 0/1 register per bit
+                # lets these blocks decode like any U_WORD register.
                 if not isinstance(result, ExceptionResponse) and hasattr(result, "bits"):
                     result.registers = [int(bit) for bit in result.bits[:count]]
             else:
@@ -668,6 +671,8 @@ class Modbus:
                 result = self._client.read_input_registers(**kwargs, no_response_expected=False)
             elif method == "coil":
                 result = self._client.read_coils(**kwargs, no_response_expected=False)
+            elif method == "discrete_input":
+                result = self._client.read_discrete_inputs(**kwargs, no_response_expected=False)
             else:
                 result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
 
