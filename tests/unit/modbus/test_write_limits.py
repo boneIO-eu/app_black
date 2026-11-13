@@ -64,6 +64,16 @@ async def test_value_below_min_and_non_numbers_are_rejected():
     coordinator._modbus.write_register.assert_not_awaited()
 
 
+async def test_values_that_are_not_finite_are_rejected():
+    coordinator = _coordinator()
+
+    for bad in ("nan", "inf", "-inf", float("nan")):
+        with pytest.raises(ModbusWriteRejected):
+            await coordinator.write_register(value=bad, entity=_entity(coordinator))
+
+    coordinator._modbus.write_register.assert_not_awaited()
+
+
 async def test_value_within_range_is_written_scaled():
     coordinator = _coordinator()
 

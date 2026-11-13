@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Union
@@ -917,6 +918,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             number = float(value)
         except (TypeError, ValueError):
             raise ModbusWriteRejected(f"{name}: '{value}' is not a number") from None
+        if not math.isfinite(number):
+            raise ModbusWriteRejected(f"{name}: {value} is not a finite number")
         if (low is not None and number < low) or (high is not None and number > high):
             raise ModbusWriteRejected(
                 f"{name}: {value} is outside the allowed range {low if low is not None else '-'}..{high if high is not None else '-'}"

@@ -54,7 +54,6 @@ from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
-from boneio.modbus.coordinator import ModbusWriteRejected
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.remote import RemoteDeviceManager
 from boneio.core.manager.scheduler import Scheduler
@@ -69,6 +68,7 @@ from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner
+from boneio.modbus.coordinator import ModbusWriteRejected
 
 if TYPE_CHECKING:
     pass
