@@ -7,7 +7,9 @@ from functools import cache
 from pathlib import Path
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Tag, model_validator
+
+from boneio.modbus.heat_pump import REQUIRED_ROLES, ROLE_KINDS
 
 DEVICES_DIR = Path(__file__).parent / "devices"
 
@@ -180,6 +182,14 @@ class HeatPumpSpec(_Frozen):
     roles: dict[str, str | list[str]]
 
 
+_NUMERIC = {"sensor", "writeable_sensor", "writeable_sensor_discrete"}
+_ROLE_REGISTER_TYPES = {
+    "number": _NUMERIC,
+    "number_or_text": _NUMERIC | {"text_sensor"},
+    "binary": {"binary_sensor"},
+}
+
+
 class DeviceDefinition(_Frozen):
     model: str
     manufacturer: str
@@ -191,6 +201,37 @@ class DeviceDefinition(_Frozen):
     additional_entities: list[AdditionalEntity] = []
     set_base: SetBase | None = None
     heat_pump: HeatPumpSpec | None = None
+
+    @model_validator(mode="after")
+    def _heat_pump_roles_fit_entities(self) -> DeviceDefinition:
+        """Every role names a known role and an entity of the kind the scheme reads."""
+        hp = self.heat_pump
+        if hp is None:
+            return self
+        missing = REQUIRED_ROLES[hp.scheme] - hp.roles.keys()
+        if missing:
+            raise ValueError(f"heat_pump is missing roles: {sorted(missing)}")
+        registers = {
+            r.decoded_name: r.entity_type for b in self.registers_base for r in b.registers
+        }
+        switches = {
+            a.name.replace(" ", "").lower()
+            for a in self.additional_entities
+            if a.entity_type == "switch"
+        }
+        for role, ref in hp.roles.items():
+            kind = ROLE_KINDS.get(role)
+            if kind is None:
+                raise ValueError(f"heat_pump has unknown role {role!r}")
+            for name in [ref] if isinstance(ref, str) else ref:
+                key = name.replace(" ", "").lower()
+                if kind == "switch":
+                    ok = key in switches
+                else:
+                    ok = registers.get(key) in _ROLE_REGISTER_TYPES[kind]
+                if not ok:
+                    raise ValueError(f"heat_pump role {role!r}: {name!r} is not a {kind} entity")
+        return self
 
 
 def _files() -> dict[str, Path]:

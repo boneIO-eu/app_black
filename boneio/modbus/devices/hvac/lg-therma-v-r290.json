@@ -911,5 +911,33 @@
         "2": "Room air"
       }
     }
-  ]
+  ],
+  "heat_pump": {
+    "scheme": "lg_therma",
+    "roles": {
+      "power": "Heating cooling",
+      "dhw_enable": "DHW",
+      "mode": "Operating mode value",
+      "control_method": "Control method value",
+      "heating_target": "Heating setpoint",
+      "supply": "Water supply temperature",
+      "return": "Water return temperature",
+      "room": "Room temperature circuit 1",
+      "dhw_current": "DHW tank temperature",
+      "dhw_target": "DHW setpoint",
+      "compressor": "Compressor",
+      "defrost": "Defrost",
+      "outdoor_cycle": "Outdoor unit cycle",
+      "outdoor": "Outdoor temperature",
+      "flow": "Water flow rate",
+      "error": "Error",
+      "error_code": "Error code",
+      "circulation_pump": "Circulation pump",
+      "dhw_heating": "DHW heating",
+      "backup_heater": [
+        "Backup heater stage 1",
+        "Backup heater stage 2"
+      ]
+    }
+  }
 }

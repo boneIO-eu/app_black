@@ -185,3 +185,45 @@ def state(scheme: HeatPumpScheme, v: Mapping[str, Any]) -> dict[str, Any]:
         "dhw_current": _num(v.get("dhw_current")),
         "dhw_target": _num(v.get("dhw_target")),
     }
+
+
+# Entity kind each role must point at. "switch": derived switch ("ON"/"OFF");
+# "number": numeric register; "number_or_text": numeric register, or a text_sensor
+# whose raw value the coordinator feeds; "binary": binary_sensor register.
+ROLE_KINDS: dict[str, str] = {
+    "power": "switch",
+    "dhw_enable": "switch",
+    "mode": "number",
+    "control_method": "number",
+    "heating_target": "number",
+    "cooling_target": "number",
+    "dhw_target": "number",
+    "dhw_current": "number",
+    "supply": "number",
+    "return": "number",
+    "room": "number",
+    "outdoor": "number",
+    "flow": "number",
+    "error_code": "number",
+    "outdoor_cycle": "number_or_text",
+    "operating_state": "number_or_text",
+    "compressor": "binary",
+    "defrost": "binary",
+    "dhw_heating": "binary",
+    "error": "binary",
+    "circulation_pump": "binary",
+    "backup_heater": "binary",
+}
+
+# Roles a scheme reads or writes; the rest of ROLE_KINDS only describes state.
+# Phnix has no compressor bit: it treats an unmapped compressor as unknown.
+REQUIRED_ROLES: dict[str, frozenset[str]] = {
+    "lg_therma": frozenset(
+        "power dhw_enable mode control_method heating_target supply return room "
+        "dhw_current dhw_target compressor defrost outdoor_cycle".split()
+    ),
+    "phnix": frozenset(
+        "power mode operating_state heating_target cooling_target dhw_target "
+        "supply dhw_current".split()
+    ),
+}

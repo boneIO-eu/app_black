@@ -54,10 +54,9 @@ def test_button_and_new_fields():
     d["registers_base"][0]["registers"].append(
         {"name": "Go", "address": 1, "value_type": "U_WORD", "entity_type": "button"}
     )
-    d["heat_pump"] = {"scheme": "phnix", "roles": {"a": "b", "c": ["d"]}}
     m = DeviceDefinition.model_validate(d)
     assert m.registers_base[0].registers[1].write_value == 1
-    assert m.registers_base[0].optional and m.heat_pump.scheme == "phnix"
+    assert m.registers_base[0].optional
 
 
 def _key(name):
@@ -99,3 +98,58 @@ def test_registers_fit_inside_their_block_with_their_width(model):
     for b in load_definition(model).registers_base:
         for r in b.registers:
             assert r.address + _WORDS[r.value_type] <= b.base + b.length, (b.base, r.name)
+
+
+_HEAT_PUMPS = [m for m in device_models() if load_definition(m).heat_pump]
+
+
+def test_lg_and_kaisai_have_heat_pump_sections():
+    assert {"lg-therma-v-r290", "kaisai-phnix"} <= set(_HEAT_PUMPS)
+    assert load_definition("lg-therma-v-r290").heat_pump.scheme == "lg_therma"
+    assert load_definition("kaisai-phnix").heat_pump.scheme == "phnix"
+
+
+@pytest.mark.parametrize("model", _HEAT_PUMPS)
+def test_heat_pump_roles_point_at_existing_entities(model):
+    # validation runs on load; re-validate the raw dump to be sure it is not cached away
+    DeviceDefinition.model_validate(load_definition(model).model_dump())
+
+
+def _kaisai():
+    return load_definition("kaisai-phnix").model_dump()
+
+
+def test_missing_required_role_is_rejected():
+    d = _kaisai()
+    del d["heat_pump"]["roles"]["power"]
+    with pytest.raises(ValidationError, match="missing roles"):
+        DeviceDefinition.model_validate(d)
+
+
+def test_phnix_compressor_is_optional():
+    assert "compressor" not in _kaisai()["heat_pump"]["roles"]
+
+
+@pytest.mark.parametrize(
+    "role, name",
+    [
+        ("power", "Power"),  # register, not the derived switch
+        ("mode", "Mode select"),  # derived select carries labels
+        ("supply", "Power state"),  # binary register under a numeric role
+        ("compressor", "Compressor frequency"),  # numeric register under a binary role
+        ("heating_target", "No such entity"),
+        ("mode", "Operating state"),  # text_sensor only allowed for the *_state/cycle roles
+    ],
+)
+def test_role_of_wrong_kind_or_unknown_entity_is_rejected(role, name):
+    d = _kaisai()
+    d["heat_pump"]["roles"][role] = name
+    with pytest.raises(ValidationError):
+        DeviceDefinition.model_validate(d)
+
+
+def test_unknown_role_is_rejected():
+    d = _kaisai()
+    d["heat_pump"]["roles"]["powr"] = "Power switch"
+    with pytest.raises(ValidationError, match="unknown role"):
+        DeviceDefinition.model_validate(d)

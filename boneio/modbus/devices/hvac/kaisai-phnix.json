@@ -350,5 +350,21 @@
         "4": "Hot water + cooling"
       }
     }
-  ]
+  ],
+  "heat_pump": {
+    "scheme": "phnix",
+    "roles": {
+      "power": "Power switch",
+      "mode": "Mode",
+      "operating_state": "Operating state",
+      "heating_target": "Heating target temperature",
+      "cooling_target": "Cooling target temperature",
+      "dhw_target": "DHW target temperature",
+      "supply": "Outlet water temperature",
+      "return": "Inlet water temperature",
+      "room": "Room temperature",
+      "dhw_current": "DHW tank temperature",
+      "outdoor": "Ambient temperature"
+    }
+  }
 }
