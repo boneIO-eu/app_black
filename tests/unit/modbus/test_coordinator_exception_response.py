@@ -38,6 +38,8 @@ def _coordinator(read_results: list, groups: int = 1) -> ModbusCoordinator:
     )
     coordinator._failed_groups = set()
     coordinator._reported_groups = set()
+    coordinator._optional_misses = {}
+    coordinator._optional_last_try = {}
     coordinator._published_failing = False
     coordinator._event_bus = MagicMock()
     coordinator._payload_online = OFFLINE

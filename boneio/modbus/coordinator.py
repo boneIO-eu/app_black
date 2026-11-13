@@ -79,6 +79,12 @@ DerivedEntity = Union[
 
 _LOGGER = logging.getLogger(__name__)
 
+# An optional register block that fails this many polls in a row is skipped:
+# on RS485 every miss holds the shared bus for the whole timeout. It is tried
+# again once per OPTIONAL_RETRY_S.
+OPTIONAL_GIVE_UP = 3
+OPTIONAL_RETRY_S = 3600
+
 
 class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus coordinator in BoneIO."""
@@ -142,6 +148,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # WARNING. Separate from _failed_groups, which is also filled to force
         # a re-read and so does not mean "a failure was reported".
         self._reported_groups: set[int] = set()
+        # Optional blocks: consecutive failed reads and the time of the last try.
+        self._optional_misses: dict[int, int] = {}
+        self._optional_last_try: dict[int, float] = {}
         # Last ``failing`` sent to the panel, so it hears only the changes.
         self._published_failing = False
         self._polling_enabled: bool = True  # Runtime toggle for temporarily disabling polling
@@ -1056,6 +1065,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "Retrying failed register group %d (base=%s) for %s",
                     index, data.base, self._name,
                 )
+            if data.optional:
+                if (
+                    self._optional_misses.get(index, 0) >= OPTIONAL_GIVE_UP
+                    and timestamp - self._optional_last_try[index] < OPTIONAL_RETRY_S
+                ):
+                    continue
+                self._optional_last_try[index] = timestamp
             values = await self._modbus.read_registers(
                 unit=self._address,
                 address=data.base,
@@ -1071,6 +1087,19 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             # model variant without it, a wrong register map) - so the other
             # groups are still read, nothing backs off, and only a real read
             # brings the device ONLINE.
+            if data.optional and (isinstance(values, ExceptionResponse) or not values):
+                # A unit without this block is not failing: it neither backs
+                # off nor shows as failing, and only the first miss is logged.
+                misses = self._optional_misses.get(index, 0) + 1
+                self._optional_misses[index] = misses
+                if misses == 1 or misses == OPTIONAL_GIVE_UP:
+                    _LOGGER.info(
+                        "Modbus device %s has no optional register group %d (base=%s)%s",
+                        self.id, index, data.base,
+                        f", retrying every {OPTIONAL_RETRY_S} s" if misses == OPTIONAL_GIVE_UP else "",
+                    )
+                continue
+
             if isinstance(values, ExceptionResponse):
                 self._failed_groups.add(index)
                 level = logging.INFO if index in self._reported_groups else logging.WARNING
@@ -1143,6 +1172,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 return update_interval
             else:
                 # Read succeeded — clear failed flag for this group
+                self._optional_misses.pop(index, None)
                 self._failed_groups.discard(index)
                 self._reported_groups.discard(index)
                 if update_interval != self._update_interval.total_in_seconds:
