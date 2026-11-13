@@ -191,6 +191,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Last ``failing`` sent to the panel, so it hears only the changes.
         self._published_failing = False
         self._polling_enabled: bool = True  # Runtime toggle for temporarily disabling polling
+        # One heat pump command at a time: each reads the state the next
+        # would build on (the Phnix keeps hot water and mode in one register).
+        self._heat_pump_lock = asyncio.Lock()
 
         self.__init_modbus_entities__()
         # Additional entities
@@ -923,8 +926,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         refused one leaves the device as it was, and none is built from an
         unknown power or mode. Temperatures stay within the range Home
         Assistant is told. Writing stops at the first one the device does not
-        take. Raises ModbusWriteRejected or ModbusWriteFailed.
+        take. Commands run one at a time, each from the state the last left.
+        Raises ModbusWriteRejected or ModbusWriteFailed.
         """
+        async with self._heat_pump_lock:
+            await self._set_heat_pump(field, value)
+
+    async def _set_heat_pump(self, field: str, value: str) -> None:
         spec = self._definition.heat_pump
         if spec is None:
             raise ModbusWriteRejected(f"{self._name} is not a heat pump")
@@ -986,11 +994,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """
         source_sensor = self.get_entity_by_name(entity.source_sensor_decoded_name)
         if not source_sensor or source_sensor.write_address is None:
-            _LOGGER.error(
-                "Source sensor %s has no write address", 
-                source_sensor.name if source_sensor else "Unknown"
-            )
-            return None
+            raise ModbusWriteRejected(f"{self._name}: {entity.name} has no write address")
             
         timestamp = time.time()
         encoded_value = entity.encode_value(value)
@@ -1039,12 +1043,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         Returns:
             Output dictionary with updated states
         """
-        if not hasattr(entity, 'write_address') or entity.write_address is None:
-            _LOGGER.error(
-                "Modbus sensor %s has no write address", 
-                entity.name if hasattr(entity, 'name') else 'Unknown'
-            )
-            return None
+        if getattr(entity, "write_address", None) is None:
+            raise ModbusWriteRejected(f"{self._name}: {entity.name} has no write address")
             
         timestamp = time.time()
         numeric_value = float(value) if isinstance(value, str) else value #21
@@ -1185,7 +1185,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             ))
 
     def _check_write_allowed(self, value: str | float | int, entity: BaseEntity) -> None:
-        """Refuse a write the device must never get: read-only, unknown, or out of range.
+        """Refuse a write the device must never get: read-only, without an
+        address, unknown, or out of range.
 
         A select or switch takes only a value its x_mapping names. The range
         applies to the value as the user gives it, before write_filters.
@@ -1193,6 +1194,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         name = getattr(entity, "name", entity)
         if self._read_only:
             raise ModbusWriteRejected(f"{self._name} is read only")
+        target = (
+            self.get_entity_by_name(entity.source_sensor_decoded_name)
+            if isinstance(entity, ModbusDerivedEntity)
+            else entity
+        )
+        if getattr(target, "write_address", None) is None:
+            raise ModbusWriteRejected(f"{name} has no write address")
         if isinstance(entity, (ModbusDerivedSelect, ModbusDerivedSwitch)):
             try:
                 entity.encode_value(value)

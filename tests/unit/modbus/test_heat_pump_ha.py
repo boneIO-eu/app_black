@@ -8,6 +8,7 @@ checks as any other write, all of them before the first reaches the bus.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, call
@@ -39,6 +40,7 @@ def _coordinator(
     c._additional_data, c._coil_entities = {}, set()
     c._sensors_filters, c._entity_labels = {}, {}
     c._entity_visibility = visibility or {}
+    c._heat_pump_lock = asyncio.Lock()
     c._message_bus, c._event_bus = MagicMock(), MagicMock()
     c._send_topic = f"{PREFIX}/modbus/lg"
     c.manager = MagicMock(
@@ -420,3 +422,44 @@ async def test_raw_mode_registers_take_only_known_values(register, value):
         await c.write_register(value, c.get_entity_by_name(register))
 
     c._modbus.write_register.assert_not_awaited()
+
+
+async def test_a_heat_pump_role_without_a_write_address_writes_nothing():
+    c = _coordinator()
+    _heating_lg(c)
+    _read(c, heatingcoolingstate=0, operatingmodevalue=0)
+    c.get_entity_by_name("heatingcoolingstate")._write_address = None  # power, the second write
+
+    with pytest.raises(ModbusWriteRejected, match="no write address"):
+        await c.set_heat_pump("mode", "heat")
+
+    c._modbus.write_register.assert_not_awaited()
+
+
+async def test_a_button_without_a_write_address_is_an_error():
+    c = _coordinator()
+    button = c.get_entity_by_name("startdhwdisinfection")
+    button._write_address = None
+
+    with pytest.raises(ModbusWriteRejected, match="no write address"):
+        await c.write_register(1, button)
+
+    c._modbus.write_register.assert_not_awaited()
+
+
+async def test_heat_pump_commands_run_one_at_a_time():
+    # Phnix keeps hot water and mode in one register: each command must
+    # build on the value the previous one wrote, not on the same old read.
+    c = _known_phnix()  # power on, heating (mode 1)
+    written = []
+
+    async def slow_write(unit, address, value, coil):
+        await asyncio.sleep(0)
+        written.append(value)
+        return MagicMock()
+
+    c._modbus.write_register = AsyncMock(side_effect=slow_write)
+
+    await asyncio.gather(c.set_heat_pump("dhw_mode", "heat_pump"), c.set_heat_pump("mode", "cool"))
+
+    assert written == [3, 4]  # hot water + heating, then hot water + cooling
