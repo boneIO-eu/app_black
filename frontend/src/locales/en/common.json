@@ -918,6 +918,8 @@
       "fetch_error": "Could not load entities. Make sure the device is running.",
       "no_entities": "No entities found. The device may not be running yet."
     },
+    "read_only": "Read only",
+    "read_only_hint": "Nothing is written to the device and Home Assistant gets no controls. Add a new heat pump read only first and check its readings against the pump's own display before you allow writes.",
     "visibility": {
       "panel": "Panel",
       "ha": "Home Assistant",

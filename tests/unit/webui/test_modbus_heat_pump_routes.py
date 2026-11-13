@@ -87,6 +87,14 @@ def test_viewer_cannot_post_mode():
     assert policy.role_allows(Role.VIEWER, "GET", "/api/modbus/hp/heat_pump")
 
 
+async def test_models_say_which_are_heat_pumps():
+    models = (await route.get_modbus_models())["models"]
+
+    assert models["lg-therma-v-r290"]["has_heat_pump"]
+    assert models["kaisai-phnix"]["has_heat_pump"]
+    assert not models["sdm120"]["has_heat_pump"]
+
+
 async def test_a_derived_entity_names_the_register_whose_visibility_it_inherits():
     entities = {e["decoded_name"]: e for e in (await route.get_model_entities("lg-therma-v-r290"))["entities"]}
 

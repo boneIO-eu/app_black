@@ -131,6 +131,7 @@ interface ModbusDeviceFormData {
   data?: { width?: string; length?: string };
   entity_labels?: Record<string, string>;
   entity_visibility?: Record<string, { panel?: boolean; ha?: boolean }>;
+  read_only?: boolean;
 }
 
 /** An entity of the model as `/modbus/models/{model}/entities` lists it. */
@@ -422,6 +423,20 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             required={true}
             minimum={1000}
           />
+
+          {/* Read only: stored only when on */}
+          <div className="form-control">
+            <label className="label cursor-pointer justify-start gap-3 py-1">
+              <input
+                type="checkbox"
+                className="toggle toggle-sm"
+                checked={!!data.read_only}
+                onChange={(e) => updateField('read_only', e.target.checked || undefined)}
+              />
+              <span className="label-text font-medium">{t('modbus.read_only')}</span>
+            </label>
+            <HelpLabel className="py-0.5">{t('modbus.read_only_hint')}</HelpLabel>
+          </div>
         </div>
       )}
 

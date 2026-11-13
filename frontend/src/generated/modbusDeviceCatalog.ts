@@ -138,7 +138,7 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "modelKey": "lg-therma-v-r290",
     "displayName": "LG Therma V R290",
     "manufacturer": "LG",
-    "description": "LG Therma V R290 monoblock air-to-water heat pump",
+    "description": "LG Therma V R290 monoblock air-to-water heat pump. Add it read only first and check its readings against the pump's own display before allowing writes.",
     "category": "hvac",
     "defaultAddress": 1,
     "defaultUpdateInterval": "30s",

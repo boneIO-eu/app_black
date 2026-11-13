@@ -58,6 +58,7 @@ interface NewModbusDeviceConfig {
   update_interval: string;
   area?: string;
   id?: string;
+  read_only?: boolean;
 }
 
 interface AddModbusDeviceWizardProps {
@@ -150,6 +151,10 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
   const [area, setArea] = useState<string>('');
   const [updateInterval, setUpdateInterval] = useState<string>('30s');
   const [customId, setCustomId] = useState<string>('');
+  // A heat pump starts read only: its readings are checked against its own
+  // display before anything is written to it.
+  const [heatPumpModels, setHeatPumpModels] = useState<Set<string>>(new Set());
+  const [readOnly, setReadOnly] = useState(false);
 
   // Conflict detection
   const [usedAddresses, setUsedAddresses] = useState<UsedAddress[]>([]);
@@ -189,6 +194,20 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
         });
     }
   }, [open, allModbusDevices]);
+
+  useEffect(() => {
+    if (!open) return;
+    axios.get('/api/modbus/models')
+      .then((res) => {
+        const models = (res.data as { models?: Record<string, { has_heat_pump?: boolean }> }).models || {};
+        setHeatPumpModels(new Set(Object.keys(models).filter((key) => models[key].has_heat_pump)));
+      })
+      .catch(() => {});
+  }, [open]);
+
+  useEffect(() => {
+    setReadOnly(!!selectedModel && heatPumpModels.has(selectedModel.modelKey));
+  }, [selectedModel, heatPumpModels]);
 
   // Handle resetting state on open/close
   useEffect(() => {
@@ -294,6 +313,9 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
     }
     if (customId) {
       deviceConfig.id = customId.trim();
+    }
+    if (readOnly) {
+      deviceConfig.read_only = true;
     }
 
     onAdd(deviceConfig);
@@ -623,6 +645,20 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                     required
                     minimum={1000}
                   />
+                </div>
+
+                {/* Read only */}
+                <div className="sm:col-span-2 w-full form-control">
+                  <label className="justify-start gap-3 py-1 cursor-pointer label">
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-sm"
+                      checked={readOnly}
+                      onChange={(e) => setReadOnly(e.target.checked)}
+                    />
+                    <span className="font-semibold label-text">{t('modbus.read_only')}</span>
+                  </label>
+                  <span className="mt-1 pl-1 text-[11px] text-base-content/50">{t('modbus.read_only_hint')}</span>
                 </div>
 
                 {/* Area — full width, at the bottom */}

@@ -918,6 +918,8 @@
       "fetch_error": "Nie udało się pobrać encji. Upewnij się, że urządzenie działa.",
       "no_entities": "Nie znaleziono encji. Urządzenie może jeszcze nie działać."
     },
+    "read_only": "Tylko odczyt",
+    "read_only_hint": "Nic nie jest zapisywane do urządzenia, a Home Assistant nie dostaje sterowania. Nową pompę ciepła dodaj najpierw tylko do odczytu i porównaj jej odczyty z wyświetlaczem pompy, zanim pozwolisz na zapis.",
     "visibility": {
       "panel": "Panel",
       "ha": "Home Assistant",

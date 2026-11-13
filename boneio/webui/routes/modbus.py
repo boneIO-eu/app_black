@@ -650,6 +650,7 @@ async def get_modbus_models():
             "has_energy": "energy" in device_classes or "power" in device_classes,
             "device_classes": sorted(device_classes),
             "temperature_sensors": temperature_sensors,
+            "has_heat_pump": definition.heat_pump is not None,
         }
 
     return {"models": models}
