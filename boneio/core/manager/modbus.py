@@ -133,6 +133,8 @@ class ModbusManager:
         
         try:
             from boneio.modbus.coordinator import ModbusCoordinator
+            from boneio.modbus.definition import load_definition
+            from boneio.modbus.simulator import SimulatedClient
             
             for device_config in devices:
                 try:
@@ -177,6 +179,8 @@ class ModbusManager:
                         entity_visibility=device_config.get("entity_visibility") or {},
                     )
                     coordinators[device_id] = coordinator
+                    if isinstance(self._modbus.client, SimulatedClient):
+                        self._modbus.client.add_device(int(address), load_definition(model))
                     _LOGGER.info("Configured Modbus coordinator: %s", device_id)
                     
                 except Exception as err:

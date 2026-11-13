@@ -184,9 +184,13 @@ class Modbus:
                 Helps with star topology wiring where signal reflections
                 on branch stubs need time to settle.
         """
+        # Imported here: the simulator reuses VALUE_TYPES from this module.
+        from boneio.modbus.simulator import SimulatedClient, simulator_enabled
+
+        simulated = simulator_enabled()
         rx = uart.get(RX)
         tx = uart.get(TX)
-        if not tx or not rx:
+        if not simulated and (not tx or not rx):
             raise ModbusUartException
         _LOGGER.debug(
             f"Setting UART for modbus communication: {uart} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
@@ -224,16 +228,20 @@ class Modbus:
         char_time_ms = (11 * 1000) / baudrate  # Time for 1 character in ms
         inter_char_timeout = (char_time_ms * 3.5) / 1000  # Convert to seconds
 
-        self._client = ModbusSerialClient(
-            port=self._uart[ID],
-            framer=FramerType.RTU,
-            baudrate=baudrate,
-            stopbits=stopbits,
-            bytesize=bytesize,
-            parity=parity,
-            timeout=timeout,
-            retries=2,  # Reduced from 3 to speed up detection of offline devices
-        )
+        self._client: Any
+        if simulated:
+            self._client = SimulatedClient(timeout=timeout)
+        else:
+            self._client = ModbusSerialClient(
+                port=self._uart[ID],
+                framer=FramerType.RTU,
+                baudrate=baudrate,
+                stopbits=stopbits,
+                bytesize=bytesize,
+                parity=parity,
+                timeout=timeout,
+                retries=2,  # Reduced from 3 to speed up detection of offline devices
+            )
         _LOGGER.debug(
             "ModbusSerialClient created successfully with timeout=%.2fs, retries=2, inter_device_delay=%dms",
             timeout,
