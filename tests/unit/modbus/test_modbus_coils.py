@@ -80,6 +80,13 @@ def test_register_write_still_uses_fc06(modbus):
     modbus._client.write_coil.assert_not_called()
 
 
+@pytest.mark.parametrize(("value", "word"), [(-3, 65533), (-32768, 32768), (3, 3), (-3.0, 65533)])
+def test_negative_register_value_is_written_as_twos_complement(modbus, value, word):
+    modbus.write_register_blocking(unit=1, address=4, value=value)
+
+    modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1)
+
+
 def _coordinator(registers_base: list) -> ModbusCoordinator:
     # Bypass __init__: it loads a device JSON and wires up the manager.
     coordinator = ModbusCoordinator.__new__(ModbusCoordinator)

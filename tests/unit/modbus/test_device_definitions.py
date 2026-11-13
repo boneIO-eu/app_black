@@ -89,3 +89,13 @@ def test_names_sources_and_addresses_are_consistent(model):
     for a in d.additional_entities:
         for src in [a.source] if isinstance(a.source, str) else a.source:
             assert _key(src) in keys
+
+
+_WORDS = {"FP32": 2, "U_DWORD": 2, "S_DWORD": 2, "U_WORD": 1, "S_WORD": 1}
+
+
+@pytest.mark.parametrize("model", device_models())
+def test_registers_fit_inside_their_block_with_their_width(model):
+    for b in load_definition(model).registers_base:
+        for r in b.registers:
+            assert r.address + _WORDS[r.value_type] <= b.base + b.length, (b.base, r.name)

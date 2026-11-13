@@ -528,7 +528,8 @@ class Modbus:
             if coil:
                 result = self._client.write_coil(address=address, value=bool(value), device_id=int(unit))
             else:
-                result = self._client.write_register(address=address, value=int(value), device_id=int(unit))
+                # FC06 carries an unsigned 16-bit word; a signed value goes out as two's complement.
+                result = self._client.write_register(address=address, value=int(value) & 0xFFFF, device_id=int(unit))
 
             # Same key as reads: a holding register is usually both polled and
             # written, and a device that is down fails both.
