@@ -14,7 +14,9 @@ construction, makes every optional block of every device unavailable.
 from __future__ import annotations
 
 import logging
+import math
 import os
+import random
 import struct
 import time
 from types import SimpleNamespace
@@ -36,11 +38,33 @@ from pymodbus.pdu.register_message import (
 
 from boneio.modbus.client import VALUE_TYPES
 from boneio.modbus.definition import DeviceDefinition
+from boneio.modbus.heat_pump import ROLE_KINDS, SCHEMES
 
 _LOGGER = logging.getLogger(__name__)
 
 ILLEGAL_ADDRESS = 2
 START_TEMPERATURE = 20.0
+NOISE_K = 0.1  # sensor noise of devices without a heat pump model
+MAX_STEP_S = 60.0  # one read advances the model by at most this much
+SUPPLY_TAU_S = 600.0  # supply water approaches its setpoint
+IDLE_TAU_S = 1800.0  # supply water relaxes to room temperature with the compressor off
+COMPRESSOR_ON_K = 2.0  # compressor starts above this distance from the setpoint
+COMPRESSOR_OFF_K = 0.5  # and stops below this one
+CIRCUIT_DELTA_K = 5.0  # supply/return spread with the compressor running
+IDLE_DELTA_K = 0.5
+DHW_HEAT_K_PER_S = 1.0 / 60
+DHW_LOSS_K_PER_S = 0.1 / 60
+OUTDOOR_MEAN = 2.0
+OUTDOOR_SWING_K = 3.0
+OUTDOOR_PERIOD_S = 6 * 3600.0
+DEFROST_BELOW_OUTDOOR = 3.0
+DEFROST_EVERY_S = 40 * 60.0
+DEFROST_DURATION_S = 60.0
+AUTO_HEATS_BELOW_OUTDOOR = 15.0  # LG "auto" heats below this outdoor temperature, else idles
+# Phnix operating_state values: 0 cooling, 1 heating, 2 defrost, 4 hot water.
+PHNIX_STATE_COOLING, PHNIX_STATE_HEATING, PHNIX_STATE_DEFROST, PHNIX_STATE_HOT_WATER = 0, 1, 2, 4
+PHNIX_STATE_STANDBY = 5  # not a state the scheme reads as cooling or heating
+# LG outdoor unit cycle: 0 stop, 1 cooling, 2 heating.
 
 # register_type of a definition block -> device bank name
 _BANKS = {"input": "input", "holding": "holding", "coil": "coil", "discrete_input": "discrete"}
@@ -62,6 +86,17 @@ def _start_words(register, value: float) -> list[int]:
     return [int.from_bytes(data[i : i + 2], "big") for i in range(0, len(data), 2)]
 
 
+def _decode(register, words: list[int]) -> float:
+    """Inverse of :func:`_start_words`."""
+    spec = VALUE_TYPES[register.value_type]
+    data = b"".join(w.to_bytes(2, "big") for w in words)
+    value = struct.unpack(spec["byteorder"] + spec["format"], data)[0]
+    for f in register.filters:
+        if "multiply" in f:
+            value *= f["multiply"]
+    return value
+
+
 class SimulatedDevice:
     """Register banks of one simulated slave, laid out by its definition."""
 
@@ -73,6 +108,7 @@ class SimulatedDevice:
         self.discrete: dict[int, int] = {}
         # Indices of definition blocks that do not answer.
         self.missing: set[int] = missing or set()
+        self._noisy: list = []
         self._writable = {
             "holding": set(),
             "coil": set(),
@@ -90,6 +126,134 @@ class SimulatedDevice:
                 write_address = getattr(reg, "write_address", None)
                 if write_address is not None and block.register_type in self._writable:
                     self._writable[block.register_type].add(write_address)
+                elif reg.device_class == "temperature" and block.register_type in ("input", "holding"):
+                    self._noisy.append((bank, reg))
+        self._elapsed = 0.0
+        self.last_step = time.monotonic()
+        self._roles = self._resolve_roles()
+        # Physical state in full precision; the banks only hold it rounded.
+        self._supply = self._dhw = START_TEMPERATURE
+        self._circuit_on = self._defrosting = False
+        self._since_defrost = self._defrost_left = 0.0
+        if self._roles:
+            self.step(0)
+
+    def _resolve_roles(self) -> dict[str, tuple[dict[int, int], object]]:
+        """Heat pump role -> (bank, register); a switch role resolves to its source register."""
+        spec = self.definition.heat_pump
+        if spec is None:
+            return {}
+        registers = {
+            r.decoded_name: (self.bank(b.register_type), r)
+            for b in self.definition.registers_base
+            for r in b.registers
+        }
+        switches = {
+            a.name.replace(" ", "").lower(): a.source
+            for a in self.definition.additional_entities
+            if a.entity_type == "switch"
+        }
+        roles = {}
+        for role, ref in spec.roles.items():
+            key = (ref if isinstance(ref, str) else ref[0]).replace(" ", "").lower()
+            if ROLE_KINDS[role] == "switch":
+                source = switches[key]
+                key = (source if isinstance(source, str) else source[0]).replace(" ", "").lower()
+            if key in registers:
+                roles[role] = registers[key]
+        return roles
+
+    def _get(self, role: str) -> float | None:
+        entry = self._roles.get(role)
+        if entry is None:
+            return None
+        bank, reg = entry
+        return _decode(reg, [bank[reg.address + i] for i in range(len(_start_words(reg, 0)))])
+
+    def _put(self, role: str, value: float) -> None:
+        """Write a measured value or status bit; unmapped roles are skipped."""
+        entry = self._roles.get(role)
+        if entry is not None:
+            bank, reg = entry
+            for i, word in enumerate(_start_words(reg, value)):
+                bank[reg.address + i] = word
+
+    def _role_values(self) -> dict[str, object]:
+        """Role values as the heat pump schemes read them."""
+        values = {}
+        for role in self._roles:
+            v = self._get(role)
+            values[role] = ("ON" if v else "OFF") if ROLE_KINDS[role] == "switch" else v
+        return values
+
+    def step(self, dt: float) -> None:
+        """Advance the model by ``dt`` seconds; the app's writes are inputs, never overwritten."""
+        if not self._roles:
+            for bank, reg in self._noisy:
+                value = START_TEMPERATURE + random.uniform(-NOISE_K, NOISE_K)
+                for i, word in enumerate(_start_words(reg, value)):
+                    bank[reg.address + i] = word
+            return
+        self._elapsed += dt
+        scheme = SCHEMES[self.definition.heat_pump.scheme]
+        outdoor = OUTDOOR_MEAN + OUTDOOR_SWING_K * math.sin(2 * math.pi * self._elapsed / OUTDOOR_PERIOD_S)
+        v = self._role_values()
+        mode = scheme.hvac_mode(v)
+        if mode == "auto":
+            mode = "heat" if outdoor < AUTO_HEATS_BELOW_OUTDOOR else "off"
+        target = scheme.target(v)
+        active = mode in ("heat", "cool") and target is not None
+        sign = -1 if mode == "cool" else 1
+
+        distance = abs(target - self._supply) if active else 0.0
+        if not active or distance < COMPRESSOR_OFF_K:
+            self._circuit_on = False
+        elif distance > COMPRESSOR_ON_K:
+            self._circuit_on = True
+
+        dhw_target = v.get("dhw_target")
+        dhw_wanted = scheme.dhw_mode(v) == "heat_pump" and dhw_target is not None
+        dhw_heating = dhw_wanted and self._dhw < dhw_target
+        running = self._circuit_on or dhw_heating
+
+        # Compressor running time accumulates toward a defrost in the cold.
+        if self._defrosting:
+            self._defrost_left -= dt
+            self._defrosting = self._defrost_left > 0
+        elif running and mode == "heat" and outdoor < DEFROST_BELOW_OUTDOOR:
+            self._since_defrost += dt
+            if self._since_defrost >= DEFROST_EVERY_S:
+                self._since_defrost = 0.0
+                self._defrosting, self._defrost_left = True, DEFROST_DURATION_S
+
+        if self._circuit_on and not self._defrosting:
+            self._supply += (target - self._supply) * (1 - math.exp(-dt / SUPPLY_TAU_S))
+        else:
+            self._supply += (START_TEMPERATURE - self._supply) * (1 - math.exp(-dt / IDLE_TAU_S))
+        if dhw_heating:
+            self._dhw = min(self._dhw + DHW_HEAT_K_PER_S * dt, dhw_target)
+        else:
+            self._dhw = max(self._dhw - DHW_LOSS_K_PER_S * dt, START_TEMPERATURE)
+
+        delta = CIRCUIT_DELTA_K if self._circuit_on else IDLE_DELTA_K
+        self._put("supply", self._supply)
+        self._put("return", self._supply - sign * delta)
+        self._put("dhw_current", self._dhw)
+        self._put("outdoor", outdoor)
+        self._put("compressor", running)
+        self._put("defrost", self._defrosting)
+        self._put("dhw_heating", dhw_heating)
+        if self._defrosting:
+            lg_cycle, phnix_state = 2, PHNIX_STATE_DEFROST
+        elif dhw_heating and not self._circuit_on:
+            lg_cycle, phnix_state = 2, PHNIX_STATE_HOT_WATER
+        elif self._circuit_on:
+            lg_cycle = 1 if mode == "cool" else 2
+            phnix_state = PHNIX_STATE_COOLING if mode == "cool" else PHNIX_STATE_HEATING
+        else:
+            lg_cycle, phnix_state = 0, PHNIX_STATE_STANDBY
+        self._put("outdoor_cycle", lg_cycle)
+        self._put("operating_state", phnix_state)
 
     def bank(self, register_type: str) -> dict[int, int]:
         return getattr(self, _BANKS[register_type])
@@ -140,6 +304,9 @@ class SimulatedClient:
 
     def _read(self, fc: int, register_type: str, response, address: int, count: int, device_id: int):
         device = self._device(device_id)
+        now = time.monotonic()
+        device.step(min(now - device.last_step, MAX_STEP_S))
+        device.last_step = now
         indices = [device.block_index(register_type, a) for a in range(address, address + count)]
         if None in indices:
             return ExceptionResponse(fc, ILLEGAL_ADDRESS)
