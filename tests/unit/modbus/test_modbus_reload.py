@@ -167,3 +167,17 @@ async def test_a_device_added_by_a_reload_gets_startup_values():
     (coordinator,) = modbus._modbus_coordinators.values()
     assert coordinator._update_interval == TimePeriod(milliseconds=30000)
     assert coordinator._additional_data == {"width": 0.5, "length": 1.0}
+
+
+async def test_a_stopped_coordinator_announces_nothing():
+    modbus, config = _modbus_manager([{"address": 1, "model": "lg-therma-v-r290", "id": "lg"}])
+    old = modbus.get_coordinator("lg")
+    config["modbus_devices"] = [{"address": 1, "model": "lg-therma-v-r290", "id": "lg", "read_only": True}]
+    await modbus.reload_modbus_devices()
+    helper = modbus._manager.config_helper
+    assert not helper.is_topic_in_autodiscovery(SETPOINT_TOPIC)
+
+    # A poll the old coordinator had started ends after the rebuild.
+    old._send_discovery_for_all_registers()
+
+    assert not helper.is_topic_in_autodiscovery(SETPOINT_TOPIC)

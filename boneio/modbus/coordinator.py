@@ -784,7 +784,14 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             self.manager.config_helper.reserve_autodiscovery_msg(ha_type=ha_type, topic=topic)
 
     def _send_discovery_for_all_registers(self) -> datetime:
-        """Send discovery message to HA for each register."""
+        """Send discovery message to HA for each register.
+
+        A stopped coordinator sends nothing: a poll it had started may end
+        after its device was removed or rebuilt, and must not bring back the
+        entities that were just taken away.
+        """
+        if self._stopped:
+            return datetime.now()
         for entity in self._announced_entities():
             entity.send_ha_discovery()
         self._send_polling_switch_discovery()
