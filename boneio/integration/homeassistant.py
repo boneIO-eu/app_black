@@ -1164,6 +1164,45 @@ def modbus_sensor_availabilty_message(
     
     return msg
 
+def modbus_button_availabilty_message(
+    entity_id: str,
+    entity_name: str,
+    device_id: str,
+    device_name: str,
+    manufacturer: str,
+    config_helper: ConfigHelper,
+    model: str,
+    payload_press: str,
+    area: str | None = None,
+    has_custom_id: bool = False,
+) -> HomeAssistantDiscoveryMessage:
+    """Create Modbus button availability topic for HA.
+
+    A button has no state, so the message has no state topic. The press goes
+    to the same command topic as every other Modbus write.
+    """
+    topic = config_helper.topic_prefix
+    msg = ha_button_availabilty_message(
+        id=entity_id,
+        name=entity_name,
+        config_helper=config_helper,
+        device_name=device_name,
+        topic=topic,
+        manufacturer=manufacturer,
+        model=model,
+        area=area,
+        payload_press=payload_press,
+    )
+    msg["availability"] = [{"topic": f"{topic}/modbus/{device_id}/{STATE}"}]
+    msg["command_topic"] = f"{topic}/cmd/modbus/{device_id}/set"
+    msg.pop("state_topic", None)
+    msg["device"]["identifiers"] = [device_id]
+    msg["device"]["via_device"] = topic
+    if has_custom_id:
+        msg["default_entity_id"] = f"button.{entity_id}"
+    return msg
+
+
 def modbus_select_availabilty_message(
     entity_id: str,
     entity_name: str,

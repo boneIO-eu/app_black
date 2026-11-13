@@ -9,6 +9,7 @@ from boneio.modbus.entities.sensor.binary import ModbusBinarySensor
 from boneio.modbus.entities.sensor.numeric import ModbusNumericSensor
 from boneio.modbus.entities.sensor.text import ModbusTextSensor
 from boneio.modbus.entities.writeable.binary import ModbusBinaryWriteableEntityDiscrete
+from boneio.modbus.entities.writeable.button import ModbusButton
 from boneio.modbus.entities.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
@@ -25,6 +26,7 @@ __all__ = [
     "ModbusTextSensor",
     # Writeable
     "ModbusBinaryWriteableEntityDiscrete",
+    "ModbusButton",
     "ModbusNumericWriteableEntity",
     "ModbusNumericWriteableEntityDiscrete",
     # Derived

@@ -66,6 +66,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
   const isSelect = device.entity_type === 'select' && device.x_mapping;
   const isSwitch = device.entity_type === 'switch' && device.x_mapping && device.payload_on && device.payload_off;
   const isNumber = device.entity_type === 'number';
+  const isButton = device.entity_type === 'button';
 
   const switchChecked = Boolean(isSwitch && device.state === device.payload_on);
 
@@ -212,6 +213,33 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
               </button>
             </div>
             <p className={`text-gray-500 text-xs mt-2 ${!isGrid ? 'text-right' : ''}`}>{formatTimestamp(device?.timestamp ?? null)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isButton) {
+    return (
+      <div className={`stg-inset-bare p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
+        <div className={`flex ${isGrid ? 'flex-col gap-3' : 'flex-col gap-3 sm:flex-row sm:justify-between sm:items-center'}`}>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-lg wrap-break-word">{device.custom_label || device.name}</h3>
+            <p className="text-sm text-base-content/70 wrap-break-word">{device.id}</p>
+          </div>
+          <div
+            className={`${isGrid ? 'w-full' : 'sm:shrink-0'}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            <button
+              className={`btn btn-sm btn-primary ${isGrid ? 'w-full' : ''}`}
+              onClick={() => onValueChange(device.coordinator_id, extractEntityId(device), 1)}
+            >
+              {device.custom_label || device.name}
+            </button>
           </div>
         </div>
       </div>

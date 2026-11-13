@@ -11,6 +11,7 @@ from pymodbus.pdu import ExceptionResponse
 
 from boneio.const import (
     BINARY_SENSOR,
+    BUTTON,
     ID,
     NUMERIC,
     OFF,
@@ -44,6 +45,7 @@ from boneio.modbus.entities.sensor import (
 )
 from boneio.modbus.entities.sensor.text import ModbusTextSensor
 from boneio.modbus.entities.writeable.binary import ModbusBinaryWriteableEntityDiscrete
+from boneio.modbus.entities.writeable.button import ModbusButton
 from boneio.modbus.entities.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
@@ -69,6 +71,7 @@ ModbusEntity = Union[
     ModbusNumericWriteableEntityDiscrete,
     ModbusBinarySensor,
     ModbusBinaryWriteableEntityDiscrete,
+    ModbusButton,
     ModbusTextSensor,
 ]
 DerivedEntity = Union[
@@ -88,7 +91,7 @@ OPTIONAL_GIVE_UP = 3
 OPTIONAL_RETRY_S = 3600
 
 # Entity types whose Home Assistant discovery carries a command topic.
-COMMAND_ENTITY_TYPES = (NUMERIC, SELECT, SWITCH)
+COMMAND_ENTITY_TYPES = (NUMERIC, SELECT, SWITCH, BUTTON)
 
 
 class ModbusWriteRejected(Exception):
@@ -279,6 +282,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         payload_on=register.payload_on,
                         payload_off=register.payload_off,
                         write_filters=list(register.write_filters),
+                        **kwargs,
+                    )
+                elif entity_type == BUTTON:
+                    single_sensor = ModbusButton(
+                        coordinator=self,
+                        write_address=register.write_address,
+                        write_value=register.write_value,
                         **kwargs,
                     )
                 else:
@@ -786,7 +796,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         entity._value = numeric_value
         entity._timestamp = timestamp
         
-        output = {entity.decoded_name: entity.state}
+        output = {} if entity.entity_type == BUTTON else {entity.decoded_name: entity.state}
         
         # Update additional entities if they exist
         if self._additional_entities:
@@ -802,10 +812,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     
         # Trigger event for direct sensor
         self._trigger_entity_events(entity)
-        self._message_bus.send_message(
-            topic=f"{self._send_topic}/{entity.base_address}",
-            payload=output,
-        )
+        if output:
+            self._message_bus.send_message(
+                topic=f"{self._send_topic}/{entity.base_address}",
+                payload=output,
+            )
         
         self._timestamp = timestamp
         
@@ -1226,6 +1237,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             output = {}
             current_modbus_entities = self._modbus_entities[index]
             for sensor in current_modbus_entities.values():
+                if sensor.entity_type == BUTTON:
+                    continue
                 sensor_output = self._update_sensor_and_derived(sensor=sensor, values=values, timestamp=timestamp)
                 output.update(sensor_output)
                 
