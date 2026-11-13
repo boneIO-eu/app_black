@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from boneio.core.manager import Manager
 from boneio.modbus.coordinator import ModbusWriteFailed, ModbusWriteRejected
 from boneio.modbus.definition import device_models, load_definition
+from boneio.modbus.heat_pump import SCHEMES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,6 +25,8 @@ class WriteableEntity(Protocol):
     async def write_value(self, value: float) -> None: ...
 
 router = APIRouter(prefix="/api", tags=["modbus"])
+
+_HEAT_PUMP_FIELDS = frozenset({"mode", "temperature", "dhw_mode", "dhw_temperature"})
 
 # Lock for serializing Modbus operations
 _modbus_helper_lock = asyncio.Lock()
@@ -81,6 +84,61 @@ class ModbusConfigureDeviceRequest(BaseModel):
     current_baudrate: int
     new_address: int | None = None
     new_baudrate: int | None = None
+
+
+def _heat_pump_coordinator(manager: Manager, coordinator_id: str):
+    """The coordinator of a heat pump, or 404 for an unknown one or one without the section."""
+    coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
+    if not coordinator:
+        raise HTTPException(status_code=404, detail=f"Modbus coordinator '{coordinator_id}' not found")
+    if coordinator.definition.heat_pump is None:
+        raise HTTPException(status_code=404, detail=f"'{coordinator_id}' is not a heat pump")
+    return coordinator
+
+
+@router.get("/modbus/{coordinator_id}/heat_pump")
+async def get_heat_pump(coordinator_id: str, manager: Manager = Depends(get_manager)):
+    """Heat pump scheme, modes, role -> entity id map and thermostat state."""
+    coordinator = _heat_pump_coordinator(manager, coordinator_id)
+    spec = coordinator.definition.heat_pump
+
+    def entity_id(role: str, ref: str) -> str | None:
+        entity = coordinator._role_entity(role, ref)
+        return entity.id if entity else None
+
+    roles = {
+        role: entity_id(role, ref) if isinstance(ref, str) else [entity_id(role, r) for r in ref]
+        for role, ref in spec.roles.items()
+    }
+    return {
+        "scheme": spec.scheme,
+        "modes": list(SCHEMES[spec.scheme].modes),
+        "roles": roles,
+        "state": coordinator.heat_pump_state(),
+    }
+
+
+@router.post("/modbus/{coordinator_id}/heat_pump/{field}")
+async def set_heat_pump(
+    coordinator_id: str,
+    field: str,
+    value_data: dict = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Thermostat or hot water command: mode, temperature, dhw_mode or dhw_temperature."""
+    if field not in _HEAT_PUMP_FIELDS:
+        raise HTTPException(status_code=400, detail=f"Unknown heat pump field '{field}'")
+    value = value_data.get("value")
+    if value is None:
+        raise HTTPException(status_code=400, detail="Value is required")
+    coordinator = _heat_pump_coordinator(manager, coordinator_id)
+    try:
+        await coordinator.set_heat_pump(field, value)
+        return {"status": "success", "message": f"{field} set to {value}"}
+    except ModbusWriteRejected as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except ModbusWriteFailed as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 @router.post("/modbus/{coordinator_id}/{entity_id}/set_value")
