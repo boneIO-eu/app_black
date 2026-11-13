@@ -8,12 +8,13 @@ without any physical Modbus device connected.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from .definition import load_definition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,41 +148,44 @@ class MockModbusCoordinator:
         name: str | None = None,
     ) -> MockModbusCoordinator:
         """Build a MockModbusCoordinator from a device JSON file."""
-        json_path = _find_device_json(model_key)
-        with open(json_path) as f:
-            device_data = json.load(f)
+        try:
+            definition = load_definition(model_key)
+        except FileNotFoundError:
+            _find_device_json(model_key)  # raises with the list of known models
+            raise
 
         effective_id = device_id or f"{address}_{model_key}"
-        effective_name = name or device_data.get("model", model_key)
+        effective_name = name or definition.model
 
         # Build base entities from registers_base
         entities: list[MockModbusEntity] = []
-        for reg_base in device_data.get("registers_base", []):
-            for reg in reg_base.get("registers", []):
-                entity = MockModbusEntity(
-                    name=reg.get("name", "Unknown"),
-                    entity_type=reg.get("entity_type", "sensor"),
-                    device_class=reg.get("device_class"),
-                    unit_of_measurement=reg.get("unit_of_measurement"),
-                    state_class=reg.get("state_class"),
-                    entity_category=reg.get("entity_category"),
-                    value_type=reg.get("value_type"),
-                    _x_mapping=reg.get("x_mapping", {}),
+        for block in definition.registers_base:
+            for reg in block.registers:
+                entities.append(
+                    MockModbusEntity(
+                        name=reg.name,
+                        entity_type=reg.entity_type,
+                        device_class=reg.device_class,
+                        unit_of_measurement=reg.unit_of_measurement,
+                        state_class=reg.state_class,
+                        entity_category=reg.entity_category,
+                        value_type=reg.value_type,
+                        _x_mapping=dict(getattr(reg, "x_mapping", {})),
+                    )
                 )
-                entities.append(entity)
 
         # Build additional/derived entities from "additional_entities"
-        additional: list[MockModbusEntity] = []
-        for additional_def in device_data.get("additional_entities", []):
-            entity = MockModbusEntity(
-                name=additional_def.get("name", "Unknown"),
-                entity_type=additional_def.get("entity_type", "sensor"),
-                device_class=additional_def.get("device_class"),
-                unit_of_measurement=additional_def.get("unit_of_measurement"),
-                state_class=additional_def.get("state_class"),
-                entity_category=additional_def.get("entity_category"),
+        additional: list[MockModbusEntity] = [
+            MockModbusEntity(
+                name=extra.name,
+                entity_type=extra.entity_type,
+                device_class=extra.device_class,
+                unit_of_measurement=extra.unit_of_measurement,
+                state_class=extra.state_class,
+                entity_category=extra.entity_category,
             )
-            additional.append(entity)
+            for extra in definition.additional_entities
+        ]
 
         _LOGGER.debug(
             "Built MockModbusCoordinator for %s: %d base entities, %d additional",
@@ -193,11 +197,11 @@ class MockModbusCoordinator:
         return cls(
             device_id=effective_id,
             name=effective_name,
-            model=device_data.get("model", model_key),
+            model=definition.model,
             model_key=model_key,
-            category=device_data.get("category", "other"),
-            manufacturer=device_data.get("manufacturer", "Unknown"),
-            description=device_data.get("description", ""),
+            category=definition.category,
+            manufacturer=definition.manufacturer,
+            description=definition.description,
             entities=entities,
             additional_entities=additional,
         )

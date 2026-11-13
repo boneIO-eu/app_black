@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Union
@@ -10,18 +9,12 @@ from typing import TYPE_CHECKING, Any, Union
 from pymodbus.pdu import ExceptionResponse
 
 from boneio.const import (
-    ADDRESS,
-    BASE,
     BINARY_SENSOR,
     ID,
-    LENGTH,
-    MODEL,
-    NAME,
     OFF,
     OFFLINE,
     ON,
     ONLINE,
-    REGISTERS,
     SELECT,
     SENSOR,
     STATE,
@@ -31,7 +24,6 @@ from boneio.const import (
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.core.utils.timeperiod import TimePeriod
-from boneio.core.utils.util import open_json
 from boneio.integration.homeassistant import modbus_polling_switch_message
 from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity, ModbusDerivedEntity, ModbusParentInfo
 from boneio.models.state import ModbusDeviceState
@@ -58,6 +50,15 @@ from boneio.models.events import ModbusDeviceEvent, ModbusStatusEvent, SensorEve
 from boneio.models.state import SensorState
 
 from .client import VALUE_TYPES, Modbus
+from .definition import (
+    AdditionalEntity,
+    AdditionalSelect,
+    AdditionalSensor,
+    AdditionalSwitch,
+    AdditionalTextSensor,
+    DeviceDefinition,
+    load_definition,
+)
 
 # Type aliases for cleaner code
 ModbusEntity = Union[
@@ -116,8 +117,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             message_bus=manager._message_bus,
         )
         self._modbus = modbus
-        self._db = open_json(path=os.path.dirname(__file__), model=model)
-        self._model = self._db[MODEL]
+        self._definition = load_definition(model)
+        self._model = self._definition.model
         self._address = address
         self._discovery_sent: bool | datetime = False
         self._payload_online = OFFLINE
@@ -147,7 +148,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
         self.__init_modbus_entities__()
         # Additional entities
-        if "additional_entities" in self._db:
+        if self._definition.additional_entities:
             self.__init_derived_sensors__()
 
         _LOGGER.info(
@@ -183,74 +184,77 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # cleanup of unused ones.
         self._reserve_discovery_for_all_registers()
 
+    @property
+    def definition(self) -> DeviceDefinition:
+        return self._definition
+
     def __init_modbus_entities__(self):
         # Standard sensors
-        for index, data in enumerate(self._db["registers_base"]):
-            base = data[BASE]
+        for index, block in enumerate(self._definition.registers_base):
             self._modbus_entities.append({})
-            for register in data[REGISTERS]:
-                entity_type = register.get("entity_type", SENSOR)
+            for register in block.registers:
+                entity_type = register.entity_type
                 parent: ModbusParentInfo = {
                     "name": self._name,
                     "id": self._id,
                     "model": self._model,
-                    "manufacturer": self._db.get("manufacturer", "boneIO"),
+                    "manufacturer": self._definition.manufacturer,
                     "area": self._area,
                     "has_custom_id": self._has_custom_id,
                 }
                 kwargs = {
-                    "name": register.get("name"),
-                    "base_address": base,
-                    "register_address": register[ADDRESS],
+                    "name": register.name,
+                    "base_address": block.base,
+                    "register_address": register.address,
                     "parent": parent,
-                    "unit_of_measurement": register.get("unit_of_measurement"),
-                    "state_class": register.get("state_class"),
-                    "device_class": register.get("device_class"),
-                    "entity_category": register.get("entity_category"),
-                    "value_type": register.get("value_type"),
-                    "filters": register.get("filters", []),
+                    "unit_of_measurement": register.unit_of_measurement,
+                    "state_class": register.state_class,
+                    "device_class": register.device_class,
+                    "entity_category": register.entity_category,
+                    "value_type": register.value_type,
+                    "filters": list(register.filters),
                     "message_bus": self._message_bus,
                     "config_helper": self.manager.config_helper,
                 }
                 if entity_type == SENSOR:
                     single_sensor = ModbusNumericSensor(
-                        ha_filter=register.get("ha_filter", "round(2)"),
+                        ha_filter=register.ha_filter,
                         **kwargs)
                 elif entity_type == TEXT_SENSOR:
                     single_sensor = ModbusTextSensor(
-                        value_mapping=register.get("x_mapping", {}), **kwargs
+                        value_mapping=dict(register.x_mapping), **kwargs
                     )
                 elif entity_type == BINARY_SENSOR:
                     single_sensor = ModbusBinarySensor(
-                        payload_on=register.get("payload_on", "ON"),
-                        payload_off=register.get("payload_off", "OFF"),
+                        payload_on=register.payload_on,
+                        payload_off=register.payload_off,
                         **kwargs,
                     )
                 elif entity_type == "writeable_sensor":
                     single_sensor = ModbusNumericWriteableEntity(
                         coordinator=self,
-                        write_filters=register.get("write_filters", []),
-                        write_address=register.get("write_address"),
-                        step=register.get("step", 1),
-                        ha_filter=register.get("ha_filter", "round(2)"),
+                        write_filters=list(register.write_filters),
+                        write_address=register.write_address,
+                        step=1 if register.step is None else register.step,
+                        ha_filter=register.ha_filter,
                         **kwargs,
                     )
                 elif entity_type == "writeable_sensor_discrete":
                     single_sensor = ModbusNumericWriteableEntityDiscrete(
                         coordinator=self,
-                        write_address=register.get("write_address"),
-                        write_filters=register.get("write_filters", []),
-                        step=register.get("step", 1),
-                        ha_filter=register.get("ha_filter", "round(2)"),
+                        write_address=register.write_address,
+                        write_filters=list(register.write_filters),
+                        step=1 if register.step is None else register.step,
+                        ha_filter=register.ha_filter,
                         **kwargs,
                     )
                 elif entity_type == "writeable_binary_sensor_discrete":
                     single_sensor = ModbusBinaryWriteableEntityDiscrete(
                         coordinator=self,
-                        write_address=register.get("write_address"),
-                        payload_on=register.get("payload_on", "ON"),
-                        payload_off=register.get("payload_off", "OFF"),
-                        write_filters=register.get("write_filters", []),
+                        write_address=register.write_address,
+                        payload_on=register.payload_on,
+                        payload_off=register.payload_off,
+                        write_filters=list(register.write_filters),
                         **kwargs,
                     )
                 else:
@@ -262,172 +266,125 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 if custom_label:
                     single_sensor.set_custom_label(custom_label)
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
-                if data.get("register_type") == "coil":
+                if block.register_type == "coil":
                     self._coil_entities.add(single_sensor)
 
+    def _find_source_sensor(self, additional: AdditionalEntity):
+        """Register entity an additional entity is derived from, if any."""
+        if isinstance(additional.source, str):
+            wanted = additional.source.replace("_", "")
+            for sensors in self._modbus_entities:
+                for s in sensors.values():
+                    if s.decoded_name == wanted:
+                        return s
+        _LOGGER.warning(
+            "Source sensor '%s' for additional entity '%s' not found.",
+            additional.source,
+            additional.name,
+        )
+        return None
+
+    def _parent_info(self) -> ModbusParentInfo:
+        return {
+            "name": self._name,
+            "id": self._id,
+            "model": self._model,
+            "manufacturer": self._definition.manufacturer,
+            "area": self._area,
+        }
+
     def __init_derived_numeric(
-        self, additional: dict
+        self, additional: AdditionalSensor
     ) -> ModbusDerivedNumericSensor | None:
-        config_keys = additional.get("config_keys", [])
+        config_keys = additional.config_keys or []
         if not self._additional_data:
             return None
         if not all(k in self._additional_data for k in config_keys):
             return None
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional["source"].replace("_", ""):
-                    source_sensor = s
-                    break
+        source_sensor = self._find_source_sensor(additional)
         if not source_sensor:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional entity '%s' not found.",
-                additional["source"],
-                additional["name"],
-            )
             return None
-        parent: ModbusParentInfo = {
-            "name": self._name,
-            "id": self._id,
-            "model": self._model,
-            "manufacturer": self._db.get("manufacturer", "boneIO"),
-            "area": self._area,
-        }
-        single_sensor = ModbusDerivedNumericSensor(
-            name=additional["name"],
-            parent=parent,
+        return ModbusDerivedNumericSensor(
+            name=additional.name,
+            parent=self._parent_info(),
             source_sensor_base_address=source_sensor.base_address,
             source_sensor_decoded_name=source_sensor.decoded_name,
-            unit_of_measurement=additional.get("unit_of_measurement", "m3"),
-            state_class=additional.get("state_class", "measurement"),
-            device_class=additional.get("device_class", "volume"),
+            unit_of_measurement=additional.unit_of_measurement or "m3",
+            state_class=additional.state_class or "measurement",
+            device_class=additional.device_class or "volume",
             value_type=None,
-            entity_category=additional.get("entity_category"),
+            entity_category=additional.entity_category,
             filters=[],
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
-            ha_filter=additional.get("ha_filter", "round(2)"),
-            formula=additional.get("formula", ""),
+            ha_filter="round(2)",
+            formula=additional.formula or "",
             context_config={
                 k: v for k, v in self._additional_data.items() if k in config_keys
             },
         )
-        return single_sensor
 
     def __init_derived_text_sensor(
-        self, additional: dict
+        self, additional: AdditionalTextSensor
     ) -> ModbusDerivedTextSensor | None:
-        x_mapping = additional.get("x_mapping", {})
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional["source"].replace("_", ""):
-                    source_sensor = s
-                    break
+        source_sensor = self._find_source_sensor(additional)
         if not source_sensor:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional entity '%s' not found.",
-                additional["source"],
-                additional["name"],
-            )
             return None
-        parent: ModbusParentInfo = {
-            "name": self._name,
-            "id": self._id,
-            "model": self._model,
-            "manufacturer": self._db.get("manufacturer", "boneIO"),
-            "area": self._area,
-        }
-        single_sensor = ModbusDerivedTextSensor(
-            name=additional["name"],
-            parent=parent,
+        return ModbusDerivedTextSensor(
+            name=additional.name,
+            parent=self._parent_info(),
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
-            value_mapping=x_mapping,
-            entity_category=additional.get("entity_category"),
+            value_mapping=dict(additional.x_mapping),
+            entity_category=additional.entity_category,
         )
-        return single_sensor
 
-    def __init_derived_select(self, additional: dict) -> ModbusDerivedSelect | None:
-        x_mapping = additional.get("x_mapping", {})
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional["source"].replace("_", ""):
-                    source_sensor = s
-                    break
+    def __init_derived_select(
+        self, additional: AdditionalSelect
+    ) -> ModbusDerivedSelect | None:
+        source_sensor = self._find_source_sensor(additional)
         if not source_sensor:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional select '%s' not found.",
-                additional["source"],
-                additional["name"],
-            )
             return None
-        parent: ModbusParentInfo = {
-            "name": self._name,
-            "id": self._id,
-            "model": self._model,
-            "manufacturer": self._db.get("manufacturer", "boneIO"),
-            "area": self._area,
-        }
-        single_sensor = ModbusDerivedSelect(
-            name=additional["name"],
-            parent=parent,
+        return ModbusDerivedSelect(
+            name=additional.name,
+            parent=self._parent_info(),
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
-            value_mapping=x_mapping,
-            entity_category=additional.get("entity_category"),
+            value_mapping=dict(additional.x_mapping),
+            entity_category=additional.entity_category,
             coordinator=self,
         )
-        return single_sensor
 
-    def __init_derived_switch(self, additional: dict) -> ModbusDerivedSwitch | None:
-        x_mapping = additional.get("x_mapping", {})
-        source_sensor = None
-        for sensors in self._modbus_entities:
-            for s in sensors.values():
-                if s.decoded_name == additional["source"].replace("_", ""):
-                    source_sensor = s
-                    break
+    def __init_derived_switch(
+        self, additional: AdditionalSwitch
+    ) -> ModbusDerivedSwitch | None:
+        source_sensor = self._find_source_sensor(additional)
         if not source_sensor:
-            _LOGGER.warning(
-                "Source sensor '%s' for additional select '%s' not found.",
-                additional["source"],
-                additional["name"],
-            )
             return None
-        parent: ModbusParentInfo = {
-            "name": self._name,
-            "id": self._id,
-            "model": self._model,
-            "manufacturer": self._db.get("manufacturer", "boneIO"),
-            "area": self._area,
-        }
-        single_sensor = ModbusDerivedSwitch(
-            name=additional["name"],
-            parent=parent,
+        return ModbusDerivedSwitch(
+            name=additional.name,
+            parent=self._parent_info(),
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
-            value_mapping=x_mapping,
-            payload_off=additional.get("payload_off", "OFF"),
-            payload_on=additional.get("payload_on", "ON"),
-            entity_category=additional.get("entity_category"),
+            value_mapping=dict(additional.x_mapping),
+            payload_off=additional.payload_off,
+            payload_on=additional.payload_on,
+            entity_category=additional.entity_category,
             coordinator=self,
         )
-        return single_sensor
 
     def __init_derived_sensors__(self):
-        for additional in self._db["additional_entities"]:
-            entity_type = additional.get("entity_type", SENSOR)
+        for additional in self._definition.additional_entities:
+            entity_type = additional.entity_type
             derived_sensor = None
             if entity_type == TEXT_SENSOR:
                 derived_sensor = self.__init_derived_text_sensor(additional)
@@ -640,13 +597,12 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """
         try:
             # Try to read first register to check if device is available
-            first_register_base = self._db["registers_base"][0]
-            register_method = first_register_base.get("register_type", "input")
+            first_block = self._definition.registers_base[0]
             register = await self._modbus.read_and_decode(
                 unit=self._address,
-                address=first_register_base[REGISTERS][0][ADDRESS],
-                method=register_method,
-                payload_type=first_register_base[REGISTERS][0].get("value_type", "FP32"),
+                address=first_block.registers[0].address,
+                method=first_block.register_type,
+                payload_type=first_block.registers[0].value_type,
             )
             
             if register is not None:
@@ -669,7 +625,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             device_id=self._id,
             device_name=self._name,
             model=self._model,
-            manufacturer=self._db.get("manufacturer", "boneIO"),
+            manufacturer=self._definition.manufacturer,
             config_helper=self.manager.config_helper,
             area=self._area,
         )
@@ -961,16 +917,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             or (isinstance(self._discovery_sent, datetime) and (datetime.now() - self._discovery_sent).seconds > 3600)
         ) and self.manager.config_helper.topic_prefix:
             self._discovery_sent = False
-            first_register_base = self._db["registers_base"][0]
-            register_method = first_register_base.get("register_type", "input")
+            first_block = self._definition.registers_base[0]
             # Single attempt - don't block other devices with retries
             register = await self._modbus.read_and_decode(
                 unit=self._address,
-                address=first_register_base[REGISTERS][0][ADDRESS],
-                method=register_method,
-                payload_type=first_register_base[REGISTERS][0].get(
-                    "value_type", "FP32"
-                ),
+                address=first_block.registers[0].address,
+                method=first_block.register_type,
+                payload_type=first_block.registers[0].value_type,
             )
             if register is not None:
                 self._discovery_sent = self._send_discovery_for_all_registers()
@@ -1092,22 +1045,22 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         await self.check_availability()
         self._update_cycle_count += 1
         
-        for index, data in enumerate(self._db["registers_base"]):
+        for index, data in enumerate(self._definition.registers_base):
             # Skip this register group if update_every_n is set and not due,
             # BUT always retry if previous read for this group failed
-            update_every_n = data.get("update_every_n")
+            update_every_n = data.update_every_n
             if update_every_n and self._update_cycle_count % update_every_n != 1:
                 if index not in self._failed_groups:
                     continue
                 _LOGGER.debug(
                     "Retrying failed register group %d (base=%s) for %s",
-                    index, data.get(BASE), self._name,
+                    index, data.base, self._name,
                 )
             values = await self._modbus.read_registers(
                 unit=self._address,
-                address=data[BASE],
-                count=data[LENGTH],
-                method=data.get("register_type", "input"),
+                address=data.base,
+                count=data.length,
+                method=data.register_type,
             )
             # The client hands an exception response back as is, because the
             # modbus CLI prints its code. Here it is a failed read of this
@@ -1125,7 +1078,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 _LOGGER.log(
                     level,
                     "Modbus device %s refused register group %d (base=%s): %s",
-                    self.id, index, data.get(BASE), values,
+                    self.id, index, data.base, values,
                 )
                 continue
 
@@ -1144,8 +1097,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     self._discovery_sent = self._send_discovery_for_all_registers()
                 # Force-read all update_every_n groups this cycle
                 # (they may have been skipped if device wasn't online on cycle 1)
-                for i, d in enumerate(self._db["registers_base"]):
-                    if d.get("update_every_n"):
+                for i, d in enumerate(self._definition.registers_base):
+                    if d.update_every_n:
                         self._failed_groups.add(i)
                 
             if not values:
@@ -1163,7 +1116,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         level,
                         "Can't fetch data from modbus device %s (group %d, base=%s, update_every_n=%d). "
                         "Will retry next cycle.",
-                        self.id, index, data.get(BASE), update_every_n,
+                        self.id, index, data.base, update_every_n,
                     )
                     continue
                 
@@ -1184,7 +1137,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "Can't fetch data from modbus device %s (group %d, base=%s). Will sleep for %s seconds",
                     self.id,
                     index,
-                    data.get(BASE),
+                    data.base,
                     update_interval,
                 )
                 return update_interval
@@ -1204,7 +1157,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 
             self._timestamp = timestamp
             self._message_bus.send_message(
-                topic=f"{self._send_topic}/{data[BASE]}",
+                topic=f"{self._send_topic}/{data.base}",
                 payload=output,
             )
             

@@ -18,6 +18,7 @@ from pymodbus.pdu.bit_message import ReadCoilsResponse, ReadDiscreteInputsRespon
 
 from boneio.modbus.client import FailureLog, Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
+from tests.unit.modbus.definitions import definition
 
 
 @pytest.fixture
@@ -88,7 +89,7 @@ def _coordinator(registers_base: list) -> ModbusCoordinator:
     coordinator._area = None
     coordinator._has_custom_id = False
     coordinator._address = 1
-    coordinator._db = {"registers_base": registers_base}
+    coordinator._definition = definition(registers_base)
     coordinator._modbus_entities = []
     coordinator._additional_entities = []
     coordinator._coil_entities = set()
@@ -139,3 +140,17 @@ def test_waveshare_16ch_relays_are_coils():
     assert len(entities) == 16
     assert set(entities) == coordinator._coil_entities
     assert [e.write_address for e in entities] == list(range(16))
+
+
+def test_coordinator_entities_from_definition():
+    from boneio.modbus.definition import load_definition
+
+    coordinator = _coordinator([])
+    coordinator._definition = load_definition("kaisai-phnix")
+    coordinator._modbus_entities = []
+    coordinator.__init_modbus_entities__()
+
+    names = {e.decoded_name for group in coordinator._modbus_entities for e in group.values()}
+    assert {"power", "mode", "dhwtargettemperature"} <= names
+    power = next(g["power"] for g in coordinator._modbus_entities if "power" in g)
+    assert type(power).__name__ == "ModbusBinaryWriteableEntityDiscrete"

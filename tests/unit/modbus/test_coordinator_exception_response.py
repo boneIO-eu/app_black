@@ -17,6 +17,7 @@ from pymodbus.pdu import ExceptionResponse
 from boneio.const import OFFLINE, ONLINE
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.modbus.coordinator import ModbusCoordinator
+from tests.unit.modbus.definitions import definition
 
 LOGGER_NAME = "boneio.modbus.coordinator"
 
@@ -32,7 +33,9 @@ def _coordinator(read_results: list, groups: int = 1) -> ModbusCoordinator:
     coordinator._modbus.read_registers = AsyncMock(side_effect=read_results)
     coordinator._update_interval = TimePeriod(seconds=60)
     coordinator._update_cycle_count = 0
-    coordinator._db = {"registers_base": [{"base": 100 * i, "length": 2} for i in range(groups)]}
+    coordinator._definition = definition(
+        [{"base": 100 * i, "length": 2, "registers": []} for i in range(groups)]
+    )
     coordinator._failed_groups = set()
     coordinator._reported_groups = set()
     coordinator._published_failing = False

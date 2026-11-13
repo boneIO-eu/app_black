@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-import os
 
 from pymodbus.pdu import ExceptionResponse
 
-from boneio.const import REGISTERS, UARTS
-from boneio.core.utils import open_json
+from boneio.const import UARTS
 
 from .client import Modbus
+from .definition import load_definition
 from .utils import allowed_operations
 
 _LOGGER = logging.getLogger(__name__)
@@ -155,18 +154,21 @@ async def async_run_modbus_set(
     custom_cmd = device == "custom"
     set_base = {}
     if not custom_cmd:
-        _db = open_json(path=os.path.dirname(__file__), model=device)
-        set_base = _db.get(SET_BASE, {})
-        first_reg_base = _db.get("registers_base", [])[0]
-        if not first_reg_base:
-            return False
-        first_record = first_reg_base.get(REGISTERS, [])[0]
+        definition = load_definition(device)
+        set_base = (
+            definition.set_base.model_dump(exclude_none=True)
+            if definition.set_base
+            else {}
+        )
+        first_reg_base = definition.registers_base[0]
+        first_record = first_reg_base.registers[0].model_dump()
+        check_method = first_reg_base.register_type
         _LOGGER.debug(
             f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
         )
     else:
         first_record = {}
-        first_reg_base = {}
+        check_method = "input"
     modbus_helper = ModbusHelper(
         device=device,
         uart=uart,
@@ -174,7 +176,7 @@ async def async_run_modbus_set(
         baudrate=baudrate,
         model=set_base,
         check_record=first_record,
-        check_record_method=first_reg_base.get("register_type", "input"),
+        check_record_method=check_method,
         stopbits=stopbits,
         bytesize=bytesize,
         parity=parity,

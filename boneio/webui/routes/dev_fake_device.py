@@ -19,7 +19,6 @@ WARNING: Dev-only — should NOT be enabled in production.
 
 from __future__ import annotations
 
-import json
 import logging
 import random
 import time
@@ -35,6 +34,7 @@ from boneio.webui.modbus_card_templates import generate_cards_for_device
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
+    from boneio.modbus.definition import DeviceDefinition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,9 +44,9 @@ _LOGGER = logging.getLogger(__name__)
 #: calls - but its import is on everybody's startup path.
 def _mock_coordinator():
     """The modbus mock backend, imported on demand."""
-    from boneio.modbus.mock_coordinator import MockModbusCoordinator, _find_device_json
+    from boneio.modbus.mock_coordinator import MockModbusCoordinator
 
-    return MockModbusCoordinator, _find_device_json
+    return MockModbusCoordinator
 
 
 router = APIRouter(prefix="/api/dev", tags=["dev"])
@@ -155,7 +155,7 @@ def _ascii_entity_id(text: str) -> str:
     return nfkd.encode("ascii", "ignore").decode("ascii")
 
 def _build_fake_discovery(
-    device_data: dict[str, Any],
+    definition: DeviceDefinition,
     device_id: str,
     device_name: str,
     model: str,
@@ -170,7 +170,7 @@ def _build_fake_discovery(
     would produce, but without needing a real coordinator or config_helper.
 
     Args:
-        device_data: Parsed device JSON.
+        definition: Device definition model.
         device_id: Device ID (e.g. "1_wanas415").
         device_name: Human-readable name.
         model: Model string.
@@ -195,15 +195,15 @@ def _build_fake_discovery(
         "via_device": topic_prefix,
     }
 
-    for reg_base in device_data.get("registers_base", []):
-        base = reg_base["base"]
+    for block in definition.registers_base:
+        base = block.base
         state_payloads[base] = {}
 
-        for reg in reg_base.get("registers", []):
-            entity_name = reg.get("name", "Unknown")
-            entity_type = reg.get("entity_type", "sensor")
-            device_class = reg.get("device_class")
-            decoded_name = entity_name.replace(" ", "").lower()
+        for reg in block.registers:
+            entity_name = reg.name
+            entity_type = reg.entity_type
+            device_class = reg.device_class
+            decoded_name = reg.decoded_name
             entity_id = _ascii_entity_id(f"{device_id}_{decoded_name.replace('_', '')}")
             ha_type = _ha_entity_type_for(entity_type)
 
@@ -212,11 +212,11 @@ def _build_fake_discovery(
 
             # Build value_template — text_sensors never use a filter
             # (matches real ModbusTextSensor which sets ha_filter="")
-            x_mapping = reg.get("x_mapping") or {}
+            x_mapping = dict(getattr(reg, "x_mapping", {}))
             if entity_type == "text_sensor":
                 ha_filter = ""
             else:
-                ha_filter = reg.get("ha_filter", "round(2)")
+                ha_filter = reg.ha_filter
             if ha_filter:
                 value_template = f"{{{{ value_json.{decoded_name} | {ha_filter} }}}}"
             else:
@@ -236,25 +236,21 @@ def _build_fake_discovery(
                 "value_template": value_template,
             }
 
-            if reg.get("unit_of_measurement"):
-                payload["unit_of_measurement"] = reg["unit_of_measurement"]
+            if reg.unit_of_measurement:
+                payload["unit_of_measurement"] = reg.unit_of_measurement
             # text_sensor values are strings — HA treats state_class="measurement"
             # as a numeric indicator and rejects non-numeric values with an error.
-            if reg.get("state_class") and entity_type != "text_sensor":
-                payload["state_class"] = reg["state_class"]
+            if reg.state_class and entity_type != "text_sensor":
+                payload["state_class"] = reg.state_class
             if device_class:
                 payload["device_class"] = device_class
-            if reg.get("entity_category"):
-                payload["entity_category"] = reg["entity_category"]
+            if reg.entity_category:
+                payload["entity_category"] = reg.entity_category
 
             # For writeable entities, add command_topic
             if ha_type == "number":
                 payload["command_topic"] = f"{topic_prefix}/cmd/modbus/{device_id}/{entity_id}/set"
                 payload["mode"] = "slider"
-                if reg.get("min_value") is not None:
-                    payload["min"] = reg["min_value"]
-                if reg.get("max_value") is not None:
-                    payload["max"] = reg["max_value"]
 
             discovery_messages.append(
                 {
@@ -291,21 +287,19 @@ def _build_fake_discovery(
         return ascii_text.replace("_", "").replace(" ", "").lower()
 
     source_map: dict[str, tuple[int, str]] = {}
-    for reg_base in device_data.get("registers_base", []):
-        base = reg_base["base"]
-        for reg in reg_base.get("registers", []):
-            name = reg.get("name", "Unknown")
-            dn = name.replace(" ", "").lower()
-            source_map[_ascii_key(name)] = (base, dn)
+    for block in definition.registers_base:
+        for reg in block.registers:
+            source_map[_ascii_key(reg.name)] = (block.base, reg.decoded_name)
 
-    for add_ent in device_data.get("additional_entities", []):
-        add_name = add_ent.get("name", "Unknown")
-        add_type = add_ent.get("entity_type", "sensor")
-        add_source = add_ent.get("source", "")
-        add_mapping = add_ent.get("x_mapping") or {}
+    for add_ent in definition.additional_entities:
+        add_name = add_ent.name
+        add_type = add_ent.entity_type
+        add_source = add_ent.source
+        add_mapping = dict(getattr(add_ent, "x_mapping", {}))
 
-        # Find source register using ASCII-normalized key
-        source_key = _ascii_key(add_source)
+        # Find source register using ASCII-normalized key; a derived entity
+        # summing several registers has no single source to mirror.
+        source_key = _ascii_key(add_source) if isinstance(add_source, str) else None
         if source_key not in source_map:
             _LOGGER.warning(
                 "Additional entity %s: source '%s' not found in registers",
@@ -344,11 +338,11 @@ def _build_fake_discovery(
             payload["command_template"] = '{"device": "' + source_decoded + '", "value": "{{ value }}"}'
         elif ha_type == "switch":
             payload["command_topic"] = f"{topic_prefix}/cmd/modbus/{device_id}/set"
-            payload["payload_on"] = add_ent.get("payload_on", "ON")
-            payload["payload_off"] = add_ent.get("payload_off", "OFF")
+            payload["payload_on"] = add_ent.payload_on
+            payload["payload_off"] = add_ent.payload_off
 
-        if add_ent.get("entity_category"):
-            payload["entity_category"] = add_ent["entity_category"]
+        if add_ent.entity_category:
+            payload["entity_category"] = add_ent.entity_category
 
         discovery_messages.append(
             {
@@ -356,7 +350,7 @@ def _build_fake_discovery(
                 "payload": payload,
                 "entity_type": add_type,
                 "decoded_name": decoded_name,
-                "device_class": add_ent.get("device_class"),
+                "device_class": add_ent.device_class,
                 "x_mapping": add_mapping,
             }
         )
@@ -389,20 +383,17 @@ async def create_fake_device(
     Returns:
         Summary with device_id, entity_count, published topics and values.
     """
-    # Find device JSON
+    from boneio.modbus.definition import load_definition
+
     try:
-        _, _find_device_json = _mock_coordinator()
-        json_path = _find_device_json(model)
+        definition = load_definition(model)
     except FileNotFoundError:
         return {"error": f"Model '{model}' not found in device database."}
 
-    with open(json_path) as f:
-        device_data = json.load(f)
-
     device_id = f"{address}_{model}"
-    device_name = device_data.get("model", model)
-    manufacturer_name = device_data.get("manufacturer", "boneIO")
-    category = device_data.get("category", "other")
+    device_name = definition.model
+    manufacturer_name = definition.manufacturer
+    category = definition.category
 
     config_helper = manager.config_helper
     message_bus = manager._message_bus
@@ -410,10 +401,10 @@ async def create_fake_device(
 
     # Build discovery and state
     discovery_msgs, state_payloads = _build_fake_discovery(
-        device_data=device_data,
+        definition=definition,
         device_id=device_id,
         device_name=device_name,
-        model=device_data.get("model", model),
+        model=definition.model,
         manufacturer=manufacturer_name,
         topic_prefix=topic_prefix,
         ha_discovery_prefix=config_helper.ha_discovery_prefix,
@@ -636,7 +627,7 @@ async def generate_fake_device_dashboard(
         Dict with device_id, model, category, entity_count, and yaml string.
     """
     try:
-        MockModbusCoordinator, _ = _mock_coordinator()
+        MockModbusCoordinator = _mock_coordinator()
         mock_coord = MockModbusCoordinator.from_json(
             model_key=model,
             address=address,

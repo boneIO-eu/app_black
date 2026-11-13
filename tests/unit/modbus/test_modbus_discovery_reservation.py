@@ -15,6 +15,7 @@ from boneio.const import ID, MODEL, NAME
 from boneio.core.config.config_helper import ConfigHelper
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.modbus.entities.base import BaseEntity
+from tests.unit.modbus.definitions import definition
 
 SENSOR_TOPIC = "homeassistant/sensor/blk0001/meter_voltage/config"
 POLLING_TOPIC = "homeassistant/switch/blk0001/meter_polling/config"
@@ -27,7 +28,7 @@ def _coordinator(config_helper: ConfigHelper) -> ModbusCoordinator:
     coordinator._name = "Meter"
     coordinator._model = "sdm120"
     coordinator._area = None
-    coordinator._db = {}
+    coordinator._definition = definition()
     coordinator._polling_enabled = True
     coordinator._message_bus = MagicMock()
     coordinator.manager = MagicMock(config_helper=config_helper)

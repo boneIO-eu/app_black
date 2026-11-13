@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 from typing import Any, Protocol, runtime_checkable
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -13,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
+from boneio.modbus.definition import device_models, load_definition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -532,57 +532,41 @@ async def get_modbus_models():
     Returns:
         Dictionary mapping model file names to their capabilities.
     """
-    devices_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "modbus", "devices"
-    )
-    devices_dir = os.path.normpath(devices_dir)
     models: dict[str, dict[str, Any]] = {}
 
-    if not os.path.isdir(devices_dir):
-        _LOGGER.warning("Modbus devices directory not found: %s", devices_dir)
-        return {"models": models}
+    for model_key in device_models():
+        try:
+            definition = load_definition(model_key)
+        except Exception as exc:
+            _LOGGER.debug("Failed to read model file %s: %s", model_key, exc)
+            continue
 
-    for root, _dirs, files in os.walk(devices_dir):
-        for fname in files:
-            if not fname.endswith(".json"):
-                continue
-            model_key = fname[:-5]  # strip .json
-            try:
-                with open(os.path.join(root, fname)) as fh:
-                    db = json.load(fh)
-            except Exception as exc:
-                _LOGGER.debug("Failed to read model file %s: %s", fname, exc)
-                continue
+        device_classes: set[str] = set()
+        temperature_sensors: list[dict[str, str]] = []
+        for block in definition.registers_base:
+            for reg in block.registers:
+                dc = reg.device_class
+                if dc:
+                    device_classes.add(dc)
+                # Only include actual measurement sensors, not
+                # config/diagnostic registers (e.g. calibration offsets)
+                if dc == "temperature" and reg.entity_category not in ("config", "diagnostic"):
+                    # Match entity ID suffix generation from BaseEntity:
+                    # _decoded_name_low = name.replace(" ", "").lower()
+                    # _id suffix = _decoded_name_low.replace("_", "")
+                    temperature_sensors.append({
+                        "name": reg.name,
+                        "suffix": reg.decoded_name.replace("_", ""),
+                    })
 
-            device_classes: set[str] = set()
-            temperature_sensors: list[dict[str, str]] = []
-            for reg_base in db.get("registers_base", []):
-                for reg in reg_base.get("registers", []):
-                    dc = reg.get("device_class")
-                    if dc:
-                        device_classes.add(dc)
-                    # Only include actual measurement sensors, not
-                    # config/diagnostic registers (e.g. calibration offsets)
-                    entity_category = reg.get("entity_category")
-                    if dc == "temperature" and entity_category not in ("config", "diagnostic"):
-                        name = reg.get("name", "Temperature")
-                        # Match entity ID suffix generation from BaseEntity:
-                        # _decoded_name_low = name.replace(" ", "").lower()
-                        # _id suffix = _decoded_name_low.replace("_", "")
-                        suffix = name.replace(" ", "").lower().replace("_", "")
-                        temperature_sensors.append({
-                            "name": name,
-                            "suffix": suffix,
-                        })
-
-            models[model_key] = {
-                "display_name": db.get("model", model_key),
-                "has_temperature": "temperature" in device_classes,
-                "has_humidity": "humidity" in device_classes,
-                "has_energy": "energy" in device_classes or "power" in device_classes,
-                "device_classes": sorted(device_classes),
-                "temperature_sensors": temperature_sensors,
-            }
+        models[model_key] = {
+            "display_name": definition.model,
+            "has_temperature": "temperature" in device_classes,
+            "has_humidity": "humidity" in device_classes,
+            "has_energy": "energy" in device_classes or "power" in device_classes,
+            "device_classes": sorted(device_classes),
+            "temperature_sensors": temperature_sensors,
+        }
 
     return {"models": models}
 
@@ -600,59 +584,41 @@ async def get_model_entities(model_name: str):
     Returns:
         List of entity definitions with name and decoded_name.
     """
-    devices_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "modbus", "devices"
-    )
-    devices_dir = os.path.normpath(devices_dir)
-
-    # Find model JSON file
-    filename = f"{model_name}.json"
-    db = None
-    for root, _dirs, files in os.walk(devices_dir):
-        if filename in files:
-            try:
-                with open(os.path.join(root, filename)) as fh:
-                    db = json.load(fh)
-                break
-            except Exception as exc:
-                raise HTTPException(status_code=500, detail=f"Failed to read model file: {exc}") from exc
-
-    if db is None:
+    try:
+        definition = load_definition(model_name)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read model file: {exc}") from exc
 
     entities = []
     seen: set[str] = set()
 
     # Base register entities
-    for reg_base in db.get("registers_base", []):
-        for reg in reg_base.get("registers", []):
-            name = reg.get("name", "")
-            if name:
-                decoded_name = name.replace(" ", "").lower()
-                entity_type = reg.get("entity_type", "sensor")
-                if decoded_name not in seen:
-                    seen.add(decoded_name)
-                    entities.append({
-                        "name": name,
-                        "decoded_name": decoded_name,
-                        "entity_type": entity_type,
-                    })
+    for block in definition.registers_base:
+        for reg in block.registers:
+            if reg.name and reg.decoded_name not in seen:
+                seen.add(reg.decoded_name)
+                entities.append({
+                    "name": reg.name,
+                    "decoded_name": reg.decoded_name,
+                    "entity_type": reg.entity_type,
+                    "hidden": reg.hidden,
+                })
 
     # Additional (derived) entities
     # decoded_name comes from their JSON "name" field (same logic as BaseEntity)
     # Skip duplicates — derived entities share label with their source register
-    for entity in db.get("additional_entities", []):
-        name = entity.get("name", "")
-        if name:
-            decoded_name = name.replace(" ", "").lower()
-            entity_type = entity.get("entity_type", "sensor")
-            if decoded_name not in seen:
-                seen.add(decoded_name)
-                entities.append({
-                    "name": name,
-                    "decoded_name": decoded_name,
-                    "entity_type": entity_type,
-                })
+    for entity in definition.additional_entities:
+        decoded_name = entity.name.replace(" ", "").lower()
+        if entity.name and decoded_name not in seen:
+            seen.add(decoded_name)
+            entities.append({
+                "name": entity.name,
+                "decoded_name": decoded_name,
+                "entity_type": entity.entity_type,
+                "hidden": False,
+            })
 
     return {"model": model_name, "entities": entities}
 
@@ -671,10 +637,6 @@ async def modbus_configure_device(
     Returns:
         Success status.
     """
-    from boneio.core.utils import open_json
-    
-    SET_BASE = "set_base"
-    
     modbus_client = boneio_manager.modbus.get_modbus_client()
     if not modbus_client:
         return {
@@ -703,29 +665,17 @@ async def modbus_configure_device(
                     modbus_client.client.baudrate = request.current_baudrate
                     modbus_client.client.connect()
             
-            devices_dir = os.path.normpath(
-                os.path.join(os.path.dirname(__file__), "..", "..", "modbus", "devices")
-            )
-            device_file = f"{request.device}.json"
-            device_path = None
-            for root, _dirs, files in os.walk(devices_dir):
-                if device_file in files:
-                    device_path = root
-                    break
-
-            if device_path is None:
+            try:
+                definition = load_definition(request.device)
+            except FileNotFoundError:
                 return {
                     "success": False,
                     "error_key": "configure_error_not_found",
                     "error_params": {"device": request.device}
                 }
 
-            _db = open_json(
-                path=device_path,
-                model=request.device
-            )
-            set_base = _db.get(SET_BASE, {})
-            
+            set_base = definition.set_base
+
             if not set_base:
                 return {
                     "success": False,
@@ -734,14 +684,7 @@ async def modbus_configure_device(
                 }
             
             if request.new_address is not None:
-                address_register = set_base.get("set_address_address")
-                if address_register is None:
-                    return {
-                        "success": False,
-                        "error_key": "configure_error_no_address",
-                        "error_params": {"device": request.device}
-                    }
-                
+                address_register = set_base.set_address_address
                 _LOGGER.info(f"Writing new address {request.new_address} to register {address_register}")
                 result = await modbus_client.write_register_direct(
                     unit=request.current_address,
@@ -756,7 +699,7 @@ async def modbus_configure_device(
                     }
                     
             elif request.new_baudrate is not None:
-                baudrate_config = set_base.get("set_baudrate")
+                baudrate_config = set_base.set_baudrate
                 if not baudrate_config:
                     return {
                         "success": False,
@@ -764,8 +707,8 @@ async def modbus_configure_device(
                         "error_params": {"device": request.device}
                     }
                 
-                baudrate_register = baudrate_config.get("address")
-                possible_baudrates = baudrate_config.get("possible_baudrates", {})
+                baudrate_register = baudrate_config.address
+                possible_baudrates = baudrate_config.possible_baudrates
                 baudrate_value = possible_baudrates.get(str(request.new_baudrate))
                 
                 if baudrate_value is None:
