@@ -50,6 +50,7 @@ export function caCommands(): string {
     '  -days 3650 -subj "/CN=MQTT CA" \\',
     '  -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \\',
     '  -addext "keyUsage=critical,keyCertSign,cRLSign" \\',
+    '  -addext "subjectKeyIdentifier=hash" \\',
     '  -keyout ca.key -out ca.crt',
   ].join('\n');
 }
