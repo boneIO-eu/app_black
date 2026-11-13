@@ -571,6 +571,8 @@ async def send_initial_states(
                             coordinator_id=modbus_coordinator._id,
                             area=modbus_coordinator._area,
                             step=getattr(entity, "step", None),
+                            min=getattr(entity, "min_value", None),
+                            max=getattr(entity, "max_value", None),
                         )
                         update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                         if not await send_state_update(update):

@@ -171,6 +171,11 @@ class ModbusDevice(Model):
         json_schema_extra={"minimum": 1000},
     )
     entity_labels: dict[str, str] | None = Field(None, description="Custom entity labels")
+    read_only: bool = Field(
+        False,
+        description="Read only: nothing is written to the device and Home Assistant gets no controls. "
+        "Use it the first time you connect a device whose register map you have not checked.",
+    )
     sensors_filters: SensorsFilters | None = Field(
         None,
         description="List of sub sensors to use to filter. Available values are temperature or humidity. "

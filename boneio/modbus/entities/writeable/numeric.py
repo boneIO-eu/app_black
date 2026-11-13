@@ -16,7 +16,7 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
 
     _entity_type = SENSOR
 
-    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = None, step: float | str | None = None, **kwargs):
+    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = None, step: float | str | None = None, min_value: float | None = None, max_value: float | None = None, **kwargs):
         if write_filters is None:
             write_filters = []
         ModbusNumericSensor.__init__(self, **kwargs)
@@ -24,6 +24,8 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
         self._write_address = write_address
         self._write_filters = write_filters
         self._step = step
+        self.min_value = min_value
+        self.max_value = max_value
 
     async def write_value(self, value: float) -> None:
         """Write value to the modbus register.
@@ -74,6 +76,8 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             "value_template": value_template,
             "mode": "box",
             "step": self.step,
+            **({"min": self.min_value} if self.min_value is not None else {}),
+            **({"max": self.max_value} if self.max_value is not None else {}),
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "' + self.decoded_name + '", "value": "{{ value }}"}',
         }

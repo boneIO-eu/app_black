@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
+from boneio.modbus.coordinator import ModbusWriteRejected
 from boneio.modbus.definition import device_models, load_definition
 
 _LOGGER = logging.getLogger(__name__)
@@ -118,6 +119,8 @@ async def set_modbus_value(
     try:
         await entity.write_value(value)
         return {"status": "success", "message": f"Value set to {value}"}
+    except ModbusWriteRejected as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         _LOGGER.error(f"Error setting Modbus value: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e

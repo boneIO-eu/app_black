@@ -194,6 +194,8 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
               <input
                 type="number"
                 step={device.step || 1}
+                min={device.min ?? undefined}
+                max={device.max ?? undefined}
                 className="input input-sm flex-1"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}

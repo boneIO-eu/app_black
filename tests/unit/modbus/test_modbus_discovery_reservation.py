@@ -28,6 +28,7 @@ def _coordinator(config_helper: ConfigHelper) -> ModbusCoordinator:
     coordinator._name = "Meter"
     coordinator._model = "sdm120"
     coordinator._area = None
+    coordinator._read_only = False
     coordinator._definition = definition()
     coordinator._polling_enabled = True
     coordinator._message_bus = MagicMock()

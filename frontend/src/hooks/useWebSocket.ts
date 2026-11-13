@@ -95,6 +95,8 @@ export interface ModbusDeviceState {
   payload_on?: string | null;  // For switch entities
   payload_off?: string | null;  // For switch entities
   step?: number | null;  // Step value for numeric inputs
+  min?: number | null;  // Lowest value a numeric input accepts
+  max?: number | null;  // Highest value a numeric input accepts
   custom_label?: string | null;  // User-defined custom label from YAML config
   area?: string | null;  // Area id of the device the entity belongs to
 }

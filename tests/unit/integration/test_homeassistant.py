@@ -540,6 +540,8 @@ class TestModbusCoordinatorDiscovery:
 
         from boneio.modbus.coordinator import ModbusCoordinator
 
+        coordinator._read_only = False
+        coordinator._announced_entities = lambda: ModbusCoordinator._announced_entities(coordinator)
         ModbusCoordinator._send_discovery_for_all_registers(coordinator)
 
         base_sensor.send_ha_discovery.assert_called_once()

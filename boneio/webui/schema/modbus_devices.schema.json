@@ -56,6 +56,28 @@
             "description": "Custom entity labels",
             "title": "Entity labels"
           },
+          "read_only": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Read only: nothing is written to the device and Home Assistant gets no controls. Use it the first time you connect a device whose register map you have not checked.",
+            "title": "Read only"
+          },
           "sensors_filters": {
             "properties": {
               "temperature": {

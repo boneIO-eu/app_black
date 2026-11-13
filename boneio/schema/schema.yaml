@@ -754,6 +754,12 @@ modbus_devices:
             Keys are lowercase sensor names without spaces (e.g. humidity, temperature).
             Values are custom labels shown in UI and Home Assistant.
             Example: { humidity: "Wilgotność salon", temperature: "Temperatura salon" }
+      read_only:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: "Read only: nothing is written to the device and Home Assistant gets no controls. Use it the first time you connect a device whose register map you have not checked."
       sensors_filters:
         type: dict
         required: False

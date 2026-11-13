@@ -86,6 +86,8 @@ class ModbusDeviceState(BaseModel):
     payload_on: str | None = None  # For switch entities
     payload_off: str | None = None  # For switch entities
     step: float | str | None = None  # Step value for numeric inputs
+    min: float | None = None  # Lowest value a numeric input accepts
+    max: float | None = None  # Highest value a numeric input accepts
     custom_label: str | None = None  # User-defined custom label from YAML config
     area: str | None = None  # Area id of the device the entity belongs to
 

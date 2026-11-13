@@ -11,6 +11,7 @@ from pymodbus.pdu import ExceptionResponse
 from boneio.const import (
     BINARY_SENSOR,
     ID,
+    NUMERIC,
     OFF,
     OFFLINE,
     ON,
@@ -85,6 +86,13 @@ _LOGGER = logging.getLogger(__name__)
 OPTIONAL_GIVE_UP = 3
 OPTIONAL_RETRY_S = 3600
 
+# Entity types whose Home Assistant discovery carries a command topic.
+COMMAND_ENTITY_TYPES = (NUMERIC, SELECT, SWITCH)
+
+
+class ModbusWriteRejected(Exception):
+    """A write was refused before it reached the bus."""
+
 
 class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus coordinator in BoneIO."""
@@ -105,6 +113,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         area: str | None = None,
         has_custom_id: bool = False,
         entity_labels: dict | None = None,
+        read_only: bool = False,
     ):
         """Initialize Modbus coordinator class."""
         # Store manager reference first - needed by other init methods
@@ -113,6 +122,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self.manager = manager
         self._area = area
         self._has_custom_id = has_custom_id
+        self._read_only = read_only
         
         BasicMqtt.__init__(
             self,
@@ -245,6 +255,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         write_filters=list(register.write_filters),
                         write_address=register.write_address,
                         step=1 if register.step is None else register.step,
+                        min_value=register.min,
+                        max_value=register.max,
                         ha_filter=register.ha_filter,
                         **kwargs,
                     )
@@ -254,6 +266,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         write_address=register.write_address,
                         write_filters=list(register.write_filters),
                         step=1 if register.step is None else register.step,
+                        min_value=register.min,
+                        max_value=register.max,
                         ha_filter=register.ha_filter,
                         **kwargs,
                     )
@@ -658,22 +672,25 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             retain=True,
         )
 
-    def _reserve_discovery_for_all_registers(self) -> None:
-        """Claim every discovery topic of this device without announcing it."""
+    def _announced_entities(self):
+        """Entities Home Assistant gets: a read-only device offers no controls."""
         for entities in (*self._modbus_entities, *self._additional_entities):
             for entity in entities.values():
-                entity.reserve_ha_discovery()
+                if self._read_only and entity.entity_type in COMMAND_ENTITY_TYPES:
+                    continue
+                yield entity
+
+    def _reserve_discovery_for_all_registers(self) -> None:
+        """Claim every discovery topic of this device without announcing it."""
+        for entity in self._announced_entities():
+            entity.reserve_ha_discovery()
         topic, _ = self._polling_switch_discovery()
         self.manager.config_helper.reserve_autodiscovery_msg(ha_type="switch", topic=topic)
 
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
-        for sensors in self._modbus_entities:
-            for sensor in sensors.values():
-                sensor.send_ha_discovery()
-        for sensors in self._additional_entities:
-            for sensor in sensors.values():
-                sensor.send_ha_discovery()
+        for entity in self._announced_entities():
+            entity.send_ha_discovery()
         self._send_polling_switch_discovery()
         return datetime.now()
 
@@ -814,7 +831,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         return {
             "x_mapping": x_mapping,
             "payload_on": payload_on,
-            "payload_off": payload_off
+            "payload_off": payload_off,
+            "min": getattr(entity, "min_value", None),
+            "max": getattr(entity, "max_value", None),
         }
         
     def _get_entity_label(self, entity: ModbusBaseEntity | ModbusDerivedEntity) -> str | None:
@@ -882,6 +901,27 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 )
             ))
 
+    def _check_write_allowed(self, value: str | float | int, entity: BaseEntity) -> None:
+        """Refuse a write the device must never get: read-only, or out of range.
+
+        The range applies to the value as the user gives it, before write_filters.
+        """
+        name = getattr(entity, "name", entity)
+        if self._read_only:
+            raise ModbusWriteRejected(f"{self._name} is read only")
+        low = getattr(entity, "min_value", None)
+        high = getattr(entity, "max_value", None)
+        if low is None and high is None:
+            return
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            raise ModbusWriteRejected(f"{name}: '{value}' is not a number") from None
+        if (low is not None and number < low) or (high is not None and number > high):
+            raise ModbusWriteRejected(
+                f"{name}: {value} is outside the allowed range {low if low is not None else '-'}..{high if high is not None else '-'}"
+            )
+
     async def write_register(
         self, 
         value: str | float | int, 
@@ -893,6 +933,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             value: Value to write
             entity: Entity object (not name) to write to
         """
+        self._check_write_allowed(value, entity)
         _LOGGER.debug(
             "Writing register %s for %s", 
             value, 

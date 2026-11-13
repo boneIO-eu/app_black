@@ -54,6 +54,7 @@ from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
+from boneio.modbus.coordinator import ModbusWriteRejected
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.remote import RemoteDeviceManager
 from boneio.core.manager.scheduler import Scheduler
@@ -2288,6 +2289,8 @@ class Manager:
                         entity = target_device.find_entity(device_name)
                         if entity:
                             await target_device.write_register(value=value, entity=entity)
+                except ModbusWriteRejected as err:
+                    _LOGGER.warning("Modbus write rejected: %s", err)
                 except json.JSONDecodeError:
                     _LOGGER.warning("Invalid JSON in modbus message: %s", message)
             return

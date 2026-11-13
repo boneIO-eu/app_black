@@ -88,6 +88,7 @@ def _coordinator(registers_base: list) -> ModbusCoordinator:
     coordinator._model = "Relay 16CH"
     coordinator._area = None
     coordinator._has_custom_id = False
+    coordinator._read_only = False
     coordinator._address = 1
     coordinator._definition = definition(registers_base)
     coordinator._modbus_entities = []

@@ -173,6 +173,7 @@ class ModbusManager:
                         additional_data=additional_data,
                         area=area,
                         has_custom_id=has_custom_id,
+                        read_only=bool(device_config.get("read_only", False)),
                     )
                     coordinators[device_id] = coordinator
                     _LOGGER.info("Configured Modbus coordinator: %s", device_id)
