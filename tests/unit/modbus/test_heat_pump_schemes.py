@@ -79,6 +79,9 @@ def test_lg_target_and_dhw():
         ({"power": "ON", "mode": 3}, "off", [Write("mode", 0)]),
         ({"power": "ON", "mode": 1}, "off", [Write("power", "OFF")]),
         ({"power": "OFF", "mode": 1}, "heat", [Write("mode", 1), Write("power", "ON")]),
+        ({"power": "OFF", "mode": 0}, "heat", [Write("mode", 1), Write("power", "ON")]),
+        ({"power": "OFF", "mode": 3}, "heat", [Write("mode", 1), Write("power", "ON")]),
+        ({"power": "OFF", "mode": 4}, "cool", [Write("mode", 2), Write("power", "ON")]),
     ],
 )
 def test_phnix_set_hvac_mode(v, mode, expected):
@@ -100,7 +103,9 @@ def test_phnix_rejects_auto():
         ({"power": "ON", "mode": 3}, "off", [Write("mode", 1)]),
         ({"power": "ON", "mode": 4}, "off", [Write("mode", 2)]),
         ({"power": "ON", "mode": 1}, "off", []),
-        ({"power": "OFF", "mode": 1}, "heat_pump", [Write("mode", 3), Write("power", "ON")]),
+        ({"power": "OFF", "mode": 1}, "heat_pump", [Write("mode", 0), Write("power", "ON")]),
+        ({"power": "OFF", "mode": 3}, "heat_pump", [Write("mode", 0), Write("power", "ON")]),
+        ({"power": "OFF", "mode": 3}, "off", []),
     ],
 )
 def test_phnix_set_dhw_mode(v, mode, expected):
@@ -145,6 +150,7 @@ def test_phnix_targets_and_dhw_mode():
     assert phnix.target_role({"mode": 4}) == "cooling_target"
     assert phnix.target_role({"mode": 2}) == "cooling_target"
     assert phnix.target_role({"mode": 3}) == "heating_target"
+    assert phnix.target_role({"power": "OFF", "mode": 4}) == "heating_target"
     v = {"mode": 2, "heating_target": 40, "cooling_target": 12, "supply": 14.5}
     assert phnix.target(v) == 12.0
     assert phnix.current(v) == 14.5

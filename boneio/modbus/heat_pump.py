@@ -111,6 +111,10 @@ class Phnix:
     modes: list[HvacMode] = ["off", "heat", "cool"]
     _DHW = (0, 3, 4)
 
+    def _live_mode(self, v):
+        # the mode register is stale while power is off: nothing is active
+        return None if _power_off(v) else _int(v.get("mode"))
+
     def hvac_mode(self, v):
         if _power_off(v):
             return "off"
@@ -132,7 +136,7 @@ class Phnix:
         return "idle"
 
     def target_role(self, v):
-        return "cooling_target" if _int(v.get("mode")) in (2, 4) else "heating_target"
+        return "cooling_target" if self._live_mode(v) in (2, 4) else "heating_target"
 
     def target(self, v):
         return _num(v.get(self.target_role(v)))
@@ -149,7 +153,7 @@ class Phnix:
         return writes + ([] if str(v.get("power")).upper() == "ON" else [Write("power", "ON")])
 
     def set_hvac_mode(self, v, mode):
-        dhw = _int(v.get("mode")) in self._DHW
+        dhw = self._live_mode(v) in self._DHW
         if mode == "off":
             return [Write("mode", 0)] if dhw else [Write("power", "OFF")]
         if mode == "heat":
@@ -159,7 +163,7 @@ class Phnix:
         raise ValueError(f"Phnix does not support mode {mode!r}")
 
     def set_dhw_mode(self, v, mode):
-        m = _int(v.get("mode"))
+        m = self._live_mode(v)
         if mode == "heat_pump":
             new = {1: 3, 2: 4}.get(m, m if m in self._DHW else 0)
             return self._with_power(v, [Write("mode", new)] if new != m else [])
