@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import ADDRESS, ID, MODEL, NAME, UART, UARTS, UPDATE_INTERVAL
+from boneio.core.config.yaml_util import normalize_section
 from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_ms, parse_time_to_seconds
 from boneio.exceptions import ModbusUartException
 
@@ -229,8 +230,8 @@ class ModbusManager:
     def _coordinator_inputs(self, device_config: dict[str, Any]) -> dict[str, Any]:
         """Constructor arguments of a device's coordinator, in one form.
 
-        The config at startup is validated and a reloaded one is raw YAML;
-        both give the same arguments for the same file. Entity labels are not
+        Takes a normalized device config, as startup and the reload both pass
+        it, so the same file gives the same arguments. Entity labels are not
         here: they are applied to a running coordinator.
         """
         device_id = self._get_device_id_from_config(device_config)
@@ -293,8 +294,9 @@ class ModbusManager:
         # Get config from ConfigHelper (already reloaded by Manager)
         config = self._manager._config_helper.get_config()
         
-        # Get new modbus_devices config
-        new_devices = config.get("modbus_devices", [])
+        # The fast reload reads raw YAML; compare and build from what startup
+        # would have made of it.
+        new_devices = normalize_section("modbus_devices", config.get("modbus_devices") or [])
         
         # Build set of old device IDs
         old_device_ids = set(self._modbus_coordinators.keys())

@@ -1414,6 +1414,19 @@ def _section_document(section: str, data: Any, boneio_section: dict | None) -> d
     return _strip_empty_strings_deep(doc)
 
 
+def normalize_section(section: str, data: Any) -> Any:
+    """One section with the coercions and defaults startup applies to it.
+
+    The fast reload path skips validation, so a reloaded section is raw YAML
+    ("50cm", "SDM120", 30000 for 30000 ms); this gives it the values the
+    running objects were built from.
+    """
+    _trust_schema()
+    v = CustomValidator({section: _get_schema()[section]}, purge_unknown=True)
+    doc = _strip_empty_strings_deep({section: copy.deepcopy(data)})
+    return v.normalized(doc, always_return_document=True)[section]  # type: ignore[attr-defined]
+
+
 def _cerberus_section_errors(section: str, doc: dict) -> list[str]:
     """Validate ``doc[section]`` against the Cerberus schema, as start-up does."""
     schema = _get_schema()

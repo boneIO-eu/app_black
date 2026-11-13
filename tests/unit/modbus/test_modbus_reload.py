@@ -126,3 +126,44 @@ def test_manager_config_is_not_shared_with_the_snapshot():
 
     assert modbus._coordinator_built_from["1_lg-therma-v-r290"]["entity_visibility"] == {"dhw": {"ha": False}}
 
+
+
+def _as_at_startup(devices: list[dict]) -> list[dict]:
+    from boneio.core.config.yaml_util import normalize_section
+
+    return normalize_section("modbus_devices", devices)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # Startup reads a bare number as milliseconds.
+        {"address": 1, "model": "lg-therma-v-r290", "update_interval": 30000},
+        # Startup lowercases the model; the device file is lowercase.
+        {"address": 1, "model": "LG-Therma-V-R290", "id": "lg"},
+        # Startup turns lengths with units into metres for the formula.
+        {"address": 3, "model": "liquid-sensor", "data": {"width": "50cm", "length": "1m"}},
+    ],
+)
+async def test_a_reload_of_the_unchanged_file_reads_it_as_startup_did(raw):
+    modbus, config = _modbus_manager(_as_at_startup([raw]))
+    (device_id, old), = modbus._modbus_coordinators.items()
+
+    config["modbus_devices"] = [raw]
+    await modbus.reload_modbus_devices()
+
+    assert modbus.get_coordinator(device_id) is old
+    assert not old._stopped
+
+
+async def test_a_device_added_by_a_reload_gets_startup_values():
+    modbus, config = _modbus_manager([])
+
+    config["modbus_devices"] = [
+        {"address": 3, "model": "Liquid-Sensor", "update_interval": 30000, "data": {"width": "50cm", "length": "1m"}}
+    ]
+    await modbus.reload_modbus_devices()
+
+    (coordinator,) = modbus._modbus_coordinators.values()
+    assert coordinator._update_interval == TimePeriod(milliseconds=30000)
+    assert coordinator._additional_data == {"width": 0.5, "length": 1.0}
