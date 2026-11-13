@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import ModbusDeviceCreator from './ModbusDeviceCreator';
 import axios from '@/api/axios';
+import { apiErrorMessage } from '@/api/errorMessage';
 import type { AxiosError } from 'axios';
 import { MODBUS_DEVICE_CATALOG } from '../generated/modbusDeviceCatalog';
 import {
@@ -205,7 +206,7 @@ export default function ModbusHelper() {
       });
       setResult(data);
     } catch (err) {
-      setResult({ success: false, error: String(err) });
+      setResult({ success: false, error: apiErrorMessage(err) });
     } finally {
       setLoading(false);
     }
@@ -244,7 +245,7 @@ export default function ModbusHelper() {
       });
       setResult(data);
     } catch (err) {
-      setResult({ success: false, error: String(err) });
+      setResult({ success: false, error: apiErrorMessage(err) });
     } finally {
       setLoading(false);
     }

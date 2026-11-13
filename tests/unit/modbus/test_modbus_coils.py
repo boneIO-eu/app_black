@@ -87,6 +87,20 @@ def test_negative_register_value_is_written_as_twos_complement(modbus, value, wo
     modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1)
 
 
+@pytest.mark.parametrize(("value", "word"), [(65535, 65535), (-32768, 32768)])
+def test_register_value_at_the_edge_of_a_word_is_written(modbus, value, word):
+    assert modbus.write_register_blocking(unit=1, address=4, value=value) is not None
+
+    modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1)
+
+
+@pytest.mark.parametrize("value", [70000, 65536, -40000, -32769, -65532, float("nan"), float("inf")])
+def test_register_value_that_does_not_fit_a_word_is_refused(modbus, value):
+    assert modbus.write_register_blocking(unit=1, address=0, value=value) is None
+
+    modbus._client.write_register.assert_not_called()
+
+
 def _coordinator(registers_base: list) -> ModbusCoordinator:
     # Bypass __init__: it loads a device JSON and wires up the manager.
     coordinator = ModbusCoordinator.__new__(ModbusCoordinator)

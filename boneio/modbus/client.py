@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import struct
 import threading
 import time
@@ -95,6 +96,17 @@ MAX_WORKERS = 4
 OPERATION_TIMEOUT = 5
 # Auto-resume timeout in seconds (safety net if frontend disconnects)
 SUSPEND_AUTO_TIMEOUT = 300  # 5 minutes
+
+# What one FC06 register write can carry: a signed or an unsigned 16-bit word.
+FC06_MIN = -32768
+FC06_MAX = 65535
+
+
+def fits_register(value: int | float) -> bool:
+    """Whether one FC06 write can carry the value."""
+    return math.isfinite(value) and FC06_MIN <= int(value) <= FC06_MAX
+
+
 #: Failure-tracker key for the serial port itself, as opposed to one register.
 PORT_KEY = "port"
 
@@ -512,7 +524,22 @@ class Modbus:
         return result
 
     def write_register_blocking(self, unit: int | str, address: int, value: int | float, coil: bool = False):
-        """Write register (FC06) or, with ``coil``, a single coil (FC05), blocking."""
+        """Write register (FC06) or, with ``coil``, a single coil (FC05), blocking.
+
+        An FC06 value outside -32768..65535 does not fit the 16-bit word and
+        is refused with None, nothing sent; a negative one in range goes out
+        as two's complement.
+        """
+        if not coil and not fits_register(value):
+            _LOGGER.error(
+                "Not writing %s to register %s on device %s: outside %s..%s",
+                value,
+                address,
+                unit,
+                FC06_MIN,
+                FC06_MAX,
+            )
+            return None
         start_time = time.perf_counter()
         result = None
         try:
@@ -536,7 +563,6 @@ class Modbus:
             if coil:
                 result = self._client.write_coil(address=address, value=bool(value), device_id=int(unit))
             else:
-                # FC06 carries an unsigned 16-bit word; a signed value goes out as two's complement.
                 result = self._client.write_register(address=address, value=int(value) & 0xFFFF, device_id=int(unit))
 
             # Same key as reads: a holding register is usually both polled and

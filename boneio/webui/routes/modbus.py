@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
+from boneio.modbus.client import FC06_MAX, FC06_MIN, fits_register
 from boneio.modbus.coordinator import ModbusWriteFailed, ModbusWriteRejected
 from boneio.modbus.definition import device_models, load_definition
 from boneio.modbus.heat_pump import SCHEMES
@@ -270,6 +271,12 @@ async def modbus_set(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
+    if request.register_type != "coil" and not fits_register(request.value):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{request.value} does not fit one register: allowed {FC06_MIN}..{FC06_MAX}",
+        )
+
     modbus_client.suspend()
     async with _modbus_helper_lock:
         try:
