@@ -98,7 +98,7 @@
           "value_type": "FP32"
         },
         {
-          "name": "Power_VA_Phase2",
+          "name": "Power_VA_Phase3",
           "address": 22,
           "unit_of_measurement": "VA",
           "state_class": "measurement",
@@ -177,14 +177,6 @@
         {
           "name": "AVG_Current",
           "address": 46,
-          "unit_of_measurement": "A",
-          "state_class": "measurement",
-          "device_class": "current",
-          "value_type": "FP32"
-        },
-        {
-          "name": "Sum_Current",
-          "address": 48,
           "unit_of_measurement": "A",
           "state_class": "measurement",
           "device_class": "current",

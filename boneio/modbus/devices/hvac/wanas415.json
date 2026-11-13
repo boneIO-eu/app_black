@@ -300,7 +300,7 @@
   "additional_entities": [
     {
       "name": "Dzień tygodnia",
-      "source": "dzien_tygodnia",
+      "source": "dzień_tygodnia",
       "entity_type": "select",
       "x_mapping": {
         "0": "niedziela",

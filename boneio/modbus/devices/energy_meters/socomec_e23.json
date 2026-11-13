@@ -8,7 +8,7 @@
   "registers_base": [
     {
       "base": 50520,
-      "length": 26,
+      "length": 30,
       "register_type": "holding",
       "registers": [
         {
