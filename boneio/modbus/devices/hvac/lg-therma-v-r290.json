@@ -617,6 +617,8 @@
           "entity_type": "writeable_sensor_discrete",
           "value_type": "U_WORD",
           "write_address": 0,
+          "min": 0,
+          "max": 4,
           "x_mapping": {
             "0": "Cooling",
             "3": "Auto",
@@ -629,6 +631,8 @@
           "entity_type": "writeable_sensor_discrete",
           "value_type": "U_WORD",
           "write_address": 1,
+          "min": 0,
+          "max": 2,
           "x_mapping": {
             "0": "Supply water",
             "1": "Return water",

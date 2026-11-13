@@ -105,10 +105,10 @@ class ModbusDerivedSwitch(ModbusDerivedEntity):
                 
         Returns:
             Integer value to write to modbus register
+
+        Raises:
+            ValueError: the value is neither a label nor a key of x_mapping.
         """
-        if not self._value_mapping:
-            return 0
-        
         # Convert value to string for comparison
         value_str = str(value)
         
@@ -139,4 +139,4 @@ class ModbusDerivedSwitch(ModbusDerivedEntity):
         if value_str in self._value_mapping:
             return int(value_str)
         
-        return 0
+        raise ValueError(f"{value!r} is not one of: {', '.join(self._value_mapping.values())}")

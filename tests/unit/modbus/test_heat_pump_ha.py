@@ -388,3 +388,35 @@ async def test_a_failed_bus_write_is_a_bad_gateway_for_the_panel():
         await set_modbus_value("lg", "heatingsetpoint", {"value": 40}, manager)
 
     assert err.value.status_code == 502
+
+
+@pytest.mark.parametrize(
+    ("entity", "value"),
+    [("operatingmode", "Heat"), ("operatingmode", "1"), ("heatingcooling", "on"), ("dhw", "maybe")],
+)
+async def test_a_value_the_mapping_does_not_name_writes_nothing(entity, value):
+    c = _coordinator()
+
+    with pytest.raises(ModbusWriteRejected, match="is not one of"):
+        await c.write_register(value, c.get_additional_entity_by_name(entity))
+
+    c._modbus.write_register.assert_not_awaited()
+
+
+@pytest.mark.parametrize(("entity", "value", "word"), [("operatingmode", "Heating", 4), ("heatingcooling", "ON", 1)])
+async def test_a_mapped_value_is_written(entity, value, word):
+    c = _coordinator()
+
+    await c.write_register(value, c.get_additional_entity_by_name(entity))
+
+    assert c._modbus.write_register.await_args.kwargs["value"] == word
+
+
+@pytest.mark.parametrize(("register", "value"), [("operatingmodevalue", 5), ("controlmethodvalue", 3)])
+async def test_raw_mode_registers_take_only_known_values(register, value):
+    c = _coordinator()
+
+    with pytest.raises(ModbusWriteRejected, match="outside the allowed range"):
+        await c.write_register(value, c.get_entity_by_name(register))
+
+    c._modbus.write_register.assert_not_awaited()

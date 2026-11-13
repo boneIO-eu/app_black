@@ -1185,13 +1185,19 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             ))
 
     def _check_write_allowed(self, value: str | float | int, entity: BaseEntity) -> None:
-        """Refuse a write the device must never get: read-only, or out of range.
+        """Refuse a write the device must never get: read-only, unknown, or out of range.
 
-        The range applies to the value as the user gives it, before write_filters.
+        A select or switch takes only a value its x_mapping names. The range
+        applies to the value as the user gives it, before write_filters.
         """
         name = getattr(entity, "name", entity)
         if self._read_only:
             raise ModbusWriteRejected(f"{self._name} is read only")
+        if isinstance(entity, (ModbusDerivedSelect, ModbusDerivedSwitch)):
+            try:
+                entity.encode_value(value)
+            except ValueError as err:
+                raise ModbusWriteRejected(f"{name}: {err}") from None
         low = getattr(entity, "min_value", None)
         high = getattr(entity, "max_value", None)
         if low is None and high is None:
