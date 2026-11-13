@@ -39,12 +39,14 @@ def test_supply_moves_toward_setpoint_when_heating():
 def test_compressor_has_hysteresis():
     d = _lg(setpoint=30.0)
     approach = []
-    while True:
+    for _ in range(3000):
         err = abs(30.0 - d._supply)
         d.step(10)
         if not d.discrete[3]:
             break
         approach.append(err)
+    else:
+        pytest.fail("compressor never stopped")
     # on through the whole dead band, off only once below 0.5 K
     assert approach[0] > 2.0 and min(approach) < 1.0
     assert err < 0.5
@@ -108,3 +110,41 @@ def test_temperature_sensors_without_heat_pump_only_jitter():
     for _ in range(50):
         d.step(1)
         assert abs(d.input[0] / 10 - 20.0) <= 0.1 + 1e-9
+
+
+def test_phnix_idle_state_matches_mode_and_power_state_follows_power():
+    d = SimulatedDevice(load_definition(PHNIX))
+    d.holding[1011], d.holding[1012] = 1, 1
+    d.holding[1158] = _start_words(d._roles["heating_target"][1], 20.0)[0]
+    d.step(10)
+    assert d.holding[2012] == 1 and d.holding[2011] == 1  # heating, idle
+    d.holding[1012] = 2
+    d.step(10)
+    assert d.holding[2012] == 0
+    d.holding[1012] = 0
+    d.step(10)
+    assert d.holding[2012] == 4
+    d.holding[1011] = 0
+    d.step(10)
+    assert d.holding[2011] == 0
+
+
+def test_dhw_heating_resumes_one_kelvin_below_target():
+    d = _lg(power=False, dhw=True, dhw_target=25.0)
+    _run(d, 302, dt=1)  # reaches 25 and stops
+    assert d._dhw == pytest.approx(25.0, abs=0.1) and d.discrete[5] == 0
+    _run(d, 300, dt=1)  # loses only 0.5 K: still off
+    assert d.discrete[5] == 0
+    for _ in range(1000):
+        d.step(1)
+        if d.discrete[5]:
+            break
+    else:
+        pytest.fail("DHW heating never resumed")
+    assert 23.9 < d._dhw < 24.1
+
+
+def test_setpoint_below_supply_does_not_run_compressor_when_heating():
+    d = _lg(setpoint=10.0)
+    d.step(10)
+    assert d.discrete[3] == 0

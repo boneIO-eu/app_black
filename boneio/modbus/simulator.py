@@ -63,7 +63,9 @@ DEFROST_DURATION_S = 60.0
 AUTO_HEATS_BELOW_OUTDOOR = 15.0  # LG "auto" heats below this outdoor temperature, else idles
 # Phnix operating_state values: 0 cooling, 1 heating, 2 defrost, 4 hot water.
 PHNIX_STATE_COOLING, PHNIX_STATE_HEATING, PHNIX_STATE_DEFROST, PHNIX_STATE_HOT_WATER = 0, 1, 2, 4
-PHNIX_STATE_STANDBY = 5  # not a state the scheme reads as cooling or heating
+# Phnix reports the state of its mode, not compressor activity: raw mode -> operating_state.
+PHNIX_STATE_BY_MODE = {0: PHNIX_STATE_HOT_WATER, 1: PHNIX_STATE_HEATING, 2: PHNIX_STATE_COOLING, 3: PHNIX_STATE_HEATING, 4: PHNIX_STATE_COOLING}
+DHW_RESUME_BELOW_K = 1.0  # DHW heating stops at the target and resumes this far below it
 # LG outdoor unit cycle: 0 stop, 1 cooling, 2 heating.
 
 # register_type of a definition block -> device bank name
@@ -133,7 +135,7 @@ class SimulatedDevice:
         self._roles = self._resolve_roles()
         # Physical state in full precision; the banks only hold it rounded.
         self._supply = self._dhw = START_TEMPERATURE
-        self._circuit_on = self._defrosting = False
+        self._circuit_on = self._defrosting = self._dhw_on = False
         self._since_defrost = self._defrost_left = 0.0
         if self._roles:
             self.step(0)
@@ -153,6 +155,7 @@ class SimulatedDevice:
             for a in self.definition.additional_entities
             if a.entity_type == "switch"
         }
+        self._power_state = registers.get("powerstate")
         roles = {}
         for role, ref in spec.roles.items():
             key = (ref if isinstance(ref, str) else ref[0]).replace(" ", "").lower()
@@ -205,7 +208,7 @@ class SimulatedDevice:
         active = mode in ("heat", "cool") and target is not None
         sign = -1 if mode == "cool" else 1
 
-        distance = abs(target - self._supply) if active else 0.0
+        distance = sign * (target - self._supply) if active else 0.0
         if not active or distance < COMPRESSOR_OFF_K:
             self._circuit_on = False
         elif distance > COMPRESSOR_ON_K:
@@ -213,7 +216,11 @@ class SimulatedDevice:
 
         dhw_target = v.get("dhw_target")
         dhw_wanted = scheme.dhw_mode(v) == "heat_pump" and dhw_target is not None
-        dhw_heating = dhw_wanted and self._dhw < dhw_target
+        if not dhw_wanted or self._dhw >= dhw_target:
+            self._dhw_on = False
+        elif self._dhw < dhw_target - DHW_RESUME_BELOW_K:
+            self._dhw_on = True
+        dhw_heating = self._dhw_on
         running = self._circuit_on or dhw_heating
 
         # Compressor running time accumulates toward a defrost in the cold.
@@ -243,17 +250,19 @@ class SimulatedDevice:
         self._put("compressor", running)
         self._put("defrost", self._defrosting)
         self._put("dhw_heating", dhw_heating)
-        if self._defrosting:
-            lg_cycle, phnix_state = 2, PHNIX_STATE_DEFROST
-        elif dhw_heating and not self._circuit_on:
-            lg_cycle, phnix_state = 2, PHNIX_STATE_HOT_WATER
-        elif self._circuit_on:
-            lg_cycle = 1 if mode == "cool" else 2
-            phnix_state = PHNIX_STATE_COOLING if mode == "cool" else PHNIX_STATE_HEATING
+        if self._defrosting or self._circuit_on or dhw_heating:
+            lg_cycle = 1 if self._circuit_on and mode == "cool" else 2
         else:
-            lg_cycle, phnix_state = 0, PHNIX_STATE_STANDBY
+            lg_cycle = 0
         self._put("outdoor_cycle", lg_cycle)
-        self._put("operating_state", phnix_state)
+        raw_mode = v.get("mode")
+        if raw_mode is not None:
+            state = PHNIX_STATE_DEFROST if self._defrosting else PHNIX_STATE_BY_MODE.get(int(raw_mode))
+            if state is not None:
+                self._put("operating_state", state)
+        if self._power_state is not None:
+            bank, reg = self._power_state
+            bank[reg.address] = int(v.get("power") == "ON")
 
     def bank(self, register_type: str) -> dict[int, int]:
         return getattr(self, _BANKS[register_type])
