@@ -134,6 +134,16 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "defaultUpdateInterval": "30s",
     "hasSetBase": true
   },
+  "lg-therma-v-r290": {
+    "modelKey": "lg-therma-v-r290",
+    "displayName": "LG Therma V R290",
+    "manufacturer": "LG",
+    "description": "LG Therma V R290 monoblock air-to-water heat pump",
+    "category": "hvac",
+    "defaultAddress": 1,
+    "defaultUpdateInterval": "30s",
+    "hasSetBase": false
+  },
   "thessla": {
     "modelKey": "thessla",
     "displayName": "Thessla Green",

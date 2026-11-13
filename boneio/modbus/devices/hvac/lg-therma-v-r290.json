@@ -1,0 +1,914 @@
+{
+  "model": "LG Therma V R290",
+  "manufacturer": "LG",
+  "description": "LG Therma V R290 monoblock air-to-water heat pump",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 5,
+      "register_type": "coil",
+      "registers": [
+        {
+          "name": "Heating cooling state",
+          "address": 0,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 0,
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "DHW state",
+          "address": 1,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 1,
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Silent mode state",
+          "address": 2,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 2,
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Start DHW disinfection",
+          "address": 3,
+          "entity_type": "button",
+          "value_type": "U_WORD",
+          "write_address": 3
+        },
+        {
+          "name": "Emergency stop state",
+          "address": 4,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 4,
+          "payload_on": "1",
+          "payload_off": "0",
+          "hidden": true,
+          "confirm": true
+        }
+      ]
+    },
+    {
+      "base": 5,
+      "length": 1,
+      "register_type": "coil",
+      "registers": [
+        {
+          "name": "Start emergency operation",
+          "address": 5,
+          "entity_type": "button",
+          "value_type": "U_WORD",
+          "write_address": 5
+        }
+      ]
+    },
+    {
+      "base": 6,
+      "length": 1,
+      "register_type": "coil",
+      "optional": true,
+      "registers": [
+        {
+          "name": "Power limit state",
+          "address": 6,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 6,
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "length": 17,
+      "register_type": "discrete_input",
+      "registers": [
+        {
+          "name": "Water flow",
+          "address": 0,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Circulation pump",
+          "address": 1,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "External circulation pump",
+          "address": 2,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Compressor",
+          "address": 3,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Defrost",
+          "address": 4,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "DHW heating",
+          "address": 5,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "DHW disinfection active",
+          "address": 6,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Silent mode active",
+          "address": 7,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Solar pump",
+          "address": 9,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Backup heater stage 1",
+          "address": 10,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Backup heater stage 2",
+          "address": 11,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "DHW booster heater",
+          "address": 12,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Error",
+          "address": 13,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Emergency heating available",
+          "address": 14,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Emergency DHW available",
+          "address": 15,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Mixing pump",
+          "address": 16,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "length": 14,
+      "register_type": "input",
+      "registers": [
+        {
+          "name": "Error code",
+          "address": 0,
+          "value_type": "U_WORD",
+          "state_class": "measurement",
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Outdoor unit cycle",
+          "address": 1,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Standby",
+            "1": "Cooling",
+            "2": "Heating"
+          }
+        },
+        {
+          "name": "Water return temperature",
+          "address": 2,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Water supply temperature",
+          "address": 3,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Backup heater outlet temperature",
+          "address": 4,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "DHW tank temperature",
+          "address": 5,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Solar collector temperature",
+          "address": 6,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Room temperature circuit 1",
+          "address": 7,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Water flow rate",
+          "address": 8,
+          "value_type": "U_WORD",
+          "state_class": "measurement",
+          "unit_of_measurement": "l/min",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Supply temperature circuit 2",
+          "address": 9,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Room temperature circuit 2",
+          "address": 10,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "SG Ready state",
+          "address": 11,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Not used",
+            "1": "Forced off",
+            "2": "Normal",
+            "3": "Switch-on recommended",
+            "4": "Switch-on command",
+            "5": "Switch-on command stage 2",
+            "6": "Switch-on recommendation stage 1",
+            "7": "Saving",
+            "8": "Super saving"
+          }
+        },
+        {
+          "name": "Outdoor temperature",
+          "address": 12,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Water pressure",
+          "address": 13,
+          "value_type": "U_WORD",
+          "state_class": "measurement",
+          "unit_of_measurement": "bar",
+          "device_class": "pressure",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 16,
+      "length": 1,
+      "register_type": "input",
+      "optional": true,
+      "registers": [
+        {
+          "name": "Refrigerant liquid temperature",
+          "address": 16,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "entity_category": "diagnostic"
+        }
+      ]
+    },
+    {
+      "base": 18,
+      "length": 7,
+      "register_type": "input",
+      "optional": true,
+      "registers": [
+        {
+          "name": "Refrigerant suction temperature",
+          "address": 18,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Refrigerant discharge temperature",
+          "address": 19,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Evaporator inlet temperature",
+          "address": 20,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Evaporator outlet temperature",
+          "address": 21,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "High pressure",
+          "address": 22,
+          "value_type": "U_WORD",
+          "unit_of_measurement": "bar",
+          "state_class": "measurement",
+          "device_class": "pressure",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ],
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Low pressure",
+          "address": 23,
+          "value_type": "U_WORD",
+          "unit_of_measurement": "bar",
+          "state_class": "measurement",
+          "device_class": "pressure",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ],
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Compressor speed",
+          "address": 24,
+          "value_type": "U_WORD",
+          "state_class": "measurement",
+          "unit_of_measurement": "Hz",
+          "device_class": "frequency",
+          "entity_category": "diagnostic"
+        }
+      ]
+    },
+    {
+      "base": 9997,
+      "length": 2,
+      "register_type": "input",
+      "optional": true,
+      "registers": [
+        {
+          "name": "Device group",
+          "address": 9997,
+          "value_type": "U_WORD",
+          "entity_category": "diagnostic"
+        },
+        {
+          "name": "Product info",
+          "address": 9998,
+          "value_type": "U_WORD",
+          "entity_category": "diagnostic"
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "length": 10,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Operating mode value",
+          "address": 0,
+          "entity_type": "writeable_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 0,
+          "x_mapping": {
+            "0": "Cooling",
+            "3": "Auto",
+            "4": "Heating"
+          }
+        },
+        {
+          "name": "Control method value",
+          "address": 1,
+          "entity_type": "writeable_sensor_discrete",
+          "value_type": "U_WORD",
+          "write_address": 1,
+          "x_mapping": {
+            "0": "Supply water",
+            "1": "Return water",
+            "2": "Room air"
+          }
+        },
+        {
+          "name": "Heating setpoint",
+          "address": 2,
+          "entity_type": "writeable_sensor",
+          "value_type": "S_WORD",
+          "write_address": 2,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "step": 0.5,
+          "min": 5,
+          "max": 60,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Room setpoint circuit 1",
+          "address": 3,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Curve offset circuit 1",
+          "address": 4,
+          "entity_type": "writeable_sensor",
+          "value_type": "S_WORD",
+          "write_address": 4,
+          "unit_of_measurement": "K",
+          "state_class": "measurement",
+          "step": 1,
+          "min": -5,
+          "max": 5
+        },
+        {
+          "name": "Heating setpoint circuit 2",
+          "address": 5,
+          "entity_type": "writeable_sensor",
+          "value_type": "S_WORD",
+          "write_address": 5,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "step": 0.5,
+          "min": 20,
+          "max": 40,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Room setpoint circuit 2",
+          "address": 6,
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Curve offset circuit 2",
+          "address": 7,
+          "entity_type": "writeable_sensor",
+          "value_type": "S_WORD",
+          "write_address": 7,
+          "unit_of_measurement": "K",
+          "state_class": "measurement",
+          "step": 1,
+          "min": -5,
+          "max": 5
+        },
+        {
+          "name": "DHW setpoint",
+          "address": 8,
+          "entity_type": "writeable_sensor",
+          "value_type": "S_WORD",
+          "write_address": 8,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "step": 0.5,
+          "min": 35,
+          "max": 65,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "SG Ready control state",
+          "address": 9,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Not used",
+            "1": "Forced off",
+            "2": "Normal",
+            "3": "Switch-on recommended",
+            "4": "Switch-on command",
+            "5": "Switch-on command stage 2",
+            "6": "Switch-on recommendation stage 1",
+            "7": "Saving",
+            "8": "Super saving"
+          }
+        }
+      ]
+    },
+    {
+      "base": 23,
+      "length": 2,
+      "register_type": "holding",
+      "optional": true,
+      "registers": [
+        {
+          "name": "Modulation limit",
+          "address": 23,
+          "entity_type": "writeable_sensor",
+          "value_type": "U_WORD",
+          "write_address": 23,
+          "unit_of_measurement": "%",
+          "state_class": "measurement",
+          "step": 1,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "Power limit",
+          "address": 24,
+          "entity_type": "writeable_sensor",
+          "value_type": "U_WORD",
+          "write_address": 24,
+          "unit_of_measurement": "kW",
+          "state_class": "measurement",
+          "device_class": "power",
+          "step": 0.1,
+          "min": 0.1,
+          "max": 25,
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "Heating cooling",
+      "source": "heatingcoolingstate",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "DHW",
+      "source": "dhwstate",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Silent mode",
+      "source": "silentmodestate",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Emergency stop",
+      "source": "emergencystopstate",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Power limit on",
+      "source": "powerlimitstate",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Operating mode",
+      "source": "operatingmodevalue",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Cooling",
+        "3": "Auto",
+        "4": "Heating"
+      }
+    },
+    {
+      "name": "Control method",
+      "source": "controlmethodvalue",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Supply water",
+        "1": "Return water",
+        "2": "Room air"
+      }
+    }
+  ]
+}

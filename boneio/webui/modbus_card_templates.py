@@ -66,6 +66,7 @@ ENTITY_TYPE_ICONS: dict[str, str] = {
     "writeable_sensor": "mdi:pencil",
     "writeable_sensor_discrete": "mdi:pencil",
     "writeable_binary_sensor_discrete": "mdi:toggle-switch-variant",
+    "button": "mdi:gesture-tap-button",
 }
 
 
@@ -106,6 +107,8 @@ def _ha_entity_type(entity: Any) -> str:
         return "number"
     if et in ("select",):
         return "select"
+    if et == "button":
+        return "button"
     return "sensor"
 
 

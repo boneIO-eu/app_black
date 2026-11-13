@@ -258,7 +258,7 @@ class TestAllModels:
             "sensor", "binary_sensor", "text_sensor",
             "writeable_sensor", "writeable_sensor_discrete",
             "writeable_binary_sensor_discrete",
-            "select", "switch", "number",  # derived additional_entities
+            "select", "switch", "number", "button",  # derived additional_entities
         }
         coord = MockModbusCoordinator.from_json(model_key)
         for entities_dict in coord.get_all_entities():

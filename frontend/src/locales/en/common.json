@@ -2415,6 +2415,9 @@
     "le-03mwct": {
       "description": "F&F LE-03MW CT 3-phase energy meter with current transformers"
     },
+    "lg-therma-v-r290": {
+      "description": "LG Therma V R290 monoblock air-to-water heat pump"
+    },
     "liquid-sensor": {
       "description": "Generic Modbus liquid level sensor"
     },

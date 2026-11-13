@@ -2414,6 +2414,9 @@
     "le-03mwct": {
       "description": "3-fazowy licznik energii z przekładnikami F&F LE-03MW CT"
     },
+    "lg-therma-v-r290": {
+      "description": "Pompa ciepła powietrze-woda LG Therma V R290 (monoblok)"
+    },
     "liquid-sensor": {
       "description": "Uniwersalny czujnik poziomu cieczy Modbus"
     },
