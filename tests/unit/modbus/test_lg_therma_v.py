@@ -64,15 +64,17 @@ def test_power_limits_sit_in_an_optional_block():
     b = next(b for b in d.registers_base if b.register_type == "holding" and b.base == 23)
     assert b.optional
     r = {x.decoded_name: x for x in b.registers}
-    assert (r["modulationlimit"].min, r["modulationlimit"].max) == (0, 100)
+    # The map allows 0 (no limit) or 40-100; the panel cannot express the gap, so 0 is not offered.
+    assert (r["modulationlimit"].min, r["modulationlimit"].max) == (40, 100)
     assert (r["powerlimit"].min, r["powerlimit"].max) == (0.1, 25)
 
 
-def test_emergency_stop_is_hidden_and_confirmed():
+def test_emergency_controls_are_hidden_and_confirmed():
+    # Home Assistant asks for no confirmation, so both are off until the user enables them.
     stop = _by_name()["emergencystopstate"]
     assert stop.hidden and stop.confirm and stop.address == 4
     assert {n for n, r in _by_name().items() if r.confirm} == {"emergencystopstate", "startemergencyoperation"}
-    assert {n for n, r in _by_name().items() if r.hidden} == {"emergencystopstate"}
+    assert {n for n, r in _by_name().items() if r.hidden} == {"emergencystopstate", "startemergencyoperation"}
 
 
 def test_emergency_stop_switch_is_hidden_and_confirmed_through_its_source():

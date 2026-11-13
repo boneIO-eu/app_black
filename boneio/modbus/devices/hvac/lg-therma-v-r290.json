@@ -69,7 +69,8 @@
           "entity_type": "button",
           "value_type": "U_WORD",
           "write_address": 5,
-          "confirm": true
+          "confirm": true,
+          "hidden": true
         }
       ]
     },
@@ -807,7 +808,7 @@
           "unit_of_measurement": "%",
           "state_class": "measurement",
           "step": 1,
-          "min": 0,
+          "min": 40,
           "max": 100
         },
         {
