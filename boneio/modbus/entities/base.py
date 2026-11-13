@@ -68,6 +68,10 @@ class BaseEntity(Filter):
     def id(self) -> str:
         return self._id
 
+    @property
+    def discovery_topic(self) -> str:
+        return self._topic
+
     def set_user_filters(self, user_filters: list) -> None:
         self._user_filters = user_filters
 

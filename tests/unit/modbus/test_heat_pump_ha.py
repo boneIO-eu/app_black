@@ -16,7 +16,8 @@ import pytest
 
 from boneio.core.config.config_helper import ConfigHelper
 from boneio.core.manager import Manager
-from boneio.modbus.coordinator import ModbusCoordinator, ModbusWriteRejected
+from boneio.core.manager.modbus import ModbusManager
+from boneio.modbus.coordinator import ModbusCoordinator, ModbusWriteFailed, ModbusWriteRejected
 from boneio.modbus.definition import load_definition
 
 PREFIX = "boneio/blk0001"
@@ -24,10 +25,12 @@ CLIMATE_TOPIC = "homeassistant/climate/blk0001/lg_heat_pump/config"
 WATER_HEATER_TOPIC = "homeassistant/water_heater/blk0001/lg_dhw/config"
 
 
-def _coordinator(model="lg-therma-v-r290", read_only=False, visibility=None) -> ModbusCoordinator:
+def _coordinator(
+    model="lg-therma-v-r290", read_only=False, visibility=None, device_id="lg", config_helper=None
+) -> ModbusCoordinator:
     # Bypass __init__: it wires up the manager, but the entities are built as usual.
     c = ModbusCoordinator.__new__(ModbusCoordinator)
-    c._id, c._name, c._area, c._has_custom_id = "lg", "LG", None, False
+    c._id, c._name, c._area, c._has_custom_id = device_id, "LG", None, False
     c._read_only, c._address, c._polling_enabled = read_only, 1, True
     c._definition = load_definition(model)
     c._model = c._definition.model
@@ -38,7 +41,9 @@ def _coordinator(model="lg-therma-v-r290", read_only=False, visibility=None) -> 
     c._entity_visibility = visibility or {}
     c._message_bus, c._event_bus = MagicMock(), MagicMock()
     c._send_topic = f"{PREFIX}/modbus/lg"
-    c.manager = MagicMock(config_helper=ConfigHelper(name="black", serial_override="blk0001"))
+    c.manager = MagicMock(
+        config_helper=config_helper or ConfigHelper(name="black", serial_override="blk0001")
+    )
     c._modbus = MagicMock()
     c._modbus.write_register = AsyncMock(return_value=MagicMock())
     c.request_update = MagicMock()
@@ -111,6 +116,20 @@ def test_climate_discovery_is_in_modbus_device():
     assert payload["temperature_command_topic"] == f"{PREFIX}/cmd/modbus/lg/heat_pump/dhw_temperature/set"
 
 
+def test_climate_limits_come_from_the_target_registers():
+    c = _coordinator()
+    registers = c._registers_by_name
+    registers["heatingsetpoint"] = registers["heatingsetpoint"].model_copy(
+        update={"min": 15, "max": 55, "step": 1}
+    )
+
+    c._send_discovery_for_all_registers()
+
+    [climate] = _sent(c, CLIMATE_TOPIC)
+    assert (climate["payload"]["min_temp"], climate["payload"]["max_temp"]) == (15, 55)
+    assert climate["payload"]["temp_step"] == 1
+
+
 def test_climate_limits_fall_back_when_the_target_has_none():
     c = _coordinator("kaisai-phnix")
 
@@ -146,17 +165,16 @@ async def test_heat_pump_state_published_on_change_only():
     topic = f"{PREFIX}/modbus/lg/heat_pump"
 
     await c.async_update(1.0)
-    [unknown] = _sent(c, topic)
-    assert unknown["payload"]["mode"] is None
-    assert unknown["retain"] is True
+    assert _sent(c, topic) == []  # nothing read yet: no made-up state is retained
 
     _heating_lg(c)
     await c.async_update(2.0)
     await c.async_update(3.0)
 
     sent = _sent(c, topic)
-    assert len(sent) == 2
-    assert sent[1]["payload"] == {
+    assert len(sent) == 1
+    assert sent[0]["retain"] is True
+    assert sent[0]["payload"] == {
         "mode": "heat",
         "action": "heating",  # outdoor unit cycle fed as its raw value 2, not "Heating"
         "current_temperature": 40.2,
@@ -165,6 +183,17 @@ async def test_heat_pump_state_published_on_change_only():
         "dhw_current": 48.0,
         "dhw_target": 50.0,
     }
+
+
+async def test_an_unknown_mode_is_published_as_null():
+    c = _coordinator()
+    _heating_lg(c)
+    _read(c, operatingmodevalue=1)  # not a mode LG documents
+
+    c._publish_heat_pump_state()
+
+    [sent] = _sent(c, f"{PREFIX}/modbus/lg/heat_pump")
+    assert sent["payload"]["mode"] is None
 
 
 async def test_mqtt_mode_heat_writes_mode_then_power():
@@ -213,7 +242,13 @@ async def test_a_refused_second_write_stops_the_first():
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("temperature", "61"), ("temperature", "nan"), ("dhw_temperature", "70"), ("dhw_temperature", "abc")],
+    [
+        ("temperature", "61"),
+        ("temperature", "nan"),
+        ("dhw_temperature", "70"),
+        ("dhw_temperature", "abc"),
+        ("dhw_temperature", "30"),
+    ],
 )
 async def test_out_of_range_target_writes_nothing(field, value):
     c = _coordinator()
@@ -225,9 +260,18 @@ async def test_out_of_range_target_writes_nothing(field, value):
     c._modbus.write_register.assert_not_awaited()
 
 
-@pytest.mark.parametrize(("field", "value"), [("mode", "auto"), ("temperature", "nan"), ("swing", "on")])
-async def test_phnix_rejects_what_it_cannot_do(field, value):
+def _known_phnix():
     c = _coordinator("kaisai-phnix")
+    _read(c, power=1, mode=1)
+    return c
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("mode", "auto"), ("temperature", "nan"), ("temperature", "61"), ("dhw_temperature", "4"), ("swing", "on")],
+)
+async def test_phnix_rejects_what_it_cannot_do(field, value):
+    c = _known_phnix()
 
     with pytest.raises(ModbusWriteRejected):
         await c.set_heat_pump(field, value)
@@ -257,3 +301,90 @@ async def test_plain_modbus_set_still_works():
     )
 
     c._modbus.write_register.assert_awaited_once_with(unit=1, address=2, value=400, coil=False)
+
+
+@pytest.mark.parametrize(
+    ("model", "field", "value"),
+    [
+        ("kaisai-phnix", "dhw_mode", "heat_pump"),
+        ("kaisai-phnix", "mode", "heat"),
+        ("kaisai-phnix", "temperature", "40"),
+        ("lg-therma-v-r290", "mode", "heat"),
+    ],
+)
+async def test_nothing_is_written_before_power_and_mode_are_known(model, field, value):
+    c = _coordinator(model)
+
+    with pytest.raises(ModbusWriteRejected, match="not known yet"):
+        await c.set_heat_pump(field, value)
+
+    c._modbus.write_register.assert_not_awaited()
+
+
+async def test_a_failed_bus_write_stops_the_command():
+    c = _coordinator()
+    _heating_lg(c)
+    _read(c, heatingcoolingstate=0, operatingmodevalue=0)
+    c._publish_heat_pump_state()
+    c._message_bus.send_message.reset_mock()
+    c._modbus.write_register = AsyncMock(return_value=None)  # timeout, exception response, suspended
+
+    with pytest.raises(ModbusWriteFailed):
+        await c.set_heat_pump("mode", "heat")
+
+    c._modbus.write_register.assert_awaited_once()  # the power write never went out
+    assert c.get_entity_by_name("operatingmodevalue").get_value() == 0
+    c._message_bus.send_message.assert_not_called()
+
+
+async def test_a_failed_bus_write_reaches_mqtt_as_a_warning(caplog):
+    c = _coordinator()
+    c._modbus.write_register = AsyncMock(return_value=None)
+
+    with caplog.at_level(logging.WARNING):
+        await _manager(c).receive_message(
+            f"{PREFIX}/cmd/modbus/lg/set", '{"device": "heatingsetpoint", "value": "40"}'
+        )
+
+    assert "Modbus write failed" in caplog.text
+    assert c.get_entity_by_name("heatingsetpoint").get_value() is None
+
+
+def test_removing_a_device_leaves_other_entities_alone():
+    helper = ConfigHelper(name="black", serial_override="blk0001")
+    heat = _coordinator(device_id="heat", config_helper=helper)
+    heat._send_discovery_for_all_registers()
+    native = [
+        "homeassistant/climate/blk0001/heating_floor/config",
+        "homeassistant/climate/blk0001/heat_floor/config",
+        "homeassistant/switch/blk0001/heat_relay/config",
+    ]
+    for topic in native:
+        helper.add_autodiscovery_msg(ha_type=topic.split("/")[1], topic=topic, payload={})
+    owned = [topic for _, topic in heat.discovery_topics() if helper.is_topic_in_autodiscovery(topic)]
+    assert "homeassistant/climate/blk0001/heat_heat_pump/config" in owned
+    modbus = ModbusManager.__new__(ModbusManager)
+    modbus._manager = SimpleNamespace(_config_helper=helper, send_message=MagicMock())
+    modbus._modbus_coordinators = {"heat": heat}
+
+    modbus._remove_modbus_ha_discovery_for_id("heat")
+
+    removed = {c.kwargs["topic"] for c in modbus._manager.send_message.call_args_list}
+    assert removed == set(owned)
+    assert all(helper.is_topic_in_autodiscovery(topic) for topic in native)
+    assert not any(helper.is_topic_in_autodiscovery(topic) for topic in owned)
+
+
+async def test_a_failed_bus_write_is_a_bad_gateway_for_the_panel():
+    from fastapi import HTTPException
+
+    from boneio.webui.routes.modbus import set_modbus_value
+
+    c = _coordinator()
+    c._modbus.write_register = AsyncMock(return_value=None)
+    manager = SimpleNamespace(modbus=SimpleNamespace(get_all_coordinators=lambda: {"lg": c}))
+
+    with pytest.raises(HTTPException) as err:
+        await set_modbus_value("lg", "heatingsetpoint", {"value": 40}, manager)
+
+    assert err.value.status_code == 502

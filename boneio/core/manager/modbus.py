@@ -255,36 +255,23 @@ class ModbusManager:
         """Remove HA autodiscovery for a specific Modbus device.
         
         Sends empty payloads to MQTT to remove entities from Home Assistant.
-        Modbus devices can have multiple entity types: sensor, binary_sensor,
-        number, select, switch, text_sensor, and a heat pump's climate and
-        water_heater.
-        
+        Only the topics the device itself names go, so an entity of another
+        device whose id merely starts the same way stays.
+
         Args:
             device_id: Device ID to remove
         """
-        # Modbus uses multiple entity types
-        ha_types = [
-            "sensor", "binary_sensor", "number", "select", "switch", "text_sensor",
-            "climate", "water_heater",
-        ]
-        
-        for ha_type in ha_types:
-            # Get autodiscovery messages for this type
-            type_messages = self._manager._config_helper._autodiscovery_messages.get(ha_type, {})
-            
-            # Find topics that contain this device_id
-            topics_to_remove = []
-            for topic in type_messages:
-                # Topic format: homeassistant/{type}/{topic_prefix}{device_id}/{entity_id}/config
-                # We need to match device_id in the topic
-                if f"/{device_id}" in topic or f"{device_id}_" in topic or f"{device_id}/" in topic:
-                    topics_to_remove.append(topic)
-            
-            for topic in topics_to_remove:
-                # Send empty/null payload to remove from HA (HA requires zero-length retained message)
-                self._manager.send_message(topic=topic, payload=None, retain=True)
-                self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
-                _LOGGER.debug("Removed HA autodiscovery for Modbus %s: %s", ha_type, topic)
+        coordinator = self._modbus_coordinators.get(device_id)
+        if coordinator is None:
+            return
+        config_helper = self._manager._config_helper
+        for ha_type, topic in coordinator.discovery_topics():
+            if not config_helper.is_topic_in_autodiscovery(topic):
+                continue
+            # HA removes an entity on a zero-length retained message.
+            self._manager.send_message(topic=topic, payload=None, retain=True)
+            config_helper.remove_autodiscovery_msg(ha_type, topic)
+            _LOGGER.debug("Removed HA autodiscovery for Modbus %s: %s", ha_type, topic)
 
     async def reload_modbus_devices(self) -> None:
         """Reload Modbus devices configuration from file.

@@ -68,7 +68,7 @@ from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner
-from boneio.modbus.coordinator import ModbusWriteRejected
+from boneio.modbus.coordinator import ModbusWriteFailed, ModbusWriteRejected
 
 if TYPE_CHECKING:
     pass
@@ -2282,13 +2282,17 @@ class Manager:
         # Before the plain "set" below, which ends the same way.
         if msg_type == "modbus" and command == "set" and len(topic_parts) == 2 and topic_parts[0] == "heat_pump":
             target_device = self.modbus.get_all_coordinators().get(device_id)
-            if target_device and isinstance(message, str):
+            if not target_device:
+                _LOGGER.debug("Modbus coordinator not found: %s", device_id)
+            elif not isinstance(message, str):
+                _LOGGER.debug("Heat pump command for %s is not text: %r", device_id, message)
+            else:
                 try:
                     await target_device.set_heat_pump(topic_parts[1], message)
                 except ModbusWriteRejected as err:
                     _LOGGER.warning("Heat pump command rejected: %s", err)
-            else:
-                _LOGGER.debug("Modbus coordinator not found: %s", device_id)
+                except ModbusWriteFailed as err:
+                    _LOGGER.warning("Heat pump command failed: %s", err)
             return
 
         if msg_type == "modbus" and command == "set":
@@ -2304,6 +2308,8 @@ class Manager:
                             await target_device.write_register(value=value, entity=entity)
                 except ModbusWriteRejected as err:
                     _LOGGER.warning("Modbus write rejected: %s", err)
+                except ModbusWriteFailed as err:
+                    _LOGGER.warning("Modbus write failed: %s", err)
                 except json.JSONDecodeError:
                     _LOGGER.warning("Invalid JSON in modbus message: %s", message)
             return

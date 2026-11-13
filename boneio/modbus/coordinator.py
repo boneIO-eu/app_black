@@ -109,6 +109,10 @@ class ModbusWriteRejected(Exception):
     """A write was refused before it reached the bus."""
 
 
+class ModbusWriteFailed(Exception):
+    """A write went to the bus and the device did not take it."""
+
+
 class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus coordinator in BoneIO."""
 
@@ -823,10 +827,25 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         return heat_pump_state(SCHEMES[spec.scheme], self.heat_pump_values())
 
+    @staticmethod
+    def _heat_pump_known(values: dict[str, Any]) -> bool:
+        """Power and mode are read: the schemes can tell what the pump does."""
+        return values.get("power") is not None and values.get("mode") is not None
+
     def _publish_heat_pump_state(self) -> None:
-        """Send the heat pump state, retained, when it differs from the last one sent."""
-        current = self.heat_pump_state()
-        if current is None or current == self._published_heat_pump:
+        """Send the heat pump state, retained, when it differs from the last one sent.
+
+        Nothing goes out until power and mode have been read, so no made-up
+        state is retained before the device answers.
+        """
+        spec = self._definition.heat_pump
+        if spec is None:
+            return
+        values = self.heat_pump_values()
+        if not self._heat_pump_known(values):
+            return
+        current = heat_pump_state(SCHEMES[spec.scheme], values)
+        if current == self._published_heat_pump:
             return
         self._published_heat_pump = current
         self._message_bus.send_message(
@@ -846,6 +865,19 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             HEAT_PUMP_MAX_TEMP if high is None else high,
             HEAT_PUMP_TEMP_STEP if step is None else step,
         )
+
+    def discovery_topics(self) -> list[tuple[str, str]]:
+        """(ha_type, topic) of every discovery message this device may own."""
+        polling, _ = self._polling_switch_discovery()
+        return [
+            *(
+                (entity.entity_type, entity.discovery_topic)
+                for entities in (*self._modbus_entities, *self._additional_entities)
+                for entity in entities.values()
+            ),
+            ("switch", polling),
+            *((ha_type, topic) for ha_type, topic, _ in self._heat_pump_discovery()),
+        ]
 
     def _heat_pump_discovery(self) -> list[tuple[str, str, dict]]:
         """(ha_type, topic, payload) of the climate and water heater.
@@ -888,13 +920,18 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
         ``field`` is mode, temperature, dhw_mode or dhw_temperature. Every
         write the command needs is checked before the first is sent, so a
-        refused one leaves the device as it was. Raises ModbusWriteRejected.
+        refused one leaves the device as it was, and none is built from an
+        unknown power or mode. Temperatures stay within the range Home
+        Assistant is told. Writing stops at the first one the device does not
+        take. Raises ModbusWriteRejected or ModbusWriteFailed.
         """
         spec = self._definition.heat_pump
         if spec is None:
             raise ModbusWriteRejected(f"{self._name} is not a heat pump")
         scheme = SCHEMES[spec.scheme]
         v = self.heat_pump_values()
+        if field in ("mode", "dhw_mode", "temperature") and not self._heat_pump_known(v):
+            raise ModbusWriteRejected(f"{self._name}: heat pump state not known yet")
         if field == "mode":
             if value not in scheme.modes:
                 raise ModbusWriteRejected(f"{self._name}: no mode {value!r}")
@@ -910,6 +947,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 raise ModbusWriteRejected(f"{self._name}: '{value}' is not a number") from None
             if not math.isfinite(number):
                 raise ModbusWriteRejected(f"{self._name}: {value} is not a finite number")
+            low, high, _ = self._heat_pump_limits(
+                "heating_target" if field == "temperature" else "dhw_target"
+            )
+            if not low <= number <= high:
+                raise ModbusWriteRejected(
+                    f"{self._name}: {value} is outside the allowed range {low}..{high}"
+                )
             role = scheme.target_role(v) if field == "temperature" else "dhw_target"
             writes = [Write(role, number)]
         else:
@@ -958,6 +1002,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             value=encoded_value,
             coil=source_sensor in self._coil_entities,
         )
+        if status is None:
+            raise ModbusWriteFailed(f"{self._name}: writing {entity.name} failed")
         
         # Update states
         source_sensor.set_value(value=encoded_value, timestamp=timestamp)
@@ -1005,12 +1051,14 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         encoded_value = entity.encode_value(numeric_value) # 169
         
         # Write to modbus
-        await self._modbus.write_register(
-            unit=self._address, 
-            address=entity.write_address, 
+        status = await self._modbus.write_register(
+            unit=self._address,
+            address=entity.write_address,
             value=encoded_value,
             coil=entity in self._coil_entities,
         )
+        if status is None:
+            raise ModbusWriteFailed(f"{self._name}: writing {entity.name} failed")
         _LOGGER.debug("Register written address: %s value: %s, encoded: %s", entity.write_address, numeric_value, encoded_value)
         
         # Update state
