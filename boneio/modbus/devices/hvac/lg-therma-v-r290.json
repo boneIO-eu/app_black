@@ -68,7 +68,8 @@
           "address": 5,
           "entity_type": "button",
           "value_type": "U_WORD",
-          "write_address": 5
+          "write_address": 5,
+          "confirm": true
         }
       ]
     },

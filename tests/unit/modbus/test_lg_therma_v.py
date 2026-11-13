@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -70,7 +71,16 @@ def test_power_limits_sit_in_an_optional_block():
 def test_emergency_stop_is_hidden_and_confirmed():
     stop = _by_name()["emergencystopstate"]
     assert stop.hidden and stop.confirm and stop.address == 4
-    assert not any(r.hidden or r.confirm for n, r in _by_name().items() if n != "emergencystopstate")
+    assert {n for n, r in _by_name().items() if r.confirm} == {"emergencystopstate", "startemergencyoperation"}
+    assert {n for n, r in _by_name().items() if r.hidden} == {"emergencystopstate"}
+
+
+def test_emergency_stop_switch_is_hidden_and_confirmed_through_its_source():
+    coordinator = _coordinator(json.loads(DEVICE.read_text())["registers_base"])
+    switch = SimpleNamespace(decoded_name="emergencystop", source_sensor_decoded_name="emergencystopstate")
+
+    assert not coordinator.visible(switch, "panel") and not coordinator.visible(switch, "ha")
+    assert coordinator.confirm_required(switch)
 
 
 def test_triggers_are_buttons():
