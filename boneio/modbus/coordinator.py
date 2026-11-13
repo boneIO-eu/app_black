@@ -238,6 +238,15 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     def definition(self) -> DeviceDefinition:
         return self._definition
 
+    @property
+    def address(self) -> str | int:
+        """Modbus unit (slave address) of the device."""
+        return self._address
+
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
+
     def __init_modbus_entities__(self):
         self._registers_by_name = {
             register.decoded_name: register

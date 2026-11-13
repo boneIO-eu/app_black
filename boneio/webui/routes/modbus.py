@@ -97,6 +97,17 @@ def _heat_pump_coordinator(manager: Manager, coordinator_id: str):
     return coordinator
 
 
+def _refuse_read_only_unit(manager: Manager, unit: int) -> None:
+    """A raw Tools write must not reach a device configured read only."""
+    for coordinator in manager.modbus.get_all_coordinators().values():
+        if coordinator.read_only and str(coordinator.address) == str(unit):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Device {unit} is {coordinator.name}, which is set read only. "
+                "Turn read only off in its settings to write to it.",
+            )
+
+
 @router.get("/modbus/{coordinator_id}/heat_pump")
 async def get_heat_pump(coordinator_id: str, manager: Manager = Depends(get_manager)):
     """Heat pump scheme, modes, role -> entity id map and thermostat state."""
@@ -271,6 +282,7 @@ async def modbus_set(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
+    _refuse_read_only_unit(boneio_manager, request.address)
     if request.register_type != "coil" and not fits_register(request.value):
         raise HTTPException(
             status_code=400,
@@ -330,6 +342,8 @@ async def modbus_set_multiple(
             "success": False,
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
+
+    _refuse_read_only_unit(boneio_manager, request.address)
 
     if not request.values:
         return {
