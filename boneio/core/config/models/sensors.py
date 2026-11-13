@@ -152,6 +152,13 @@ def _at_least_a_second(value):
     return value
 
 
+class EntityVisibility(Model):
+    """Where a Modbus entity shows; None keeps the device definition's choice."""
+
+    panel: bool | None = None
+    ha: bool | None = None
+
+
 class ModbusDevice(Model):
     name: str | None = Field(None, description="Display Name")
     area: str | None = Field(None, description="Area")
@@ -171,6 +178,11 @@ class ModbusDevice(Model):
         json_schema_extra={"minimum": 1000},
     )
     entity_labels: dict[str, str] | None = Field(None, description="Custom entity labels")
+    entity_visibility: dict[str, EntityVisibility] | None = Field(
+        None,
+        description="Per entity: show it in the panel and in Home Assistant, or hide it. "
+        "Without an entry the device definition decides.",
+    )
     read_only: bool = Field(
         False,
         description="Read only: nothing is written to the device and Home Assistant gets no controls. "

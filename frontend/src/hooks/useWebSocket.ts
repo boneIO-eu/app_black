@@ -99,6 +99,7 @@ export interface ModbusDeviceState {
   max?: number | null;  // Highest value a numeric input accepts
   custom_label?: string | null;  // User-defined custom label from YAML config
   area?: string | null;  // Area id of the device the entity belongs to
+  confirm?: boolean;  // The panel asks before a write to this entity
 }
 
 export interface SensorEvent {

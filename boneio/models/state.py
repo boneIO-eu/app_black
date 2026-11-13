@@ -90,6 +90,7 @@ class ModbusDeviceState(BaseModel):
     max: float | None = None  # Highest value a numeric input accepts
     custom_label: str | None = None  # User-defined custom label from YAML config
     area: str | None = None  # Area id of the device the entity belongs to
+    confirm: bool = False  # The panel asks before a write to this entity
 
 class HostSensorState(BaseModel):
     """Host sensor state model."""

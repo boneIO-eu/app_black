@@ -130,6 +130,7 @@ interface ModbusDeviceFormData {
   sensors_filters?: { temperature?: Filter[]; humidity?: Filter[] };
   data?: { width?: string; length?: string };
   entity_labels?: Record<string, string>;
+  entity_visibility?: Record<string, { panel?: boolean; ha?: boolean }>;
 }
 
 interface ModbusDeviceFormProps {
@@ -182,10 +183,25 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   const showDataFields = selectedModel === 'liquid-sensor';
 
   // Entity labels: fetch entity list from model JSON (not from running coordinator)
-  const [entities, setEntities] = useState<Array<{ decoded_name: string; name: string; entity_type: string }>>([]);
+  const [entities, setEntities] = useState<Array<{ decoded_name: string; name: string; entity_type: string; hidden?: boolean }>>([]);
   const [labelsLoading, setLabelsLoading] = useState(false);
   const [labelsError, setLabelsError] = useState<string | null>(null);
   const fetchedModelRef = React.useRef<string>('');
+
+  // Only a choice that differs from the definition's default is stored.
+  const setVisibility = (
+    entity: { decoded_name: string; hidden?: boolean },
+    where: 'panel' | 'ha',
+    on: boolean,
+  ) => {
+    const all = { ...(data.entity_visibility || {}) };
+    const entry = { ...(all[entity.decoded_name] || {}) };
+    if (on === !entity.hidden) delete entry[where];
+    else entry[where] = on;
+    if (Object.keys(entry).length > 0) all[entity.decoded_name] = entry;
+    else delete all[entity.decoded_name];
+    updateField('entity_visibility', Object.keys(all).length > 0 ? all : undefined);
+  };
 
   useEffect(() => {
     if (activeTab !== 'labels' || !selectedModel) return;
@@ -472,37 +488,56 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             <NoticeCallout variant="warning" message={labelsError} />
           )}
 
-          {!labelsLoading && entities.filter(e => !e.entity_type?.includes('discrete')).length > 0 && (
+          {!labelsLoading && entities.length > 0 && (
             <div className="space-y-2">
-              {entities.filter(e => !e.entity_type?.includes('discrete')).map((entity) => (
-                <div key={entity.decoded_name} className="flex items-center gap-3">
+              {entities.map((entity) => (
+                <div key={entity.decoded_name} className="flex flex-wrap items-center gap-3">
                   <div className="w-44 shrink-0">
                     <span className="text-sm text-base-content/70 truncate block" title={entity.name}>
                       {entity.name}
                     </span>
                     <span className="badge badge-xs badge-ghost">{entity.entity_type}</span>
                   </div>
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm flex-1"
-                    value={data.entity_labels?.[entity.decoded_name] ?? ''}
-                    onChange={(e) => {
-                      const newLabels = { ...(data.entity_labels || {}) };
-                      if (e.target.value.trim()) {
-                        newLabels[entity.decoded_name] = e.target.value;
-                      } else {
-                        delete newLabels[entity.decoded_name];
-                      }
-                      updateField('entity_labels', Object.keys(newLabels).length > 0 ? newLabels : undefined);
-                    }}
-                    placeholder={entity.name}
-                  />
+                  {!entity.entity_type?.includes('discrete') ? (
+                    <input
+                      type="text"
+                      className="input input-bordered input-sm flex-1"
+                      value={data.entity_labels?.[entity.decoded_name] ?? ''}
+                      onChange={(e) => {
+                        const newLabels = { ...(data.entity_labels || {}) };
+                        if (e.target.value.trim()) {
+                          newLabels[entity.decoded_name] = e.target.value;
+                        } else {
+                          delete newLabels[entity.decoded_name];
+                        }
+                        updateField('entity_labels', Object.keys(newLabels).length > 0 ? newLabels : undefined);
+                      }}
+                      placeholder={entity.name}
+                    />
+                  ) : (
+                    <div className="flex-1" />
+                  )}
+                  {(['panel', 'ha'] as const).map((where) => (
+                    <label
+                      key={where}
+                      className="label cursor-pointer gap-2 py-0"
+                      title={t(`modbus.visibility.${where}_hint`)}
+                    >
+                      <span className="label-text text-xs">{t(`modbus.visibility.${where}`)}</span>
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-sm"
+                        checked={data.entity_visibility?.[entity.decoded_name]?.[where] ?? !entity.hidden}
+                        onChange={(e) => setVisibility(entity, where, e.target.checked)}
+                      />
+                    </label>
+                  ))}
                 </div>
               ))}
             </div>
           )}
 
-          {!labelsLoading && entities.filter(e => !e.entity_type?.includes('discrete')).length === 0 && !labelsError && (
+          {!labelsLoading && entities.length === 0 && !labelsError && (
             <div className="text-center py-4 text-base-content/60 text-sm">
               {t('modbus.labels.no_entities')}
             </div>

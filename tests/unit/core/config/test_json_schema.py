@@ -20,6 +20,21 @@ from boneio.core.config.json_schema import FROM_MODELS, section_schema
 from boneio.core.config.models.misc import _HOST
 from boneio.core.config.schema_converter import convert_cerberus_to_json_schema, load_schema_yaml
 
+_YAML_BOOLEAN = {
+    "oneOf": [
+        {"type": "boolean"},
+        {
+            "type": "string",
+            "enum": ["yes", "no", "true", "false", "on", "off"],
+            "x-yaml-boolean": True,
+        },
+    ]
+}
+_ENTITY_VISIBILITY = {
+    "description": "Where a Modbus entity shows; None keeps the device definition's choice.",
+    "properties": {"panel": _YAML_BOOLEAN, "ha": _YAML_BOOLEAN},
+    "type": ["object", "string"],
+}
 _FILTER_ITEM = {
     "additionalProperties": True,
     "propertyNames": {
@@ -101,6 +116,7 @@ def _input_removed(at: str = _ACTION) -> dict:
 ADDED = {
     "modbus_devices": {
         "items/properties/entity_labels": {"additionalProperties": {"type": "string"}},
+        "items/properties/entity_visibility": {"additionalProperties": _ENTITY_VISIBILITY},
         "items/properties/sensors_filters/properties/temperature/items": _FILTER_ITEM,
         "items/properties/sensors_filters/properties/humidity/items": _FILTER_ITEM,
     },

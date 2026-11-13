@@ -3921,6 +3921,61 @@
             "description": "Custom entity labels",
             "title": "Entity labels"
           },
+          "entity_visibility": {
+            "additionalProperties": {
+              "description": "Where a Modbus entity shows; None keeps the device definition's choice.",
+              "properties": {
+                "panel": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "yes",
+                        "no",
+                        "true",
+                        "false",
+                        "on",
+                        "off"
+                      ],
+                      "x-yaml-boolean": true
+                    }
+                  ]
+                },
+                "ha": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "yes",
+                        "no",
+                        "true",
+                        "false",
+                        "on",
+                        "off"
+                      ],
+                      "x-yaml-boolean": true
+                    }
+                  ]
+                }
+              },
+              "type": [
+                "object",
+                "string"
+              ]
+            },
+            "type": [
+              "object",
+              "string"
+            ],
+            "description": "Per entity: show it in the panel and in Home Assistant, or hide it. Without an entry the device definition decides.",
+            "title": "Entity visibility"
+          },
           "read_only": {
             "oneOf": [
               {

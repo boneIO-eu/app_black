@@ -917,10 +917,17 @@
       "info": "Ustaw własne nazwy wyświetlane dla poszczególnych encji. Pozostaw puste, aby użyć domyślnej nazwy.",
       "fetch_error": "Nie udało się pobrać encji. Upewnij się, że urządzenie działa.",
       "no_entities": "Nie znaleziono encji. Urządzenie może jeszcze nie działać."
+    },
+    "visibility": {
+      "panel": "Panel",
+      "ha": "Home Assistant",
+      "panel_hint": "Pokaż tę encję w panelu boneIO.",
+      "ha_hint": "Ogłaszaj tę encję w Home Assistant."
     }
   },
   "modbus_view": {
     "title": "Urządzenia Modbus",
+    "confirm_write": "Wysłać tę zmianę do urządzenia?",
     "no_devices": "Brak skonfigurowanych urządzeń Modbus",
     "sensors": "Czujniki",
     "controls": "Sterowanie",

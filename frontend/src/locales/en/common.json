@@ -917,10 +917,17 @@
       "info": "Set custom display names for individual entities. Leave empty to use the default name.",
       "fetch_error": "Could not load entities. Make sure the device is running.",
       "no_entities": "No entities found. The device may not be running yet."
+    },
+    "visibility": {
+      "panel": "Panel",
+      "ha": "Home Assistant",
+      "panel_hint": "Show this entity in the boneIO panel.",
+      "ha_hint": "Announce this entity to Home Assistant."
     }
   },
   "modbus_view": {
     "title": "Modbus Devices",
+    "confirm_write": "Send this change to the device?",
     "no_devices": "No Modbus devices configured",
     "sensors": "Sensors",
     "controls": "Controls",

@@ -754,6 +754,13 @@ modbus_devices:
             Keys are lowercase sensor names without spaces (e.g. humidity, temperature).
             Values are custom labels shown in UI and Home Assistant.
             Example: { humidity: "Wilgotność salon", temperature: "Temperatura salon" }
+      entity_visibility:
+        type: dict
+        required: False
+        meta:
+          label: >-
+            Per entity: show it in the panel and in Home Assistant, or hide it.
+            Without an entry the device definition decides.
       read_only:
         type: boolean
         required: False

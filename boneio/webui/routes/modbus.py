@@ -597,6 +597,12 @@ async def get_model_entities(model_name: str):
     entities = []
     seen: set[str] = set()
 
+    hidden_registers = {
+        reg.decoded_name: reg.hidden
+        for block in definition.registers_base
+        for reg in block.registers
+    }
+
     # Base register entities
     for block in definition.registers_base:
         for reg in block.registers:
@@ -620,7 +626,9 @@ async def get_model_entities(model_name: str):
                 "name": entity.name,
                 "decoded_name": decoded_name,
                 "entity_type": entity.entity_type,
-                "hidden": False,
+                # A derived entity is as hidden as the register it reads.
+                "hidden": isinstance(entity.source, str)
+                and hidden_registers.get(entity.source.replace("_", ""), False),
             })
 
     return {"model": model_name, "entities": entities}

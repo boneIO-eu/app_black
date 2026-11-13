@@ -5,7 +5,7 @@ import logging
 import math
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from pymodbus.pdu import ExceptionResponse
 
@@ -102,6 +102,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     """Represent Modbus coordinator in BoneIO."""
 
     DefaultName = "ModbusCoordinator"
+    # Never mutated; the instance gets its own.
+    _entity_visibility: dict[str, dict] = {}
+    _registers_by_name: dict = {}
 
     def __init__(
         self,
@@ -118,6 +121,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         has_custom_id: bool = False,
         entity_labels: dict | None = None,
         read_only: bool = False,
+        entity_visibility: dict | None = None,
     ):
         """Initialize Modbus coordinator class."""
         # Store manager reference first - needed by other init methods
@@ -146,8 +150,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._entity_labels: dict[str, str] = (
             {k.lower(): v for k, v in entity_labels.items()} if entity_labels else {}
         )
-        
-        
+        self._entity_visibility: dict[str, dict] = {
+            k.lower(): dict(v) for k, v in (entity_visibility or {}).items()
+        }
+
         self._modbus_entities: list[dict[str, ModbusEntity]] = []  # type: ignore[valid-type]
         # Entities of "coil" blocks: written with FC05 instead of FC06.
         self._coil_entities: set[ModbusBaseEntity] = set()
@@ -173,6 +179,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Additional entities
         if self._definition.additional_entities:
             self.__init_derived_sensors__()
+        self._warn_unknown_visibility_entries()
 
         _LOGGER.info(
             "Available single sensors for %s: %s",
@@ -212,6 +219,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         return self._definition
 
     def __init_modbus_entities__(self):
+        self._registers_by_name = {
+            register.decoded_name: register
+            for block in self._definition.registers_base
+            for register in block.registers
+        }
         # Standard sensors
         for index, block in enumerate(self._definition.registers_base):
             self._modbus_entities.append({})
@@ -683,11 +695,53 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             retain=True,
         )
 
+    def _register_of(self, entity):
+        """Register an entity is read from; a derived entity has its source's."""
+        name = getattr(entity, "source_sensor_decoded_name", None) or entity.decoded_name
+        return self._registers_by_name.get(name)
+
+    def visible(self, entity, where: Literal["panel", "ha"]) -> bool:
+        """Whether the entity shows in the panel or in Home Assistant.
+
+        The user's entry wins; without one the register's ``hidden`` decides.
+        A derived entity also takes the entry of its source register, its own
+        entry first. Visibility never limits writes.
+        """
+        names = [entity.decoded_name]
+        source = getattr(entity, "source_sensor_decoded_name", None)
+        if source:
+            names.append(source)
+        for name in names:
+            choice = self._entity_visibility.get(name, {}).get(where)
+            if choice is not None:
+                return bool(choice)
+        register = self._register_of(entity)
+        return not (register and register.hidden)
+
+    def confirm_required(self, entity) -> bool:
+        """Whether the panel asks before writing to the entity."""
+        register = self._register_of(entity)
+        return bool(register and register.confirm)
+
+    def _warn_unknown_visibility_entries(self) -> None:
+        known = {
+            *self._registers_by_name,
+            *(name for entities in self._additional_entities for name in entities),
+        }
+        for name in self._entity_visibility.keys() - known:
+            _LOGGER.warning(
+                "%s: entity_visibility has '%s', which this device does not have; ignored",
+                self._name,
+                name,
+            )
+
     def _announced_entities(self):
         """Entities Home Assistant gets: a read-only device offers no controls."""
         for entities in (*self._modbus_entities, *self._additional_entities):
             for entity in entities.values():
                 if self._read_only and entity.entity_type in COMMAND_ENTITY_TYPES:
+                    continue
+                if not self.visible(entity, "ha"):
                     continue
                 yield entity
 
@@ -886,13 +940,15 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             entity_type=entity.entity_type,
             custom_label=custom_label,
             area=self._area,
+            confirm=self.confirm_required(entity),
             **type_info
         )
 
-        self._event_bus.trigger_event(ModbusDeviceEvent(
-            entity_id=entity.id,
-            state=device_state,
-        ))
+        if self.visible(entity, "panel"):
+            self._event_bus.trigger_event(ModbusDeviceEvent(
+                entity_id=entity.id,
+                state=device_state,
+            ))
 
         # Also emit dedicated SensorEvent for generic sensor integration 
         # (thermostats, rules, etc. shouldn't care about transport type)

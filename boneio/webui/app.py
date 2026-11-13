@@ -559,6 +559,8 @@ async def send_initial_states(
                 return False
             for entities in modbus_coordinator.get_all_entities():
                 for entity in entities.values():
+                    if not modbus_coordinator.visible(entity, "panel"):
+                        continue
                     try:
                         sensor_state = ModbusDeviceState(
                             id=entity.id,
@@ -573,6 +575,7 @@ async def send_initial_states(
                             step=getattr(entity, "step", None),
                             min=getattr(entity, "min_value", None),
                             max=getattr(entity, "max_value", None),
+                            confirm=modbus_coordinator.confirm_required(entity),
                         )
                         update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                         if not await send_state_update(update):
@@ -582,6 +585,8 @@ async def send_initial_states(
 
             for additional_entities in modbus_coordinator.get_all_additional_entities():
                 for entity in additional_entities.values():
+                    if not modbus_coordinator.visible(entity, "panel"):
+                        continue
                     try:
                         value_mapping = getattr(entity, "_value_mapping", None)
                         payload_on = getattr(entity, "_payload_on", None)
@@ -601,6 +606,7 @@ async def send_initial_states(
                             payload_on=payload_on,
                             payload_off=payload_off,
                             step=getattr(entity, "step", None),
+                            confirm=modbus_coordinator.confirm_required(entity),
                         )
                         update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                         if not await send_state_update(update):

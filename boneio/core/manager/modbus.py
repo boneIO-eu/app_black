@@ -174,6 +174,7 @@ class ModbusManager:
                         area=area,
                         has_custom_id=has_custom_id,
                         read_only=bool(device_config.get("read_only", False)),
+                        entity_visibility=device_config.get("entity_visibility") or {},
                     )
                     coordinators[device_id] = coordinator
                     _LOGGER.info("Configured Modbus coordinator: %s", device_id)

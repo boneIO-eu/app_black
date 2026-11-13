@@ -40,8 +40,14 @@ function extractEntityId(device: ModbusDeviceState): string {
 function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, accentColor = 'border-blue-500', strokeColor = '#0284c7', fillColor = 'rgba(96, 165, 250, 0.10)' }: ModbusDeviceItemProps) {
   const { t } = useTranslation();
 
-  const handleSelectChange = (value: string) => {
+  // Every write goes through here, so an entity marked `confirm` asks first.
+  const write = (value: string | number) => {
+    if (device.confirm && !window.confirm(t('modbus_view.confirm_write'))) return;
     onValueChange(device.coordinator_id, extractEntityId(device), value);
+  };
+
+  const handleSelectChange = (value: string) => {
+    write(value);
   };
 
   const handleSwitchToggle = (checked: boolean) => {
@@ -49,18 +55,12 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
       return;
     }
 
-    const value = checked ? device.payload_on : device.payload_off;
-    onValueChange(device.coordinator_id, extractEntityId(device), value);
+    write(checked ? device.payload_on : device.payload_off);
   };
 
   const handleWriteableSensorChange = (value: string) => {
     const numValue = parseFloat(value);
-    if (!Number.isNaN(numValue)) {
-      onValueChange(device.coordinator_id, extractEntityId(device), numValue);
-      return;
-    }
-
-    onValueChange(device.coordinator_id, extractEntityId(device), value);
+    write(Number.isNaN(numValue) ? value : numValue);
   };
 
   const isSelect = device.entity_type === 'select' && device.x_mapping;
@@ -236,7 +236,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
           >
             <button
               className={`btn btn-sm btn-primary ${isGrid ? 'w-full' : ''}`}
-              onClick={() => onValueChange(device.coordinator_id, extractEntityId(device), 1)}
+              onClick={() => write(1)}
             >
               {device.custom_label || device.name}
             </button>
@@ -370,6 +370,7 @@ function areEqual(prevProps: ModbusDeviceItemProps, nextProps: ModbusDeviceItemP
   return prevProps.device.id === nextProps.device.id
     && prevProps.device.name === nextProps.device.name
     && prevProps.device.custom_label === nextProps.device.custom_label
+    && prevProps.device.confirm === nextProps.device.confirm
     && prevProps.device.state === nextProps.device.state
     && prevProps.device.timestamp === nextProps.device.timestamp
     && prevProps.device.entity_type === nextProps.device.entity_type
