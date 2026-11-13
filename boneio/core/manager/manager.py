@@ -2278,6 +2278,19 @@ class Manager:
                 _LOGGER.debug("Modbus coordinator not found: %s", device_id)
             return
 
+        # Heat pump thermostat and hot water: cmd/modbus/<id>/heat_pump/<field>/set.
+        # Before the plain "set" below, which ends the same way.
+        if msg_type == "modbus" and command == "set" and len(topic_parts) == 2 and topic_parts[0] == "heat_pump":
+            target_device = self.modbus.get_all_coordinators().get(device_id)
+            if target_device and isinstance(message, str):
+                try:
+                    await target_device.set_heat_pump(topic_parts[1], message)
+                except ModbusWriteRejected as err:
+                    _LOGGER.warning("Heat pump command rejected: %s", err)
+            else:
+                _LOGGER.debug("Modbus coordinator not found: %s", device_id)
+            return
+
         if msg_type == "modbus" and command == "set":
             target_device = self.modbus.get_all_coordinators().get(device_id)
             if target_device and isinstance(message, str):

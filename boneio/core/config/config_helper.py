@@ -131,6 +131,7 @@ class ConfigHelper:
             NUMERIC: {},
             "update": {},
             CLIMATE: {},
+            "water_heater": {},
             ALARM_CONTROL_PANEL: {},
         }
         self.manager_ready: bool = False

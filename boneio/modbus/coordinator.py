@@ -27,7 +27,11 @@ from boneio.const import (
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.core.utils.timeperiod import TimePeriod
-from boneio.integration.homeassistant import modbus_polling_switch_message
+from boneio.integration.homeassistant import (
+    modbus_climate_availability_message,
+    modbus_polling_switch_message,
+    modbus_water_heater_availability_message,
+)
 from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity, ModbusDerivedEntity, ModbusParentInfo
 from boneio.models.state import ModbusDeviceState
 
@@ -63,6 +67,8 @@ from .definition import (
     DeviceDefinition,
     load_definition,
 )
+from .heat_pump import ROLE_KINDS, SCHEMES, Write
+from .heat_pump import state as heat_pump_state
 
 # Type aliases for cleaner code
 ModbusEntity = Union[
@@ -93,6 +99,11 @@ OPTIONAL_RETRY_S = 3600
 # Entity types whose Home Assistant discovery carries a command topic.
 COMMAND_ENTITY_TYPES = (NUMERIC, SELECT, SWITCH, BUTTON)
 
+# Heat pump thermostat limits when the target register gives none.
+HEAT_PUMP_MIN_TEMP = 5
+HEAT_PUMP_MAX_TEMP = 60
+HEAT_PUMP_TEMP_STEP = 0.5
+
 
 class ModbusWriteRejected(Exception):
     """A write was refused before it reached the bus."""
@@ -105,6 +116,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     # Never mutated; the instance gets its own.
     _entity_visibility: dict[str, dict] = {}
     _registers_by_name: dict = {}
+    # Last heat pump state sent to MQTT, so it goes out only when it changes.
+    _published_heat_pump: dict | None = None
 
     def __init__(
         self,
@@ -751,13 +764,167 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             entity.reserve_ha_discovery()
         topic, _ = self._polling_switch_discovery()
         self.manager.config_helper.reserve_autodiscovery_msg(ha_type="switch", topic=topic)
+        for ha_type, topic, _ in self._heat_pump_discovery():
+            self.manager.config_helper.reserve_autodiscovery_msg(ha_type=ha_type, topic=topic)
 
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
         for entity in self._announced_entities():
             entity.send_ha_discovery()
         self._send_polling_switch_discovery()
+        for ha_type, topic, payload in self._heat_pump_discovery():
+            self.manager.config_helper.add_autodiscovery_msg(
+                topic=topic, payload=payload, ha_type=ha_type
+            )
+            self._message_bus.send_message(topic=topic, payload=payload, retain=True)
         return datetime.now()
+
+    def _role_entity(self, role: str, ref: str | None = None):
+        """Entity a heat pump role names: a derived switch, or a register.
+
+        Visibility plays no part: a hidden entity still serves its role.
+        """
+        if ref is None:
+            ref = self._definition.heat_pump.roles[role]
+        key = ref.replace(" ", "").lower()
+        if ROLE_KINDS[role] == "switch":
+            return self._additional_entities_by_name.get(key)
+        return self.get_entity_by_name(key)
+
+    def heat_pump_values(self) -> dict[str, Any]:
+        """Role -> value as the heat pump schemes read it; ``None`` while unknown.
+
+        Switches give "ON"/"OFF", numbers their engineering value, a text
+        sensor its raw register value (not the label), a binary sensor its
+        state. A role naming several entities gives a list.
+        """
+        spec = self._definition.heat_pump
+        if spec is None:
+            return {}
+        values: dict[str, Any] = {}
+        for role, ref in spec.roles.items():
+            found = [
+                self._role_entity(role, name)
+                for name in ([ref] if isinstance(ref, str) else ref)
+            ]
+            got = [
+                None if e is None
+                else e.raw_value if isinstance(e, ModbusTextSensor)
+                else e.get_value()
+                for e in found
+            ]
+            values[role] = got[0] if isinstance(ref, str) else got
+        return values
+
+    def heat_pump_state(self) -> dict | None:
+        """Thermostat and hot water state, or None for a device that is no heat pump."""
+        spec = self._definition.heat_pump
+        if spec is None:
+            return None
+        return heat_pump_state(SCHEMES[spec.scheme], self.heat_pump_values())
+
+    def _publish_heat_pump_state(self) -> None:
+        """Send the heat pump state, retained, when it differs from the last one sent."""
+        current = self.heat_pump_state()
+        if current is None or current == self._published_heat_pump:
+            return
+        self._published_heat_pump = current
+        self._message_bus.send_message(
+            topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/heat_pump",
+            payload=current,
+            retain=True,
+        )
+
+    def _heat_pump_limits(self, role: str) -> tuple[float, float, float]:
+        """min, max and step of the role's register, or the thermostat fallbacks."""
+        register = self._register_of(self._role_entity(role))
+        low = getattr(register, "min", None)
+        high = getattr(register, "max", None)
+        step = getattr(register, "step", None)
+        return (
+            HEAT_PUMP_MIN_TEMP if low is None else low,
+            HEAT_PUMP_MAX_TEMP if high is None else high,
+            HEAT_PUMP_TEMP_STEP if step is None else step,
+        )
+
+    def _heat_pump_discovery(self) -> list[tuple[str, str, dict]]:
+        """(ha_type, topic, payload) of the climate and water heater.
+
+        Empty for a device that is no heat pump and for a read-only one,
+        which offers no controls.
+        """
+        spec = self._definition.heat_pump
+        if spec is None or self._read_only:
+            return []
+        device = {
+            "device_id": self._id,
+            "device_name": self._name,
+            "model": self._model,
+            "manufacturer": self._definition.manufacturer,
+            "config_helper": self.manager.config_helper,
+            "area": self._area,
+        }
+        low, high, step = self._heat_pump_limits("heating_target")
+        climate = modbus_climate_availability_message(
+            **device,
+            modes=list(SCHEMES[spec.scheme].modes),
+            min_temp=low,
+            max_temp=high,
+            temp_step=step,
+        )
+        low, high, _ = self._heat_pump_limits("dhw_target")
+        water_heater = modbus_water_heater_availability_message(
+            **device, min_temp=low, max_temp=high
+        )
+        return [
+            ("climate", climate.pop("_topic"), climate),
+            ("water_heater", water_heater.pop("_topic"), water_heater),
+        ]
+
+    async def set_heat_pump(
+        self, field: Literal["mode", "temperature", "dhw_mode", "dhw_temperature"], value: str
+    ) -> None:
+        """Carry out a thermostat or hot water command from Home Assistant.
+
+        ``field`` is mode, temperature, dhw_mode or dhw_temperature. Every
+        write the command needs is checked before the first is sent, so a
+        refused one leaves the device as it was. Raises ModbusWriteRejected.
+        """
+        spec = self._definition.heat_pump
+        if spec is None:
+            raise ModbusWriteRejected(f"{self._name} is not a heat pump")
+        scheme = SCHEMES[spec.scheme]
+        v = self.heat_pump_values()
+        if field == "mode":
+            if value not in scheme.modes:
+                raise ModbusWriteRejected(f"{self._name}: no mode {value!r}")
+            writes = scheme.set_hvac_mode(v, value)
+        elif field == "dhw_mode":
+            if value not in ("off", "heat_pump"):
+                raise ModbusWriteRejected(f"{self._name}: no hot water mode {value!r}")
+            writes = scheme.set_dhw_mode(v, value)
+        elif field in ("temperature", "dhw_temperature"):
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                raise ModbusWriteRejected(f"{self._name}: '{value}' is not a number") from None
+            if not math.isfinite(number):
+                raise ModbusWriteRejected(f"{self._name}: {value} is not a finite number")
+            role = scheme.target_role(v) if field == "temperature" else "dhw_target"
+            writes = [Write(role, number)]
+        else:
+            raise ModbusWriteRejected(f"{self._name}: unknown heat pump field {field!r}")
+
+        planned = []
+        for write in writes:
+            entity = self._role_entity(write.role)
+            if entity is None:
+                raise ModbusWriteRejected(f"{self._name}: heat pump role {write.role!r} has no entity")
+            self._check_write_allowed(write.value, entity)
+            planned.append((entity, write.value))
+        for entity, target in planned:
+            await self.write_register(target, entity)
+        self._publish_heat_pump_state()
 
     async def _write_derived_sensor(
         self, 
@@ -1140,6 +1307,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         it from a quiet one without this.
         """
         interval = await self._poll(timestamp)
+        self._publish_heat_pump_state()
         if self.failing != self._published_failing:
             self._published_failing = self.failing
             self._event_bus.trigger_event(ModbusStatusEvent(entity_id=self._id, failing=self.failing))

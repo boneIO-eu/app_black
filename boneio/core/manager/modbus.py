@@ -255,14 +255,18 @@ class ModbusManager:
         """Remove HA autodiscovery for a specific Modbus device.
         
         Sends empty payloads to MQTT to remove entities from Home Assistant.
-        Modbus devices can have multiple entity types: sensor, binary_sensor, 
-        number, select, switch, text_sensor.
+        Modbus devices can have multiple entity types: sensor, binary_sensor,
+        number, select, switch, text_sensor, and a heat pump's climate and
+        water_heater.
         
         Args:
             device_id: Device ID to remove
         """
         # Modbus uses multiple entity types
-        ha_types = ["sensor", "binary_sensor", "number", "select", "switch", "text_sensor"]
+        ha_types = [
+            "sensor", "binary_sensor", "number", "select", "switch", "text_sensor",
+            "climate", "water_heater",
+        ]
         
         for ha_type in ha_types:
             # Get autodiscovery messages for this type

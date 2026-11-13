@@ -14,6 +14,8 @@ _LOGGER = logging.getLogger(__name__)
 class ModbusTextSensor(ModbusBaseEntity):
 
     _entity_type = SENSOR
+    # The register value before x_mapping turns it into a label.
+    _raw_value: float | int | None = None
 
     def __init__(
         self,
@@ -78,8 +80,13 @@ class ModbusTextSensor(ModbusBaseEntity):
         """Give rounded value of temperature."""
         return self._value or ""
 
+    @property
+    def raw_value(self) -> float | int | None:
+        return self._raw_value
+
     def set_value(self, value, timestamp: float) -> None:
         self._timestamp = timestamp
+        self._raw_value = value
         self._value = self._value_mapping.get(str(value), "Unknown")
 
     def discovery_message(self):

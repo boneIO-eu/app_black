@@ -1035,6 +1035,29 @@ def modbus_availabilty_message(
     }
 
 
+def _modbus_device_info(
+    device_id: str,
+    device_name: str,
+    model: str,
+    manufacturer: str,
+    config_helper: ConfigHelper,
+    area: str | None,
+) -> dict[str, Any]:
+    """The HA device of a Modbus coordinator, linked to this controller."""
+    device_info: dict[str, Any] = {
+        "identifiers": [device_id],
+        "manufacturer": manufacturer,
+        "model": model,
+        "name": device_name,
+        "sw_version": __version__,
+        "via_device": config_helper.topic_prefix,
+    }
+    area_name = config_helper.get_area_name(area) if area else None
+    if area_name:
+        device_info["suggested_area"] = area_name
+    return device_info
+
+
 def modbus_polling_switch_message(
     device_id: str,
     device_name: str,
@@ -1071,18 +1094,9 @@ def modbus_polling_switch_message(
         f"{config_helper.serial_number}/{entity_id}/config"
     )
 
-    area_name = config_helper.get_area_name(area) if area else None
-
-    device_info: dict[str, Any] = {
-        "identifiers": [device_id],
-        "manufacturer": manufacturer,
-        "model": model,
-        "name": device_name,
-        "sw_version": __version__,
-        "via_device": topic_prefix,
-    }
-    if area_name:
-        device_info["suggested_area"] = area_name
+    device_info = _modbus_device_info(
+        device_id, device_name, model, manufacturer, config_helper, area
+    )
 
     return {
         "_topic": discovery_topic,
@@ -1163,6 +1177,117 @@ def modbus_sensor_availabilty_message(
         msg["default_entity_id"] = f"sensor.{entity_id}"
     
     return msg
+
+def _modbus_heat_pump_message(
+    ha_type: str,
+    object_id: str,
+    name: str,
+    device_id: str,
+    device_name: str,
+    model: str,
+    manufacturer: str,
+    config_helper: ConfigHelper,
+    area: str | None,
+) -> HomeAssistantDiscoveryMessage:
+    """Fields a heat pump's climate and water heater share.
+
+    Both live in the Modbus device and are available while it answers. The
+    discovery topic is under ``_topic``; the caller pops it before publishing.
+    """
+    topic_prefix = config_helper.topic_prefix
+    entity_id = f"{device_id}_{object_id}"
+    return {
+        "_topic": (
+            f"{config_helper.ha_discovery_prefix}/{ha_type}/"
+            f"{config_helper.serial_number}/{entity_id}/config"
+        ),
+        "availability": [{"topic": f"{topic_prefix}/modbus/{device_id}/{STATE}"}],
+        "device": _modbus_device_info(
+            device_id, device_name, model, manufacturer, config_helper, area
+        ),
+        "name": name,
+        "unique_id": f"{topic_prefix.replace('/', '_')}_modbus_{entity_id}",
+        "default_entity_id": f"{ha_type}.{config_helper.serial_number}_{entity_id}",
+        "optimistic": False,
+        "temperature_unit": "C",
+        "precision": 0.1,
+    }
+
+
+def modbus_climate_availability_message(
+    device_id: str,
+    device_name: str,
+    model: str,
+    manufacturer: str,
+    config_helper: ConfigHelper,
+    modes: list[str],
+    min_temp: float,
+    max_temp: float,
+    temp_step: float,
+    area: str | None = None,
+) -> HomeAssistantDiscoveryMessage:
+    """Heating/cooling thermostat of a Modbus heat pump.
+
+    State comes from the coordinator's ``heat_pump`` JSON, commands go to
+    ``cmd/modbus/<id>/heat_pump/<field>/set``.
+    """
+    msg = _modbus_heat_pump_message(
+        "climate", "heat_pump", "Heating/cooling",
+        device_id, device_name, model, manufacturer, config_helper, area,
+    )
+    state = f"{config_helper.topic_prefix}/modbus/{device_id}/heat_pump"
+    cmd = f"{config_helper.topic_prefix}/cmd/modbus/{device_id}/heat_pump"
+    return {
+        **msg,
+        "mode_state_topic": state,
+        "mode_state_template": "{{ value_json.mode }}",
+        "action_topic": state,
+        "action_template": "{{ value_json.action }}",
+        "current_temperature_topic": state,
+        "current_temperature_template": "{{ value_json.current_temperature }}",
+        "temperature_state_topic": state,
+        "temperature_state_template": "{{ value_json.target_temperature }}",
+        "mode_command_topic": f"{cmd}/mode/set",
+        "temperature_command_topic": f"{cmd}/temperature/set",
+        "modes": modes,
+        "min_temp": min_temp,
+        "max_temp": max_temp,
+        "temp_step": temp_step,
+    }
+
+
+def modbus_water_heater_availability_message(
+    device_id: str,
+    device_name: str,
+    model: str,
+    manufacturer: str,
+    config_helper: ConfigHelper,
+    min_temp: float,
+    max_temp: float,
+    area: str | None = None,
+) -> HomeAssistantDiscoveryMessage:
+    """Hot water tank of a Modbus heat pump, from the same ``heat_pump`` JSON."""
+    msg = _modbus_heat_pump_message(
+        "water_heater", "dhw", "Hot water",
+        device_id, device_name, model, manufacturer, config_helper, area,
+    )
+    state = f"{config_helper.topic_prefix}/modbus/{device_id}/heat_pump"
+    cmd = f"{config_helper.topic_prefix}/cmd/modbus/{device_id}/heat_pump"
+    return {
+        **msg,
+        "mode_state_topic": state,
+        "mode_state_template": "{{ value_json.dhw_mode }}",
+        "current_temperature_topic": state,
+        "current_temperature_template": "{{ value_json.dhw_current }}",
+        "temperature_state_topic": state,
+        "temperature_state_template": "{{ value_json.dhw_target }}",
+        "mode_command_topic": f"{cmd}/dhw_mode/set",
+        "temperature_command_topic": f"{cmd}/dhw_temperature/set",
+        "modes": ["off", "heat_pump"],
+        "min_temp": min_temp,
+        "max_temp": max_temp,
+    }
+
 
 def modbus_button_availabilty_message(
     entity_id: str,
