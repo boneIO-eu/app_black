@@ -6,6 +6,7 @@ This module manages Modbus RTU/TCP devices and coordinators.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -45,6 +46,9 @@ class ModbusManager:
         self._manager = manager
         self._modbus = None
         self._modbus_coordinators = {}
+        # Device id -> what its coordinator was built from, to tell on a
+        # reload whether it must be built again.
+        self._coordinator_built_from: dict[str, dict[str, Any]] = {}
         
         # Configure Modbus if enabled
         if modbus_config:
@@ -138,49 +142,20 @@ class ModbusManager:
             
             for device_config in devices:
                 try:
-                    # Get address and model (required)
-                    address = device_config.get(ADDRESS, "")
-                    model = device_config.get(MODEL, "")
-                    
-                    # Generate ID from address and model if not provided
-                    has_custom_id = bool(device_config.get(ID))
-                    if has_custom_id:
-                        device_id = str(device_config[ID]).replace(" ", "").lower()
-                    else:
-                        device_id = f"{address}_{model}".lower().replace(" ", "_")
-                    
-                    # Get display name (falls back to ID)
-                    display_name = device_config.get(NAME) or device_id
-                    
-                    # Get area for HA grouping
-                    area = device_config.get("area")
-                    
-                    additional_data = device_config.get("data", {})
-                    
-                    _LOGGER.debug("Configuring Modbus coordinator: %s (address: %s, model: %s)", 
-                                  display_name, address, model)
-                    
+                    inputs = self._coordinator_inputs(device_config)
+                    device_id = inputs["id"]
+                    _LOGGER.debug("Configuring Modbus coordinator: %s (address: %s, model: %s)",
+                                  inputs["name"], inputs["address"], inputs["model"])
                     coordinator = ModbusCoordinator(
-                        address=address,
-                        id=device_id,
-                        name=display_name,
                         manager=self._manager,
-                        model=device_config[MODEL],
-                        update_interval=device_config.get(
-                            UPDATE_INTERVAL, TimePeriod(seconds=60)
-                        ),
                         modbus=self._modbus,
-                        sensors_filters=device_config.get("sensors_filters", {}),
                         entity_labels=device_config.get("entity_labels", {}),
-                        additional_data=additional_data,
-                        area=area,
-                        has_custom_id=has_custom_id,
-                        read_only=bool(device_config.get("read_only", False)),
-                        entity_visibility=device_config.get("entity_visibility") or {},
+                        **inputs,
                     )
+                    self._coordinator_built_from[device_id] = copy.deepcopy(inputs)
                     coordinators[device_id] = coordinator
                     if isinstance(self._modbus.client, SimulatedClient):
-                        self._modbus.client.add_device(int(address), load_definition(model))
+                        self._modbus.client.add_device(int(inputs["address"]), load_definition(inputs["model"]))
                     _LOGGER.info("Configured Modbus coordinator: %s", device_id)
                     
                 except Exception as err:
@@ -250,6 +225,35 @@ class ModbusManager:
             address = device_config.get(ADDRESS, "")
             model = device_config.get(MODEL, "")
             return f"{address}_{model}".lower().replace(" ", "_")
+
+    def _coordinator_inputs(self, device_config: dict[str, Any]) -> dict[str, Any]:
+        """Constructor arguments of a device's coordinator, in one form.
+
+        The config at startup is validated and a reloaded one is raw YAML;
+        both give the same arguments for the same file. Entity labels are not
+        here: they are applied to a running coordinator.
+        """
+        device_id = self._get_device_id_from_config(device_config)
+        return {
+            "address": device_config.get(ADDRESS, ""),
+            "id": device_id,
+            "name": device_config.get(NAME) or device_id,
+            "model": device_config.get(MODEL, ""),
+            "update_interval": TimePeriod(
+                seconds=parse_time_to_seconds(device_config.get(UPDATE_INTERVAL), default=30)
+            ),
+            "sensors_filters": device_config.get("sensors_filters") or {},
+            "additional_data": device_config.get("data") or {},
+            "area": device_config.get("area"),
+            "has_custom_id": bool(device_config.get(ID)),
+            "read_only": bool(device_config.get("read_only", False)),
+            "entity_visibility": device_config.get("entity_visibility") or {},
+        }
+
+    def _drop_coordinator(self, device_id: str) -> None:
+        """Forget a coordinator and end its polling, so it never announces itself again."""
+        self._modbus_coordinators.pop(device_id).stop_updates()
+        self._coordinator_built_from.pop(device_id, None)
 
     def _remove_modbus_ha_discovery_for_id(self, device_id: str) -> None:
         """Remove HA autodiscovery for a specific Modbus device.
@@ -321,39 +325,21 @@ class ModbusManager:
         for device_id in devices_to_remove:
             _LOGGER.info("Removing Modbus device: %s", device_id)
             self._remove_modbus_ha_discovery_for_id(device_id)
-            del self._modbus_coordinators[device_id]
+            self._drop_coordinator(device_id)
         
-        # Check for area or name changes in existing devices and recreate if needed
+        # A coordinator takes its config only when built: any change but the
+        # labels means building it again.
         devices_to_recreate = set()
         for device_id in devices_to_update:
-            coordinator = self._modbus_coordinators.get(device_id)
-            if coordinator:
-                old_area = getattr(coordinator, 'area', None)
-                new_area = new_device_configs[device_id].get("area")
-                old_name = getattr(coordinator, '_name', None)
-                new_name = new_device_configs[device_id].get("name")
-                
-                if old_area != new_area:
-                    _LOGGER.info(
-                        "Modbus device %s area changed: %s -> %s, recreating",
-                        device_id, old_area, new_area
-                    )
-                    # Remove old HA Discovery
-                    self._remove_modbus_ha_discovery_for_id(device_id)
-                    devices_to_recreate.add(device_id)
-                elif old_name != new_name:
-                    _LOGGER.info(
-                        "Modbus device %s name changed: %s -> %s, recreating",
-                        device_id, old_name, new_name
-                    )
-                    # Remove old HA Discovery
-                    self._remove_modbus_ha_discovery_for_id(device_id)
-                    devices_to_recreate.add(device_id)
-        
-        # Remove coordinators that need recreation
-        for device_id in devices_to_recreate:
-            del self._modbus_coordinators[device_id]
-        
+            if self._coordinator_built_from.get(device_id) == self._coordinator_inputs(
+                new_device_configs[device_id]
+            ):
+                continue
+            _LOGGER.info("Modbus device %s config changed, recreating", device_id)
+            self._remove_modbus_ha_discovery_for_id(device_id)
+            self._drop_coordinator(device_id)
+            devices_to_recreate.add(device_id)
+
         # Wait for HA to process the removal before sending new discovery
         if devices_to_recreate:
             _LOGGER.debug("Waiting 1.5s for HA to process discovery removal...")

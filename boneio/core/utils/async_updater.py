@@ -28,6 +28,9 @@ class AsyncUpdater:
     Implementation is validated at initialization time.
     """
 
+    # Set by stop_updates(); the refresh loop then returns.
+    _stopped = False
+
     def __init__(
         self,
         manager: Manager,
@@ -141,7 +144,7 @@ class AsyncUpdater:
                     except TimeoutError:
                         pass
 
-            while True:
+            while not self._stopped:
                 timestamp = time.time()
                 if use_async:
                     # Use async_update (preferred)
@@ -157,6 +160,8 @@ class AsyncUpdater:
                     # Event was triggered - wake up early
                     self._wakeup_event.clear()
                     _LOGGER.debug(f"{getattr(self, 'id', 'unknown')}: Woken up early from sleep")
+                    if self._stopped:
+                        return
 
                     # Check if custom delay was requested before update
                     if self._requested_update_interval is not None:
@@ -170,6 +175,15 @@ class AsyncUpdater:
 
         except asyncio.CancelledError:
             raise
+
+    def stop_updates(self) -> None:
+        """End the refresh loop after the update in progress, if any.
+
+        The task returns instead of being cancelled: it may sit in the
+        runner's main gather, where a cancelled member would end the program.
+        """
+        self._stopped = True
+        self._wakeup_event.set()
 
     def request_update(self, seconds: float = 0) -> None:
         """Request update after specified seconds by waking up from sleep.
