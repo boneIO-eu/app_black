@@ -703,13 +703,15 @@ async def get_model_entities(model_name: str):
         decoded_name = entity.name.replace(" ", "").lower()
         if entity.name and decoded_name not in seen:
             seen.add(decoded_name)
+            source = entity.source.replace("_", "") if isinstance(entity.source, str) else None
             entities.append({
                 "name": entity.name,
                 "decoded_name": decoded_name,
                 "entity_type": entity.entity_type,
-                # A derived entity is as hidden as the register it reads.
-                "hidden": isinstance(entity.source, str)
-                and hidden_registers.get(entity.source.replace("_", ""), False),
+                # A derived entity is as hidden as the register it reads, and
+                # without its own visibility entry it takes the register's.
+                "hidden": hidden_registers.get(source, False),
+                "source": source if source in hidden_registers else None,
             })
 
     return {"model": model_name, "entities": entities}

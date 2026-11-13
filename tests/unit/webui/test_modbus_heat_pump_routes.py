@@ -85,3 +85,12 @@ def test_viewer_cannot_post_mode():
     assert not policy.role_allows(Role.VIEWER, "POST", path)
     assert policy.role_allows(Role.ADMIN, "POST", path)
     assert policy.role_allows(Role.VIEWER, "GET", "/api/modbus/hp/heat_pump")
+
+
+async def test_a_derived_entity_names_the_register_whose_visibility_it_inherits():
+    entities = {e["decoded_name"]: e for e in (await route.get_model_entities("lg-therma-v-r290"))["entities"]}
+
+    assert entities["emergencystop"]["source"] == "emergencystopstate"
+    assert entities["emergencystop"]["hidden"]
+    assert entities["heatingcooling"]["source"] == "heatingcoolingstate"
+    assert "source" not in entities["heatingsetpoint"]

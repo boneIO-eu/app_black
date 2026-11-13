@@ -133,6 +133,16 @@ interface ModbusDeviceFormData {
   entity_visibility?: Record<string, { panel?: boolean; ha?: boolean }>;
 }
 
+/** An entity of the model as `/modbus/models/{model}/entities` lists it. */
+interface ModelEntity {
+  decoded_name: string;
+  name: string;
+  entity_type: string;
+  hidden?: boolean;
+  /** For a derived entity: the register it reads, whose entry it takes without its own. */
+  source?: string | null;
+}
+
 interface ModbusDeviceFormProps {
   data: ModbusDeviceFormData;
   onChange: (data: ModbusDeviceFormData) => void;
@@ -183,20 +193,24 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   const showDataFields = selectedModel === 'liquid-sensor';
 
   // Entity labels: fetch entity list from model JSON (not from running coordinator)
-  const [entities, setEntities] = useState<Array<{ decoded_name: string; name: string; entity_type: string; hidden?: boolean }>>([]);
+  const [entities, setEntities] = useState<ModelEntity[]>([]);
   const [labelsLoading, setLabelsLoading] = useState(false);
   const [labelsError, setLabelsError] = useState<string | null>(null);
   const fetchedModelRef = React.useRef<string>('');
 
-  // Only a choice that differs from the definition's default is stored.
-  const setVisibility = (
-    entity: { decoded_name: string; hidden?: boolean },
-    where: 'panel' | 'ha',
-    on: boolean,
-  ) => {
+  // What the entity falls back to without its own entry: the entry of the
+  // register it reads, else the definition's default. Same order as the server.
+  const inheritedVisibility = (entity: ModelEntity, where: 'panel' | 'ha') =>
+    (entity.source ? data.entity_visibility?.[entity.source]?.[where] : undefined) ?? !entity.hidden;
+
+  const visibility = (entity: ModelEntity, where: 'panel' | 'ha') =>
+    data.entity_visibility?.[entity.decoded_name]?.[where] ?? inheritedVisibility(entity, where);
+
+  // Only a choice that differs from what the entity would inherit is stored.
+  const setVisibility = (entity: ModelEntity, where: 'panel' | 'ha', on: boolean) => {
     const all = { ...(data.entity_visibility || {}) };
     const entry = { ...(all[entity.decoded_name] || {}) };
-    if (on === !entity.hidden) delete entry[where];
+    if (on === inheritedVisibility(entity, where)) delete entry[where];
     else entry[where] = on;
     if (Object.keys(entry).length > 0) all[entity.decoded_name] = entry;
     else delete all[entity.decoded_name];
@@ -527,7 +541,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                       <input
                         type="checkbox"
                         className="toggle toggle-sm"
-                        checked={data.entity_visibility?.[entity.decoded_name]?.[where] ?? !entity.hidden}
+                        checked={visibility(entity, where)}
                         onChange={(e) => setVisibility(entity, where, e.target.checked)}
                       />
                     </label>
