@@ -7,8 +7,10 @@
  * no recipe, because it looks like it worked.
  *
  * Shape choices, each one because something rejects the alternative:
- *   - an explicit Authority/Subject Key Identifier — Python 3.13 (Home
- *     Assistant, boneIO) refuses leaves without one by default;
+ *   - an explicit Subject Key Identifier on every certificate and Authority
+ *     Key Identifier on the leaves — Python 3.13 (Home Assistant, boneIO)
+ *     refuses certificates without them by default, and OpenSSL 4, unlike 3,
+ *     no longer adds them on its own;
  *   - SAN entries for every name clients use — the CN is ignored for
  *     hostname checks;
  *   - no reliance on the local openssl.cnf — Windows and macOS builds ship
@@ -50,6 +52,7 @@ export function caCommands(): string {
     '  -days 3650 -subj "/CN=MQTT CA" \\',
     '  -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \\',
     '  -addext "keyUsage=critical,keyCertSign,cRLSign" \\',
+    '  -addext "subjectKeyIdentifier=hash" \\',
     '  -keyout ca.key -out ca.crt',
   ].join('\n');
 }

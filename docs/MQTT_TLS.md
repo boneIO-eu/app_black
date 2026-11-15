@@ -150,6 +150,7 @@ openssl req -x509 -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
   -days 3650 -subj "/CN=MQTT CA" \
   -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
   -addext "keyUsage=critical,keyCertSign,cRLSign" \
+  -addext "subjectKeyIdentifier=hash" \
   -keyout ca.key -out ca.crt
 ```
 
@@ -201,9 +202,10 @@ and `client.crt` + `client.key` if the broker asks for one.
 
 Why these extensions: Python 3.13 — which Home Assistant and boneIO run —
 verifies strictly by default and refuses a certificate without an Authority
-Key Identifier, which many older recipes leave out. (For a CA you configure
-on boneIO's own connection, boneIO relaxes that one rule; Home Assistant does
-not.)
+Key Identifier, and a CA without a Subject Key Identifier, which many older
+recipes leave out. OpenSSL 3 added both on its own; OpenSSL 4 no longer does,
+so the recipe spells them out. (For a CA you configure on boneIO's own
+connection, boneIO relaxes strict checking; Home Assistant does not.)
 
 ## Troubleshooting
 
@@ -214,8 +216,12 @@ not.)
 - **`certificate is not yet valid`** — the client's (or the controller's)
   clock is wrong. Certificates made on the controller start a day early to
   allow for this.
-- **`Missing Authority Key Identifier`** — a certificate from an older recipe;
-  remake it with the commands above.
+- **`Missing Authority Key Identifier`** or **`Missing Subject Key
+  Identifier`** — a certificate from an older recipe. The recipe in
+  1.6.0–1.6.5 made such certificates when run with OpenSSL 4: the CA had no
+  Subject Key Identifier, so the broker and client certificates got no
+  Authority Key Identifier either. Remake the CA and every certificate it signed
+  with the commands above, and give clients the new `ca.crt`.
 - **The broker card says the configuration was edited by hand** — see
   [Mode](#mode).
 - boneIO's own connection errors are in the log under `boneio.core.messaging`;

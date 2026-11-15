@@ -84,6 +84,7 @@ def test_the_panel_shows_the_same_recipe():
         "-pkeyopt ec_paramgen_curve:P-256",
         'basicConstraints=critical,CA:TRUE,pathlen:0',
         'keyUsage=critical,keyCertSign,cRLSign',
+        '-addext "subjectKeyIdentifier=hash"',
         "basicConstraints = critical, CA:FALSE",
         "keyUsage = critical, digitalSignature",
         "subjectKeyIdentifier = hash",
