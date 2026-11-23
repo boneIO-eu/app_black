@@ -60,10 +60,10 @@ def pickled_by_the_previous_build(tmp_path, monkeypatch):
 
 
 def _valid_hashes(config_file: str) -> dict:
-    """The hash pair a cache needs to look current for this config and schema."""
+    """The hash pair a cache needs to look current for this config and these models."""
     return {
         "config_hash": yaml_util._compute_config_dir_hash(config_file),
-        "schema_hash": yaml_util._compute_file_hash(yaml_util.schema_file),
+        "schema_hash": yaml_util._validation_hash(),
     }
 
 

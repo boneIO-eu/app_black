@@ -991,43 +991,11 @@ def _strip_empty_strings_deep(obj: Any) -> Any:
 
 
 def load_config_from_string(config_str: str) -> dict:
-    """Load config from string."""
-    _trust_schema()
-    schema = _get_schema()  # Use cached schema instead of loading every time
-    v = CustomValidator(schema, purge_unknown=True)
-
-    # Parse YAML string into dict first
+    """Load config from a string, as start-up loads config.yaml (without the cache)."""
     raw_doc = load(config_str, Loader=BoneIOLoader) or OrderedDict()
-
-    # Apply migrations on raw dict BEFORE normalization/coercion
-    # (coerce: positive_time_period would fail on bare int like transition: 2)
     migrated_doc, _ = _run_config_migrations(raw_doc, config_file=None)
-
-    # Strip empty string values that may have been saved by the frontend
-    # (e.g. bounce_time: '' instead of being omitted).  Cerberus coercion
-    # for positive_time_period chokes on bare empty strings.
-    migrated_doc = _strip_empty_strings_deep(migrated_doc)
-
-    # Normalize the document (applies coercion rules)
-    doc = v.normalized(migrated_doc, always_return_document=True)  # type: ignore[attr-defined]
-
-    # Then merge board config
-    merged_doc = merge_board_config(doc)
-
-    # Finally validate
-    if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
-        error_msg = "Configuration validation failed:\n"
-        for field, errors in v.errors.items():  # type: ignore[attr-defined]
-            error_lines = []
-            if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
-                error_lines = [
-                    f"{v.errors[field][0]['line'] + 1}: {line}"  # type: ignore[attr-defined]
-                    for line in config_str.splitlines()[v.errors[field][0]["line"] - 1 : v.errors[field][0]["line"] + 1]  # type: ignore[attr-defined]
-                ]
-            error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
-        raise ConfigurationException(error_msg)
+    merged_doc = merge_board_config(_read_sections(_strip_empty_strings_deep(migrated_doc)))
     _refuse_untyped_outputs(merged_doc)
-
     return merged_doc
 
 
@@ -1145,6 +1113,24 @@ def _compute_file_hash(filepath: str) -> str:
     return h.hexdigest()
 
 
+def _validation_hash() -> str:
+    """What a cached config was validated with: the section models, their
+    coercions and the Modbus devices a ``model`` may name.
+
+    The version in the cache header covers a release; this covers a model
+    edited in place (an editable install on a test controller).
+    """
+    import hashlib
+
+    from boneio.core.config import coerce, models
+
+    h = hashlib.sha256()
+    for path in sorted(Path(models.__file__).parent.glob("*.py")) + [Path(coerce.__file__)]:
+        h.update(path.read_bytes())
+    h.update("\0".join(_get_modbus_device_models()).encode())
+    return h.hexdigest()
+
+
 def _compute_config_dir_hash(config_file: str) -> str:
     """Compute combined SHA256 hash of the main config and its ``!include`` files.
 
@@ -1252,9 +1238,10 @@ def _try_load_cached_config(config_file: str) -> dict | None:
     """Try to load validated config from cache.
 
     Returns the cached config dict if the cache is valid: written by this
-    boneIO version, with the config and schema files unchanged since. Returns
-    None — never raises — if the cache is missing, corrupt, stale or written by
-    another build, so the caller falls back to full Cerberus validation.
+    boneIO version, with the config files and the section models unchanged
+    since. Returns None — never raises — if the cache is missing, corrupt,
+    stale or written by another build, so the caller falls back to full
+    validation.
 
     The file holds two pickles back to back: a header of plain strings, then
     the payload. The version is checked against the header alone, so a cache
@@ -1309,10 +1296,9 @@ def _try_load_cached_config(config_file: str) -> dict | None:
                 _LOGGER.debug("Config files changed, cache invalidated")
                 return None
 
-            # Verify schema file hash
-            current_schema_hash = _compute_file_hash(schema_file)
-            if header["schema_hash"] != current_schema_hash:
-                _LOGGER.debug("Schema file changed, cache invalidated")
+            # Verify what validated it has not changed
+            if header["schema_hash"] != _validation_hash():
+                _LOGGER.debug("Section models changed, cache invalidated")
                 return None
 
             # A secret validation turned into something other than a string is
@@ -1340,16 +1326,16 @@ def _try_load_cached_config(config_file: str) -> dict | None:
             )
             return None
 
-        _LOGGER.debug("Loading validated config from cache (skipping Cerberus validation)")
+        _LOGGER.debug("Loading validated config from cache (skipping validation)")
         return data
     except FileNotFoundError:
         # No cache yet - first boot after flashing, or after clear_config_cache.
         _LOGGER.debug("No config cache at %s", cache_path)
         return None
     except (OSError, pickle.PickleError, *_CACHE_FOREIGN_BUILD_ERRORS) as e:
-        # Loud on purpose: losing the cache costs 20-30s of Cerberus validation
-        # on a BeagleBone, so it should be visible in the log rather than only
-        # felt at boot.
+        # Loud on purpose: losing the cache costs seconds of validation on a
+        # BeagleBone, so it should be visible in the log rather than only felt
+        # at boot.
         _LOGGER.warning(
             "Config cache %s could not be read (%s: %s), revalidating config",
             cache_path,
@@ -1363,7 +1349,7 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
     """Save validated config to cache file.
 
     Stores the validated config along with the boneIO version and hashes of
-    the config and schema files, so we can detect when the cache is stale or
+    the config files and the section models, so we can detect when the cache is stale or
     was written by a build whose classes have since moved. Uses pickle to
     handle TimePeriod and OrderedDict objects.
     """
@@ -1386,7 +1372,7 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
         header = {
             "version": __version__,
             "config_hash": _compute_config_dir_hash(config_file),
-            "schema_hash": _compute_file_hash(schema_file),
+            "schema_hash": _validation_hash(),
             "secret_refs": sorted(as_refs),
             "baked_secrets": baked,
         }
@@ -1549,15 +1535,77 @@ def _referenced_switch(condition: dict) -> str:
     return str(condition.get("entity_id") or "").strip()
 
 
+def _keep_secrets(raw: Any, loaded: Any) -> Any:
+    """``loaded`` with each string that came from ``!secret`` a SecretStr again.
+
+    A model gives back plain strings; the config cache finds secrets by their
+    type, to store a reference instead of the value.
+    """
+    if isinstance(raw, SecretStr):
+        return raw if loaded == raw else loaded
+    if isinstance(raw, dict) and isinstance(loaded, dict):
+        return {k: _keep_secrets(raw[k], v) if k in raw else v for k, v in loaded.items()}
+    if isinstance(raw, list) and isinstance(loaded, list) and len(raw) == len(loaded):
+        return [_keep_secrets(r, v) for r, v in zip(raw, loaded)]
+    return loaded
+
+
+def _read_sections(doc: dict, downgraded: bool = False) -> dict:
+    """Every section of config.yaml through its model, as the components read it.
+
+    Args:
+        doc: The migrated config, before the board mapping.
+        downgraded: The config is newer than this boneIO. What reads is
+            kept and the rest left out with a warning — an entry of a list,
+            a whole dictionary section — instead of refusing to start.
+
+    Raises:
+        ConfigurationException: One ``path: message`` line per error.
+    """
+    from boneio.core.config import models
+
+    unknown = sorted(set(doc) - models.SECTIONS)
+    if unknown:
+        _LOGGER.warning("Unknown config section(s) ignored: %s", ", ".join(unknown))
+    # The one section start-up fills in when it is missing or empty.
+    if doc.get("oled") is None:
+        doc = {**doc, "oled": {}}
+
+    out: dict = {}
+    errors: list[str] = []
+    for section, raw in doc.items():
+        if section not in models.SECTIONS:
+            continue
+        value, section_errors = models.read(section, raw, at_start=True)
+        if not section_errors:
+            out[section] = _keep_secrets(raw, value)
+        elif not downgraded:
+            errors += section_errors
+        elif isinstance(raw, list):
+            out[section] = []
+            for entry in raw:
+                value, entry_errors = models.read(section, [entry], at_start=True)
+                if entry_errors:
+                    _LOGGER.warning("Left out after a downgrade: %s", "; ".join(entry_errors))
+                else:
+                    out[section] += _keep_secrets([entry], value)
+        else:
+            _LOGGER.warning("Left out after a downgrade: %s", "; ".join(section_errors))
+    if errors:
+        raise ConfigurationException("Configuration validation failed:\n" + "\n".join(f"- {e}" for e in errors))
+    return out
+
+
 def _full_config_validation(
     config_file: str,
     config_yaml: dict,
     progress_callback: "Callable[[str], None] | None" = None,
 ) -> dict:
-    """Run full Cerberus schema validation on config.
+    """Validate config.yaml section by section with the section models.
 
-    This is the slow path (~20s on BeagleBone). Results are cached
-    to disk so subsequent startups can skip this step.
+    The slow path of a start (a few seconds on a BeagleBone, most of it
+    building the models). Results are cached to disk so subsequent startups
+    can skip this step.
 
     Args:
         config_file: Path to config YAML file.
@@ -1570,15 +1618,6 @@ def _full_config_validation(
     def _progress(msg: str) -> None:
         if progress_callback:
             progress_callback(msg)
-
-    _progress("Loading schema...")
-    _t1 = _time.monotonic()
-    schema = _get_schema()
-    _LOGGER.debug("[STARTUP TIMING] _get_schema: %.2fs", _time.monotonic() - _t1)
-    _t2 = _time.monotonic()
-    _trust_schema()
-    v = CustomValidator(schema, purge_unknown=True)
-    _LOGGER.debug("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
 
     # Check if config was created by a newer app version (downgrade scenario)
     from boneio.core.config.migrations import (
@@ -1609,50 +1648,22 @@ def _full_config_validation(
     # Strip empty string values that may have been saved by the frontend
     config_yaml = _strip_empty_strings_deep(config_yaml)
 
-    # Normalize the document (applies coercion rules)
+    # Each section through its model, in the shape the components read.
     _progress("Normalizing config...")
     _t4 = _time.monotonic()
-    doc = v.normalized(config_yaml, always_return_document=True)  # type: ignore[attr-defined]
-    _LOGGER.debug("[STARTUP TIMING] v.normalized: %.2fs", _time.monotonic() - _t4)
+    doc = _read_sections(config_yaml, downgraded=_is_downgraded)
+    _LOGGER.debug("[STARTUP TIMING] models: %.2fs", _time.monotonic() - _t4)
 
     # Then merge board config
     _progress("Merging board config...")
     _t5 = _time.monotonic()
     merged_doc = merge_board_config(doc)
     _LOGGER.debug("[STARTUP TIMING] merge_board_config: %.2fs", _time.monotonic() - _t5)
-
-    # Finally validate
     _progress("Validating config...")
-    _t6 = _time.monotonic()
-    if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
-        if _is_downgraded:
-            # Downgrade scenario: log validation errors as warnings and continue
-            # with the validated document (cerberus keeps valid fields).
-            _LOGGER.warning(
-                "Config validation errors (ignored due to downgrade from schema v%d): %s",
-                _cv,
-                v.errors,
-            )
-            # Use the validated document which has unknown fields purged
-            merged_doc = v.document  # type: ignore[attr-defined]
-        else:
-            error_msg = "Configuration validation failed:\n"
-            for field, errors in v.errors.items():  # type: ignore[attr-defined]
-                error_lines = []
-                if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
-                    error_lines = [
-                        f"{v.errors[field][0]['line'] + 1}: {line}"  # type: ignore[attr-defined]
-                        for line in config_yaml.splitlines()[
-                            v.errors[field][0]["line"] - 1 : v.errors[field][0]["line"] + 1
-                        ]  # type: ignore[attr-defined]
-                    ]
-                error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
-            raise ConfigurationException(error_msg)
-    _LOGGER.debug("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
 
-    # Cross-section references cerberus cannot see: it validates one key at a
-    # time and a condition in `event:` points into `virtual_switch:`. Skipped
-    # on a downgrade, where the whole validation is already advisory.
+    # Cross-section references a section's model cannot see: a condition in
+    # `event:` points into `virtual_switch:`. Skipped on a downgrade, where the
+    # whole validation is already advisory.
     if not _is_downgraded:
         _refuse_untyped_outputs(merged_doc)
         _check_virtual_switch_references(merged_doc)
@@ -1677,9 +1688,8 @@ def load_config_from_file(
 ):
     """Load and validate config from YAML file.
 
-    Uses a validated config cache to skip Cerberus validation on subsequent
-    startups when config and schema files haven't changed. This saves ~20s
-    on BeagleBone Black where Cerberus validation is very slow.
+    Uses a validated config cache to skip validation on subsequent startups
+    when the config files and the section models haven't changed.
 
     Args:
         config_file: Path to config YAML file.

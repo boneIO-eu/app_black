@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import AfterValidator, BeforeValidator, Field, model_validator
+from pydantic import AfterValidator, BeforeValidator, Field, ValidationInfo, model_validator
 
 from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, section, str_lower
-from boneio.core.config.onewire_address import kernel_address
+from boneio.core.config.onewire_address import kernel_address, loaded_address
 from boneio.core.config.yaml_util import _get_schema
 
 Number = Union[float, int]
@@ -42,14 +42,19 @@ def _round(description: str = _FILTERS):
 # ------------------------------------------------------------------ sensors
 
 
+def _address(value: Any, info: ValidationInfo) -> Any:
+    return (loaded_address if (info.context or {}).get("at_start") else kernel_address)(value)
+
+
 class OneWireSensor(Model):
     id: str | None = Field(None, description="Id to use in HA if needed. Default to address.")
     name: str | None = Field(None, description="Display name for the sensor in Home Assistant.")
     area: str | None = Field(
         None, description="Area/room where the sensor is located. Used for HA device grouping."
     )
-    # Stricter than start-up, which lets an unknown address through.
-    address: Annotated[str, BeforeValidator(kernel_address)] = Field(
+    # A save gives a real one; start-up loads one it cannot read, so the
+    # sensor waits on the bus instead of the controller refusing to start.
+    address: Annotated[str, BeforeValidator(_address)] = Field(
         description="Address of Dallas device, as the kernel names it (28-0000098c7df0) or as ESPHome "
         "writes it (0xc0000000053f3328)"
     )

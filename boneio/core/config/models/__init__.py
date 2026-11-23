@@ -4,10 +4,9 @@ Importing this package is cheap: the models themselves are built on first
 use. Building them takes 1.2 s on a BeagleBone, which a start that finds its
 validated config in the cache should not pay.
 
-While start-up still validates config.yaml with Cerberus, a model may be
-stricter than the Cerberus schema for its section but never more lenient: a
-section the model accepts is written to the file as posted, and must load.
-tests/unit/core/config/test_models_match_cerberus.py holds that.
+Start-up and a save read a section through the same model, so what a save
+accepts is what the next start loads; tests/unit/core/config/test_config_shape.py
+holds that the running objects get it in the shape they always did.
 """
 
 from __future__ import annotations
@@ -43,41 +42,53 @@ _MODULES = {
 SECTIONS = frozenset(_MODULES)
 
 
-def validate(section: str, data: Any) -> list[str]:
+def read(section: str, data: Any, *, at_start: bool = False) -> tuple[Any, list[str]]:
     """Check one section as written, before the board mapping expands it.
 
     Args:
         section: One of :data:`SECTIONS`.
         data: The section. Not modified.
+        at_start: Read config.yaml as start-up does, which lets a few things
+            through that a save refuses (a 1-Wire address it cannot parse).
 
     Returns:
-        One ``path: message`` line per error; empty when the section is valid.
+        The section as the running objects read it (coerced, with its
+        defaults), and one ``path: message`` line per error; the section is
+        None when there are errors.
     """
     from pydantic import ValidationError
 
     module = importlib.import_module(f"{__name__}.{_MODULES[section]}")
-    tags = getattr(module, "UNION_TAGS", frozenset())
+    adapter = module.SECTION_ADAPTERS[section]
     try:
-        module.SECTION_ADAPTERS[section].validate_python(data)
+        value = adapter.validate_python(data, context={"at_start": at_start})
     except ValidationError as err:
-        # A message raised by our own validators reads better without the
-        # "Value error, " pydantic puts in front of it.
-        return [
-            f"{_path(section, e['loc'], tags)}: {e['msg'].removeprefix('Value error, ')}"
-            for e in err.errors()
-        ]
-    return []
+        tags = getattr(module, "UNION_TAGS", frozenset())
+        return None, [f"{_path(section, e['loc'], tags)}: {_message(e)}" for e in err.errors()]
+    return adapter.dump_python(value), []
+
+
+def validate(section: str, data: Any) -> list[str]:
+    """The errors :func:`read` finds in a section, as a save checks it."""
+    return read(section, data)[1]
 
 
 def load(section: str, data: Any) -> Any:
-    """The section as the running objects read it: coerced, with its defaults.
+    """The section as the running objects read it; ``data`` must be valid."""
+    value, errors = read(section, data)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return value
 
-    Args:
-        section: One of :data:`SECTIONS`.
-        data: The section as written; must be valid (see :func:`validate`).
-    """
-    adapter = importlib.import_module(f"{__name__}.{_MODULES[section]}").SECTION_ADAPTERS[section]
-    return adapter.dump_python(adapter.validate_python(data))
+
+def _message(error: Any) -> str:
+    # A message raised by our own validators reads better without the
+    # "Value error, " pydantic puts in front of it; a value not among the
+    # allowed ones is named, since the line it is on is not.
+    message = error["msg"].removeprefix("Value error, ")
+    if error["type"] == "literal_error":
+        message += f" (got {error['input']!r})"
+    return message
 
 
 def _path(section: str, loc: tuple, tags: frozenset[str]) -> str:
