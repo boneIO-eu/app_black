@@ -24,8 +24,6 @@ from boneio.core.config import models as config_models
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS
 from boneio.core.config.yaml_util import (
-    CustomValidator,
-    _get_schema,
     _strip_empty_strings_deep,
     clear_config_cache,
     load_config_from_file,
@@ -453,14 +451,12 @@ def _web_changed_apart_from_cloud(previous: object, current: object) -> bool:
     def rest(section: object) -> dict:
         if not isinstance(section, dict):
             return {}
-        # Both sides normalised by the validator that loads config.yaml: the
-        # previous section comes from the loaded config, defaults filled in down
-        # to ``security.map_tiles``, while the panel sends its section with the
+        # Both sides read the way config.yaml is loaded: the previous section
+        # comes from the loaded config, defaults filled in down to
+        # ``security.map_tiles``, while the panel sends its section with the
         # defaults stripped. Compared raw, every save looked like a change.
-        doc = CustomValidator({"web": _get_schema()["web"]}, purge_unknown=True).normalized(
-            {"web": copy.deepcopy(section)}, always_return_document=True
-        )
-        return {k: v for k, v in ((doc or {}).get("web") or {}).items() if k != "cloud"}
+        loaded = config_models.read("web", copy.deepcopy(section), at_start=True)[0]
+        return {k: v for k, v in (loaded or section).items() if k != "cloud"}
 
     return rest(previous) != rest(current)
 

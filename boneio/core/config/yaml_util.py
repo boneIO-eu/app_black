@@ -1028,16 +1028,28 @@ def normalize_section(section: str, data: Any) -> Any:
 
     The fast reload path skips validation, so a reloaded section is raw YAML
     ("50cm", "SDM120", 30000 for 30000 ms); this gives it the values the
-    running objects were built from.
+    running objects were built from. An entry of a list that does not read is
+    left out, with a warning, rather than stopping the reload.
     """
-    _trust_schema()
-    v = CustomValidator({section: _get_schema()[section]}, purge_unknown=True)
-    doc = _strip_empty_strings_deep({section: copy.deepcopy(data)})
-    return v.normalized(doc, always_return_document=True)[section]  # type: ignore[attr-defined]
+    from boneio.core.config import models
+
+    data = _strip_empty_strings_deep(copy.deepcopy(data))
+    value, errors = models.read(section, data, at_start=True)
+    if not errors:
+        return _keep_secrets(data, value)
+    _LOGGER.warning("Reloading %s: %s", section, "; ".join(errors))
+    if not isinstance(data, list):
+        return None
+    kept = []
+    for entry in data:
+        value, errors = models.read(section, [entry], at_start=True)
+        if not errors:
+            kept += _keep_secrets([entry], value)
+    return kept
 
 
 def _cerberus_section_errors(section: str, doc: dict) -> list[str]:
-    """Validate ``doc[section]`` against the Cerberus schema, as start-up does."""
+    """Validate ``doc[section]`` against the Cerberus schema, as start-up once did."""
     schema = _get_schema()
     subschema = {key: schema[key] for key in doc}
 
@@ -1049,8 +1061,6 @@ def _cerberus_section_errors(section: str, doc: dict) -> list[str]:
     except ConfigurationException as err:
         return [f"{section}: {err}"]
     v.validate(doc, subschema)  # type: ignore[attr-defined]
-    # Only what was asked about: the stored boneio section is context here,
-    # and anything wrong with it is not the caller's to fix in this section.
     errors = v.errors  # type: ignore[attr-defined]
     return _flatten_errors({section: errors[section]}) if section in errors else []
 
@@ -1061,8 +1071,7 @@ def validate_section(section: str, data: Any, boneio_section: dict | None) -> li
     Only the section is validated, not the whole config. The ``boneio``
     section travels with it because the board it names decides what
     ``boneio_output``/``boneio_input`` expand to, and the expanded entries are
-    what is checked. Sections with a Pydantic model (``models.SECTIONS``) are
-    checked by it — about ten times faster than Cerberus on a BeagleBone.
+    what is checked, by the section's model.
 
     Args:
         section: Top-level section name.
@@ -1074,12 +1083,10 @@ def validate_section(section: str, data: Any, boneio_section: dict | None) -> li
     """
     from boneio.core.config import models
 
-    if section not in _get_schema():
+    if section not in models.SECTIONS:
         return [f"Unknown configuration section: '{section}'"]
 
     doc = _section_document(section, data, boneio_section)
-    if section not in models.SECTIONS:
-        return _cerberus_section_errors(section, doc)
     # The model checks the section as written; the board mapping only has to
     # know every input it names. In this order a malformed boneio_input is
     # reported by the model instead of breaking the mapping.

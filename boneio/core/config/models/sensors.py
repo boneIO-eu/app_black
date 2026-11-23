@@ -15,7 +15,6 @@ from pydantic import AfterValidator, BeforeValidator, Field, ValidationInfo, mod
 
 from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, section, str_lower
 from boneio.core.config.onewire_address import kernel_address, loaded_address
-from boneio.core.config.yaml_util import _get_schema
 
 Number = Union[float, int]
 Address = Union[str, int]
@@ -130,9 +129,9 @@ class Modbus(Model):
 
 
 def _known_model(value: str) -> str:
-    # The schema's list is filled from the device files when it is loaded.
-    allowed = _get_schema()["modbus_devices"]["schema"]["schema"]["model"]["allowed"]
-    if value not in allowed:
+    from boneio.core.config.yaml_util import _get_modbus_device_models
+
+    if value not in _get_modbus_device_models():
         raise ValueError(f"unallowed value {value}")
     return value
 

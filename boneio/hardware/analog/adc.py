@@ -32,7 +32,7 @@ ADC_PIN_MAP = {
     "AIN4": "in_voltage4_raw",
     "AIN5": "in_voltage5_raw",
     "AIN6": "in_voltage6_raw",
-    # P9 header pin aliases (from schema.yaml)
+    # P9 header pin aliases (as the adc section names them)
     "P9_39": "in_voltage0_raw",  # AIN0
     "P9_40": "in_voltage1_raw",  # AIN1
     "P9_37": "in_voltage2_raw",  # AIN2

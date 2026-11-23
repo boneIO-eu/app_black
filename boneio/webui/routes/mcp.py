@@ -32,7 +32,8 @@ from fastapi.responses import JSONResponse, Response
 
 from boneio.core.config.secret_masking import mask_secrets
 from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS, secret_sections
-from boneio.core.config.yaml_util import _get_modbus_device_models, _get_schema
+from boneio.core.config import models as config_models
+from boneio.core.config.yaml_util import _get_modbus_device_models
 from boneio.version import __version__
 from boneio.webui.middleware import policy
 from boneio.webui.routes import config_core
@@ -112,7 +113,7 @@ def _section(args: dict) -> str:
     section = args.get("section")
     if not isinstance(section, str) or not config_core._SECTION_NAME.match(section):
         raise _ToolError("Give a section name such as 'output'; boneio_list_sections lists them.")
-    if section not in _get_schema():
+    if section not in config_models.SECTIONS:
         raise _ToolError(f"There is no '{section}' section; boneio_list_sections lists them.")
     return section
 
@@ -132,7 +133,7 @@ async def _list_sections(request: Request, args: dict) -> Any:
     config = await _config(request)
     secret = secret_sections()
     out = []
-    for name in sorted(_get_schema()):
+    for name in sorted(config_models.SECTIONS):
         value = config.get(name)
         out.append({
             "section": name,

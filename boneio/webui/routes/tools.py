@@ -84,7 +84,7 @@ async def test_action(
 
     return {"status": "success"}
 
-# boneIO Black on-board I2C devices (from schema.yaml)
+# boneIO Black on-board I2C devices (as the config sections name them)
 # For these addresses we show ONLY the boneIO device, no alternatives.
 BONEIO_I2C_DEVICES: dict[int, str] = {
     0x18: "MCP9808 temp sensor (boneIO on-board) / DS2484 1-Wire bridge (kernel)",

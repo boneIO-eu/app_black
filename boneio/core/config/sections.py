@@ -26,20 +26,31 @@ PERSON_ONLY_SECTIONS = frozenset({"usage_history"})
 
 @cache
 def secret_sections() -> frozenset[str]:
-    """Sections whose schema has a field holding a secret, anywhere in it."""
+    """Sections with a field holding a secret anywhere in them.
+
+    Read from the panel's schema, which the section models generate, so the
+    models are not built for it.
+    """
+    import json
+    from pathlib import Path
+
     from boneio.core.config.secret_masking import SECRET_KEYS
-    from boneio.core.config.yaml_util import _get_schema
 
     keys = SECRET_KEYS | AGENT_SECRET_KEYS
+    document = json.loads((Path(__file__).parents[2] / "webui" / "schema" / "config.schema.json").read_text())
+    defs = document.get("$defs", {})
 
-    def holds_secret(rule: object) -> bool:
-        if not isinstance(rule, dict):
+    def holds_secret(node: object, seen: frozenset = frozenset()) -> bool:
+        if isinstance(node, list):
+            return any(holds_secret(n, seen) for n in node)
+        if not isinstance(node, dict):
             return False
-        schema = rule.get("schema")
-        if isinstance(schema, dict):
-            if isinstance(schema.get("type"), str):  # list item rule
-                return holds_secret(schema)
-            return any(k.lower() in keys or holds_secret(v) for k, v in schema.items())
-        return False
+        ref = node.get("$ref", "").removeprefix("#/$defs/")
+        if ref:
+            return ref not in seen and holds_secret(defs[ref], seen | {ref})
+        properties = node.get("properties", {})
+        return any(k.lower() in keys for k in properties) or any(
+            holds_secret(node.get(k), seen) for k in ("items", "additionalProperties", "oneOf")
+        ) or any(holds_secret(v, seen) for v in properties.values())
 
-    return frozenset(name for name, rule in _get_schema().items() if holds_secret(rule))
+    return frozenset(name for name, rule in document["properties"].items() if holds_secret(rule))
