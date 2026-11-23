@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Drive the panel in headless Chromium on a real controller, before a release.
 
-Two scenarios, both ending with the cloud address served with a real
-certificate:
+  settings-smoke  every settings page opens, draws something and throws
+                  nothing — no JavaScript exception, no console error. Changes
+                  nothing. With --base it runs against a Vite dev server
+                  tunnelled to the controller, so a frontend tree is checked
+                  before it is built.
+
+Two scenarios end with the cloud address served with a real certificate:
 
   wizard-cloud    the first-run wizard: account, then the cloud step, until
                   the wizard confirms the new address. The controller must be
@@ -26,7 +31,8 @@ the SSH password of the boneio account. Later runs reuse that file:
   scripts/browser_e2e.py settings-cloud --host 192.168.50.142
   scripts/browser_e2e.py cloud-status   --host 192.168.50.142   (reads, changes nothing)
 
-``--credentials FILE`` takes another file. Labels come from the panel's own
+``--credentials FILE`` takes another file; BONEIO_E2E_TOKEN, a token from
+scripts/dev_login_token.sh, signs in without one. Labels come from the panel's own
 locale (``--lang``). Screenshots go to ``--out``. Needs Chromium and
 ``websockets`` (pyenv black13 has it).
 """
@@ -146,7 +152,10 @@ class Page:
                 self.saves[msg["params"]["requestId"]][1] = time.time()
             elif msg.get("method") == "Log.entryAdded":
                 e = msg["params"]["entry"]
-                self.console.append(f"{e.get('level')}: {e.get('text', '')[:160]}")
+                self.console.append(f"{e.get('level')}: {e.get('text', '')[:160]} {e.get('url', '')}")
+            elif msg.get("method") == "Runtime.exceptionThrown":
+                d = msg["params"]["exceptionDetails"]
+                self.console.append(f"exception: {(d.get('exception') or {}).get('description', d.get('text', ''))[:200]}")
             if msg.get("id") == self.n:
                 return msg
 
@@ -266,6 +275,9 @@ async def report_cloud(page: Page) -> None:
 
 async def sign_in(page: Page, base: str, user: str, password: str, L: dict) -> None:
     await page.open(base + "/")
+    if os.environ.get("BONEIO_E2E_TOKEN"):
+        await page.js(f"localStorage.setItem('token', {json.dumps(os.environ['BONEIO_E2E_TOKEN'])})")
+        await page.open(base + "/")
     if L["panel_guard"]["continue_anyway"] in await page.text():
         await page.do(f"__t.click({json.dumps(L['panel_guard']['continue_anyway'])})", 4)
     if await page.js("!!document.querySelector('input[autocomplete=current-password]')"):
@@ -374,8 +386,54 @@ async def settings_cloud(page: Page, base: str, user: str, password: str, L: dic
     return ok
 
 
+#: Settings pages that are not config sections (UISettings' STANDALONE_SECTIONS).
+STANDALONE = ("security", "accounts", "proposals", "ha_dashboard", "yaml_editor", "location", "hostname",
+              "timezone", "mosquitto", "nodered_service", "update", "device_tools", "hardware_errors",
+              "backup", "migrations", "power", "factory_reset")
+#: Console errors that say nothing about the page: no WebSocket and no web
+#: manifest from a Vite dev server, a request the role may not make.
+_NOT_THE_PAGE = ("401", "403", "/ws", "manifest.webmanifest")
+_SPINNER = "document.querySelector('.animate-spin, .loading-spinner')"
+
+
+async def settings_smoke(page: Page, base: str, user: str, password: str, L: dict, out: Path) -> bool:
+    """Every settings page opens, draws something and throws nothing. Changes nothing."""
+    await sign_in(page, base, user, password, L)
+    sections = await page.js(
+        "fetch('/schema/config.schema.json').then(r => r.json()).then(s => Object.keys(s.properties))"
+    )
+    failed = []
+    pages = [*sections, *(p for p in STANDALONE if p not in sections)]
+    for name in pages:
+        before = len(page.console)
+        await page.open(f"{base}/settings/{name}")
+        loading = True
+        for _ in range(30):  # a lazily loaded page and its first requests
+            await asyncio.sleep(0.5)
+            loading = await page.js(f"!!{_SPINNER}")
+            if not loading:
+                break
+        await asyncio.sleep(1)
+        drawn = len(await page.text())  # also reads the events of that second
+        errors = [c for c in page.console[before:]
+                  if c.startswith(("error", "exception")) and not any(n in c for n in _NOT_THE_PAGE)]
+        # Without an error boundary a page that throws while drawing takes the
+        # whole app down, header and all: nothing is left to read.
+        if errors or loading or drawn < 20:
+            failed.append(name)
+            log(f"{name}: {len(errors)} error(s), {drawn} characters drawn" + (", still loading" if loading else ""))
+            for line in errors[:3]:
+                log(f"  {line}")
+            await page.shot(out, f"smoke-{name}")
+    log(f"{len(pages) - len(failed)} of {len(pages)} pages fine"
+        + (f"; failed: {', '.join(failed)}" if failed else ""))
+    return not failed
+
+
 def credentials(args, host: str) -> tuple[str, str]:
     """The administrator to use, made up and kept for the next run if need be."""
+    if os.environ.get("BONEIO_E2E_TOKEN") and not args.credentials:
+        return "", ""
     path = Path(args.credentials) if args.credentials else CREDENTIALS_DIR / f"{host}.cred"
     if not path.exists():
         if args.scenario != "wizard-cloud":
@@ -391,14 +449,16 @@ def credentials(args, host: str) -> tuple[str, str]:
 
 async def run(args) -> bool:
     global TARGET
-    host = args.host or args.ssh.split("@")[-1]
+    host = args.host or (args.ssh or "").split("@")[-1] or "localhost"
     user, password = credentials(args, host)
     L = json.loads((LOCALES / args.lang / "common.json").read_text())
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     sni = args.cloud_name or None
 
-    if args.ssh:
+    if args.base:
+        tunnel, base = None, args.base.rstrip("/")
+    elif args.ssh:
         tunnel = subprocess.Popen([
             "ssh", "-N", "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
             "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
@@ -419,7 +479,8 @@ async def run(args) -> bool:
         for _ in range(50):
             try:
                 tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json"))
-                served_issuer(host)
+                if not args.base:
+                    served_issuer(host)
                 break
             except OSError:
                 time.sleep(0.3)
@@ -429,7 +490,7 @@ async def run(args) -> bool:
         if args.scenario == "wizard-cloud" and not init.get("needs_onboarding"):
             log("this controller already has an administrator; the wizard runs on a fresh one")
             return False
-        if sni is None and args.ssh:
+        if sni is None and args.ssh and args.scenario != "settings-smoke":
             # The serial is the MAC's tail, as boneIO computes it; the hostname
             # can be wrong (an image that carried its build board's name).
             mac = subprocess.run(
@@ -444,11 +505,14 @@ async def run(args) -> bool:
         async with websockets.connect(ws_url, max_size=None, ping_interval=None) as ws:
             page = Page(ws)
             await page.call("Log.enable")
+            await page.call("Runtime.enable")
             await page.call("Page.enable")
             await page.call("Network.enable")
             await page.call("Page.addScriptToEvaluateOnNewDocument", source=HELPERS)
             if args.scenario == "wizard-cloud":
                 ok = await wizard_cloud(page, base, user, password, L, out)
+            elif args.scenario == "settings-smoke":
+                ok = await settings_smoke(page, base, user, password, L, out)
             elif args.scenario == "cloud-status":
                 ok = await cloud_status(page, base, user, password, L, sni)
             else:
@@ -457,9 +521,9 @@ async def run(args) -> bool:
             for line in errors[-5:]:
                 log(f"console {line}")
             name = sni or page.cloud_name
-            served = f"; {name} served by {served_issuer(name)}" if name else ""
+            served = f"; {name} served by {served_issuer(name)}" if name and args.scenario != "settings-smoke" else ""
             log(f"{args.scenario}: {'PASS' if ok else 'FAIL'}{served}")
-            if not ok and args.ssh:
+            if not ok and args.ssh and args.scenario != "settings-smoke":
                 # The cloud API limits registrations; a run right after another
                 # one can fail on that, which is no fault of the panel.
                 tail = subprocess.run(
@@ -479,10 +543,11 @@ async def run(args) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("scenario", choices=("wizard-cloud", "settings-cloud", "cloud-status"))
+    parser.add_argument("scenario", choices=("settings-smoke", "wizard-cloud", "settings-cloud", "cloud-status"))
     where = parser.add_mutually_exclusive_group(required=True)
     where.add_argument("--host", help="the controller's address, opened directly")
     where.add_argument("--ssh", help="boneio@<controller>, with key login, through a tunnel")
+    where.add_argument("--base", help="a panel already served there, e.g. http://localhost:5173 (settings-smoke)")
     parser.add_argument("--credentials", help=f"file with user:password (default {CREDENTIALS_DIR}/<host>.cred)")
     parser.add_argument("--lang", default="pl", help="the panel's language (locale directory)")
     parser.add_argument("--cloud-name", help="defaults to <serial>.black.boneio.app")
