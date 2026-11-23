@@ -12,11 +12,18 @@ from __future__ import annotations
 from typing import Annotated, Any, ClassVar, Literal, Union
 
 from pydantic import (
-    AfterValidator, BeforeValidator, ConfigDict, Discriminator, Field, Tag, TypeAdapter, model_validator,
+    AfterValidator,
+    BeforeValidator,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    TypeAdapter,
+    model_validator,
 )
 
+from boneio.core.config.coerce import condition_shape_errors
 from boneio.core.config.models.base import ANY_CASE, Model, Period, Str, StrPeriod, coerce, str_lower
-from boneio.core.config.yaml_util import condition_shape_errors
 
 
 def _upper(value: Any) -> Any:

@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BeforeValidator, Field, model_validator
 
+from boneio.core.config.coerce import schedule_shape_errors
 from boneio.core.config.models.base import Model, Str, coerce, section, unique_resolved_ids
 from boneio.core.config.models.inputs import (  # noqa: F401 - UNION_TAGS for error paths
     UNION_TAGS,
@@ -18,7 +19,6 @@ from boneio.core.config.models.inputs import (  # noqa: F401 - UNION_TAGS for er
     ShapedCondition,
     SunOffset,
 )
-from boneio.core.config.yaml_util import schedule_shape_errors
 
 ClockTime = Annotated[str, Field(pattern=r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$")]
 Seconds = Annotated[float, BeforeValidator(coerce("sun_offset")), Field(ge=0, le=21600)]

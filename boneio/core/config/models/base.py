@@ -7,17 +7,13 @@ from typing import Annotated, Any, ClassVar
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 from pydantic_core import PydanticUndefined
 
-from boneio.core.config.yaml_util import CustomValidator
+from boneio.core.config import coerce as _coercions
 from boneio.core.utils import TimePeriod
-
-# ponytail: the coercions still live on the Cerberus validator; move them to
-# plain functions when the last section leaves Cerberus.
-_cerberus = CustomValidator({})
 
 
 def coerce(name: str):
-    """A ``coerce:`` rule of the Cerberus schema, as a pydantic validator."""
-    method = getattr(_cerberus, f"_normalize_coerce_{name}")
+    """A ``coerce:`` rule of schema.yaml (one of boneio.core.config.coerce), as a pydantic validator."""
+    method = getattr(_coercions, name)
 
     def run(value: Any) -> Any:
         # Cerberus reports any exception a coercion raises as the field's
