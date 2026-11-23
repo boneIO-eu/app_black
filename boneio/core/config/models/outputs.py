@@ -21,7 +21,7 @@ def _lower(value: Any) -> Any:
 
 
 class Output(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"name", "id"})
 
     name: Str = Field(None, description="Display Name")

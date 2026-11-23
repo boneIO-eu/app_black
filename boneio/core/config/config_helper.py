@@ -527,10 +527,10 @@ class ConfigHelper:
         """Reload configuration from YAML file (fast path for hot-reload).
         
         Uses load_yaml_file() + merge_board_config() to read the config
-        directly from YAML without running Cerberus validation. This is
-        much faster (~0.5-1s) than the full validation path (~20s on BB).
+        directly from YAML without validating it. This is faster than the
+        full validation path.
         
-        Full Cerberus validation is only needed at:
+        Full validation is only needed at:
         - Application startup (via load_config_from_file)
         - Background disk cache rebuild (debounced after config changes)
         - Monaco YAML editor validation (load_config_from_string)

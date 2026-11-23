@@ -23,7 +23,7 @@ import { SCHEDULE_DAY_OPTIONS } from './types/template';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Convert a value that may be a raw millisecond integer (from Cerberus coercion)
+ * Convert a value that may be a raw millisecond integer (from the backend's coercion)
  * back to a human-readable time string like "2s" or "500ms".
  * If the value is already a string, returns it unchanged.
  */
@@ -629,7 +629,7 @@ interface AiIrrigationResponse {
 
 function AdvancedTimingSection({ data, updateField }: { data: IrrigationData; updateField: (field: string, value: unknown) => void }) {
   const { t } = useTranslation();
-  // Normalize numeric ms values (backend Cerberus coercion may produce raw ints)
+  // Normalize numeric ms values (the backend's coercion may produce raw ints)
   const voDelay = msToTimeString(data.valve_open_delay) ?? data.valve_open_delay;
   const voOverlap = msToTimeString(data.valve_overlap) ?? data.valve_overlap;
   const [expanded, setExpanded] = useState(

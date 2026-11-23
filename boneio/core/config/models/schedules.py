@@ -25,7 +25,7 @@ Seconds = Annotated[float, BeforeValidator(coerce("sun_offset")), Field(ge=0, le
 
 
 class Trigger(Model):
-    # sun_offset turns a null into 0, so Cerberus takes it.
+    # A null offset reads as 0; see Model.nullable.
     nullable = frozenset({"offset"})
 
     type: Literal["sun", "time"] = Field("sun", description="Trigger type")
@@ -41,7 +41,7 @@ class Trigger(Model):
 
 
 class Schedule(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     name: str = Field(description="Name")

@@ -1,7 +1,6 @@
 """The coercions a config value goes through, and the shape checks a schema cannot say.
 
-Plain functions: the section models use them, and so does the Cerberus
-validator while it still exists.
+Plain functions, which the section models use.
 """
 
 from __future__ import annotations

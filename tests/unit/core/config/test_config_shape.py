@@ -10,7 +10,7 @@ Two differences are deliberate, and the shapes hold the model's side:
   (Cerberus took any dictionary there); the action runner reads both.
 - ``mqtt.topic_prefix``, a key no code reads, is dropped.
 
-Regenerate after a deliberate change of shape, while Cerberus is installed:
+Regenerate after a deliberate change of shape, and read the diff:
 ``python -m tests.unit.core.config.test_config_shape``.
 """
 
@@ -53,29 +53,6 @@ def test_the_model_gives_the_shape(section):
         assert _canon(models.load(section, copy.deepcopy(case["input"]))) == case["shape"], case["input"]
 
 
-def _cerberus_shape(section: str, data: Any) -> Any:
-    from boneio.core.config.yaml_util import normalize_section
-
-    shape = _canon(normalize_section(section, copy.deepcopy(data)))
-    if section == "mqtt":
-        shape.pop("topic_prefix", None)
-    return shape
-
-
-def _without_remote_actions(section: str, shape: Any) -> Any:
-    if section != "remote_inputs":
-        return shape
-    return [{k: v for k, v in entry.items() if k != "actions"} for entry in shape]
-
-
-@pytest.mark.parametrize("section", sorted(models.SECTIONS))
-def test_the_shape_is_what_cerberus_gives(section):
-    """Goes with Cerberus."""
-    for case in _cases(section):
-        expected = _without_remote_actions(section, case["shape"])
-        assert _without_remote_actions(section, _cerberus_shape(section, case["input"])) == expected, case["input"]
-
-
 def _write() -> None:
     """Every factory config's sections and every valid differential case."""
     import glob
@@ -101,11 +78,7 @@ def _write() -> None:
             continue
         if key in shapes.get(section, {}) or validate_section(section, copy.deepcopy(data), boneio):
             continue
-        shape = _canon(models.load(section, copy.deepcopy(data)))
-        assert _without_remote_actions(section, _cerberus_shape(section, data)) == _without_remote_actions(
-            section, shape
-        ), (section, data)
-        shapes.setdefault(section, {})[key] = {"input": data, "shape": shape}
+        shapes.setdefault(section, {})[key] = {"input": data, "shape": _canon(models.load(section, copy.deepcopy(data)))}
 
     SHAPES.mkdir(exist_ok=True)
     for section, cases in shapes.items():

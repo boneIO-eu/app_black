@@ -1879,7 +1879,7 @@ class Manager:
 
         # Reload config cache in ConfigHelper
         # Uses fast path: load_yaml_file() + merge_board_config() (~0.5-1s)
-        # instead of full Cerberus validation (~20s). Run in thread executor
+        # instead of full validation. Run in thread executor
         # because it still does file I/O (reading YAML files from disk).
         try:
             config = await asyncio.to_thread(self._config_helper.reload_config)

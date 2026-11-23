@@ -140,8 +140,8 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
         # written like any other schema.
         node["oneOf"] = [_panel(branch, defs, shared, name) for branch in node["oneOf"]]
 
-    # Only where schema.yaml says ``nullable``: the null Cerberus would turn
-    # into a field's default is still flagged, as it always was.
+    # Only where the model marks it: a null that start-up reads as the
+    # field's default is still flagged, as it always was.
     may_be_null = node.pop("x-null", False)
     kind = node.get("type")
     if kind == "boolean":

@@ -18,7 +18,7 @@ DEFAULT_DOUBLE_CLICK_DURATION_MS = 220
 DEFAULT_LONG_PRESS_DURATION_MS = 400
 DEFAULT_SEQUENCE_WINDOW_MS = 500
 # Matches the event bounce_time default in schema.yaml. Needed on the hot-reload
-# path, which reads the YAML without running Cerberus, so an omitted bounce_time
+# path, which reads the YAML without validating it, so an omitted bounce_time
 # arrives as None rather than as the schema default.
 DEFAULT_BOUNCE_TIME_MS = 30
 
@@ -35,7 +35,7 @@ def _to_milliseconds(value, default_ms: int) -> int:
         Value in milliseconds as integer.
 
     Note:
-        Strings have to be handled here, not just TimePeriod: Cerberus coerces
+        Strings have to be handled here, not just TimePeriod: validation coerces
         these fields at startup, but the hot-reload path reads the YAML without
         validating, and EventForm writes them as strings like "300ms". Falling
         back to the default for those quietly reset every custom click timing on
@@ -198,7 +198,7 @@ class GpioEventButton(GpioBaseClass):
             max_long_press_duration: Safety timeout for long press in ms (default: 120000ms)
             bounce_time: Debounce window — a TimePeriod at startup, but a bare
                 number of milliseconds or a string such as "30ms" on the
-                hot-reload path, which skips Cerberus coercion
+                hot-reload path, which skips validation
         """
         from boneio.const import CLICK_SEQUENCES
 

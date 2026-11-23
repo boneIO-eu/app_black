@@ -1,4 +1,4 @@
-"""What every section model shares: Cerberus' reading of a value, and its coercions."""
+"""What every section model shares: how config.yaml reads a value, and its coercions."""
 
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ def coerce(name: str):
     method = getattr(_coercions, name)
 
     def run(value: Any) -> Any:
-        # Cerberus reports any exception a coercion raises as the field's
-        # error, so a coercion fed the wrong type is an error here too.
+        # Any exception a coercion raises is the field's error: a coercion fed
+        # the wrong type is a wrong value, not a crash.
         try:
             return method(value)
         except Exception as err:  # noqa: BLE001
@@ -56,26 +56,25 @@ def section(model: Any, description: str, **extra: Any) -> TypeAdapter:
 
 
 class Model(BaseModel):
-    """Strict like the Cerberus schema: no "yes" for a boolean, no 5 for a string."""
+    """Strict: no "yes" for a boolean, no 5 for a string."""
 
     model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True)
 
-    #: Fields whose null Cerberus' coercion turns into a value (str() into
-    #: "None", sun_offset into 0); handed to the field's own coercion, so such
+    #: Fields whose null their coercion turns into a value (str() into "None",
+    #: sun_offset into 0), as config.yaml has always read them; so such
     #: a field is not declared ``| None``, only defaults to None when absent.
     nullable: ClassVar[frozenset[str]] = frozenset()
 
     @model_validator(mode="before")
     @classmethod
-    def _as_cerberus_reads_it(cls, data: Any) -> Any:
+    def _read_nulls(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
         fields = cls.model_fields
         refused = []
         for key in [k for k, v in data.items() if v is None and k in fields]:
-            # Cerberus fills a null with the field's default, as if it were
-            # missing; with no default it is an error - unless a coercion
-            # makes something of it.
+            # A null is the field's default, as if it were missing; with no
+            # default it is an error - unless a coercion makes something of it.
             if key in cls.nullable:
                 continue
             field = fields[key]
@@ -93,9 +92,9 @@ class Model(BaseModel):
         return data
 
     @model_serializer(mode="wrap")
-    def _as_cerberus_gives_it(self, handler: Any) -> Any:
-        # Cerberus adds a default it has, and nothing for a field without one;
-        # a null left in would beat the default of a cfg.get("x", default).
+    def _as_start_up_gives_it(self, handler: Any) -> Any:
+        # A default is filled in, and nothing for a field without one: a null
+        # left in would beat the default of a cfg.get("x", default).
         data = handler(self)
         return {k: v for k, v in data.items() if v is not None or k in self.model_fields_set}
 

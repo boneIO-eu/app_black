@@ -157,8 +157,7 @@ def invalidate_config_cache(
 
     Clears the route-level mtime cache and the disk .pkl cache, then schedules
     a debounced background rebuild. The rebuild runs 30 seconds after the last
-    config change so that rapid edits don't trigger multiple slow Cerberus
-    validations (~20s each on BeagleBone).
+    config change so that rapid edits don't trigger multiple full validations.
 
     When *section* and *section_data* are provided, the corresponding key
     inside ``ConfigHelper._config_cache`` is patched **in-place** so that the
@@ -882,8 +881,7 @@ async def update_section_content(section: str, data: dict | list = Body(...), re
 
     errors = await _section_errors(section, data)
     if section in config_models.SECTIONS:
-        # The model is quick enough for every save; the Cerberus schema for
-        # these sections took 0.7 s on a BeagleBone, and is left to start-up.
+        # The model is quick enough for every save.
         errors += await asyncio.to_thread(validate_section, section, data, await _stored_boneio())
     if errors:
         raise HTTPException(
@@ -912,7 +910,7 @@ async def update_section_content(section: str, data: dict | list = Body(...), re
         # It reads the compose .env: off the event loop.
         await asyncio.to_thread(_check_web_port_free, await _stored_web_section(), data)
 
-    # Strip empty string values from data to prevent cerberus coercion failures
+    # Strip empty string values from data, which no coercion can read
     # (e.g. bounce_time: '' instead of being omitted).
     data = _strip_empty_strings_deep(data)
 

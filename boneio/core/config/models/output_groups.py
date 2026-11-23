@@ -17,7 +17,7 @@ def _lower(value: Any) -> Any:
 
 
 class OutputGroup(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id", "name"})
 
     id: Str = Field(description="Group ID")

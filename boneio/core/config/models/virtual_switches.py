@@ -21,7 +21,7 @@ class SwitchActions(Model):
 
 
 class VirtualSwitch(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     name: str = Field(description="Name")

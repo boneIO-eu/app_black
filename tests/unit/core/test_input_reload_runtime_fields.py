@@ -193,7 +193,7 @@ class TestUpdateBounceTime:
         assert sensor._detector._debounce_seconds == pytest.approx(0.25)
 
     def test_timeperiod_is_accepted(self, sensor):
-        """At startup the value has already been coerced by Cerberus."""
+        """At startup the value has already been coerced by validation."""
         from boneio.core.utils import TimePeriod
 
         assert sensor.update_bounce_time(TimePeriod(milliseconds=250)) is True
@@ -243,7 +243,7 @@ class TestEventBounceTime:
 
 
 class TestConstructorAcceptsRawBounceTime:
-    """A new input added while the app runs skips Cerberus coercion."""
+    """A new input added while the app runs skips validation."""
 
     @pytest.fixture
     def gpio_manager(self):

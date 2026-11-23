@@ -2,7 +2,7 @@
 
 Mirrors boneio/schema/schema.yaml for the section. A protocol's block
 (``mqtt``, ``esphome_api``, ``wled``) is only allowed on a device of that
-protocol, as the Cerberus ``dependencies`` rule has it.
+protocol.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ class WledBlock(Model):
 
 
 class RemoteDevice(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     id: Str = Field(description="Device ID")

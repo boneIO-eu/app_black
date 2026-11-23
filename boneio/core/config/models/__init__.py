@@ -14,8 +14,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-#: Sections validated by a model instead of the Cerberus schema, and the
-#: module holding it. Only that module is built when its section is checked.
+#: Every config section, and the module holding its model. Only that module is built when its section is checked.
 _MODULES = {
     "event": "inputs",
     "binary_sensor": "inputs",

@@ -3,8 +3,8 @@
 Mirrors boneio/schema/schema.yaml for these sections, with one difference
 made on purpose: each action type is its own model, so a field an action
 type needs is required (``output`` without ``boneio_output`` is an error).
-In the Cerberus schema those are ``required_if`` rules, which only run for a
-field that is present and so never catch a missing one.
+Migration v8 removed the actions that lacked one, which loaded before
+1.7 although they never ran.
 """
 
 from __future__ import annotations
@@ -52,8 +52,8 @@ BoneioInput = Annotated[
 ]
 
 
-#: The defaults Cerberus fills into every action, whatever its type; a
-#: forbidden field holding one of them is tolerated, as it is there.
+#: The defaults start-up fills into every action, whatever its type; a
+#: forbidden field holding one of them is tolerated.
 _FILLED_DEFAULTS = {"action_cover": "TOGGLE", "action_output": "TOGGLE"}
 
 
@@ -134,13 +134,13 @@ def _action_schema(schema: dict, cls: type) -> None:
 
 
 class _Action(Model):
-    """Every field any action may carry; Cerberus checks each on every action.
+    """Every field any action may carry, each checked on every action.
 
     An action type below makes the fields it needs required and lists the
     ones it may not have.
     """
 
-    #: Fields refused when set to anything but the default Cerberus fills in.
+    #: Fields refused when set to anything but the default start-up fills in.
     forbidden: ClassVar[frozenset[str]] = frozenset()
 
     model_config = ConfigDict(**Model.model_config, json_schema_extra=_action_schema)
@@ -337,8 +337,8 @@ class BinarySensorActions(Model):
 
 
 class BinarySensor(Model):
-    # Not in the Cerberus schema, yet kept by it and read at start-up as the
-    # entity's name in HA; the factory configs name every input.
+    # Read at start-up as the entity's name in HA; the factory configs name
+    # every input.
     name: Str | None = Field(None, description="Name to use in HA.")
     id: str | None = Field(None, description="Id to use in HA if needed. Default to pin number.")
     pin: str | None = Field(None, description="PIN to use.")

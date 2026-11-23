@@ -92,7 +92,7 @@ def test_no_location_no_entities(facades):
 from datetime import date, datetime, timedelta  # noqa: E402
 from zoneinfo import ZoneInfo  # noqa: E402
 
-from boneio.core.config.yaml_util import schedule_shape_errors  # noqa: E402
+from boneio.core.config.coerce import schedule_shape_errors  # noqa: E402
 from boneio.core.manager.scheduler import Scheduler  # noqa: E402
 from boneio.core.manager.sun import SunProvider  # noqa: E402
 from boneio.core.utils import sun as sun_utils  # noqa: E402

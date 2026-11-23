@@ -18,7 +18,7 @@ from boneio.core.config.models.inputs import UNION_TAGS, Action  # noqa: F401 - 
 
 
 class RemoteInput(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     id: Str = Field(None, description="Input ID")

@@ -11,15 +11,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from cerberus import TypeDefinition, Validator
-from cerberus.schema import DefinitionSchema
 import yaml
 from yaml import MarkedYAMLError, YAMLError, dump, load
 
 from boneio.const import OUTPUT, VIRTUAL_SWITCH
 from boneio.core.atomic_file import write_atomically
-from boneio.core.config import coerce
-from boneio.core.config.coerce import condition_shape_errors, schedule_shape_errors
 from boneio.core.config.write_lock import CONFIG_WRITE_LOCK
 from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
@@ -27,7 +23,6 @@ from boneio.core.utils.naming import resolve_id
 from boneio.exceptions import ConfigurationException
 from boneio.version import __version__
 
-schema_file = os.path.join(os.path.dirname(__file__), "../../schema/schema.yaml")
 _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
@@ -71,78 +66,6 @@ class _SecretRef:
     def __init__(self, name: str) -> None:
         self.name = name
 
-#: Cerberus checks that the schema is itself a legal cerberus schema every time
-#: a Validator is built, and that - not validating anybody's config - is where a
-#: cold start spends its time: ~93% of it, because every subschema is hashed and
-#: re-checked, and the verdict cannot be carried between processes (cerberus
-#: memoises it under hashes of ``types_mapping``, which hold functions and so
-#: hash by identity). On a BeagleBone that is most of the 20-30s a config cache
-#: miss costs.
-#:
-#: schema.yaml ships in the wheel and nothing on the device can edit it - the
-#: one dynamic part, _inject_modbus_models, only fills an ``allowed`` list with
-#: filenames, which cannot make a schema illegal - so the check is run once in
-#: the test suite instead of once per boot. See tests/unit/core/test_schema_is_valid.py.
-#:
-#: Set BONEIO_VALIDATE_SCHEMA=1 to put the runtime check back. That is what you
-#: want while editing schema.yaml on a device, where a mistake would otherwise
-#: surface as odd validation results rather than a SchemaError.
-_SCHEMA_SELF_CHECK = DefinitionSchema.validate
-_schema_self_check_dropped = False
-
-
-def _no_schema_self_check(self, schema=None) -> None:
-    """Stand-in for DefinitionSchema.validate: the schema ships with the wheel."""
-    return None
-
-
-def _schema_self_check_requested() -> bool:
-    """True if BONEIO_VALIDATE_SCHEMA asks for cerberus to check the schema."""
-    return os.environ.get("BONEIO_VALIDATE_SCHEMA", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-
-
-def _trust_schema() -> None:
-    """Take cerberus' schema self-check out of the startup path, once.
-
-    Patching the class rather than wrapping each call is deliberate: cerberus
-    re-checks subschemas from inside normalization too, so a narrower hook would
-    only move the cost. It is never restored, because a process that wants the
-    check never gets here - and the only consequence of a race with a thread
-    validating right now is that that thread pays for a check it did not need.
-    """
-    global _schema_self_check_dropped
-    if _schema_self_check_dropped or _schema_self_check_requested():
-        return
-    DefinitionSchema.validate = _no_schema_self_check
-    _schema_self_check_dropped = True
-    _LOGGER.debug("Trusting the packaged schema; cerberus will not re-check it")
-
-
-@contextlib.contextmanager
-def schema_self_check():
-    """Put cerberus' schema self-check back for the duration of the block.
-
-    This is what the test suite uses to prove the shipped schema is legal, and
-    it is the only thing standing between a typo in schema.yaml and a release.
-    Nothing on a device should need it.
-    """
-    patched = DefinitionSchema.validate
-    DefinitionSchema.validate = _SCHEMA_SELF_CHECK
-    # The memo would otherwise let a schema validated earlier in this process
-    # through without looking at it.
-    Validator._valid_schemas.clear()
-    try:
-        yield
-    finally:
-        DefinitionSchema.validate = patched
-        Validator._valid_schemas.clear()
-
-
 #: Anything that makes a cache unreadable by *this* build, as opposed to
 #: corrupt. The payload is a pickle of boneIO objects, so a build that moved or
 #: renamed a class fails on the import or the attribute lookup rather than on
@@ -160,8 +83,6 @@ _CACHE_FOREIGN_BUILD_ERRORS = (
 # ── YAML write serialization & background save tracking ──────────────────
 # Shared with yaml_patch: both rewrite the same files.
 _yaml_write_lock = CONFIG_WRITE_LOCK
-# Cache for schema to avoid loading it multiple times (saves ~2-3s per config load)
-_SCHEMA_CACHE = None
 # Cache for board configs to avoid loading them multiple times
 _BOARD_CONFIG_CACHE = {}
 
@@ -182,108 +103,6 @@ def _get_modbus_device_models() -> list[str]:
     return sorted(models)
 
 
-def _inject_modbus_models(schema: dict) -> None:
-    """Dynamically set allowed modbus model values from device files."""
-    try:
-        model_field = schema["modbus_devices"]["schema"]["schema"]["model"]
-        model_field["allowed"] = _get_modbus_device_models()
-        _LOGGER.debug("Injected %d modbus models into schema", len(model_field["allowed"]))
-    except (KeyError, TypeError):
-        _LOGGER.warning("Could not inject modbus models into schema")
-
-
-def _schema_fingerprint() -> tuple:
-    """Build a cheap fingerprint of all schema inputs.
-
-    Combines name/mtime/size of every YAML file in the schema directory with
-    the list of modbus device models and the boneIO version, so the pickled
-    schema cache is invalidated whenever any of them changes. The version is
-    in there because the pickle holds parsed objects: a release that moves a
-    class need not touch a single schema YAML.
-    """
-    schema_dir = os.path.dirname(os.path.abspath(schema_file))
-    files = []
-    try:
-        for name in sorted(os.listdir(schema_dir)):
-            if not name.endswith((".yaml", ".yml")):
-                continue
-            st = os.stat(os.path.join(schema_dir, name))
-            files.append((name, st.st_mtime_ns, st.st_size))
-    except OSError as e:
-        _LOGGER.debug("Could not fingerprint schema directory: %s", e)
-        return ()
-    return (tuple(files), tuple(_get_modbus_device_models()), __version__)
-
-
-def _get_schema_pickle_path() -> str:
-    """Return path of the pickled schema cache in the user cache directory."""
-    cache_root = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
-    return os.path.join(cache_root, "boneio", "schema.pkl")
-
-
-def _load_schema() -> dict:
-    """Load the Cerberus schema, using a pickled cache when it is up to date.
-
-    Parsing the ~70 kB schema YAML takes several seconds on a BeagleBone
-    Black; unpickling the already parsed structure takes milliseconds.
-    """
-    import pickle
-
-    fingerprint = _schema_fingerprint()
-    cache_path = _get_schema_pickle_path()
-
-    if fingerprint:
-        try:
-            with open(cache_path, "rb") as f:
-                cached = pickle.load(f)
-            if isinstance(cached, dict) and cached.get("fingerprint") == fingerprint:
-                _LOGGER.debug("Loaded schema from pickle cache %s", cache_path)
-                return cached["data"]
-            _LOGGER.debug("Schema pickle cache is stale, reparsing YAML")
-        except FileNotFoundError:
-            _LOGGER.debug("No schema pickle cache at %s", cache_path)
-        except (OSError, pickle.PickleError, *_CACHE_FOREIGN_BUILD_ERRORS) as e:
-            # Same story as the config cache: this is a pickle of parsed schema
-            # objects, so a build that moved a class cannot read back what its
-            # predecessor wrote. Reparsing the YAML costs several seconds on a
-            # BeagleBone, so say so rather than lose them quietly.
-            _LOGGER.warning(
-                "Schema pickle cache %s could not be read (%s: %s), reparsing YAML",
-                cache_path,
-                type(e).__name__,
-                e,
-            )
-
-    schema = load_yaml_file(schema_file)
-    _inject_modbus_models(schema)
-
-    if fingerprint:
-        try:
-            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-            tmp_path = f"{cache_path}.tmp"
-            with open(tmp_path, "wb") as f:
-                pickle.dump(
-                    {"fingerprint": fingerprint, "data": schema},
-                    f,
-                    protocol=pickle.HIGHEST_PROTOCOL,
-                )
-            os.replace(tmp_path, cache_path)
-            _LOGGER.debug("Saved schema pickle cache to %s", cache_path)
-        except (OSError, pickle.PicklingError) as e:
-            _LOGGER.debug("Could not save schema pickle cache: %s", e)
-
-    return schema
-
-
-def _get_schema():
-    """Get schema from cache or load it if not cached."""
-    global _SCHEMA_CACHE
-    if _SCHEMA_CACHE is None:
-        _LOGGER.debug("Loading schema (first time)")
-        _SCHEMA_CACHE = _load_schema()
-    return _SCHEMA_CACHE
-
-
 def _get_board_config(board_file: str):
     """Get board config from cache or load it if not cached."""
     global _BOARD_CONFIG_CACHE
@@ -297,18 +116,15 @@ def clear_config_cache(config_file: str | None = None, clear_static: bool = Fals
     """Clear cached YAML configs.
 
     Removes the validated config disk cache (.cache.pkl) for the given config
-    file. The schema and board config caches hold read-only package files that
-    never change while boneIO runs, so they are kept unless *clear_static* is
-    set — reparsing them costs several seconds on a BeagleBone Black.
+    file. The board config cache holds read-only package files that never
+    change while boneIO runs, so it is kept unless *clear_static* is set.
 
     Args:
         config_file: Path to config file whose disk cache should be removed.
                      If None, no disk cache is removed.
-        clear_static: Also drop the in-memory schema and board config caches.
+        clear_static: Also drop the in-memory board config cache.
     """
-    global _SCHEMA_CACHE, _BOARD_CONFIG_CACHE
     if clear_static:
-        _SCHEMA_CACHE = None
         _BOARD_CONFIG_CACHE.clear()
     if config_file:
         cache_path = config_file + ".cache.pkl"
@@ -673,271 +489,6 @@ def merge_board_config(config: dict) -> dict:
     return config
 
 
-timeperiod_type = TypeDefinition("timeperiod", (TimePeriod,), ())
-
-
-class CustomValidator(Validator):
-    """Custom validator of cerberus"""
-
-    # Type: ignore[attr-defined] - types_mapping is inherited from Validator
-    types_mapping = Validator.types_mapping.copy()  # type: ignore[attr-defined]
-    types_mapping["timeperiod"] = timeperiod_type
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.allow_unknown = True
-
-    def _validate_case_insensitive(self, case_insensitive, field, value):
-        """Validate field allowing any case but check against lowercase values.
-
-        The rule's arguments are validated against this schema:
-        {'type': 'boolean'}
-        """
-        if not isinstance(value, str):
-            self._error(field, "must be a string")  # type: ignore[attr-defined]
-            return
-
-        allowed = self.schema[field].get("allowed")  # type: ignore[attr-defined]
-        if allowed and value.lower() not in [a.lower() for a in allowed]:
-            self._error(field, f"unallowed value {value}")  # type: ignore[attr-defined]
-
-    def _validate_required_if(self, required_if, field, value):
-        """Validate that a field is required if a condition is met.
-
-        The rule's arguments are validated against this schema:
-        {'type' : 'dict'}
-        """
-        if not required_if:
-            return
-
-        for key, values in required_if.items():
-            if key not in self.document:  # type: ignore[attr-defined]
-                continue
-
-            doc_value = self.document[key]  # type: ignore[attr-defined]
-            if isinstance(doc_value, str):
-                doc_value = doc_value.lower()
-            if doc_value in [v.lower() if isinstance(v, str) else v for v in values] and field not in self.document:  # type: ignore[attr-defined]
-                self._error(field, f"required when {key} is {doc_value}")  # type: ignore[attr-defined]
-
-    def _validate_forbidden_if(self, forbidden_if, field, value):
-        """Validate that a field is forbidden if a condition is met.
-
-        The rule's arguments are validated against this schema:
-        {'type': 'dict'}
-        """
-        if not forbidden_if:
-            return
-        default_value = self.schema[field].get("default")  # type: ignore[attr-defined]
-        for key, values in forbidden_if.items():
-            if key not in self.document:  # type: ignore[attr-defined]
-                continue
-
-            doc_value = self.document[key]  # type: ignore[attr-defined]
-            if isinstance(doc_value, str):
-                doc_value = doc_value.lower()
-
-            if (
-                doc_value in [v.lower() if isinstance(v, str) else v for v in values]
-                and field in self.document
-                and value != default_value
-            ):  # type: ignore[attr-defined]
-                self._error(field, f"forbidden when {key} is {doc_value}")  # type: ignore[attr-defined]
-
-    def _normalize_coerce_action_field(self, value):
-        """Handle conditional defaults for action fields."""
-        action = self.document.get("action", "").lower()  # type: ignore[attr-defined]
-        field_name = self.schema_path[-1]  # type: ignore[attr-defined]
-        if value is None:
-            if (field_name == "action_cover" and action == "cover") or (
-                field_name == "action_output" and action == "output"
-            ):
-                return "TOGGLE"
-            return None
-        return str(value).upper()
-
-    def _normalize_coerce_lower(self, value):
-        return coerce.lower(value)
-
-    def _normalize_coerce_upper(self, value):
-        """Convert string to uppercase."""
-        if isinstance(value, str):
-            return value.upper()
-        return value
-
-    def _normalize_coerce_str(self, value):
-        """Convert value to string."""
-        return str(value)
-
-    def _normalize_coerce_onewire_address(self, value):
-        """1-Wire address in kernel or ESPHome form -> kernel form."""
-        from boneio.core.config.onewire_address import loaded_address
-
-        return loaded_address(value)
-
-    def _normalize_coerce_version_to_str(self, value):
-        """Convert value to string."""
-        _v = str(value)
-        return _v
-
-    def _normalize_coerce_actions_output(self, value):
-        return str(value).upper()
-
-    def _normalize_coerce_length_to_meters(self, value):
-        return coerce.length_to_meters(value)
-
-    def _normalize_coerce_positive_time_period(self, value):
-        return coerce.positive_time_period(value)
-
-    def _normalize_coerce_sun_offset(self, value):
-        return coerce.sun_offset(value)
-
-    def _check_with_unique_ids(self, field, value):
-        """Reject a section where two entries resolve to the same identifier.
-
-        Only worth saying out loud since identifiers are made from names: two
-        lights both called "Salon" in different rooms are an easy thing to
-        write and produce one entity, with the second silently dropped at
-        startup. An explicit ``id`` on one of them is the way out, which is
-        what the message says.
-        """
-        if not isinstance(value, list):
-            return
-
-        seen: dict[str, int] = {}
-        for index, entry in enumerate(value):
-            if not isinstance(entry, dict):
-                continue
-            entry_id = resolve_id(entry)
-            if not entry_id:
-                self._error(  # type: ignore[attr-defined]
-                    field,
-                    f"Entry {index + 1} has no name to make an identifier from.",
-                )
-                continue
-            if entry_id in seen:
-                self._error(  # type: ignore[attr-defined]
-                    field,
-                    f"Entries {seen[entry_id] + 1} and {index + 1} both resolve "
-                    f"to the identifier {entry_id!r}. Names do not have to be "
-                    "unique, but what they are turned into does — give one of "
-                    "them an explicit 'id', or a name that differs by more "
-                    "than punctuation.",
-                )
-                continue
-            seen[entry_id] = index
-
-    def _check_with_virtual_switch_shape(self, field, value):
-        """Reject a virtual switch whose own actions set itself.
-
-        The runtime guard stops the recursion, but it stops it by refusing to
-        act — so the configuration would load, look right, and do half of what
-        it says. Better to say so here.
-        """
-        if not isinstance(value, dict):
-            return
-
-        switch_id = resolve_id(value)
-        actions = value.get("actions")
-        # Anything but a dict of actions is the schema's to report.
-        if not switch_id or not isinstance(actions, dict):
-            return
-
-        for key in ("on_turn_on", "on_turn_off"):
-            items = actions.get(key)
-            for action in items if isinstance(items, list) else []:
-                if not isinstance(action, dict):
-                    continue
-                if (
-                    action.get("action") == "virtual_switch"
-                    and action.get("boneio_virtual_switch") == switch_id
-                ):
-                    self._error(  # type: ignore[attr-defined]
-                        field,
-                        f"Virtual switch '{switch_id}' sets itself in "
-                        f"'{key}', which cannot work: the change that would "
-                        "run the actions is the one they are trying to make.",
-                    )
-
-    def _check_with_schedule_shape(self, field, value):
-        """Reject a schedule whose trigger does not match its own type."""
-        for message in schedule_shape_errors(value):
-            self._error(field, message)  # type: ignore[attr-defined]
-
-    def _check_with_condition_shape(self, field, value):
-        """Reject a condition whose fields do not match its own type."""
-        for message in condition_shape_errors(value):
-            self._error(field, message)  # type: ignore[attr-defined]
-
-    def _lookup_field(self, path: str) -> tuple:
-        """
-        Implement relative paths with dot (.) notation, following Python
-        guidelines: https://www.python.org/dev/peps/pep-0328/#guido-s-decision
-        - A single leading dot indicates a relative import
-        starting with the current package.
-        - Two or more leading dots give a relative import to the parent(s)
-        of the current package, one level per dot after the first
-        Return: Tuple(dependency_name: str, dependency_value: Any)
-        """
-        # Python relative imports use a single leading dot
-        # for the current level, however no dot in Cerberus
-        # does the same thing, thus we need to check 2 or more dots
-        if path.startswith(".."):
-            parts = path.split(".")
-            dot_count = path.count(".")
-            context = self.root_document  # type: ignore[attr-defined]
-
-            for key in self.document_path[:dot_count]:  # type: ignore[attr-defined]
-                context = context[key]
-
-            context = context.get(parts[-1])
-
-            return parts[-1], context
-
-        else:
-            return super()._lookup_field(path)  # type: ignore[attr-defined]
-
-    def _check_with_output_id_uniqueness(self, field, value):
-        """Refuse two entries of this list with the same explicit id.
-
-        It checks the list it is attached to - outputs, or output groups. It
-        used to read the document's ``output`` section wherever it sat: groups
-        were never checked, a duplicate output was reported twice, and a
-        document without outputs raised KeyError.
-        """
-        if not isinstance(value, list):
-            return
-        all_ids = [x.get("id") for x in value if isinstance(x, dict) and x.get("id")]
-        if len(all_ids) != len(set(all_ids)):
-            self._error(field, "Output IDs are not unique.")  # type: ignore[attr-defined]
-
-    def _check_with_output_id_exists(self, field, value):
-        """Check if output id exists or boneio_output is provided."""
-        if value:
-            for i, output in enumerate(value):
-                if "id" not in output and "boneio_output" not in output:
-                    self._error(field, f"Output at index {i} must have either 'id' or 'boneio_output' defined.")  # type: ignore[attr-defined]
-
-    def _check_with_input_id_exists(self, field, value):
-        """Check if input id exists or boneio_input is provided."""
-        if value:
-            for i, input_item in enumerate(value):
-                if "id" not in input_item and "boneio_input" not in input_item:
-                    self._error(field, f"Input at index {i} must have either 'id' or 'boneio_input' defined.")  # type: ignore[attr-defined]
-
-    def _normalize_coerce_to_bool(self, value):
-        return True
-
-    def _normalize_coerce_remove_space(self, value):
-        return coerce.remove_space(value)
-
-    def _normalize_coerce_power_value_to_watts(self, value):
-        return coerce.power_value_to_watts(value)
-
-    def _normalize_coerce_volume_flow_rate_to_lph(self, value):
-        return coerce.volume_flow_rate_to_lph(value)
-
-
 def _run_config_migrations(doc: dict, config_file: str | None = None) -> tuple[dict, bool]:
     """Run versioned config migrations via the migrations module.
 
@@ -970,9 +521,8 @@ def _strip_empty_strings_deep(obj: Any) -> Any:
     """Recursively remove dictionary keys whose value is an empty string.
 
     The frontend may occasionally persist ``''`` for optional fields
-    (e.g. ``bounce_time: ''``).  Cerberus ``positive_time_period``
-    coercion fails on bare empty strings, so we strip them before
-    normalization.  Only *empty* strings are removed – non-empty strings
+    (e.g. ``bounce_time: ''``), which no coercion can read, so we strip them
+    before validation.  Only *empty* strings are removed – non-empty strings
     and other falsy values (``0``, ``False``, ``None``) are preserved.
     """
     if isinstance(obj, dict):
@@ -997,22 +547,6 @@ def load_config_from_string(config_str: str) -> dict:
     merged_doc = merge_board_config(_read_sections(_strip_empty_strings_deep(migrated_doc)))
     _refuse_untyped_outputs(merged_doc)
     return merged_doc
-
-
-def _flatten_errors(errors: dict, path: str = "") -> list[str]:
-    """Cerberus' nested error tree as one ``path: message`` line per error."""
-    lines = []
-    for key, items in errors.items():
-        if isinstance(key, int):
-            where = f"{path}[{key}]"
-        else:
-            where = f"{path}.{key}" if path else str(key)
-        for item in items:
-            if isinstance(item, dict):
-                lines += _flatten_errors(item, where)
-            else:
-                lines.append(f"{where}: {item}")
-    return lines
 
 
 def _section_document(section: str, data: Any, boneio_section: dict | None) -> dict:
@@ -1046,23 +580,6 @@ def normalize_section(section: str, data: Any) -> Any:
         if not errors:
             kept += _keep_secrets([entry], value)
     return kept
-
-
-def _cerberus_section_errors(section: str, doc: dict) -> list[str]:
-    """Validate ``doc[section]`` against the Cerberus schema, as start-up once did."""
-    schema = _get_schema()
-    subschema = {key: schema[key] for key in doc}
-
-    _trust_schema()
-    v = CustomValidator(subschema, purge_unknown=True)
-    doc = v.normalized(doc, always_return_document=True)  # type: ignore[attr-defined]
-    try:
-        doc = merge_board_config(doc)
-    except ConfigurationException as err:
-        return [f"{section}: {err}"]
-    v.validate(doc, subschema)  # type: ignore[attr-defined]
-    errors = v.errors  # type: ignore[attr-defined]
-    return _flatten_errors({section: errors[section]}) if section in errors else []
 
 
 def validate_section(section: str, data: Any, boneio_section: dict | None) -> list[str]:
@@ -1739,37 +1256,16 @@ def load_config_from_file(
 
 def strip_default_values(data: Any, schema: dict | None = None, section: str | None = None) -> Any:
     """
-    Remove fields with default values from data to keep YAML clean.
-    Uses Cerberus schema.yaml for default values.
+    Remove empty values, and an action's defaults, from data to keep YAML clean.
 
     Args:
         data: The data to clean (dict, list, or primitive)
-        schema: Optional Cerberus schema dict (if not provided, will load from schema.yaml)
-        section: Optional section name to find schema
+        schema: Unused; kept for the callers.
+        section: Unused; kept for the callers.
 
     Returns:
         Cleaned data with default values removed
     """
-
-    def get_defaults_from_cerberus_schema(schema_obj: dict) -> dict:
-        """Extract default values from Cerberus schema."""
-        defaults = {}
-        if isinstance(schema_obj, dict):
-            # For list schemas, get the item schema
-            if schema_obj.get("type") == "list" and "schema" in schema_obj:
-                item_schema = schema_obj["schema"]
-                if isinstance(item_schema, dict) and item_schema.get("type") == "dict":
-                    # Get defaults from dict schema
-                    dict_schema = item_schema.get("schema", {})
-                    for key, prop in dict_schema.items():
-                        if isinstance(prop, dict) and "default" in prop:
-                            defaults[key] = prop["default"]
-            # For dict schemas
-            elif "schema" in schema_obj:
-                for key, prop in schema_obj["schema"].items():
-                    if isinstance(prop, dict) and "default" in prop:
-                        defaults[key] = prop["default"]
-        return defaults
 
     def clean_dict(obj: dict, defaults: dict) -> dict:
         """Remove keys with default values from dict."""
@@ -1835,16 +1331,7 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
                 cleaned[key] = value
         return cleaned
 
-    # Get schema for section
     defaults: dict = {}
-    if section:
-        # Load Cerberus schema if not provided
-        loaded_schema = schema if schema is not None else _get_schema()
-
-        # Get section schema from Cerberus
-        if loaded_schema:
-            section_schema = loaded_schema.get(section, {})
-            defaults = get_defaults_from_cerberus_schema(section_schema)
 
     # Process data
     if isinstance(data, list):

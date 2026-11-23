@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # Fallback debounce when a config carries no bounce_time at all. The per-type
 # schema defaults (120ms binary_sensor, 30ms event) normally win long before
-# this, via Cerberus at startup or the update_* methods on reload.
+# this, via the section models at startup or the update_* methods on reload.
 DEFAULT_BOUNCE_TIME_MS = 50
 
 
@@ -80,7 +80,7 @@ class GpioBaseClass:
     ) -> None:
         """Initialize GPIO input base class."""
         self._pin = pin
-        # A TimePeriod at startup, where Cerberus has coerced it — but the
+        # A TimePeriod at startup, where validation has coerced it — but the
         # hot-reload path reads the YAML without validation, so an input added
         # while the app runs arrives with a bare number of milliseconds (WebUI)
         # or a string such as "30ms" (hand-written config).

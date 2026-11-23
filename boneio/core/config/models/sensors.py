@@ -1,10 +1,7 @@
 """Sensors and expanders: 1-Wire, ADC, INA219/226, LM75, MCP9808, Modbus, CAN,
 the MCP23017/PCF8575/PCA9685 expanders and virtual energy sensors.
 
-Mirrors boneio/schema/schema.yaml for these sections. One rule is enforced
-here and not at start-up: ``update_interval``'s ``min: 1s`` on Modbus devices.
-Cerberus compares a TimePeriod with a string, gets TypeError and lets it
-pass, so a saved config may still hold less; a save cannot add it.
+Mirrors boneio/schema/schema.yaml for these sections.
 """
 
 from __future__ import annotations
@@ -254,7 +251,7 @@ class Pca9685(Expander):
 
 
 class VirtualEnergySensor(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     id: Str = Field(None, description="Sensor ID")

@@ -2,8 +2,8 @@
 
 Mirrors boneio/schema/schema.yaml for the section, where one flat list of
 fields serves every platform and nothing ties a field to the platform it
-belongs to. Kept that way here, so the model refuses what Cerberus refuses
-and no more.
+belongs to. Kept that way here: a platform's field on another platform is
+not refused.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pydantic import Field
 from boneio.core.config.models.base import Model, StrPeriod, section
 
 Number = Union[float, int]
-"""Cerberus' ``float`` takes an int too."""
+"""A float field takes an int too."""
 
 Days = Literal["daily", "weekdays", "weekend", "mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 

@@ -17,7 +17,7 @@ from boneio.models.events import InputEvent
 _LOGGER = logging.getLogger(__name__)
 
 # Matches the binary_sensor bounce_time default in schema.yaml. Needed on the
-# hot-reload path, which reads the YAML without running Cerberus, so an
+# hot-reload path, which reads the YAML without validating it, so an
 # omitted bounce_time arrives as None rather than as the schema default.
 DEFAULT_BOUNCE_TIME_MS = 120
 
@@ -109,7 +109,7 @@ class GpioInputBinarySensor(GpioBaseClass):
             bounce_time: Value straight from the reloaded config — a TimePeriod
                 at startup, but a bare number of milliseconds (WebUI) or a string
                 such as "120ms" (hand-written YAML) on the hot-reload path, which
-                skips Cerberus coercion. ``None`` means the schema default.
+                skips validation. ``None`` means the schema default.
 
         Returns:
             True if the window actually changed.

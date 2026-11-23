@@ -299,7 +299,7 @@ def _strip_empty(value):
     """Drop ``None`` and empty-string values, recursively.
 
     The editor leaves a cleared field as ``""`` and the YAML should not carry
-    it — the section save strips the same way before Cerberus sees it.
+    it — the section save strips the same way before validating.
 
     Args:
         value: Any JSON value.

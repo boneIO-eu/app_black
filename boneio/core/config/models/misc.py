@@ -31,7 +31,7 @@ Screen = Literal["uptime", "network", "ina", "ina219", "cpu", "disk", "memory", 
 
 
 class ExtraScreenSensor(Model):
-    # remove_space is str(value) in Cerberus, so a null becomes "None" there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"modbus_id", "sensor_id"})
 
     sensor_type: Literal["modbus", "dallas"]
@@ -82,7 +82,7 @@ class Logger(Model):
 
 
 class Area(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     id: Str = Field(description="Area ID")

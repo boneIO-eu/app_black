@@ -1,7 +1,7 @@
 """Tests for Modbus device schema validation and dynamic model injection.
 
 Verifies that:
-1. Dynamic model injection into the schema works correctly.
+1. The Modbus device models are found in boneio/modbus/devices.
 2. Config strings produced by the frontend wizard pass backend validation.
 3. Invalid configs (bad model, missing fields) are properly rejected.
 4. The used-addresses endpoint returns correct data.
@@ -15,10 +15,8 @@ import pytest
 from boneio.core.config.yaml_util import (
     ConfigurationException,
     _get_modbus_device_models,
-    _inject_modbus_models,
     clear_config_cache,
     load_config_from_string,
-    load_yaml_file,
 )
 
 
@@ -71,38 +69,6 @@ class TestGetModbusDeviceModels:
         models = _get_modbus_device_models()
         for model in models:
             assert "__pycache__" not in model
-
-
-# ---------------------------------------------------------------------------
-# _inject_modbus_models
-# ---------------------------------------------------------------------------
-
-class TestInjectModbusModels:
-    """Tests for dynamic model injection into the schema dict."""
-
-    def test_injects_allowed_list(self):
-        """Should set 'allowed' on the modbus model field."""
-        schema_file = os.path.join(
-            os.path.dirname(__file__), "../../../boneio/schema/schema.yaml"
-        )
-        schema = load_yaml_file(schema_file)
-
-        # Before injection, there should be no 'allowed' (removed from static schema)
-        model_field = schema["modbus_devices"]["schema"]["schema"]["model"]
-        assert "allowed" not in model_field
-
-        _inject_modbus_models(schema)
-
-        assert "allowed" in model_field
-        assert isinstance(model_field["allowed"], list)
-        assert "wanas415" in model_field["allowed"]
-        assert "sdm120" in model_field["allowed"]
-
-    def test_handles_missing_schema_path(self):
-        """Should not crash on a schema dict without the expected path."""
-        schema = {"something_else": {}}
-        # Should log warning but not raise
-        _inject_modbus_models(schema)
 
 
 # ---------------------------------------------------------------------------

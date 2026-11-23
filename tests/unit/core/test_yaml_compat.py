@@ -1,8 +1,6 @@
 """Tests for the YAML backend selection and the pickled schema cache."""
 
-import os
 
-import pytest
 from yaml import dump, load
 
 from boneio.core.config import yaml_util as yu
@@ -39,54 +37,3 @@ class TestYamlBackend:
 
     def test_dumper_is_a_yaml_dumper(self):
         assert issubclass(yu.TimePeriodDumper, FastSafeDumper)
-
-
-class TestSchemaPickleCache:
-    """The parsed schema is cached on disk to avoid reparsing the YAML."""
-
-    @pytest.fixture(autouse=True)
-    def isolated_cache(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-        yu.clear_config_cache(clear_static=True)
-        yield
-        yu.clear_config_cache(clear_static=True)
-
-    def test_cache_file_is_created_and_reused(self, tmp_path):
-        first = yu._load_schema()
-        cache_path = yu._get_schema_pickle_path()
-
-        assert os.path.exists(cache_path)
-        assert first == yu._load_schema()
-
-    def test_stale_cache_is_ignored(self, tmp_path):
-        import pickle
-
-        yu._load_schema()
-        cache_path = yu._get_schema_pickle_path()
-        with open(cache_path, "wb") as f:
-            pickle.dump({"fingerprint": ("stale",), "data": {"bogus": True}}, f)
-
-        schema = yu._load_schema()
-        assert "bogus" not in schema
-        assert "mqtt" in schema
-
-    def test_corrupt_cache_falls_back_to_yaml(self):
-        yu._load_schema()
-        with open(yu._get_schema_pickle_path(), "wb") as f:
-            f.write(b"not a pickle")
-
-        assert "mqtt" in yu._load_schema()
-
-
-class TestClearConfigCache:
-    """Static package caches must survive ordinary config saves."""
-
-    def test_static_caches_kept_by_default(self):
-        schema = yu._get_schema()
-        yu.clear_config_cache()
-        assert yu._get_schema() is schema
-
-    def test_static_caches_cleared_on_request(self):
-        schema = yu._get_schema()
-        yu.clear_config_cache(clear_static=True)
-        assert yu._get_schema() is not schema

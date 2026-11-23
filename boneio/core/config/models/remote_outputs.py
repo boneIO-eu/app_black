@@ -13,7 +13,7 @@ from boneio.core.config.models.base import Model, Str, StrPeriod, section
 
 
 class RemoteOutput(Model):
-    # coerce: str turns a null into "None" in Cerberus, so it passes there.
+    # A null reads as "None", as config.yaml always has; see Model.nullable.
     nullable = frozenset({"id"})
 
     id: Str = Field(None, description="Output ID")
