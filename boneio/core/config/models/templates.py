@@ -1,8 +1,7 @@
 """The ``template`` section: thermostats, alarm panels, gates and irrigation.
 
-Mirrors boneio/schema/schema.yaml for the section, where one flat list of
-fields serves every platform and nothing ties a field to the platform it
-belongs to. Kept that way here: a platform's field on another platform is
+One flat list of fields serves every platform and nothing ties a field to
+the platform it belongs to: a platform's field on another platform is
 not refused.
 """
 

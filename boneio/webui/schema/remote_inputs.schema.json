@@ -7,8 +7,9 @@
       "items": {
         "properties": {
           "id": {
-            "type": "string",
             "description": "Input ID",
+            "markdownDescription": "Input ID\n\nCustom ID for this remote input. If not set, auto-generated\nfrom device_id + input_id (e.g. \"esphome_device_1_IN_02\").",
+            "type": "string",
             "title": "Id"
           },
           "name": {
@@ -23,22 +24,26 @@
               "can",
               "mqtt"
             ],
+            "markdownDescription": "Remote Source Protocol\n\nProtocol used to receive input state:\n- esphome_api: ESPHome native API binary sensor\n- mqtt: a topic the device publishes its state on. Defaults to the\n  topic another boneIO uses for its own inputs, so mirroring a peer\n  needs nothing else; set `topic` for anything that is not a boneIO.\n- can: NOT IMPLEMENTED. The value still loads so an existing config\n  does not stop the controller from starting, but the input is\n  refused at startup with an error rather than created as one that\n  never changes state.",
             "type": "string",
             "title": "Remote source"
           },
           "device_id": {
             "description": "Remote Device ID",
+            "markdownDescription": "Remote Device ID\n\nID of the remote device (from remote_devices section).",
             "type": "string",
             "title": "Device id"
           },
           "input_id": {
             "description": "Input/Sensor ID",
+            "markdownDescription": "Input/Sensor ID\n\nBinary sensor object_id on the remote device (e.g. \"IN_02\").",
             "type": "string",
             "title": "Input id"
           },
           "topic": {
             "type": "string",
             "description": "MQTT topic (mqtt source only)",
+            "markdownDescription": "MQTT topic (mqtt source only)\n\nWhere the state arrives. Leave it out for another boneIO: the default\nis `<device_id>/input/<input_id>`, which is exactly where a boneIO\npublishes its own inputs, so `device_id` is the peer's topic prefix\n(its serial).\n\nSet it for anything else \u2014 an ESPHome device in MQTT mode, a Zigbee\nbridge, a script. Payloads understood: on/off, true/false, 1/0,\npressed/released, open/closed. A boneIO event input publishes JSON\nwith `event_type`, which is passed through as the click type when\n`mode: event`.",
             "title": "Topic"
           },
           "mode": {
@@ -48,12 +53,14 @@
               "binary_sensor",
               "event"
             ],
+            "markdownDescription": "Mode\n\n- binary_sensor: pressed/released events\n- event: single/double/long click detection",
             "type": "string",
             "title": "Mode"
           },
           "device_class": {
             "type": "string",
             "description": "Device Class (for HA)",
+            "markdownDescription": "Device Class (for HA)\n\ne.g. door, motion, window, opening",
             "title": "Device class"
           },
           "area": {
@@ -111,6 +118,7 @@
               "string"
             ],
             "description": "Double Click Window (ms)",
+            "markdownDescription": "Double Click Window (ms)\n\nTime window to detect double click (event mode, default: 220ms)",
             "title": "Double click duration"
           },
           "long_press_duration": {
@@ -119,6 +127,7 @@
               "string"
             ],
             "description": "Long Press Threshold (ms)",
+            "markdownDescription": "Long Press Threshold (ms)\n\nTime to detect long press (event mode, default: 400ms)",
             "title": "Long press duration"
           },
           "sequence_mode": {
@@ -169,17 +178,20 @@
                     "properties": {
                       "boneio_output": {
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "type": "string",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "type": "string",
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "data": {
@@ -207,11 +219,13 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "action_output": {
                         "default": "TOGGLE",
                         "description": "If output action chosen then what action to perform.",
+                        "markdownDescription": "If output action chosen then what action to perform.\n\nReused by the virtual_switch action, which takes the same three verbs:\nON, OFF and TOGGLE. One concept, not two near-identical fields.\n\nFor ESPHome lights, additional actions are available:\n- BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)\n- BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)\n- BRIGHTNESS_UP_CYCLE: Like BRIGHTNESS_UP but wraps from 100% to 10%\n- BRIGHTNESS_DOWN_CYCLE: Like BRIGHTNESS_DOWN but wraps from 10% to 100%\n- SET_BRIGHTNESS: Set specific brightness (requires brightness field)\n- CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)\n- CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)",
                         "type": "string",
                         "enum": [
                           "BRIGHTNESS_DOWN",
@@ -255,6 +269,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -265,6 +280,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -273,6 +289,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -281,6 +298,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "colors": {
@@ -289,6 +307,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -297,6 +316,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -319,11 +339,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -333,6 +355,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -349,6 +372,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -367,6 +391,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -411,16 +436,19 @@
                       "boneio_output": {
                         "type": "string",
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "type": "string",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "action_cover": {
@@ -489,6 +517,7 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "brightness": {
@@ -499,6 +528,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -509,6 +539,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -517,6 +548,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -525,6 +557,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "colors": {
@@ -533,6 +566,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -541,6 +575,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -563,11 +598,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -577,6 +614,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -593,6 +631,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -611,6 +650,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -655,16 +695,19 @@
                       "boneio_output": {
                         "type": "string",
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "type": "string",
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "topic": {
@@ -697,6 +740,7 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "action_mqtt_msg": {
@@ -712,6 +756,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -722,6 +767,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -730,6 +776,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -738,6 +785,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "colors": {
@@ -746,6 +794,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -754,6 +803,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -776,11 +826,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -790,6 +842,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -806,6 +859,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -824,6 +878,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -867,15 +922,18 @@
                       "boneio_output": {
                         "type": "string",
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "type": "string",
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "type": "string",
                         "title": "Boneio virtual switch"
                       },
@@ -950,11 +1008,13 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "action_output": {
                         "default": "TOGGLE",
                         "description": "If output action chosen then what action to perform.",
+                        "markdownDescription": "If output action chosen then what action to perform.\n\nReused by the virtual_switch action, which takes the same three verbs:\nON, OFF and TOGGLE. One concept, not two near-identical fields.\n\nFor ESPHome lights, additional actions are available:\n- BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)\n- BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)\n- BRIGHTNESS_UP_CYCLE: Like BRIGHTNESS_UP but wraps from 100% to 10%\n- BRIGHTNESS_DOWN_CYCLE: Like BRIGHTNESS_DOWN but wraps from 10% to 100%\n- SET_BRIGHTNESS: Set specific brightness (requires brightness field)\n- CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)\n- CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)",
                         "type": "string",
                         "enum": [
                           "BRIGHTNESS_DOWN",
@@ -1003,16 +1063,19 @@
                       "remote_device": {
                         "type": "string",
                         "description": "Remote Device ID",
+                        "markdownDescription": "Remote Device ID\n\nID of the remote device (from remote_devices section).\nWorks with both BoneIO (MQTT) and ESPHome (native API) devices.\nExample: \"salon_boneio\", \"garage_esp\"",
                         "title": "Remote device"
                       },
                       "output_id": {
                         "type": "string",
                         "description": "Remote Output ID",
+                        "markdownDescription": "Remote Output ID\n\nID of the output/switch/light on the remote device.\nFor ESPHome: can be switch or light entity.\nExample: \"relay_1\", \"light_kitchen\", \"ceiling_light\"",
                         "title": "Output id"
                       },
                       "cover_id": {
                         "type": "string",
                         "description": "Remote Cover ID",
+                        "markdownDescription": "Remote Cover ID\n\nID of the cover on the remote device.\nExample: \"cover_living_room\", \"blinds_bedroom\"",
                         "title": "Cover id"
                       },
                       "brightness": {
@@ -1023,6 +1086,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -1033,6 +1097,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -1041,6 +1106,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -1049,6 +1115,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "transition": {
@@ -1058,6 +1125,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Transition Time",
+                        "markdownDescription": "Transition Time\n\nTime to transition to the new state. Only for ESPHome/WLED lights. Example: 500ms, 1s",
                         "title": "Transition"
                       },
                       "colors": {
@@ -1066,6 +1134,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -1074,6 +1143,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -1096,11 +1166,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -1110,6 +1182,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -1126,6 +1199,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -1144,6 +1218,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -1174,17 +1249,20 @@
                     "properties": {
                       "boneio_output": {
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "type": "string",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "type": "string",
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "topic": {
@@ -1217,11 +1295,13 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "action_output": {
                         "default": "TOGGLE",
                         "description": "If output action chosen then what action to perform.",
+                        "markdownDescription": "If output action chosen then what action to perform.\n\nReused by the virtual_switch action, which takes the same three verbs:\nON, OFF and TOGGLE. One concept, not two near-identical fields.\n\nFor ESPHome lights, additional actions are available:\n- BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)\n- BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)\n- BRIGHTNESS_UP_CYCLE: Like BRIGHTNESS_UP but wraps from 100% to 10%\n- BRIGHTNESS_DOWN_CYCLE: Like BRIGHTNESS_DOWN but wraps from 10% to 100%\n- SET_BRIGHTNESS: Set specific brightness (requires brightness field)\n- CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)\n- CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)",
                         "type": "string",
                         "enum": [
                           "BRIGHTNESS_DOWN",
@@ -1275,6 +1355,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -1285,6 +1366,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -1293,6 +1375,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -1301,6 +1384,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "colors": {
@@ -1309,6 +1393,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -1317,6 +1402,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -1339,11 +1425,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -1353,6 +1441,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -1369,6 +1458,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -1387,6 +1477,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -1430,16 +1521,19 @@
                       "boneio_output": {
                         "type": "string",
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "type": "string",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "action_cover": {
@@ -1508,6 +1602,7 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "action_mqtt_msg": {
@@ -1528,6 +1623,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -1538,6 +1634,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -1546,6 +1643,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -1554,6 +1652,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "colors": {
@@ -1562,6 +1661,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -1570,6 +1670,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -1592,11 +1693,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -1606,6 +1709,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -1622,6 +1726,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -1640,6 +1745,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -1684,16 +1790,19 @@
                       "boneio_output": {
                         "type": "string",
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "type": "string",
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "data": {
@@ -1721,11 +1830,13 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "action_output": {
                         "default": "TOGGLE",
                         "description": "If output action chosen then what action to perform.",
+                        "markdownDescription": "If output action chosen then what action to perform.\n\nReused by the virtual_switch action, which takes the same three verbs:\nON, OFF and TOGGLE. One concept, not two near-identical fields.\n\nFor ESPHome lights, additional actions are available:\n- BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)\n- BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)\n- BRIGHTNESS_UP_CYCLE: Like BRIGHTNESS_UP but wraps from 100% to 10%\n- BRIGHTNESS_DOWN_CYCLE: Like BRIGHTNESS_DOWN but wraps from 10% to 100%\n- SET_BRIGHTNESS: Set specific brightness (requires brightness field)\n- CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)\n- CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)",
                         "type": "string",
                         "enum": [
                           "BRIGHTNESS_DOWN",
@@ -1763,11 +1874,13 @@
                       },
                       "remote_device": {
                         "description": "Remote Device ID",
+                        "markdownDescription": "Remote Device ID\n\nID of the remote device (from remote_devices section).\nWorks with both BoneIO (MQTT) and ESPHome (native API) devices.\nExample: \"salon_boneio\", \"garage_esp\"",
                         "type": "string",
                         "title": "Remote device"
                       },
                       "output_id": {
                         "description": "Remote Output ID",
+                        "markdownDescription": "Remote Output ID\n\nID of the output/switch/light on the remote device.\nFor ESPHome: can be switch or light entity.\nExample: \"relay_1\", \"light_kitchen\", \"ceiling_light\"",
                         "type": "string",
                         "title": "Output id"
                       },
@@ -1779,6 +1892,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -1789,6 +1903,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -1797,6 +1912,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -1805,6 +1921,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "transition": {
@@ -1814,6 +1931,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Transition Time",
+                        "markdownDescription": "Transition Time\n\nTime to transition to the new state. Only for ESPHome/WLED lights. Example: 500ms, 1s",
                         "title": "Transition"
                       },
                       "colors": {
@@ -1822,6 +1940,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -1830,6 +1949,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -1852,11 +1972,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -1866,6 +1988,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -1882,6 +2005,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -1900,6 +2024,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -1942,16 +2067,19 @@
                       "boneio_output": {
                         "type": "string",
                         "description": "Output ID",
+                        "markdownDescription": "Output ID\n\nID of the output to control. This should match the id/boneio_output defined in your output configuration.",
                         "title": "Boneio output"
                       },
                       "boneio_cover": {
                         "type": "string",
                         "description": "Cover ID",
+                        "markdownDescription": "Cover ID\n\nID of the cover to control. This should match the id defined in your cover configuration.",
                         "title": "Boneio cover"
                       },
                       "boneio_virtual_switch": {
                         "type": "string",
                         "description": "Virtual switch ID",
+                        "markdownDescription": "Virtual switch ID\n\nID of the virtual switch to set. Matches an entry in the\n`virtual_switch:` section \u2014 a flag with no relay behind it, which\nconditions can then read. See docs/VIRTUAL_SWITCHES.md.",
                         "title": "Boneio virtual switch"
                       },
                       "action_cover": {
@@ -2020,15 +2148,18 @@
                         ],
                         "default": false,
                         "description": "Restore Tilt After Movement",
+                        "markdownDescription": "Restore Tilt After Movement\n\nWhen true, the previous tilt angle is saved before executing this cover action\nand restored after the movement finishes. Only applies to venetian covers.\nExample: pressing a button to close the blinds to 50% and then restoring\nthe slat angle to the previous value.",
                         "title": "Restore tilt"
                       },
                       "remote_device": {
                         "description": "Remote Device ID",
+                        "markdownDescription": "Remote Device ID\n\nID of the remote device (from remote_devices section).\nWorks with both BoneIO (MQTT) and ESPHome (native API) devices.\nExample: \"salon_boneio\", \"garage_esp\"",
                         "type": "string",
                         "title": "Remote device"
                       },
                       "cover_id": {
                         "description": "Remote Cover ID",
+                        "markdownDescription": "Remote Cover ID\n\nID of the cover on the remote device.\nExample: \"cover_living_room\", \"blinds_bedroom\"",
                         "type": "string",
                         "title": "Cover id"
                       },
@@ -2040,6 +2171,7 @@
                           "string"
                         ],
                         "description": "Brightness (0-255)",
+                        "markdownDescription": "Brightness (0-255)\n\nBrightness level for SET_BRIGHTNESS action or initial brightness for ON action.\nOnly used for ESPHome light entities. 0 = off, 255 = full brightness.",
                         "title": "Brightness"
                       },
                       "brightness_step": {
@@ -2050,6 +2182,7 @@
                           "string"
                         ],
                         "description": "Brightness step (1-50%)",
+                        "markdownDescription": "Brightness step (1-50%)\n\nStep size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE \nand BRIGHTNESS_DOWN_CYCLE actions. Default is 10.",
                         "title": "Brightness step"
                       },
                       "color_temp": {
@@ -2058,6 +2191,7 @@
                           "string"
                         ],
                         "description": "Color Temperature (mireds)",
+                        "markdownDescription": "Color Temperature (mireds)\n\nColor temperature in mireds. Only for ESPHome lights with color temperature support.\nLower values = cooler (bluer), higher values = warmer (yellower).\nTypical range: 153 (6500K cool) to 500 (2000K warm).",
                         "title": "Color temp"
                       },
                       "rgb": {
@@ -2066,6 +2200,7 @@
                           "string"
                         ],
                         "description": "RGB Color [R, G, B]",
+                        "markdownDescription": "RGB Color [R, G, B]\n\nRGB color as list [red, green, blue], each value 0-255.\nOnly for ESPHome lights with RGB support.\nExample: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.",
                         "title": "Rgb"
                       },
                       "colors": {
@@ -2074,6 +2209,7 @@
                           "string"
                         ],
                         "description": "Color List for CYCLE_COLOR",
+                        "markdownDescription": "Color List for CYCLE_COLOR\n\nList of RGB colors to cycle through on each press.\nEach color is a list of [R, G, B] values (0-255).\nOnly used when action_output is CYCLE_COLOR.\nExample: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]",
                         "title": "Colors"
                       },
                       "presets": {
@@ -2082,6 +2218,7 @@
                           "string"
                         ],
                         "description": "Preset/Effect List for CYCLE_PRESET",
+                        "markdownDescription": "Preset/Effect List for CYCLE_PRESET\n\nList of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.\nFor ESPHome: list of effect name strings, e.g. [\"Rainbow\", \"Strobe\", \"Color Wipe\"]\nFor WLED: list of effect IDs (integers), e.g. [0, 9, 47]\nOnly used when action_output is CYCLE_PRESET.",
                         "title": "Presets"
                       },
                       "repeat": {
@@ -2104,11 +2241,13 @@
                         ],
                         "default": false,
                         "description": "Repeat on Hold",
+                        "markdownDescription": "Repeat on Hold\n\nWhen true, this action will be executed repeatedly while the button is held (long press).\nOnly effective for actions under the 'long' click type.\nExample: brightness_up with repeat will increase brightness continuously while holding.",
                         "title": "Repeat"
                       },
                       "repeat_interval": {
                         "default": "800ms",
                         "description": "Repeat Interval",
+                        "markdownDescription": "Repeat Interval\n\nMinimum interval between repeated executions.\nOnly used when repeat is true. Default: 800ms.\nMinimum: 200ms (matches periodic event interval).",
                         "type": [
                           "number",
                           "string"
@@ -2118,6 +2257,7 @@
                       },
                       "probability": {
                         "description": "Chance of running",
+                        "markdownDescription": "Chance of running\n\nRun this action only some of the time. 1 (the default) always, 0.7\nseven times out of ten, 0 never.\n\nFor presence simulation. `jitter` on a schedule randomises *when* a\nstep happens; this randomises *whether* it happens at all, which is\nthe difference between lights on a timer and somebody living there \u2014\nthree evenings of the same four steps is a pattern an observer can\nread.\n\nDrawn per firing, after the conditions: a `probability` of 0.5 on an\naction whose condition is false still never runs.",
                         "minimum": 0,
                         "maximum": 1,
                         "type": [
@@ -2134,6 +2274,7 @@
                         ],
                         "x-timeperiod": true,
                         "description": "Delay Before Execution",
+                        "markdownDescription": "Delay Before Execution\n\nWait this amount of time before executing the action.\nIf the same input triggers a cancel event (see delay_cancel_on)\nduring the wait, the action is cancelled.\nUseful for motion sensors: turn OFF after 2 minutes of no motion,\nbut cancel if motion is re-detected.\nExample: 30s, 2min, 1h",
                         "title": "Delay"
                       },
                       "delay_cancel_on": {
@@ -2152,6 +2293,7 @@
                           "string"
                         ],
                         "description": "Cancel Delay On Events",
+                        "markdownDescription": "Cancel Delay On Events\n\nList of input events that cancel the pending delayed action.\nWhen any of these events occur on the same input, the delayed\naction timer is cancelled and the action is not executed.\nExample: ['pressed'] \u2014 cancel OFF delay when motion re-detected.",
                         "title": "Delay cancel on"
                       },
                       "condition": {
@@ -2202,6 +2344,7 @@
               "string"
             ],
             "description": "Actions",
+            "markdownDescription": "Actions\n\nActions to execute on state change.\nKeys depend on mode:\n- binary_sensor: pressed, released\n- event: single, double, long",
             "title": "Actions"
           }
         },
@@ -2219,7 +2362,8 @@
         "array",
         "string"
       ],
-      "title": "Remote inputs"
+      "title": "Remote inputs",
+      "markdownDescription": "Remote binary sensor inputs from ESPHome, CAN, or other remote devices.\n\nConfigure inputs from remote devices. Each entry maps a binary sensor\non a remote device to local actions (same as GPIO inputs)."
     }
   },
   "$defs": {
@@ -2251,6 +2395,7 @@
             "string"
           ],
           "description": "Smart toggle threshold (0-100%).",
+          "markdownDescription": "Smart toggle threshold (0-100%).\n\nPosition threshold for SMART_TOGGLE action.\nIf cover position is at or below this value, it will always open.\nAbove this value, normal toggle behavior applies.",
           "title": "Always open till"
         }
       },
@@ -2269,37 +2414,42 @@
             "state",
             "sun"
           ],
+          "markdownDescription": "Condition type\n\nType of condition to check before executing the action.\n- time: Check if current time is within a range (e.g. 05:00-22:00)\n- date: Check if current date is within a range (e.g. 11-01 to 03-31)\n- state: Check if a boneIO entity is in a specific state\n- sun: Check the position of the Sun (needs the `location:` section)",
           "type": "string",
           "title": "Type"
         },
         "after": {
           "type": "string",
           "description": "After (start of range)",
+          "markdownDescription": "After (start of range)\n\nFor time: \"HH:MM\" format (e.g. \"05:00\", \"22:30\")\nFor date: \"MM-DD\" format (e.g. \"11-01\" for November 1st)\nFor sun: a sun anchor, e.g. \"sunrise\", \"civil_dusk\", \"solar_noon\"",
           "title": "After"
         },
         "before": {
           "type": "string",
           "description": "Before (end of range)",
+          "markdownDescription": "Before (end of range)\n\nFor time: \"HH:MM\" format (e.g. \"22:00\", \"06:00\")\nFor date: \"MM-DD\" format (e.g. \"03-31\" for March 31st)\nFor sun: a sun anchor, e.g. \"sunset\", \"civil_dawn\"",
           "title": "Before"
         },
         "after_offset": {
+          "description": "Offset from the 'after' anchor (sun only)",
+          "markdownDescription": "Offset from the 'after' anchor (sun only)\n\nShifts the start of the window. Negative is earlier:\nafter: sunset with after_offset: \"-15min\" starts a quarter of an hour\nbefore sunset. Accepts s, min and h; a bare number means seconds.\nLimited to \u00b112 h \u2014 a larger offset is no longer a reference to that\nanchor, and `type: time` says it more clearly.",
+          "maximum": 43200,
+          "minimum": -43200,
           "type": [
             "number",
             "string"
           ],
-          "description": "Offset from the 'after' anchor (sun only)",
-          "minimum": -43200,
-          "maximum": 43200,
           "title": "After offset"
         },
         "before_offset": {
+          "description": "Offset from the 'before' anchor (sun only)",
+          "markdownDescription": "Offset from the 'before' anchor (sun only)\n\nShifts the end of the window. Same format as after_offset.",
+          "maximum": 43200,
+          "minimum": -43200,
           "type": [
             "number",
             "string"
           ],
-          "description": "Offset from the 'before' anchor (sun only)",
-          "minimum": -43200,
-          "maximum": 43200,
           "title": "Before offset"
         },
         "phase": {
@@ -2314,10 +2464,12 @@
           ],
           "type": "string",
           "description": "Sun phase (sun only)",
+          "markdownDescription": "Sun phase (sun only)\n\nTrue while the Sun is in this phase.\n- day: above the horizon\n- civil_twilight / nautical_twilight / astronomical_twilight: -6/-12/-18\u00b0\n- night: more than 18\u00b0 below the horizon\n- golden_hour: -4\u00b0 to +6\u00b0, blue_hour: -6\u00b0 to -4\u00b0\nGolden and blue hour overlap the others \u2014 they are photographic bands,\nnot separate parts of the day.",
           "title": "Phase"
         },
         "above": {
           "description": "Sun elevation above (degrees, sun only)",
+          "markdownDescription": "Sun elevation above (degrees, sun only)\n\nTrue while the Sun is higher than this many degrees above the horizon.\nNegative values are below it. Combine with `below` for a band.",
           "minimum": -90,
           "maximum": 90,
           "type": [
@@ -2329,6 +2481,7 @@
         },
         "below": {
           "description": "Sun elevation below (degrees, sun only)",
+          "markdownDescription": "Sun elevation below (degrees, sun only)\n\nTrue while the Sun is lower than this many degrees above the horizon.",
           "minimum": -90,
           "maximum": 90,
           "type": [
@@ -2351,11 +2504,13 @@
           ],
           "type": "string",
           "description": "Entity type (for state condition)",
+          "markdownDescription": "Entity type (for state condition)\n\nType of boneIO entity to check state of.\nIncludes virtual switches (flags with no hardware behind them) and\nremote entities (outputs/covers/inputs from ESPHome/CAN devices).",
           "title": "Entity"
         },
         "entity_id": {
           "type": "string",
           "description": "Entity ID (for state condition)",
+          "markdownDescription": "Entity ID (for state condition)\n\nID of the boneIO entity to check state of.",
           "title": "Entity id"
         },
         "state": {
@@ -2367,6 +2522,7 @@
           ],
           "type": "string",
           "description": "Expected state (for state condition)",
+          "markdownDescription": "Expected state (for state condition)\n\nExpected state of the entity.\n- binary_sensor/remote_input: is_on, is_off\n- cover: is_open, is_closed\n- output/light/virtual_switch: is_on, is_off",
           "title": "State"
         }
       },
@@ -2387,6 +2543,7 @@
             "and",
             "or"
           ],
+          "markdownDescription": "Condition mode\n\nHow to combine multiple conditions:\n- and: ALL conditions must be true (default)\n- or: ANY condition must be true",
           "type": "string",
           "title": "Mode"
         },
@@ -2395,6 +2552,7 @@
           "items": {
             "$ref": "#/$defs/Condition"
           },
+          "markdownDescription": "List of conditions\n\nList of conditions to evaluate. Combined using the mode (and/or).",
           "type": [
             "array",
             "string"

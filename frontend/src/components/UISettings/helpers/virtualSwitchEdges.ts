@@ -5,7 +5,7 @@
  * renders, and this project's vitest runs in node with no DOM.
  */
 
-/** The two edges a virtual switch can act on. Mirrors `boneio/schema/schema.yaml`.
+/** The two edges a virtual switch can act on. Mirrors `boneio/core/config/models/virtual_switches.py`.
  *
  * Not `on`/`off`: YAML reads those two as booleans, so the keys would silently
  * become `true` and `false` and nothing would ever match them. */
@@ -15,7 +15,7 @@ export type Edge = typeof EDGES[number];
 /** One action, as the config carries it. Its fields depend on `action`. */
 export type ActionEntry = Record<string, unknown>;
 
-/** One virtual switch, as `boneio/schema/schema.yaml` defines it. */
+/** One virtual switch, as `boneio/core/config/models/virtual_switches.py` defines it. */
 export interface SwitchEntry {
   id: string;
   name?: string;

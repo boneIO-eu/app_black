@@ -6,6 +6,7 @@
       "properties": {
         "latitude": {
           "description": "Latitude",
+          "markdownDescription": "Latitude\n\nDegrees north, -90 to 90. Four decimal places (~11 m) is plenty;\nnothing here is improved by more, and the value ends up in config\nbackups.",
           "minimum": -90,
           "maximum": 90,
           "type": [
@@ -17,6 +18,7 @@
         },
         "longitude": {
           "description": "Longitude",
+          "markdownDescription": "Longitude\n\nDegrees east, -180 to 180.",
           "minimum": -180,
           "maximum": 180,
           "type": [
@@ -29,6 +31,7 @@
         "elevation": {
           "default": 0,
           "description": "Elevation above sea level (m)",
+          "markdownDescription": "Elevation above sea level (m)\n\nLowers the horizon: 110 m moves sunrise about two minutes earlier in\ncentral Europe. Leave at 0 if you do not know it.",
           "minimum": -500,
           "maximum": 9000,
           "type": [

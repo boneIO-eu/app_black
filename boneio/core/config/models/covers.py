@@ -1,6 +1,4 @@
 """The ``cover`` section: blinds and gates driven by an open and a close relay.
-
-Mirrors boneio/schema/schema.yaml for the section.
 """
 
 from __future__ import annotations

@@ -7,8 +7,9 @@
       "items": {
         "properties": {
           "id": {
-            "type": "string",
             "description": "Output ID",
+            "markdownDescription": "Output ID\n\nCustom ID for this remote output. If not set, auto-generated\nfrom device_id + output_id (e.g. \"esphome_device_1_relay_1\").",
+            "type": "string",
             "title": "Id"
           },
           "name": {
@@ -24,16 +25,19 @@
               "mqtt",
               "wled"
             ],
+            "markdownDescription": "Remote Source Protocol\n\nProtocol used to control the output:\n- esphome_api: ESPHome native API switch/light\n- can: CAN bus output control\n- mqtt: MQTT switch topic\n- wled: WLED HTTP/WebSocket API (main or segment)",
             "type": "string",
             "title": "Remote source"
           },
           "device_id": {
             "description": "Remote Device ID",
+            "markdownDescription": "Remote Device ID\n\nID of the remote device (from remote_devices section).",
             "type": "string",
             "title": "Device id"
           },
           "output_id": {
             "description": "Output/Entity ID",
+            "markdownDescription": "Output/Entity ID\n\nSwitch or light object_id on the remote device (e.g. \"relay_1\").",
             "type": "string",
             "title": "Output id"
           },
@@ -46,6 +50,7 @@
               "valve",
               "cover"
             ],
+            "markdownDescription": "Output Type\n\nType of output for Home Assistant categorization:\n- switch: Generic switch\n- light: Light entity\n- valve: Valve entity (for irrigation)\n- cover: Cover entity (gate, blind, shutter)",
             "type": "string",
             "title": "Output type"
           },
@@ -69,6 +74,7 @@
             ],
             "default": false,
             "description": "Forward to Home Assistant",
+            "markdownDescription": "Forward to Home Assistant\n\nWhether to publish HA autodiscovery for this remote output.\nSet to false if the ESPHome device already publishes its own entity.",
             "title": "Show in ha"
           },
           "area": {
@@ -83,6 +89,7 @@
               "ignore",
               "turn_off"
             ],
+            "markdownDescription": "On Disconnect Behavior\n\nWhat to do when the remote device loses connection:\n- ignore: Keep last known state (default)\n- turn_off: Force output OFF (safe for pumps/irrigation)",
             "type": "string",
             "title": "On disconnect"
           },
@@ -93,6 +100,7 @@
             ],
             "x-timeperiod": true,
             "description": "Momentary Turn On",
+            "markdownDescription": "Momentary Turn On\n\nAfter turning ON, auto-OFF after this duration.",
             "title": "Momentary turn on"
           },
           "momentary_turn_off": {
@@ -102,6 +110,7 @@
             ],
             "x-timeperiod": true,
             "description": "Momentary Turn Off",
+            "markdownDescription": "Momentary Turn Off\n\nAfter turning OFF, auto-ON after this duration.",
             "title": "Momentary turn off"
           },
           "adjustable_duration": {
@@ -124,6 +133,7 @@
             ],
             "default": false,
             "description": "Adjustable Duration",
+            "markdownDescription": "Adjustable Duration\n\nEnable an HA number entity (slider) to dynamically set the on-timer.\nWhen ON is pressed, auto-OFF after this duration.",
             "title": "Adjustable duration"
           },
           "duration_default": {
@@ -166,6 +176,7 @@
           "interlock_group": {
             "default": [],
             "description": "Interlock Groups",
+            "markdownDescription": "Interlock Groups\n\nShared interlock groups with local outputs. When this remote output\nis turned ON via boneIO, other outputs in the same group will be\nblocked. Direct control from ESPHome/HA bypasses the check unless\nenforce_interlock is enabled.",
             "type": [
               "array",
               "string"
@@ -195,6 +206,7 @@
             ],
             "default": false,
             "description": "Enforce Interlock on External Changes",
+            "markdownDescription": "Enforce Interlock on External Changes\n\nWhen true, if this remote output is turned ON externally (not via\nboneIO) and it violates an interlock, boneIO will immediately send\na turn-off command to the remote device.",
             "title": "Enforce interlock"
           }
         },
@@ -212,7 +224,8 @@
         "array",
         "string"
       ],
-      "title": "Remote outputs"
+      "title": "Remote outputs",
+      "markdownDescription": "Remote outputs from ESPHome, CAN, or other remote devices.\n\nConfigure outputs from remote devices. Each entry maps a switch/light\non a remote device to a local output object with full turn_on/turn_off\nsupport. Remote outputs are visible in the Outputs view and can be used\nin irrigation zones, output groups, and templates."
     }
   }
 }

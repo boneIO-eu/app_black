@@ -112,6 +112,7 @@
           ],
           "default": true,
           "description": "Enable sending BoneIO autodiscovery messages",
+          "markdownDescription": "Enable sending BoneIO autodiscovery messages\n\nWhen enabled, this device publishes its outputs, covers, inputs, and sensors\nto MQTT discovery topics (boneio/{device_id}/discovery/*) so other BoneIO\ndevices can discover and control it.",
           "title": "Send boneio autodiscovery"
         },
         "receive_boneio_autodiscovery": {
@@ -134,6 +135,7 @@
           ],
           "default": true,
           "description": "Enable receiving BoneIO autodiscovery messages",
+          "markdownDescription": "Enable receiving BoneIO autodiscovery messages\n\nWhen enabled, this device subscribes to BoneIO autodiscovery topics\n(boneio/+/discovery/#) and automatically discovers neighboring BoneIO devices.",
           "title": "Receive boneio autodiscovery"
         },
         "update_channel": {
@@ -143,6 +145,7 @@
             "stable",
             "dev"
           ],
+          "markdownDescription": "Update channel\n\nWhich releases to show in Home Assistant Update entity:\n- stable: Only stable releases (recommended)\n- dev: Include development/pre-release versions",
           "type": "string",
           "title": "Update channel"
         },
@@ -207,6 +210,7 @@
               ],
               "default": false,
               "description": "Skip checking the broker's certificate",
+              "markdownDescription": "Skip checking the broker's certificate\n\nEncrypts the connection without checking who is on the other end.\nAnyone able to intercept it can pose as the broker and read the\npassword. Only for testing.",
               "title": "Insecure"
             }
           },
@@ -215,6 +219,7 @@
             "string"
           ],
           "description": "Encrypt the connection to the broker (TLS)",
+          "markdownDescription": "Encrypt the connection to the broker (TLS)\n\nConnect to the broker over TLS, usually on port 8883. Without ca_certs\nthe broker's certificate is checked against the system's trusted\nauthorities, which is right for a public one; for your own CA, point\nca_certs at its certificate. Relative paths are resolved from the\ndirectory holding config.yaml. If TLS is on and cannot be set up,\nboneIO does not connect at all rather than fall back to plain text.",
           "title": "Tls"
         }
       },

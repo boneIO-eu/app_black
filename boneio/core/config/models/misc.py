@@ -1,6 +1,4 @@
 """The small sections: ``oled``, ``location``, ``lox_udp``, ``logger``, ``areas``.
-
-Mirrors boneio/schema/schema.yaml for these sections.
 """
 
 from __future__ import annotations

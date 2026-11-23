@@ -7,23 +7,27 @@
       "items": {
         "properties": {
           "name": {
-            "type": "string",
             "description": "Display Name",
+            "markdownDescription": "Display Name\n\nOptional friendly name shown in Home Assistant. If not set, uses effective_id.",
+            "type": "string",
             "title": "Name"
           },
           "id": {
-            "type": "string",
             "description": "Output ID",
+            "markdownDescription": "Output ID\n\nTechnical identifier used in MQTT topics, output groups, and actions.\n- If boneio_output is set: id is optional (defaults to boneio_output)\n- If boneio_output is NOT set: id is REQUIRED\n- If both are set: id overrides boneio_output as identifier",
+            "type": "string",
             "title": "Id"
           },
           "boneio_output": {
             "type": "string",
             "description": "BoneIO Output",
+            "markdownDescription": "BoneIO Output\n\nReference to predefined output configuration (e.g., OUT_01, OUT_02).\nAvailable only when 'boneio' section is configured.\nUsed as default ID if 'id' field is not specified.",
             "title": "Boneio output"
           },
           "area": {
             "type": "string",
             "description": "Area/Room",
+            "markdownDescription": "Area/Room\n\nReference to area ID defined in 'areas' section.\nCreates a sub-device linked to the main BoneIO device.",
             "title": "Area"
           },
           "kind": {
@@ -165,6 +169,7 @@
           },
           "interlock_group": {
             "description": "Interlock group name or list",
+            "markdownDescription": "Interlock group name or list\n\nAssigns this output to a software interlock group (or groups). Outputs with the same group name cannot be active at the same time.\nYou can provide a single group name (string) or a list of names (if the output should belong to multiple groups).",
             "type": [
               "array",
               "string"

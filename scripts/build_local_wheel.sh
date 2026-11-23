@@ -48,7 +48,7 @@ rsync -a \
     "$REPO/" "$WORK/src/"
 
 echo "== JSON schemas"
-(cd "$WORK/src" && "$PYTHON" boneio/core/config/schema_converter.py)
+(cd "$WORK/src" && "$PYTHON" -m boneio.core.config.json_schema)
 
 if [ -n "${BONEIO_MASTER_SECRET:-}" ]; then
     sed -i "s/__BONEIO_MASTER_SECRET_PLACEHOLDER__/${BONEIO_MASTER_SECRET}/g" \

@@ -4,7 +4,7 @@ import { fetchConfig } from '@/api/configCache';
 import type { BinarySensorEntity, CoverEntity, OutputEntity } from '@/types/config';
 import type { Area, RemoteDevice } from '@/components/UISettings/ActionFields/types';
 
-/** Action types an input can run — mirrors boneio/schema/actions.yaml. */
+/** Action types an input can run — mirrors boneio/core/config/models/inputs.py. */
 export const INPUT_ACTION_TYPES = [
   'output', 'cover', 'virtual_switch', 'mqtt',
   'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover',

@@ -41,7 +41,7 @@ export interface ActionRowListProps {
   emptyText: string;
   /** Entity lists, forwarded to the editor and used for the summaries. */
   entities: ActionEntities;
-  /** Mirrors boneio/schema/actions.yaml. */
+  /** Mirrors boneio/core/config/models/inputs.py. */
   actionTypeOptions: string[];
   actionOutputOptions: string[];
   actionCoverOptions: string[];

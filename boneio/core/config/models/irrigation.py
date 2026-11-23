@@ -1,6 +1,6 @@
 """The ``irrigation`` section: valves run in turn, from water sources, on a timetable.
 
-Mirrors boneio/schema/schema.yaml for the section. Water sources and runs
+Water sources and runs
 are the irrigation template's, checked by the same models.
 """
 
@@ -13,7 +13,7 @@ from pydantic import Field
 from boneio.core.config.models.base import Model, StrPeriod, section
 from boneio.core.config.models.templates import Run, WaterSource
 
-# schema.yaml's shared id.yaml, whatever the id is of.
+# One description for every id here, whatever the id is of.
 _ID = "Id of I2C to use in pin config"
 
 

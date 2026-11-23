@@ -8,16 +8,19 @@
         "properties": {
           "id": {
             "description": "Group ID",
+            "markdownDescription": "Group ID\n\nTechnical identifier for this group, used in MQTT topics and actions.",
             "type": "string",
             "title": "Id"
           },
           "name": {
-            "type": "string",
             "description": "Display Name",
+            "markdownDescription": "Display Name\n\nOptional friendly name shown in Home Assistant. If not set, uses id.",
+            "type": "string",
             "title": "Name"
           },
           "outputs": {
             "description": "Output IDs",
+            "markdownDescription": "Output IDs\n\nList of output identifiers to include in this group.\nUse the effective_id of each output (boneio_output or custom id).",
             "type": [
               "array",
               "string"

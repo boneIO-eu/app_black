@@ -54,6 +54,7 @@
               ],
               "default": false,
               "description": "Enable cloud registration",
+              "markdownDescription": "Enable cloud registration\n\nWhen enabled, device registers with boneIO Cloud API and downloads\nwildcard SSL certificate for *.black.boneio.app domain.\nThis allows PWA installation on mobile devices.",
               "title": "Enabled"
             },
             "declined": {
@@ -76,6 +77,7 @@
               ],
               "default": false,
               "description": "Not interested in cloud registration",
+              "markdownDescription": "Not interested in cloud registration\n\nSet this when you have decided against registering with boneIO\nCloud. Registration publishes this device's local address in DNS,\nwhich is a reasonable thing to refuse \u2014 and without somewhere to\nrecord the refusal the panel goes on recommending it, so the\ncertificate check can never be settled.\n\nIt changes nothing about how the device works. It only stops the\npanel offering cloud registration as the way to a trusted\ncertificate, leaving uploading your own.",
               "title": "Declined"
             },
             "pwa_name": {
@@ -84,6 +86,7 @@
                 "string"
               ],
               "description": "PWA short name",
+              "markdownDescription": "PWA short name\n\nShort name displayed under the app icon on Android home screen.\nMax 12 characters. Defaults to \"bIO\" + last 6 chars of serial number.",
               "title": "Pwa name"
             }
           },
@@ -97,6 +100,7 @@
             "declined": false
           },
           "description": "boneIO Cloud registration for PWA support",
+          "markdownDescription": "boneIO Cloud registration for PWA support\n\nRegister device with boneIO Cloud to enable PWA installation.\nCreates DNS record {serial}.black.boneio.app pointing to your local IP.\nRequires valid SSL certificate from boneIO Cloud.",
           "title": "Cloud"
         },
         "security": {
@@ -121,10 +125,12 @@
               ],
               "default": false,
               "description": "Allow the location picker to load a map",
+              "markdownDescription": "Allow the location picker to load a map\n\nOff by default. When on, the Location page can show an\nOpenStreetMap map to pick the coordinates from, and the panel's\nContent-Security-Policy gains the OpenStreetMap tile servers in\nits `img-src` directive.\n\nThat is a real loosening, not a formality. An image URL is an\noutbound channel: someone who already had script execution in the\npanel could encode data into a tile path and read it out of\nsomeone else's access log. The map is a convenience, so it is\nopt-in and nobody pays for it who is not using it.\n\nThe tiles are fetched by your browser, not by the controller, so\nthis works on a device with no route to the internet \u2014 as long as\nthe computer you open the panel from has one. Without a map the\ncoordinates can still be typed in, or filled from the timezone.\n\nTiles come from openstreetmap.org, which sees the area you are\nlooking at. Map data \u00a9 OpenStreetMap contributors.",
               "title": "Map tiles"
             },
             "frame_ancestors": {
               "description": "Which sites may embed this panel in a frame",
+              "markdownDescription": "Which sites may embed this panel in a frame\n\nSets the Content-Security-Policy frame-ancestors directive, which\nis what protects the panel from clickjacking.\n\nUnset means `self` since 1.6: only this device may frame the\npanel. That is also what the boneIO Black add-on for Home\nAssistant needs \u2014 its nginx proxies each controller, so the\nframed page is served on Home Assistant's own origin and is\nsame-origin with the dashboard framing it.\n\nA list of plain tokens. Write `self`, not `'self'` \u2014 the quotes\nCSP wants are added when the header is built, so nothing here\nhas to survive YAML stripping them:\n\n  frame_ancestors:\n    - self\n\nAdd an address when a dashboard frames this device directly, with\nan iframe card or panel_iframe rather than through the add-on:\n\n  frame_ancestors:\n    - self\n    - https://homeassistant.local:8123\n\nA single `*` lifts the restriction entirely. It cannot be\ncombined \u2014 alongside it, every other entry means nothing.\n\nA plain string still works, so configs written before the list\nexisted keep loading. The Security section in the panel edits\nthis without the syntax.\n\nX-Frame-Options is deliberately not sent: it cannot name an\nallowed origin, so it could not express the ingress case.",
               "type": [
                 "array",
                 "null",
@@ -179,6 +185,7 @@
               ],
               "default": false,
               "description": "Allow unauthenticated access to the web UI and API",
+              "markdownDescription": "Allow unauthenticated access to the web UI and API\n\nDANGEROUS. Leave this off unless you know why you need it.\n\nFrom 1.6 a device with no administrator account refuses API\nrequests until the first-run wizard has been completed. Setting\nthis to true restores the pre-1.6 behaviour: anyone who can reach\nthe device on the network can read its configuration, switch its\noutputs and reboot it, with no password.\n\nIt exists for headless provisioning and for installations where\nauthentication is already enforced in front of boneIO (for\nexample a reverse proxy or Home Assistant ingress). The device\nlogs a warning on every start while this is on.",
               "title": "Allow anonymous"
             }
           },

@@ -17,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_DOUBLE_CLICK_DURATION_MS = 220
 DEFAULT_LONG_PRESS_DURATION_MS = 400
 DEFAULT_SEQUENCE_WINDOW_MS = 500
-# Matches the event bounce_time default in schema.yaml. Needed on the hot-reload
+# Matches the event bounce_time default in its model. Needed on the hot-reload
 # path, which reads the YAML without validating it, so an omitted bounce_time
 # arrives as None rather than as the schema default.
 DEFAULT_BOUNCE_TIME_MS = 30

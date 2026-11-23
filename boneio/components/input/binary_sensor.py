@@ -16,7 +16,7 @@ from boneio.models.events import InputEvent
 
 _LOGGER = logging.getLogger(__name__)
 
-# Matches the binary_sensor bounce_time default in schema.yaml. Needed on the
+# Matches the binary_sensor bounce_time default in its model. Needed on the
 # hot-reload path, which reads the YAML without validating it, so an
 # omitted bounce_time arrives as None rather than as the schema default.
 DEFAULT_BOUNCE_TIME_MS = 120

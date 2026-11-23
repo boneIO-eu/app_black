@@ -1,9 +1,8 @@
 """The ``remote_inputs`` section: buttons and sensors on other devices.
 
-Mirrors boneio/schema/schema.yaml for the section, with one difference made
-on purpose: ``actions`` there is any dictionary, while the runtime runs these
-actions exactly as an input's. Here each one is checked by the same models
-as the actions of ``event`` and ``binary_sensor``. The click types stay free:
+The runtime runs these actions exactly as an input's, so each one is
+checked by the same models as the actions of ``event`` and
+``binary_sensor``. The click types stay free:
 which apply depends on the entry's ``mode``.
 """
 

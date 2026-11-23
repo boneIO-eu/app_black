@@ -8,11 +8,13 @@
         "properties": {
           "id": {
             "description": "Device ID",
+            "markdownDescription": "Device ID\n\nUnique identifier for this remote device (used in actions).\nExample: \"salon_boneio\", \"garage_esp\"",
             "type": "string",
             "title": "Id"
           },
           "name": {
             "description": "Device Name",
+            "markdownDescription": "Device Name\n\nFriendly name for this device shown in UI.\nExample: \"Salon boneIO\", \"ESP Garage\"",
             "type": "string",
             "title": "Name"
           },
@@ -23,6 +25,7 @@
               "esphome_api",
               "wled"
             ],
+            "markdownDescription": "Protocol\n\nCommunication protocol to use:\n- mqtt: Standard MQTT (boneIO Black, ESPHome, other MQTT devices)",
             "type": "string",
             "title": "Protocol"
           },
@@ -35,6 +38,7 @@
               "wled",
               "generic"
             ],
+            "markdownDescription": "Device Type\n\nType of remote device. Affects how commands are formatted:\n- boneio_black: Another boneIO Black device\n- esphome: ESPHome device\n- generic: Generic device (custom topic format)",
             "type": "string",
             "title": "Device type"
           },
@@ -67,6 +71,7 @@
                   "string"
                 ],
                 "description": "Available Outputs",
+                "markdownDescription": "Available Outputs\n\nOptional list of outputs for dropdown selection in actions",
                 "title": "Outputs"
               },
               "covers": {
@@ -96,6 +101,7 @@
                   "string"
                 ],
                 "description": "Available Covers",
+                "markdownDescription": "Available Covers\n\nOptional list of covers for dropdown selection in actions",
                 "title": "Covers"
               }
             },
@@ -104,6 +110,7 @@
               "string"
             ],
             "description": "MQTT Protocol Settings",
+            "markdownDescription": "MQTT Protocol Settings\n\nFor boneIO Black devices, outputs and covers will be auto-discovered.\nThe device_id should match the remote device's serial (e.g., \"blk_abc123\").",
             "x-dependencies": {
               "protocol": [
                 "mqtt"
@@ -115,6 +122,7 @@
             "properties": {
               "host": {
                 "description": "Host",
+                "markdownDescription": "Host\n\nIP address or hostname of ESPHome device",
                 "type": "string",
                 "title": "Host"
               },
@@ -130,11 +138,13 @@
               "password": {
                 "type": "string",
                 "description": "API Password",
+                "markdownDescription": "API Password\n\nOptional API password (if configured on ESPHome device)",
                 "title": "Password"
               },
               "encryption_key": {
                 "type": "string",
                 "description": "Encryption Key",
+                "markdownDescription": "Encryption Key\n\nOptional noise encryption key (base64 encoded)",
                 "title": "Encryption key"
               },
               "switches": {
@@ -172,6 +182,7 @@
                   "string"
                 ],
                 "description": "Available Switches",
+                "markdownDescription": "Available Switches\n\nList of switches discovered or manually configured",
                 "title": "Switches"
               },
               "lights": {
@@ -315,6 +326,7 @@
                   "string"
                 ],
                 "description": "Available Lights",
+                "markdownDescription": "Available Lights\n\nList of lights discovered or manually configured",
                 "title": "Lights"
               },
               "covers": {
@@ -395,6 +407,7 @@
                   "string"
                 ],
                 "description": "Available Covers",
+                "markdownDescription": "Available Covers\n\nList of covers discovered or manually configured",
                 "title": "Covers"
               }
             },
@@ -406,6 +419,7 @@
               "string"
             ],
             "description": "ESPHome API Settings",
+            "markdownDescription": "ESPHome API Settings\n\nNative ESPHome API connection settings.\nEntities (switches, lights, covers) can be auto-discovered.",
             "x-dependencies": {
               "protocol": [
                 "esphome_api"
@@ -417,6 +431,7 @@
             "properties": {
               "host": {
                 "description": "Host",
+                "markdownDescription": "Host\n\nIP address or hostname of WLED device (e.g. wled-salon.local)",
                 "type": "string",
                 "title": "Host"
               },
@@ -438,6 +453,7 @@
               "string"
             ],
             "description": "WLED Settings",
+            "markdownDescription": "WLED Settings\n\nWLED HTTP JSON API connection settings.\nSegments can be auto-discovered from the device.",
             "x-dependencies": {
               "protocol": [
                 "wled"

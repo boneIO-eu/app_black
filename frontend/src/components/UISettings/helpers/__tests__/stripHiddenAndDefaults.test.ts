@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { stripHiddenAndDefaults } from '../configSchemaUtils';
-// The schemas the panel really uses, as generated from schema.yaml.
+// The schemas the panel really uses, as generated from the section models.
 import scheduleSchema from '../../../../../../boneio/webui/schema/schedule.schema.json';
 import eventSchema from '../../../../../../boneio/webui/schema/event.schema.json';
 

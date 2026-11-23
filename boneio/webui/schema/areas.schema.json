@@ -8,11 +8,13 @@
         "properties": {
           "id": {
             "description": "Area ID",
+            "markdownDescription": "Area ID\n\nUnique identifier for the area (used in output/input configurations).\nExample: \"living_room\", \"kitchen\", \"garage\"",
             "type": "string",
             "title": "Id"
           },
           "name": {
             "description": "Area Name",
+            "markdownDescription": "Area Name\n\nDisplay name for the area shown in Home Assistant.\nExample: \"Living Room\", \"Kitchen\", \"Gara\u017c\"",
             "type": "string",
             "title": "Name"
           }

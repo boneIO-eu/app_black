@@ -9,16 +9,19 @@
           "name": {
             "type": "string",
             "description": "Display Name",
+            "markdownDescription": "Display Name\n\nOptional friendly name shown in Home Assistant. If not set, uses id.",
             "title": "Name"
           },
           "id": {
             "type": "string",
             "description": "Cover ID",
+            "markdownDescription": "Cover ID\n\nTechnical identifier used in MQTT topics and actions.\nMust contain only lowercase letters, numbers and underscores (no spaces).\nIf not set, auto-generated from open_relay and close_relay (e.g., cover_out_31_out_32).",
             "title": "Id"
           },
           "area": {
             "type": "string",
             "description": "Area/Room",
+            "markdownDescription": "Area/Room\n\nReference to area ID defined in 'areas' section.\nCreates a sub-device linked to the main BoneIO device.",
             "title": "Area"
           },
           "restore_state": {

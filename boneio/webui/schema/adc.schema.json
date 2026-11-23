@@ -33,6 +33,7 @@
           "area": {
             "type": "string",
             "description": "Area/Room",
+            "markdownDescription": "Area/Room\n\nReference to area ID defined in 'areas' section.\nCreates a sub-device linked to the main BoneIO device.",
             "title": "Area"
           },
           "update_interval": {

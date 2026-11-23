@@ -70,8 +70,8 @@
                 "type": "string"
               },
               "modbus_id": {
-                "type": "string",
                 "description": "Only needed if sensor type is modbus.",
+                "type": "string",
                 "title": "Modbus id"
               },
               "sensor_id": {

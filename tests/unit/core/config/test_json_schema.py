@@ -1,13 +1,7 @@
-"""A section's schema made from its model reads to the panel as schema.yaml's did.
+"""The panel's JSON Schema, as the section models make it, reads to the panel.
 
-Each section moved to json_schema.FROM_MODELS is compared with what
-schema_converter.py makes of the same section in schema.yaml; the only
-differences allowed are the ones listed, each of them deliberate. The test
-goes when schema.yaml does.
-
-Two readings make the model's schema comparable: its ``$ref``s are resolved,
-and an action union is read as the one object schema.yaml describes — every
-field any action type has, each the same in every type that has it.
+The panel's forms and the config editor read one dialect (see json_schema),
+and an agent reads the same files through MCP.
 """
 
 from __future__ import annotations
@@ -16,308 +10,16 @@ import json
 
 import pytest
 
-from boneio.core.config.json_schema import FROM_MODELS, section_schema
-from boneio.core.config.models.misc import _HOST
-from boneio.core.config.schema_converter import convert_cerberus_to_json_schema, load_schema_yaml
-
-_YAML_BOOLEAN = {
-    "oneOf": [
-        {"type": "boolean"},
-        {
-            "type": "string",
-            "enum": ["yes", "no", "true", "false", "on", "off"],
-            "x-yaml-boolean": True,
-        },
-    ]
-}
-_ENTITY_VISIBILITY = {
-    "description": "Where a Modbus entity shows; None keeps the device definition's choice.",
-    "properties": {"panel": _YAML_BOOLEAN, "ha": _YAML_BOOLEAN},
-    "type": ["object", "string"],
-}
-_FILTER_ITEM = {
-    "additionalProperties": True,
-    "propertyNames": {
-        "enum": ["offset", "round", "multiply", "filter_out", "filter_out_greater", "filter_out_lower"]
-    },
-}
-
-_INA_DEFAULT = [
-    {"id": "Board Current", "device_class": "current"},
-    {"id": "Board Power", "device_class": "power"},
-    {"id": "Board Voltage", "device_class": "voltage"},
-]
-
-_ACTION = "items/properties/actions/properties/*/items/properties"
-_SCHEDULE_ACTION = "items/properties/actions/items/properties"
-_CLOCK = {"pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"}
-_MIREDS = "items/properties/esphome_api/properties/lights/items/properties"
-_TEMPLATE_NUMBERS = ("target_temperature", "hysteresis", "min_temperature", "max_temperature", "multiplier")
-_NUMBER = {"type": ["integer", "number", "string"]}
-_CONDITION_BOUNDS = {
-    "above": {"minimum": -90, "maximum": 90},
-    "below": {"minimum": -90, "maximum": 90},
-    "after_offset": {"minimum": -43200, "maximum": 43200},
-    "before_offset": {"minimum": -43200, "maximum": 43200},
-}
+from boneio.core.config import models
+from boneio.core.config.json_schema import section_schema
+from boneio.core.config.models.base import details
 
 
-def _any_case(values: list[str]) -> list[str]:
-    return sorted({c for v in values for c in (v, v.lower(), v.upper(), v.title())})
-
-
-_DEVICE_TYPES = ["32x10A", "32x10", "32", "32x5A", "32x5", "24x16A", "24x16", "24", "48x4A", "48x4", "48", "cover",
-                 "cover mix", "cm"]
-_LOG_LEVELS = ["critical", "error", "warning", "info", "debug"]
-_OUTPUT_COMMANDS = ["TOGGLE", "ON", "OFF", "BRIGHTNESS_UP", "BRIGHTNESS_DOWN", "BRIGHTNESS_UP_CYCLE",
-                    "BRIGHTNESS_DOWN_CYCLE", "SET_BRIGHTNESS", "CYCLE_COLOR", "CYCLE_PRESET"]
-_COVER_COMMANDS = ["TOGGLE", "OPEN", "CLOSE", "STOP", "TOGGLE_OPEN", "TOGGLE_CLOSE", "SMART_TOGGLE",
-                   "SET_POSITION", "TILT", "TILT_OPEN", "TILT_CLOSE"]
-
-
-def _condition_bounds(at: str) -> dict:
-    bounds = {}
-    for field, limits in _CONDITION_BOUNDS.items():
-        bounds[f"{at}/condition/properties/{field}"] = limits
-        bounds[f"{at}/conditions/properties/list/items/properties/{field}"] = limits
-    return bounds
-
-
-def _input_added(at: str = _ACTION) -> dict:
-    """What the models say about actions that schema.yaml did not."""
-    return {
-        # Ranges the models check, which schema.yaml left to the validators.
-        f"{at}/brightness": {"minimum": 0, "maximum": 255},
-        f"{at}/brightness_step": {"minimum": 1, "maximum": 50},
-        f"{at}/probability": {"minimum": 0, "maximum": 1, "type": ["integer", "number", "string"]},
-        f"{at}/data/properties/position": {"minimum": 0, "maximum": 100},
-        f"{at}/data/properties/always_open_till": {"minimum": 0, "maximum": 100},
-        # Read in any case; schema.yaml listed upper case only, so the editor
-        # flagged the factory configs' own "toggle_open".
-        f"{at}/action_output": {"enum": _any_case(_OUTPUT_COMMANDS)},
-        f"{at}/action_cover": {"enum": _any_case(_COVER_COMMANDS)},
-        **_condition_bounds(at),
-    }
-
-
-def _input_removed(at: str = _ACTION) -> dict:
-    """What schema.yaml said about actions that the models do not."""
-    return {
-        f"{at}/probability": {"type": ["number", "string"]},
-        f"{at}/data": {"default": {}},
-        f"{at}/action_output": {"enum": _OUTPUT_COMMANDS},
-        f"{at}/action_cover": {"enum": _COVER_COMMANDS},
-    }
-
-
-
-
-#: What the model says that schema.yaml did not, by section and path.
-ADDED = {
-    "modbus_devices": {
-        "items/properties/entity_labels": {"additionalProperties": {"type": "string"}},
-        "items/properties/entity_visibility": {"additionalProperties": _ENTITY_VISIBILITY},
-        "items/properties/sensors_filters/properties/temperature/items": _FILTER_ITEM,
-        "items/properties/sensors_filters/properties/humidity/items": _FILTER_ITEM,
-    },
-    "event": _input_added(),
-    "location": {
-        "properties/latitude": {"minimum": -90, "maximum": 90},
-        "properties/longitude": {"minimum": -180, "maximum": 180},
-        "properties/elevation": {"minimum": -500, "maximum": 9000},
-    },
-    "usage_history": {"properties/days": {"minimum": 7, "maximum": 90}},
-    "lox_udp": {"properties/host": {"pattern": _HOST}},
-    "logger": {
-        # Read in any case (the model lowers it), as default already was.
-        "properties/logs/additionalProperties": {"enum": _any_case(_LOG_LEVELS)},
-        "properties/logs": {"type": ["object", "string"]},
-    },
-    "oled": {
-        "properties/screens/items": {"type": "string"},
-        "properties/enabled": {"description": "Turn the built-in screen on."},
-    },
-    # A reading is a number or a string with its unit ("10W"); schema.yaml's
-    # converter wrote only "string".
-    "virtual_energy_sensor": {
-        "items/properties/power_usage": {"type": ["integer", "number", "string"]},
-        "items/properties/flow_rate": {"type": ["integer", "number", "string"]},
-    },
-    "cover": {
-        "items/properties/endstop_overrun": {"minimum": 0, "maximum": 100},
-        "items/properties/facade_azimuth": {"minimum": 0, "maximum": 359},
-        "items/properties/facade_min_elevation": {"minimum": 0, "maximum": 45},
-    },
-    "irrigation": {
-        "items/properties/zones/items/properties/run_every_n": {"minimum": 1},
-        # An integer is a number already; the model says both.
-        "items/properties/multiplier": {"type": ["integer", "number", "string"]},
-    },
-    "virtual_switch": _input_added(),
-    "schedule": {
-        **_input_added(_SCHEDULE_ACTION),
-        **_condition_bounds("items/properties"),
-        "items/properties/catch_up": {"minimum": 0, "maximum": 21600},
-        "items/properties/trigger/properties/jitter": {"minimum": 0, "maximum": 21600},
-        "items/properties/trigger/properties/offset": {"minimum": -43200, "maximum": 43200},
-        **{f"items/properties/trigger/properties/{field}": _CLOCK for field in ("at", "earliest", "latest")},
-    },
-    "remote_outputs": {"items/properties/interlock_group": {"items": {"type": "string"}}},
-    "remote_devices": {f"{_MIREDS}/{bound}_mireds": _NUMBER for bound in ("min", "max")},
-    "template": {
-        "items/properties/codes/items/properties/code": {"pattern": "^([0-9]+|[0-9a-fA-F]{64})$"},
-        "items/properties/zones/items/properties/run_every_n": {"minimum": 1},
-        **{f"items/properties/{field}": _NUMBER for field in _TEMPLATE_NUMBERS},
-        # One model for both: irrigation's fuller description wins.
-        "items/properties/schedule/items/properties/time": {"description": "Start time in HH:MM format. Example: 06:00."},
-    },
-    # A section's defaults written out; schema.yaml's converter wrote {}.
-    "mqtt": {"properties/ha_discovery": {"default": {"enabled": True, "topic_prefix": "homeassistant"}}},
-    "web": {
-        "properties/cloud": {"default": {"enabled": False, "declined": False}},
-        "properties/security": {"default": {"map_tiles": False}},
-        "properties/auth": {"default": {"allow_anonymous": False}},
-        "properties/security/properties/frame_ancestors": {"items": {"type": "string"}},
-    },
-    "boneio": {
-        "properties/serial_override": {"pattern": "^blk[a-f0-9]{6}$"},
-        "properties/device_type": {"enum": _any_case(_DEVICE_TYPES)},
-    },
-    "binary_sensor": {
-        **_input_added(),
-        # Read at start-up as the entity's name; schema.yaml never listed it.
-        "items/properties": {"name": {"type": "string", "description": "Name to use in HA.", "title": "Name"}},
-    },
-}
-
-#: What schema.yaml said that the model does not, by section and path.
-REMOVED = {
-    "event": _input_removed(),
-    "binary_sensor": _input_removed(),
-    "virtual_switch": _input_removed(),
-    "schedule": _input_removed(_SCHEDULE_ACTION),
-    "remote_devices": {f"{_MIREDS}/{bound}_mireds": {"type": ["number", "string"]} for bound in ("min", "max")},
-    "template": {
-        **{f"items/properties/{field}": {"type": ["number", "string"]} for field in _TEMPLATE_NUMBERS},
-        "items/properties/schedule/items/properties/time": {"description": "Start time in HH:MM format."},
-    },
-}
-REMOVED["irrigation"] = {"items/properties/multiplier": {"type": ["number", "string"]}}
-REMOVED["virtual_energy_sensor"] = {
-    "items/properties/power_usage": {"type": "string"},
-    "items/properties/flow_rate": {"type": "string"},
-}
-REMOVED["logger"] = {
-    "properties/logs/additionalProperties": {"enum": _LOG_LEVELS},
-    "properties/logs": {"type": "object"},
-}
-REMOVED["mqtt"] = {"properties/ha_discovery": {"default": {}}}
-REMOVED["web"] = {f"properties/{field}": {"default": {}} for field in ("cloud", "security", "auth")}
-# schema.yaml's converter also mixed the case of each word of "cover mix".
-REMOVED["boneio"] = {"properties/device_type": {"enum": sorted({
-    *_any_case(_DEVICE_TYPES), *(f"{a} {b}" for a in ("cover", "COVER", "Cover") for b in ("mix", "MIX", "Mix"))
-})}}
-# It said the opposite of what the field does.
-REMOVED["oled"] = {"properties/enabled": {"description": "Disable builtin screen."}}
-
-for _section in ("sensor", "adc", "lm75", "mcp9808"):
-    ADDED[_section] = {"items/properties/filters/items": _FILTER_ITEM}
-for _section in ("ina219", "ina226"):
-    ADDED[_section] = {
-        "items/properties/sensors/items/properties/filters/items": _FILTER_ITEM,
-        # Each reading as start-up fills it in, with its filters' own default.
-        "items/properties/sensors": {"default": [{**s, "filters": [{"round": 2}]} for s in _INA_DEFAULT]},
-    }
-    REMOVED[_section] = {"items/properties/sensors": {"default": _INA_DEFAULT}}
-# schema.yaml called the I2C address "GPIO of I2C SDA".
-for _section in ("mcp23017", "pcf8575", "pca9685"):
-    ADDED[_section] = {"items/properties/address": {"description": "I2C address of the expander."}}
-    REMOVED[_section] = {"items/properties/address": {"description": "GPIO of I2C SDA"}}
-
-
-def _nodes(schema: dict, path: str):
-    """Every node at ``path``; a ``*`` part matches each key at its level."""
-    nodes = [schema]
-    for part in path.split("/"):
-        nodes = [child for node in nodes for key, child in node.items() if part in ("*", key)]
-    return nodes
-
-
-def _without(schema: dict, keys_by_path: dict) -> dict:
-    schema = json.loads(json.dumps(schema))
-    for path, keys in keys_by_path.items():
-        nodes = _nodes(schema, path)
-        assert nodes, path
-        for node in nodes:
-            for key, value in keys.items():
-                found = node.pop(key)
-                assert found == value, f"{path}/{key}"
-    return schema
-
-
-def _resolved(node, defs: dict):
-    if isinstance(node, dict):
-        if "$ref" in node:
-            node = {**defs[node["$ref"].rsplit("/", 1)[1]], **{k: v for k, v in node.items() if k != "$ref"}}
-        return {k: _resolved(v, defs) for k, v in node.items()}
-    if isinstance(node, list):
-        return [_resolved(v, defs) for v in node]
-    return node
-
-
-def _flat_actions(node):
-    """An action union read as one object with every field of every type."""
-    if isinstance(node, list):
-        return [_flat_actions(v) for v in node]
-    if not isinstance(node, dict):
-        return node
-    node = {k: _flat_actions(v) for k, v in node.items()}
-    branches = node.get("oneOf", [])
-    if not branches or not all("action" in b.get("properties", {}) for b in branches):
-        return node
-    fields: dict = {}
-    for branch in branches:
-        for name, field in branch["properties"].items():
-            if name != "action":
-                assert fields.setdefault(name, field) == field, f"{name} differs between action types"
-    spellings = sorted(v for b in branches for v in b["properties"]["action"]["enum"])
-    fields["action"] = {"type": "string", "enum": spellings}
-    rest = {k: v for k, v in node.items() if k != "oneOf"}
-    return {**rest, "type": ["object", "string"], "properties": fields}
-
-
-def _without_examples(node):
-    """schema.yaml's ``examples`` only repeat the first allowed value."""
-    if isinstance(node, dict):
-        return {k: _without_examples(v) for k, v in node.items() if k != "examples"}
-    if isinstance(node, list):
-        return [_without_examples(v) for v in node]
-    return node
-
-
-def _event_actions() -> dict:
-    node, defs = section_schema("event")
-    return _flat_actions(_resolved(node, defs))["items"]["properties"]["actions"]["properties"]["single"]
-
-
-# schema.yaml left remote inputs' actions any dictionary; they are an input's.
-ADDED["remote_inputs"] = {"items/properties/actions": {"additionalProperties": _event_actions()}}
-
-
-@pytest.mark.parametrize("section", sorted(FROM_MODELS))
-def test_model_schema_matches_schema_yaml(section):
-    converted = convert_cerberus_to_json_schema(load_schema_yaml())["properties"][section]
-    converted = _without(_without_examples(converted), REMOVED.get(section, {}))
-    node, defs = section_schema(section)
-    model = _flat_actions(_resolved(node, defs))
-    assert _without(model, ADDED.get(section, {})) == converted
-
-
-@pytest.mark.parametrize("section", sorted(FROM_MODELS))
+@pytest.mark.parametrize("section", sorted(models.SECTIONS))
 def test_model_schema_has_nothing_the_panel_cannot_read(section):
     node, defs = section_schema(section)
     text = json.dumps([node, defs])
-    # A null only where schema.yaml's ``nullable`` put one, in a list of types.
+    # A null only where the model marks one, in a list of types.
     for keyword in ('"anyOf"', '{"type": "null"}', '"type": "null"', '"ge"', '"le"', '"enum": []'):
         assert keyword not in text
     assert '"$defs"' not in json.dumps(node)
@@ -349,3 +51,26 @@ def test_modbus_device_models_are_not_in_the_schema():
     # against boneio/modbus/devices/ when the config is validated.
     node, _ = section_schema("modbus_devices")
     assert "enum" not in node["items"]["properties"]["model"]
+
+
+def test_every_longer_explanation_is_of_a_field_that_exists():
+    import importlib
+    import inspect
+
+    classes = {
+        name: cls
+        for module in set(models._MODULES.values())
+        for name, cls in inspect.getmembers(importlib.import_module(f"boneio.core.config.models.{module}"), inspect.isclass)
+    }
+    for key in details()["fields"]:
+        name, field = key.split(".")
+        assert field in classes[name].model_fields, key
+    assert set(details()["sections"]) <= models.SECTIONS
+
+
+def test_the_longer_explanation_reaches_the_schema():
+    node, _ = section_schema("web")
+    text = node["properties"]["auth"]["properties"]["allow_anonymous"]["markdownDescription"]
+    assert text.startswith("Allow unauthenticated access") and "DANGEROUS" in text
+    _, defs = section_schema("event")
+    assert "cancel" in defs["OutputAction"]["properties"]["delay"]["markdownDescription"]

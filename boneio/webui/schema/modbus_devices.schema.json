@@ -9,16 +9,19 @@
           "name": {
             "type": "string",
             "description": "Display Name",
+            "markdownDescription": "Display Name\n\nOptional friendly name shown in Home Assistant. If not set, uses id.",
             "title": "Name"
           },
           "area": {
             "type": "string",
             "description": "Area",
+            "markdownDescription": "Area\n\nArea/room where the device is located. Used for grouping in Home Assistant.",
             "title": "Area"
           },
           "id": {
             "type": "string",
             "description": "Device ID",
+            "markdownDescription": "Device ID\n\nTechnical identifier used in MQTT topics.\nMust contain only lowercase letters, numbers and underscores (no spaces).\nIf not set, auto-generated from address and model (e.g., 1_sdm120).",
             "title": "Id"
           },
           "address": {
@@ -54,6 +57,7 @@
               "string"
             ],
             "description": "Custom entity labels",
+            "markdownDescription": "Custom entity labels\n\nMap of sensor decoded_name to custom display label.\nKeys are lowercase sensor names without spaces (e.g. humidity, temperature).\nValues are custom labels shown in UI and Home Assistant.\nExample: { humidity: \"Wilgotno\u015b\u0107 salon\", temperature: \"Temperatura salon\" }",
             "title": "Entity labels"
           },
           "entity_visibility": {

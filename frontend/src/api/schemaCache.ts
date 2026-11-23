@@ -9,7 +9,7 @@
  * time, for a file that had not changed.
  *
  * It cannot change while the app runs: `config.schema.json` is generated
- * offline (from `schema.yaml` and the config models) and shipped inside the
+ * offline (from the config section models) and shipped inside the
  * package, mounted read-only as a static file. A new schema means a new build, which means a new page
  * load, which starts this module over.
  *

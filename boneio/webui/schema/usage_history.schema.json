@@ -24,11 +24,13 @@
           ],
           "default": false,
           "description": "Collect usage history",
+          "markdownDescription": "Collect usage history\n\nWhen outputs switch, covers move and buttons are pressed, by hour of\nthe day - no more. An API key in the Propose or Write scope can read\nthe summary, and what an AI reads goes to its vendor: it shows when\nsomebody is at home.",
           "title": "Enabled"
         },
         "days": {
           "default": 30,
           "description": "Days kept",
+          "markdownDescription": "Days kept\n\nOlder days are dropped. The file is written once an hour.",
           "maximum": 90,
           "minimum": 7,
           "type": [

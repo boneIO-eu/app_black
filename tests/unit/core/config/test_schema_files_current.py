@@ -1,8 +1,8 @@
-"""The committed JSON Schema files match schema.yaml.
+"""The committed JSON Schema files match the section models.
 
 The panel's forms and the config editor read boneio/webui/schema/, which
-schema_converter.py generates and nothing regenerates on its own. In
-September 2026 the files were three features behind schema.yaml and nobody
+json_schema.py generates and nothing regenerates on its own. In
+September 2026 the files were three features behind their source and nobody
 noticed: a form just does not know a field it was never told about.
 """
 
@@ -11,12 +11,12 @@ from __future__ import annotations
 import json
 import os
 
-from boneio.core.config.schema_converter import OUTPUT_DIR, build_schemas
+from boneio.core.config.json_schema import OUTPUT_DIR, build_schemas
 
-REGENERATE = "run: python -m boneio.core.config.schema_converter"
+REGENERATE = "run: python -m boneio.core.config.json_schema"
 
 
-def test_every_schema_file_matches_schema_yaml():
+def test_every_schema_file_matches_the_models():
     built = build_schemas()
     stale = []
     for name, expected in built.items():

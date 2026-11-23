@@ -11,7 +11,7 @@ import type {
 export type Area = AreaEntity;
 export type RemoteDevice = RemoteDeviceEntity;
 
-/** Condition kinds the backend understands (`boneio/schema/actions.yaml`). */
+/** Condition kinds the backend understands (`boneio/core/config/models/inputs.py`). */
 export type ConditionType = 'time' | 'date' | 'state' | 'sun';
 
 /** One condition on an action or a schedule. */

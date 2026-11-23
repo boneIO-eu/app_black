@@ -1,6 +1,4 @@
 """The ``output_group`` section: outputs switched together as one.
-
-Mirrors boneio/schema/schema.yaml for the section.
 """
 
 from __future__ import annotations

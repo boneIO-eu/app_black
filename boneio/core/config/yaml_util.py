@@ -799,7 +799,7 @@ def _try_load_cached_config(config_file: str) -> dict | None:
             # holds boneIO objects (TimePeriod, OrderedDict and friends), so a
             # release that moves a class leaves a cache that cannot be read
             # back - and neither hash below would notice, because neither
-            # config.yaml nor schema.yaml has to change for that to happen.
+            # config.yaml nor a section model has to change for that to happen.
             #
             # This check was here once before, as "app_version", and went in
             # 3b876d04 with no reason given. If it starts rejecting the caches

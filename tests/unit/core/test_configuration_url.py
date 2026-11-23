@@ -64,16 +64,12 @@ def test_a_configured_proxy_port_is_still_honoured_though_the_panel_hides_it():
     of the few people who set one and move their Home Assistant link without
     telling them.
     """
-    import yaml
-
-    from pathlib import Path
+    from boneio.core.config.models.system import Web
 
     helper = _helper(proxy_port=9443)
     assert helper.web_configuration_port == 9443
 
-    schema = Path(__file__).resolve().parents[3] / "boneio" / "schema" / "schema.yaml"
-    text = schema.read_text(encoding="utf-8")
-    assert "proxy_port:" in text, "dropping it from the schema deletes it from configs"
+    assert "proxy_port" in Web.model_fields, "dropping it from the model deletes it from configs"
 
 
 # ------------------------------------------------- one address, one decision

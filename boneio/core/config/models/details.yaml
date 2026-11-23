@@ -1,0 +1,752 @@
+# The longer explanation of a field or a section, beside the short label its
+# model's description holds. The panel's schema carries both, as
+# markdownDescription: the config editor shows it on hover and an agent reads
+# it. Keyed by the model class that declares the field.
+
+sections:
+  lox_udp: |
+    Send and receive UDP messages via Lox protocol
+  remote_inputs: |
+    Configure inputs from remote devices. Each entry maps a binary sensor
+    on a remote device to local actions (same as GPIO inputs).
+  remote_outputs: |
+    Configure outputs from remote devices. Each entry maps a switch/light
+    on a remote device to a local output object with full turn_on/turn_off
+    support. Remote outputs are visible in the Outputs view and can be used
+    in irrigation zones, output groups, and templates.
+  schedule: |
+    Every other action in boneIO is started by a person or by an input. This
+    section is the exception: a schedule fires on its own, at a clock time or
+    at a moment defined by the Sun.
+
+    Example — close the covers a quarter of an hour before sunset, but only
+    in the dark half of the year:
+
+      schedule:
+        - id: covers_evening
+          name: Covers at dusk
+          trigger:
+            type: sun
+            event: sunset
+            offset: "-15min"
+          condition:
+            type: date
+            after: "10-01"
+            before: "04-30"
+          actions:
+            - action: cover
+              boneio_cover: living_room
+              action_cover: CLOSE
+
+    A sun trigger needs the `location:` section. See docs/SUN.md.
+  virtual_switch: |
+    A switch that drives nothing. It exists to be read by a condition, so an
+    ordinary action can be qualified: IN_11 turns OUT_11 on, but only while
+    "evening mode" is on — and evening mode is something you flip in Home
+    Assistant, in the panel, or from another button.
+
+    boneIO owns the state. Modelling it the other way round — an
+    input_boolean in Home Assistant that boneIO listens to — would mean the
+    controller forgets which mode it is in whenever the broker restarts or
+    Home Assistant is down, which is exactly when it should keep working.
+
+      virtual_switch:
+        - id: evening_mode
+          name: Evening mode
+          restore_state: true
+
+      event:
+        - boneio_input: in_11
+          actions:
+            single:
+              - action: output
+                boneio_output: out_11
+                action_output: TOGGLE
+                condition:
+                  type: state
+                  entity: virtual_switch
+                  entity_id: evening_mode
+                  state: is_on
+
+    Home Assistant sees it as a switch. Actions can set it, so a long press
+    can arm a mode that other inputs then obey.
+
+fields:
+  _Action.action_output: |
+    Reused by the virtual_switch action, which takes the same three verbs:
+    ON, OFF and TOGGLE. One concept, not two near-identical fields.
+
+    For ESPHome lights, additional actions are available:
+    - BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)
+    - BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)
+    - BRIGHTNESS_UP_CYCLE: Like BRIGHTNESS_UP but wraps from 100% to 10%
+    - BRIGHTNESS_DOWN_CYCLE: Like BRIGHTNESS_DOWN but wraps from 10% to 100%
+    - SET_BRIGHTNESS: Set specific brightness (requires brightness field)
+    - CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)
+    - CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)
+  _Action.boneio_cover: |
+    ID of the cover to control. This should match the id defined in your cover configuration.
+  _Action.boneio_output: |
+    ID of the output to control. This should match the id/boneio_output defined in your output configuration.
+  _Action.boneio_virtual_switch: |
+    ID of the virtual switch to set. Matches an entry in the
+    `virtual_switch:` section — a flag with no relay behind it, which
+    conditions can then read. See docs/VIRTUAL_SWITCHES.md.
+  _Action.brightness: |
+    Brightness level for SET_BRIGHTNESS action or initial brightness for ON action.
+    Only used for ESPHome light entities. 0 = off, 255 = full brightness.
+  _Action.brightness_step: |
+    Step size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE 
+    and BRIGHTNESS_DOWN_CYCLE actions. Default is 10.
+  _Action.color_temp: |
+    Color temperature in mireds. Only for ESPHome lights with color temperature support.
+    Lower values = cooler (bluer), higher values = warmer (yellower).
+    Typical range: 153 (6500K cool) to 500 (2000K warm).
+  _Action.colors: |
+    List of RGB colors to cycle through on each press.
+    Each color is a list of [R, G, B] values (0-255).
+    Only used when action_output is CYCLE_COLOR.
+    Example: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
+  _Action.cover_id: |
+    ID of the cover on the remote device.
+    Example: "cover_living_room", "blinds_bedroom"
+  _Action.delay: |
+    Wait this amount of time before executing the action.
+    If the same input triggers a cancel event (see delay_cancel_on)
+    during the wait, the action is cancelled.
+    Useful for motion sensors: turn OFF after 2 minutes of no motion,
+    but cancel if motion is re-detected.
+    Example: 30s, 2min, 1h
+  _Action.delay_cancel_on: |
+    List of input events that cancel the pending delayed action.
+    When any of these events occur on the same input, the delayed
+    action timer is cancelled and the action is not executed.
+    Example: ['pressed'] — cancel OFF delay when motion re-detected.
+  _Action.output_id: |
+    ID of the output/switch/light on the remote device.
+    For ESPHome: can be switch or light entity.
+    Example: "relay_1", "light_kitchen", "ceiling_light"
+  _Action.presets: |
+    List of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.
+    For ESPHome: list of effect name strings, e.g. ["Rainbow", "Strobe", "Color Wipe"]
+    For WLED: list of effect IDs (integers), e.g. [0, 9, 47]
+    Only used when action_output is CYCLE_PRESET.
+  _Action.probability: |
+    Run this action only some of the time. 1 (the default) always, 0.7
+    seven times out of ten, 0 never.
+
+    For presence simulation. `jitter` on a schedule randomises *when* a
+    step happens; this randomises *whether* it happens at all, which is
+    the difference between lights on a timer and somebody living there —
+    three evenings of the same four steps is a pattern an observer can
+    read.
+
+    Drawn per firing, after the conditions: a `probability` of 0.5 on an
+    action whose condition is false still never runs.
+  _Action.remote_device: |
+    ID of the remote device (from remote_devices section).
+    Works with both BoneIO (MQTT) and ESPHome (native API) devices.
+    Example: "salon_boneio", "garage_esp"
+  _Action.repeat: |
+    When true, this action will be executed repeatedly while the button is held (long press).
+    Only effective for actions under the 'long' click type.
+    Example: brightness_up with repeat will increase brightness continuously while holding.
+  _Action.repeat_interval: |
+    Minimum interval between repeated executions.
+    Only used when repeat is true. Default: 800ms.
+    Minimum: 200ms (matches periodic event interval).
+  _Action.restore_tilt: |
+    When true, the previous tilt angle is saved before executing this cover action
+    and restored after the movement finishes. Only applies to venetian covers.
+    Example: pressing a button to close the blinds to 50% and then restoring
+    the slat angle to the previous value.
+  _Action.rgb: |
+    RGB color as list [red, green, blue], each value 0-255.
+    Only for ESPHome lights with RGB support.
+    Example: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.
+  _Action.transition: |
+    Time to transition to the new state. Only for ESPHome/WLED lights. Example: 500ms, 1s
+  ActionData.always_open_till: |
+    Position threshold for SMART_TOGGLE action.
+    If cover position is at or below this value, it will always open.
+    Above this value, normal toggle behavior applies.
+  Adc.area: |
+    Reference to area ID defined in 'areas' section.
+    Creates a sub-device linked to the main BoneIO device.
+  Area.id: |
+    Unique identifier for the area (used in output/input configurations).
+    Example: "living_room", "kitchen", "garage"
+  Area.name: |
+    Display name for the area shown in Home Assistant.
+    Example: "Living Room", "Kitchen", "Garaż"
+  BinarySensor.area: |
+    Reference to area ID defined in 'areas' section.
+    Creates a sub-device linked to the main BoneIO device.
+  Boneio.ha_child_devices: |
+    When enabled, each output/input/cover/sensor is registered as a separate
+    child device in Home Assistant (linked via via_device to the main boneIO device).
+    This allows HA to auto-generate dashboards per area.
+    Entity names become empty so HA uses the device name directly.
+    WARNING: Experimental feature — may change or be removed in future versions.
+  Boneio.ha_child_devices_naming: |
+    Controls how child device names are constructed when ha_child_devices is enabled.
+    - default: Entity name only (e.g., "OUT 17"). May cause duplicates if multiple boneIO devices share output names.
+    - device_name: Adds boneIO device name prefix (e.g., "boneIO Black - OUT 17").
+    - device_name_area: Adds device name and area (e.g., "boneIO Black - Living Room - OUT 17"). Falls back to device_name if no area is assigned.
+  Boneio.serial_override: |
+    Override the auto-detected serial number (based on MAC address).
+    Use this when restoring config from a different device (e.g., RMA replacement).
+    Format: blk followed by 6 hex characters (e.g., blk8c7df0).
+    WARNING: Two devices with the same serial on the same MQTT broker will conflict!
+  Can.auto_setup: |
+    Automatically configure CAN interface on startup using
+    'sudo ip link set'. Requires sudoers NOPASSWD for boneio user.
+  Can.bitrate: |
+    CAN bus speed. Default 125000 (125kbps) is compatible with esphome-canopen.
+    All devices on the same bus must use the same bitrate.
+  Can.channel: |
+    CAN interface name (e.g., 'can0', 'can1', 'vcan0' for testing).
+  Can.mode: |
+    master: Device has LAN/MQTT, relays slave data to Home Assistant.
+    slave: Device has no LAN, sends data only via CAN bus.
+  Can.node_id: |
+    Unique node identifier on the CAN bus (1-127).
+    'auto' generates a deterministic ID from MAC address and persists it.
+    Manual override: set an integer 1-127.
+  Can.restart_on_error: |
+    Automatically restart CAN interface when bus-off state is detected.
+    Requires sudoers NOPASSWD for boneio user.
+  Cloud.declined: |
+    Set this when you have decided against registering with boneIO
+    Cloud. Registration publishes this device's local address in DNS,
+    which is a reasonable thing to refuse — and without somewhere to
+    record the refusal the panel goes on recommending it, so the
+    certificate check can never be settled.
+
+    It changes nothing about how the device works. It only stops the
+    panel offering cloud registration as the way to a trusted
+    certificate, leaving uploading your own.
+  Cloud.enabled: |
+    When enabled, device registers with boneIO Cloud API and downloads
+    wildcard SSL certificate for *.black.boneio.app domain.
+    This allows PWA installation on mobile devices.
+  Cloud.pwa_name: |
+    Short name displayed under the app icon on Android home screen.
+    Max 12 characters. Defaults to "bIO" + last 6 chars of serial number.
+  Condition.above: |
+    True while the Sun is higher than this many degrees above the horizon.
+    Negative values are below it. Combine with `below` for a band.
+  Condition.after: |
+    For time: "HH:MM" format (e.g. "05:00", "22:30")
+    For date: "MM-DD" format (e.g. "11-01" for November 1st)
+    For sun: a sun anchor, e.g. "sunrise", "civil_dusk", "solar_noon"
+  Condition.after_offset: |
+    Shifts the start of the window. Negative is earlier:
+    after: sunset with after_offset: "-15min" starts a quarter of an hour
+    before sunset. Accepts s, min and h; a bare number means seconds.
+    Limited to ±12 h — a larger offset is no longer a reference to that
+    anchor, and `type: time` says it more clearly.
+  Condition.before: |
+    For time: "HH:MM" format (e.g. "22:00", "06:00")
+    For date: "MM-DD" format (e.g. "03-31" for March 31st)
+    For sun: a sun anchor, e.g. "sunset", "civil_dawn"
+  Condition.before_offset: |
+    Shifts the end of the window. Same format as after_offset.
+  Condition.below: |
+    True while the Sun is lower than this many degrees above the horizon.
+  Condition.entity: |
+    Type of boneIO entity to check state of.
+    Includes virtual switches (flags with no hardware behind them) and
+    remote entities (outputs/covers/inputs from ESPHome/CAN devices).
+  Condition.entity_id: |
+    ID of the boneIO entity to check state of.
+  Condition.phase: |
+    True while the Sun is in this phase.
+    - day: above the horizon
+    - civil_twilight / nautical_twilight / astronomical_twilight: -6/-12/-18°
+    - night: more than 18° below the horizon
+    - golden_hour: -4° to +6°, blue_hour: -6° to -4°
+    Golden and blue hour overlap the others — they are photographic bands,
+    not separate parts of the day.
+  Condition.state: |
+    Expected state of the entity.
+    - binary_sensor/remote_input: is_on, is_off
+    - cover: is_open, is_closed
+    - output/light/virtual_switch: is_on, is_off
+  Condition.type: |
+    Type of condition to check before executing the action.
+    - time: Check if current time is within a range (e.g. 05:00-22:00)
+    - date: Check if current date is within a range (e.g. 11-01 to 03-31)
+    - state: Check if a boneIO entity is in a specific state
+    - sun: Check the position of the Sun (needs the `location:` section)
+  Conditions.list: |
+    List of conditions to evaluate. Combined using the mode (and/or).
+  Conditions.mode: |
+    How to combine multiple conditions:
+    - and: ALL conditions must be true (default)
+    - or: ANY condition must be true
+  Cover.area: |
+    Reference to area ID defined in 'areas' section.
+    Creates a sub-device linked to the main BoneIO device.
+  Cover.id: |
+    Technical identifier used in MQTT topics and actions.
+    Must contain only lowercase letters, numbers and underscores (no spaces).
+    If not set, auto-generated from open_relay and close_relay (e.g., cover_out_31_out_32).
+  Cover.name: |
+    Optional friendly name shown in Home Assistant. If not set, uses id.
+  CoverAction.boneio_cover: |
+    ID of the cover to control. This should match the id defined in your cover configuration.
+  CoverOverMqttAction.boneio_cover: |
+    ID of the cover to control. This should match the id defined in your cover configuration.
+  EsphomeApiBlock.covers: |
+    List of covers discovered or manually configured
+  EsphomeApiBlock.encryption_key: |
+    Optional noise encryption key (base64 encoded)
+  EsphomeApiBlock.host: |
+    IP address or hostname of ESPHome device
+  EsphomeApiBlock.lights: |
+    List of lights discovered or manually configured
+  EsphomeApiBlock.password: |
+    Optional API password (if configured on ESPHome device)
+  EsphomeApiBlock.switches: |
+    List of switches discovered or manually configured
+  Event.area: |
+    Reference to area ID defined in 'areas' section.
+    Creates a sub-device linked to the main BoneIO device.
+  Event.double_click_duration: |
+    Time window in milliseconds to detect double click.
+    If second click happens within this time, it's detected as double click.
+  Event.enable_triple_click: |
+    Enable triple click detection. Disabled by default to avoid conflicts with double_then sequence.
+  Event.long_press_duration: |
+    Time in milliseconds to detect long press.
+    If button is held longer than this, it's detected as long press.
+  Event.long_press_mqtt_mode: |
+    How long press events are published to MQTT:
+    - single: Only the first long press event is sent. Periodic updates are skipped. Prevents repeated triggers in Node-RED.
+    - periodic: All long press events (with growing duration) are sent every 200ms. Use if you need duration tracking in MQTT.
+  Event.max_long_press_duration: |
+    Safety timeout for long press (hard max: 30s).
+    If a long press exceeds this duration, it is automatically stopped.
+    Prevents infinite long press events when RELEASE edge is missed (e.g., due to EMI or hardware issues).
+    Values above 30s are clamped to 30s.
+  Event.mqtt_sequences: |
+    Which click sequences should be published to MQTT
+  Event.sequence_mode: |
+    How to handle click sequences:
+    - immediate: Base events (single, double, long) fire immediately. Sequences are additional events.
+    - exclusive: Base events are delayed by sequence_window. If sequence is detected, only sequence fires (no base events).
+  Event.sequence_window_duration: |
+    Time window in milliseconds to detect click sequences.
+    If next click happens within this time after previous, it's detected as sequence (e.g., double_then_long).
+  LegacyAuth.allow_anonymous: |
+    DANGEROUS. Leave this off unless you know why you need it.
+
+    From 1.6 a device with no administrator account refuses API
+    requests until the first-run wizard has been completed. Setting
+    this to true restores the pre-1.6 behaviour: anyone who can reach
+    the device on the network can read its configuration, switch its
+    outputs and reboot it, with no password.
+
+    It exists for headless provisioning and for installations where
+    authentication is already enforced in front of boneIO (for
+    example a reverse proxy or Home Assistant ingress). The device
+    logs a warning on every start while this is on.
+  Location.elevation: |
+    Lowers the horizon: 110 m moves sunrise about two minutes earlier in
+    central Europe. Leave at 0 if you do not know it.
+  Location.latitude: |
+    Degrees north, -90 to 90. Four decimal places (~11 m) is plenty;
+    nothing here is improved by more, and the value ends up in config
+    backups.
+  Location.longitude: |
+    Degrees east, -180 to 180.
+  LoxUdp.host: |
+    IPv4 address or hostname of the Lox Miniserver (e.g. 192.168.1.100 or miniserver.local)
+  ModbusDevice.area: |
+    Area/room where the device is located. Used for grouping in Home Assistant.
+  ModbusDevice.entity_labels: |
+    Map of sensor decoded_name to custom display label.
+    Keys are lowercase sensor names without spaces (e.g. humidity, temperature).
+    Values are custom labels shown in UI and Home Assistant.
+    Example: { humidity: "Wilgotność salon", temperature: "Temperatura salon" }
+  ModbusDevice.id: |
+    Technical identifier used in MQTT topics.
+    Must contain only lowercase letters, numbers and underscores (no spaces).
+    If not set, auto-generated from address and model (e.g., 1_sdm120).
+  ModbusDevice.name: |
+    Optional friendly name shown in Home Assistant. If not set, uses id.
+  Mqtt.receive_boneio_autodiscovery: |
+    When enabled, this device subscribes to BoneIO autodiscovery topics
+    (boneio/+/discovery/#) and automatically discovers neighboring BoneIO devices.
+  Mqtt.send_boneio_autodiscovery: |
+    When enabled, this device publishes its outputs, covers, inputs, and sensors
+    to MQTT discovery topics (boneio/{device_id}/discovery/*) so other BoneIO
+    devices can discover and control it.
+  Mqtt.tls: |
+    Connect to the broker over TLS, usually on port 8883. Without ca_certs
+    the broker's certificate is checked against the system's trusted
+    authorities, which is right for a public one; for your own CA, point
+    ca_certs at its certificate. Relative paths are resolved from the
+    directory holding config.yaml. If TLS is on and cannot be set up,
+    boneIO does not connect at all rather than fall back to plain text.
+  Mqtt.update_channel: |
+    Which releases to show in Home Assistant Update entity:
+    - stable: Only stable releases (recommended)
+    - dev: Include development/pre-release versions
+  MqttBlock.covers: |
+    Optional list of covers for dropdown selection in actions
+  MqttBlock.outputs: |
+    Optional list of outputs for dropdown selection in actions
+  Output.area: |
+    Reference to area ID defined in 'areas' section.
+    Creates a sub-device linked to the main BoneIO device.
+  Output.boneio_output: |
+    Reference to predefined output configuration (e.g., OUT_01, OUT_02).
+    Available only when 'boneio' section is configured.
+    Used as default ID if 'id' field is not specified.
+  Output.id: |
+    Technical identifier used in MQTT topics, output groups, and actions.
+    - If boneio_output is set: id is optional (defaults to boneio_output)
+    - If boneio_output is NOT set: id is REQUIRED
+    - If both are set: id overrides boneio_output as identifier
+  Output.interlock_group: |
+    Assigns this output to a software interlock group (or groups). Outputs with the same group name cannot be active at the same time.
+    You can provide a single group name (string) or a list of names (if the output should belong to multiple groups).
+  Output.name: |
+    Optional friendly name shown in Home Assistant. If not set, uses effective_id.
+  OutputAction.boneio_output: |
+    ID of the output to control. This should match the id/boneio_output defined in your output configuration.
+  OutputGroup.id: |
+    Technical identifier for this group, used in MQTT topics and actions.
+  OutputGroup.name: |
+    Optional friendly name shown in Home Assistant. If not set, uses id.
+  OutputGroup.outputs: |
+    List of output identifiers to include in this group.
+    Use the effective_id of each output (boneio_output or custom id).
+  OutputOverMqttAction.boneio_output: |
+    ID of the output to control. This should match the id/boneio_output defined in your output configuration.
+  RemoteCoverAction.cover_id: |
+    ID of the cover on the remote device.
+    Example: "cover_living_room", "blinds_bedroom"
+  RemoteCoverAction.remote_device: |
+    ID of the remote device (from remote_devices section).
+    Works with both BoneIO (MQTT) and ESPHome (native API) devices.
+    Example: "salon_boneio", "garage_esp"
+  RemoteDevice.device_type: |
+    Type of remote device. Affects how commands are formatted:
+    - boneio_black: Another boneIO Black device
+    - esphome: ESPHome device
+    - generic: Generic device (custom topic format)
+  RemoteDevice.esphome_api: |
+    Native ESPHome API connection settings.
+    Entities (switches, lights, covers) can be auto-discovered.
+  RemoteDevice.id: |
+    Unique identifier for this remote device (used in actions).
+    Example: "salon_boneio", "garage_esp"
+  RemoteDevice.mqtt: |
+    For boneIO Black devices, outputs and covers will be auto-discovered.
+    The device_id should match the remote device's serial (e.g., "blk_abc123").
+  RemoteDevice.name: |
+    Friendly name for this device shown in UI.
+    Example: "Salon boneIO", "ESP Garage"
+  RemoteDevice.protocol: |
+    Communication protocol to use:
+    - mqtt: Standard MQTT (boneIO Black, ESPHome, other MQTT devices)
+  RemoteDevice.wled: |
+    WLED HTTP JSON API connection settings.
+    Segments can be auto-discovered from the device.
+  RemoteInput.actions: |
+    Actions to execute on state change.
+    Keys depend on mode:
+    - binary_sensor: pressed, released
+    - event: single, double, long
+  RemoteInput.device_class: |
+    e.g. door, motion, window, opening
+  RemoteInput.device_id: |
+    ID of the remote device (from remote_devices section).
+  RemoteInput.double_click_duration: |
+    Time window to detect double click (event mode, default: 220ms)
+  RemoteInput.id: |
+    Custom ID for this remote input. If not set, auto-generated
+    from device_id + input_id (e.g. "esphome_device_1_IN_02").
+  RemoteInput.input_id: |
+    Binary sensor object_id on the remote device (e.g. "IN_02").
+  RemoteInput.long_press_duration: |
+    Time to detect long press (event mode, default: 400ms)
+  RemoteInput.mode: |
+    - binary_sensor: pressed/released events
+    - event: single/double/long click detection
+  RemoteInput.remote_source: |
+    Protocol used to receive input state:
+    - esphome_api: ESPHome native API binary sensor
+    - mqtt: a topic the device publishes its state on. Defaults to the
+      topic another boneIO uses for its own inputs, so mirroring a peer
+      needs nothing else; set `topic` for anything that is not a boneIO.
+    - can: NOT IMPLEMENTED. The value still loads so an existing config
+      does not stop the controller from starting, but the input is
+      refused at startup with an error rather than created as one that
+      never changes state.
+  RemoteInput.topic: |
+    Where the state arrives. Leave it out for another boneIO: the default
+    is `<device_id>/input/<input_id>`, which is exactly where a boneIO
+    publishes its own inputs, so `device_id` is the peer's topic prefix
+    (its serial).
+
+    Set it for anything else — an ESPHome device in MQTT mode, a Zigbee
+    bridge, a script. Payloads understood: on/off, true/false, 1/0,
+    pressed/released, open/closed. A boneIO event input publishes JSON
+    with `event_type`, which is passed through as the click type when
+    `mode: event`.
+  RemoteOutput.adjustable_duration: |
+    Enable an HA number entity (slider) to dynamically set the on-timer.
+    When ON is pressed, auto-OFF after this duration.
+  RemoteOutput.device_id: |
+    ID of the remote device (from remote_devices section).
+  RemoteOutput.enforce_interlock: |
+    When true, if this remote output is turned ON externally (not via
+    boneIO) and it violates an interlock, boneIO will immediately send
+    a turn-off command to the remote device.
+  RemoteOutput.id: |
+    Custom ID for this remote output. If not set, auto-generated
+    from device_id + output_id (e.g. "esphome_device_1_relay_1").
+  RemoteOutput.interlock_group: |
+    Shared interlock groups with local outputs. When this remote output
+    is turned ON via boneIO, other outputs in the same group will be
+    blocked. Direct control from ESPHome/HA bypasses the check unless
+    enforce_interlock is enabled.
+  RemoteOutput.momentary_turn_off: |
+    After turning OFF, auto-ON after this duration.
+  RemoteOutput.momentary_turn_on: |
+    After turning ON, auto-OFF after this duration.
+  RemoteOutput.on_disconnect: |
+    What to do when the remote device loses connection:
+    - ignore: Keep last known state (default)
+    - turn_off: Force output OFF (safe for pumps/irrigation)
+  RemoteOutput.output_id: |
+    Switch or light object_id on the remote device (e.g. "relay_1").
+  RemoteOutput.output_type: |
+    Type of output for Home Assistant categorization:
+    - switch: Generic switch
+    - light: Light entity
+    - valve: Valve entity (for irrigation)
+    - cover: Cover entity (gate, blind, shutter)
+  RemoteOutput.remote_source: |
+    Protocol used to control the output:
+    - esphome_api: ESPHome native API switch/light
+    - can: CAN bus output control
+    - mqtt: MQTT switch topic
+    - wled: WLED HTTP/WebSocket API (main or segment)
+  RemoteOutput.show_in_ha: |
+    Whether to publish HA autodiscovery for this remote output.
+    Set to false if the ESPHome device already publishes its own entity.
+  RemoteOutputAction.output_id: |
+    ID of the output/switch/light on the remote device.
+    For ESPHome: can be switch or light entity.
+    Example: "relay_1", "light_kitchen", "ceiling_light"
+  RemoteOutputAction.remote_device: |
+    ID of the remote device (from remote_devices section).
+    Works with both BoneIO (MQTT) and ESPHome (native API) devices.
+    Example: "salon_boneio", "garage_esp"
+  Schedule.catch_up: |
+    Default 15 minutes. A restart that takes a minute catches up; a
+    device that was off all day does not suddenly close the covers at
+    breakfast.
+  Schedule.description: |
+    A note to yourself. Nothing reads it.
+  Schedule.enabled: |
+    A disabled schedule keeps its configuration and fires nothing.
+    Easier to reason about than commenting the entry out.
+  Schedule.id: |
+    Rarely needed. Renaming a schedule that has no explicit `id`
+    changes its identifier, which is what "run now" and the logs use.
+    Less costly than for a virtual switch — nothing else refers to a
+    schedule — but set one if you want the name to be free to change.
+  Schedule.name: |
+    Free text. Shown in the panel, and the identifier is made from it —
+    "Covers at dusk" becomes `covers_at_dusk`, which is what "run now"
+    names and what the logs report.
+  Schedule.on_missed: |
+    The controller may be restarting, or may have been powered off,
+    when a schedule was due. `skip` (the default) forgets it. `run`
+    fires it on startup if it was due within `catch_up` — right for
+    "close the covers", wrong for "sound the doorbell".
+  Security.frame_ancestors: |
+    Sets the Content-Security-Policy frame-ancestors directive, which
+    is what protects the panel from clickjacking.
+
+    Unset means `self` since 1.6: only this device may frame the
+    panel. That is also what the boneIO Black add-on for Home
+    Assistant needs — its nginx proxies each controller, so the
+    framed page is served on Home Assistant's own origin and is
+    same-origin with the dashboard framing it.
+
+    A list of plain tokens. Write `self`, not `'self'` — the quotes
+    CSP wants are added when the header is built, so nothing here
+    has to survive YAML stripping them:
+
+      frame_ancestors:
+        - self
+
+    Add an address when a dashboard frames this device directly, with
+    an iframe card or panel_iframe rather than through the add-on:
+
+      frame_ancestors:
+        - self
+        - https://homeassistant.local:8123
+
+    A single `*` lifts the restriction entirely. It cannot be
+    combined — alongside it, every other entry means nothing.
+
+    A plain string still works, so configs written before the list
+    existed keep loading. The Security section in the panel edits
+    this without the syntax.
+
+    X-Frame-Options is deliberately not sent: it cannot name an
+    allowed origin, so it could not express the ingress case.
+  Security.map_tiles: |
+    Off by default. When on, the Location page can show an
+    OpenStreetMap map to pick the coordinates from, and the panel's
+    Content-Security-Policy gains the OpenStreetMap tile servers in
+    its `img-src` directive.
+
+    That is a real loosening, not a formality. An image URL is an
+    outbound channel: someone who already had script execution in the
+    panel could encode data into a tile path and read it out of
+    someone else's access log. The map is a convenience, so it is
+    opt-in and nobody pays for it who is not using it.
+
+    The tiles are fetched by your browser, not by the controller, so
+    this works on a device with no route to the internet — as long as
+    the computer you open the panel from has one. Without a map the
+    coordinates can still be typed in, or filled from the timezone.
+
+    Tiles come from openstreetmap.org, which sees the area you are
+    looking at. Map data © OpenStreetMap contributors.
+  Tls.insecure: |
+    Encrypts the connection without checking who is on the other end.
+    Anyone able to intercept it can pose as the broker and read the
+    password. Only for testing.
+  Trigger.earliest: |
+    Clamps a sun anchor that falls too early. `event: civil_dawn`
+    with `earliest: "06:30"` fires at dawn in winter and at 06:30
+    in June, instead of waking the house at half past three.
+  Trigger.event: |
+    A sun anchor: sunrise, sunset, civil_dawn, civil_dusk,
+    nautical_dawn, nautical_dusk, astronomical_dawn,
+    astronomical_dusk, solar_noon, solar_midnight, or one of the
+    golden/blue hour edges. The full list is in docs/SUN.md.
+    Or facade_sun_enter / facade_sun_leave, with `cover`: when
+    the Sun first reaches that cover's window in the day, or last
+    leaves it.
+  Trigger.jitter: |
+    Adds a random delay of up to this much, drawn once per firing.
+    Intended for presence simulation — without it every boneIO in
+    the street closes its covers in the same second.
+  Trigger.latest: |
+    Clamps a sun anchor that falls too late. In Warsaw on the
+    longest day civil dusk is 21:50, which leaves a presence
+    simulation about an hour of "evening" before bedtime — in
+    exactly the season people are away.
+    `event: civil_dusk` with `latest: "21:00"` fires at dusk for
+    most of the year and at 21:00 in midsummer.
+
+    Applied after `offset` and before `jitter`: clamping last would
+    put every midsummer evening at the same minute, which is the
+    pattern `jitter` exists to break. So the firing can land up to
+    `jitter` after this time.
+  Trigger.offset: |
+    Negative is earlier: `event: sunset` with `offset: "-15min"`
+    fires a quarter of an hour before sunset. Accepts s, min and h;
+    a bare number means seconds. Limited to ±12 h.
+  Trigger.type: |
+    - sun: a moment defined by the Sun, e.g. sunset or civil dusk
+    - time: a fixed clock time
+  UsageHistory.days: |
+    Older days are dropped. The file is written once an hour.
+  UsageHistory.enabled: |
+    When outputs switch, covers move and buttons are pressed, by hour of
+    the day - no more. An API key in the Propose or Write scope can read
+    the summary, and what an AI reads goes to its vendor: it shows when
+    somebody is at home.
+  VirtualEnergySensor.area: |
+    Area ID to assign this sensor to a sub-device in Home Assistant.
+  VirtualEnergySensor.flow_rate: |
+    Water flow rate when output is ON. Accepts values like: 10, '10L/h', '5L/min'.
+  VirtualEnergySensor.id: |
+    Unique identifier for the sensor. If not provided, will be generated from name.
+  VirtualEnergySensor.name: |
+    Display name for the sensor in Home Assistant Energy panel.
+    Example: "Gabinet - Główne", "Kuchnia - Oświetlenie"
+  VirtualEnergySensor.output_id: |
+    ID of the output to track. The sensor will measure energy/water consumption when this output is ON.
+  VirtualEnergySensor.power_usage: |
+    Power consumption in Watts when output is ON. Accepts values like: 10, '10W', '1kW'.
+  VirtualEnergySensor.sensor_type: |
+    Type of virtual sensor: 'power' for energy meter (W/Wh) or 'water' for flow meter (L/h, L).
+  VirtualSwitch.actions: |
+    `on_turn_on` runs when it is switched on, `on_turn_off` when it is
+    switched off. Spelled that way rather than `on`/`off` because YAML
+    reads those two as booleans — the keys would silently become `true`
+    and `false` and nothing would ever match them.
+    The same actions an input can run, conditions included — which is
+    what makes a flag do something rather than only be read.
+
+    Two things this is for. Cleaning up: turning the flag off puts back
+    whatever it changed. And catching up: a flag armed after the moment
+    a schedule was due can still act, because each action carries its
+    own condition.
+
+      virtual_switch:
+        - id: away
+          actions:
+            on_turn_on:
+              - action: output
+                boneio_output: out_livingroom
+                action_output: "ON"
+                conditions:
+                  mode: and
+                  list:
+                    - type: sun
+                      after: civil_dusk
+                    - type: time
+                      before: "21:40"
+            on_turn_off:
+              - action: output
+                boneio_output: out_livingroom
+                action_output: "OFF"
+
+    They run on a real change only, never on the republish that follows
+    an MQTT reconnect, and never when a restored state is loaded at
+    startup — coming back from a power cut must not act on the house.
+  VirtualSwitch.description: |
+    A note to yourself. Nothing reads it.
+  VirtualSwitch.id: |
+    Rarely needed. It exists so a reference survives a rename: the MQTT
+    topic, the Home Assistant entity, the saved state and every
+    condition and action pointing at this switch all use the
+    identifier, so renaming a switch that has no explicit `id` changes
+    all four at once — the old entity goes unavailable, the flag comes
+    up off, and the actions that referred to it stop matching.
+
+    Set one if you expect to rename this switch later and want none of
+    that to happen.
+  VirtualSwitch.name: |
+    Free text, in whatever language the house is run in. Shown in Home
+    Assistant and in the panel, and the identifier is made from it —
+    "Nie ma nas w domu" becomes `nie_ma_nas_w_domu`, which is what the
+    MQTT topic uses and what a condition or an action refers to.
+  VirtualSwitch.restore_state: |
+    On by default: a controller that forgot every mode on each reboot
+    would be worse than one with no modes at all. Turn it off for a
+    flag that should always come up in a known state.
+  VirtualSwitchAction.boneio_virtual_switch: |
+    ID of the virtual switch to set. Matches an entry in the
+    `virtual_switch:` section — a flag with no relay behind it, which
+    conditions can then read. See docs/VIRTUAL_SWITCHES.md.
+  Web.cloud: |
+    Register device with boneIO Cloud to enable PWA installation.
+    Creates DNS record {serial}.black.boneio.app pointing to your local IP.
+    Requires valid SSL certificate from boneIO Cloud.
+  WledBlock.host: |
+    IP address or hostname of WLED device (e.g. wled-salon.local)

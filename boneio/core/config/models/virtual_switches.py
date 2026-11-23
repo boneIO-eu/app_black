@@ -1,6 +1,6 @@
 """The ``virtual_switch`` section: flags that conditions read and actions set.
 
-Mirrors boneio/schema/schema.yaml for the section. Its actions are the
+Its actions are the
 inputs' actions, checked by the same models.
 """
 

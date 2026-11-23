@@ -1,6 +1,6 @@
 """The ``web``, ``mqtt`` and ``boneio`` sections: the controller itself.
 
-Mirrors boneio/schema/schema.yaml for these sections. They are single
+They are single
 dictionaries, not lists. What a save of them does to the running system -
 the reverse proxy guard, the MQTT credentials - stays in the save route.
 """

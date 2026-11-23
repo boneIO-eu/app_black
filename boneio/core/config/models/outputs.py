@@ -1,6 +1,6 @@
 """The ``output`` section: relays, lights, valves and what drives them.
 
-Mirrors boneio/schema/schema.yaml for the section. The board mapping fills in
+The board mapping fills in
 ``kind``, ``pin`` and the expander id for an output named by
 ``boneio_output``; the model checks the entry as written, before that.
 Since the map may also supply ``output_type``, the model leaves it optional

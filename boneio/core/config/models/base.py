@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
@@ -12,7 +14,7 @@ from boneio.core.utils import TimePeriod
 
 
 def coerce(name: str):
-    """A ``coerce:`` rule of schema.yaml (one of boneio.core.config.coerce), as a pydantic validator."""
+    """One of boneio.core.config.coerce, as a pydantic validator."""
     method = getattr(_coercions, name)
 
     def run(value: Any) -> Any:
@@ -46,19 +48,43 @@ Str = Annotated[str, BeforeValidator(str)]
 
 #: Marks a value read in any case; the panel's schema lists its spellings.
 ANY_CASE = {"x-any-case": True}
-#: Marks a value that may be written as a null, as schema.yaml's ``nullable``.
+#: Marks a value that may be written as a null; the panel's schema allows one.
 NULL = {"x-null": True}
 
 
+@functools.cache
+def details() -> dict:
+    """details.yaml: the longer explanation of fields and sections."""
+    import yaml
+
+    with open(Path(__file__).with_name("details.yaml"), encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def with_details(schema: dict, cls: type) -> None:
+    """A model's schema with the longer explanation of each field that has one.
+
+    As ``markdownDescription``, label first: the config editor shows it on
+    hover, and an agent reads it beside the label.
+    """
+    fields = details()["fields"]
+    for name, prop in schema.get("properties", {}).items():
+        text = next((fields[f"{base.__name__}.{name}"] for base in cls.__mro__
+                     if f"{base.__name__}.{name}" in fields), None)
+        if text:
+            label = prop.get("description")
+            prop["markdownDescription"] = f"{label}\n\n{text.rstrip()}" if label else text.rstrip()
+
+
 def section(model: Any, description: str, **extra: Any) -> TypeAdapter:
-    """The section's adapter, with schema.yaml's description of it."""
+    """The section's adapter, with the description of it the panel shows."""
     return TypeAdapter(Annotated[model, Field(description=description, json_schema_extra=extra or None)])
 
 
 class Model(BaseModel):
     """Strict: no "yes" for a boolean, no 5 for a string."""
 
-    model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True, json_schema_extra=with_details)
 
     #: Fields whose null their coercion turns into a value (str() into "None",
     #: sun_offset into 0), as config.yaml has always read them; so such

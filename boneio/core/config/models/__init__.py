@@ -14,29 +14,43 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-#: Every config section, and the module holding its model. Only that module is built when its section is checked.
+#: Every config section, and the module holding its model, in the order the
+#: panel lists them. Only that module is built when its section is checked.
 _MODULES = {
-    "event": "inputs",
-    "binary_sensor": "inputs",
-    "output": "outputs",
-    "cover": "covers",
+    "areas": "misc",
+    "usage_history": "misc",
+    "location": "misc",
+    "remote_devices": "remote_devices",
     "remote_inputs": "remote_inputs",
+    "remote_outputs": "remote_outputs",
+    "lox_udp": "misc",
+    "mqtt": "system",
+    "web": "system",
+    "logger": "misc",
+    "oled": "misc",
+    "modbus": "sensors",
+    "can": "sensors",
+    "modbus_devices": "sensors",
+    "lm75": "sensors",
+    "ina219": "sensors",
+    "ina226": "sensors",
+    "virtual_energy_sensor": "sensors",
+    "mcp9808": "sensors",
+    "mcp23017": "sensors",
+    "pcf8575": "sensors",
+    "pca9685": "sensors",
+    "output": "outputs",
+    "output_group": "output_groups",
+    "binary_sensor": "inputs",
+    "event": "inputs",
+    "adc": "sensors",
+    "cover": "covers",
+    "template": "templates",
     "virtual_switch": "virtual_switches",
     "schedule": "schedules",
-    "template": "templates",
-    "remote_devices": "remote_devices",
-    "remote_outputs": "remote_outputs",
-    "output_group": "output_groups",
     "irrigation": "irrigation",
-    "web": "system",
-    "mqtt": "system",
+    "sensor": "sensors",
     "boneio": "system",
-    **dict.fromkeys(
-        ("sensor", "adc", "ina219", "ina226", "lm75", "mcp9808", "modbus", "modbus_devices", "can",
-         "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor"),
-        "sensors",
-    ),
-    **dict.fromkeys(("oled", "location", "lox_udp", "logger", "areas", "usage_history"), "misc"),
 }
 SECTIONS = frozenset(_MODULES)
 

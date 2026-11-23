@@ -1,8 +1,7 @@
 """The ``event`` and ``binary_sensor`` sections: inputs and the actions they run.
 
-Mirrors boneio/schema/schema.yaml for these sections, with one difference
-made on purpose: each action type is its own model, so a field an action
-type needs is required (``output`` without ``boneio_output`` is an error).
+Each action type is its own model, so a field an action type needs is
+required (``output`` without ``boneio_output`` is an error).
 Migration v8 removed the actions that lacked one, which loaded before
 1.7 although they never ran.
 """
@@ -23,7 +22,16 @@ from pydantic import (
 )
 
 from boneio.core.config.coerce import condition_shape_errors
-from boneio.core.config.models.base import ANY_CASE, Model, Period, Str, StrPeriod, coerce, str_lower
+from boneio.core.config.models.base import (
+    ANY_CASE,
+    Model,
+    Period,
+    Str,
+    StrPeriod,
+    coerce,
+    str_lower,
+    with_details,
+)
 
 
 def _upper(value: Any) -> Any:
@@ -131,6 +139,7 @@ def _action_schema(schema: dict, cls: type) -> None:
         base = _Action.model_fields.get(key)
         if base is not None and base.description:
             prop.setdefault("description", base.description)
+    with_details(schema, cls)
 
 
 class _Action(Model):
@@ -143,7 +152,7 @@ class _Action(Model):
     #: Fields refused when set to anything but the default start-up fills in.
     forbidden: ClassVar[frozenset[str]] = frozenset()
 
-    model_config = ConfigDict(**Model.model_config, json_schema_extra=_action_schema)
+    model_config = ConfigDict(**{**Model.model_config, "json_schema_extra": _action_schema})
 
     @classmethod
     def _refuse_forbidden(cls, data: dict) -> dict:

@@ -423,14 +423,10 @@ def test_the_helper_accepts_exactly_the_bitrates_the_schema_allows():
     It shipped with 800000, which the schema does not list, and without vcan0,
     which it does.
     """
-    import re
+    from boneio.core.config.json_schema import section_schema
 
-    schema = (REPO_ROOT / "boneio" / "schema" / "schema.yaml").read_text(encoding="utf-8")
-    # Anchored on the can: block rather than on indentation, which moves.
-    can_block = schema[schema.index("\ncan:"):]
-    allowed = re.search(r"bitrate:.*?allowed:\s*\[([^\]]*)\]", can_block, re.S)
-    assert allowed, "can.bitrate no longer declares an allowed list"
-    from_schema = tuple(int(v) for v in allowed.group(1).replace(" ", "").split(","))
+    node, _ = section_schema("can")
+    from_schema = tuple(node["properties"]["bitrate"]["enum"])
 
     helper_mod = SourceFileLoader("boneio_system_bitrates", str(HELPER)).load_module()
     assert tuple(sorted(helper_mod.CAN_BITRATES)) == tuple(sorted(from_schema))

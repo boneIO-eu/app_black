@@ -1,6 +1,6 @@
 """The ``remote_devices`` section: other controllers, ESPHome and WLED devices.
 
-Mirrors boneio/schema/schema.yaml for the section. A protocol's block
+A protocol's block
 (``mqtt``, ``esphome_api``, ``wled``) is only allowed on a device of that
 protocol.
 """

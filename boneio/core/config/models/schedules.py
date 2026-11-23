@@ -1,6 +1,6 @@
 """The ``schedule`` section: actions run at a time of day or of the sun.
 
-Mirrors boneio/schema/schema.yaml for the section. Conditions and actions
+Conditions and actions
 are the inputs', checked by the same models.
 """
 

@@ -105,6 +105,7 @@
           ],
           "default": false,
           "description": "[EXPERIMENTAL] HA child devices mode",
+          "markdownDescription": "[EXPERIMENTAL] HA child devices mode\n\nWhen enabled, each output/input/cover/sensor is registered as a separate\nchild device in Home Assistant (linked via via_device to the main boneIO device).\nThis allows HA to auto-generate dashboards per area.\nEntity names become empty so HA uses the device name directly.\nWARNING: Experimental feature \u2014 may change or be removed in future versions.",
           "title": "Ha child devices"
         },
         "ha_child_devices_naming": {
@@ -115,6 +116,7 @@
             "device_name",
             "device_name_area"
           ],
+          "markdownDescription": "Child device naming style\n\nControls how child device names are constructed when ha_child_devices is enabled.\n- default: Entity name only (e.g., \"OUT 17\"). May cause duplicates if multiple boneIO devices share output names.\n- device_name: Adds boneIO device name prefix (e.g., \"boneIO Black - OUT 17\").\n- device_name_area: Adds device name and area (e.g., \"boneIO Black - Living Room - OUT 17\"). Falls back to device_name if no area is assigned.",
           "type": "string",
           "title": "Ha child devices naming"
         },
@@ -125,6 +127,7 @@
             "string"
           ],
           "description": "Serial number override",
+          "markdownDescription": "Serial number override\n\nOverride the auto-detected serial number (based on MAC address).\nUse this when restoring config from a different device (e.g., RMA replacement).\nFormat: blk followed by 6 hex characters (e.g., blk8c7df0).\nWARNING: Two devices with the same serial on the same MQTT broker will conflict!",
           "title": "Serial override"
         }
       },

@@ -1,3 +1,0 @@
-required: False
-type: list
-schema: !include actions.yaml

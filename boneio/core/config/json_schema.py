@@ -1,7 +1,6 @@
-"""The panel's JSON Schema for a section, made from the section's model.
+"""The panel's JSON Schema, made from the section models.
 
-The panel reads one dialect, the one schema_converter.py writes from
-schema.yaml: no ``anyOf`` (the forms read ``type``), ``"string"`` beside every
+The panel reads one dialect: no ``anyOf`` (the forms read ``type``), ``"string"`` beside every
 type (a value may be an ``!include``), a boolean as a ``oneOf`` with the YAML
 words for it, and a time period as ``x-timeperiod``. pydantic's own output is
 rewritten into that; a ``null`` is offered only where the model marks it.
@@ -19,6 +18,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 from collections import Counter
 from typing import Any
 
@@ -26,18 +26,8 @@ from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema, NoDefault
 
 from boneio.core.config.models import _MODULES
+from boneio.core.config.models.base import details
 from boneio.core.utils import TimePeriod
-
-#: Sections whose schema comes from the model; the rest still from schema.yaml.
-FROM_MODELS = frozenset({
-    "modbus_devices", "event", "binary_sensor",
-    "modbus", "can", "location", "lox_udp", "logger", "usage_history", "oled", "areas",
-    "sensor", "adc", "ina219", "ina226", "lm75", "mcp9808",
-    "mcp23017", "pcf8575", "pca9685", "virtual_energy_sensor",
-    "output", "output_group", "cover", "irrigation",
-    "remote_devices", "remote_inputs", "remote_outputs", "virtual_switch", "schedule", "template",
-    "mqtt", "web", "boneio",
-})
 
 _BOOLEAN = [
     {"type": "boolean"},
@@ -79,6 +69,9 @@ def section_schema(section: str) -> tuple[dict, dict]:
     uses = Counter(ref.rsplit("/", 1)[1] for ref in _refs(raw))
     shared = {name for name, count in uses.items() if count > 1}
     node = _panel(raw, defs, shared, section)
+    text = details()["sections"].get(section)
+    if text:
+        node["markdownDescription"] = f"{node['description']}\n\n{text.rstrip()}"
     kept = {name: _panel(defs[name], defs, shared, name) for name in sorted(shared)}
     return node, kept
 
@@ -130,8 +123,7 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
 
     if node.pop("x-any-case", False):
         # Read in any case (the model lowers or uppers it), so the editor must
-        # not flag IN_01 or toggle_open; the spellings schema.yaml's converter
-        # listed for coerce: lower.
+        # not flag IN_01 or toggle_open.
         values = node.pop("enum", None) or [node.pop("const")]
         node["enum"] = sorted({c for v in values for c in (v, v.lower(), v.upper(), v.title())})
 
@@ -175,3 +167,46 @@ def merge_defs(into: dict, defs: dict, section: str) -> None:
         if name in into and json.dumps(into[name], sort_keys=True) != json.dumps(schema, sort_keys=True):
             raise ValueError(f"{section}: definition {name!r} differs from another section's")
         into[name] = schema
+
+
+def build_schemas() -> dict[str, dict[str, Any]]:
+    """Every JSON Schema file the panel is served, by file name.
+
+    A section's shared definitions go to the root of config.schema.json and
+    of the section's own file.
+    """
+    config: dict[str, Any] = {"$schema": _DRAFT, "type": "object", "properties": {}}
+    schemas = {"config.schema.json": config}
+    all_defs: dict[str, Any] = {}
+    for name in _MODULES:
+        node, defs = section_schema(name)
+        config["properties"][name] = node
+        merge_defs(all_defs, defs, name)
+        schemas[f"{name}.schema.json"] = {
+            "$schema": _DRAFT,
+            "type": "object",
+            "properties": {name: node},
+            **({"$defs": defs} if defs else {}),
+        }
+    config["$defs"] = dict(sorted(all_defs.items()))
+    return schemas
+
+
+_DRAFT = "https://json-schema.org/draft/2020-12/schema"
+
+#: Where the panel's schema files live, committed and served as static files.
+OUTPUT_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "webui", "schema"))
+
+
+def main() -> None:
+    """Write the schema files the panel is served: python -m boneio.core.config.json_schema."""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    for name, schema in build_schemas().items():
+        path = os.path.join(OUTPUT_DIR, name)
+        with open(path, "w") as f:
+            json.dump(schema, f, indent=2)
+        print(f"Schema written to {path}")
+
+
+if __name__ == "__main__":
+    main()

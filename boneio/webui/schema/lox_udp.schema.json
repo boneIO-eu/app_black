@@ -28,6 +28,7 @@
         },
         "host": {
           "description": "Target host",
+          "markdownDescription": "Target host\n\nIPv4 address or hostname of the Lox Miniserver (e.g. 192.168.1.100 or miniserver.local)",
           "pattern": "^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$",
           "type": "string",
           "title": "Host"
@@ -59,7 +60,8 @@
         "string"
       ],
       "description": "Lox UDP Messaging",
-      "title": "Lox udp"
+      "title": "Lox udp",
+      "markdownDescription": "Lox UDP Messaging\n\nSend and receive UDP messages via Lox protocol"
     }
   }
 }

@@ -34,7 +34,7 @@ export const DAY_OPTIONS = ['daily', 'weekdays', 'weekend', 'mon', 'tue', 'wed',
 /** One action, as the config carries it. Its fields depend on `action`. */
 export type ActionEntry = Record<string, unknown>;
 
-/** A schedule's trigger, as `boneio/schema/schema.yaml` defines it.
+/** A schedule's trigger, as `boneio/core/config/models/schedules.py` defines it.
  *
  * Offsets are numbers (seconds) coming from the backend and strings ("-15min")
  * going back, which is why both are allowed here. */

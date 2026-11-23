@@ -1,7 +1,5 @@
 """Sensors and expanders: 1-Wire, ADC, INA219/226, LM75, MCP9808, Modbus, CAN,
 the MCP23017/PCF8575/PCA9685 expanders and virtual energy sensors.
-
-Mirrors boneio/schema/schema.yaml for these sections.
 """
 
 from __future__ import annotations
@@ -230,7 +228,7 @@ class Can(Model):
 
 class Expander(Model):
     id: str | None = Field(None, description=_I2C_ID)
-    # schema.yaml called it "GPIO of I2C SDA", which it is not.
+    # Not "GPIO of I2C SDA", as it was once described.
     address: int = Field(description="I2C address of the expander.")
 
 

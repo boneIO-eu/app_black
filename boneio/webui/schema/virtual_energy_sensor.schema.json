@@ -7,17 +7,20 @@
       "items": {
         "properties": {
           "id": {
-            "type": "string",
             "description": "Sensor ID",
+            "markdownDescription": "Sensor ID\n\nUnique identifier for the sensor. If not provided, will be generated from name.",
+            "type": "string",
             "title": "Id"
           },
           "name": {
             "description": "Sensor Name",
+            "markdownDescription": "Sensor Name\n\nDisplay name for the sensor in Home Assistant Energy panel.\nExample: \"Gabinet - G\u0142\u00f3wne\", \"Kuchnia - O\u015bwietlenie\"",
             "type": "string",
             "title": "Name"
           },
           "output_id": {
             "description": "Output ID",
+            "markdownDescription": "Output ID\n\nID of the output to track. The sensor will measure energy/water consumption when this output is ON.",
             "type": "string",
             "title": "Output id"
           },
@@ -27,11 +30,13 @@
               "power",
               "water"
             ],
+            "markdownDescription": "Sensor Type\n\nType of virtual sensor: 'power' for energy meter (W/Wh) or 'water' for flow meter (L/h, L).",
             "type": "string",
             "title": "Sensor type"
           },
           "power_usage": {
             "description": "Power Usage",
+            "markdownDescription": "Power Usage\n\nPower consumption in Watts when output is ON. Accepts values like: 10, '10W', '1kW'.",
             "x-dependencies": {
               "sensor_type": [
                 "power"
@@ -46,6 +51,7 @@
           },
           "flow_rate": {
             "description": "Flow Rate",
+            "markdownDescription": "Flow Rate\n\nWater flow rate when output is ON. Accepts values like: 10, '10L/h', '5L/min'.",
             "x-dependencies": {
               "sensor_type": [
                 "water"
@@ -61,6 +67,7 @@
           "area": {
             "type": "string",
             "description": "Area",
+            "markdownDescription": "Area\n\nArea ID to assign this sensor to a sub-device in Home Assistant.",
             "title": "Area"
           }
         },

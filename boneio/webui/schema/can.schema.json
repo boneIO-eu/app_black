@@ -29,6 +29,7 @@
         "channel": {
           "default": "can0",
           "description": "CAN interface name",
+          "markdownDescription": "CAN interface name\n\nCAN interface name (e.g., 'can0', 'can1', 'vcan0' for testing).",
           "type": "string",
           "title": "Channel"
         },
@@ -45,6 +46,7 @@
             500000,
             1000000
           ],
+          "markdownDescription": "CAN bus bitrate in bps\n\nCAN bus speed. Default 125000 (125kbps) is compatible with esphome-canopen.\nAll devices on the same bus must use the same bitrate.",
           "type": [
             "integer",
             "string"
@@ -54,6 +56,7 @@
         "node_id": {
           "default": "auto",
           "description": "CANopen node ID (1-127 or 'auto')",
+          "markdownDescription": "CANopen node ID (1-127 or 'auto')\n\nUnique node identifier on the CAN bus (1-127).\n'auto' generates a deterministic ID from MAC address and persists it.\nManual override: set an integer 1-127.",
           "type": [
             "integer",
             "string"
@@ -67,6 +70,7 @@
             "master",
             "slave"
           ],
+          "markdownDescription": "CAN bus mode\n\nmaster: Device has LAN/MQTT, relays slave data to Home Assistant.\nslave: Device has no LAN, sends data only via CAN bus.",
           "type": "string",
           "title": "Mode"
         },
@@ -90,6 +94,7 @@
           ],
           "default": true,
           "description": "Auto-setup CAN interface",
+          "markdownDescription": "Auto-setup CAN interface\n\nAutomatically configure CAN interface on startup using\n'sudo ip link set'. Requires sudoers NOPASSWD for boneio user.",
           "title": "Auto setup"
         },
         "restart_on_error": {
@@ -112,6 +117,7 @@
           ],
           "default": true,
           "description": "Restart CAN interface on bus-off error",
+          "markdownDescription": "Restart CAN interface on bus-off error\n\nAutomatically restart CAN interface when bus-off state is detected.\nRequires sudoers NOPASSWD for boneio user.",
           "title": "Restart on error"
         }
       },
