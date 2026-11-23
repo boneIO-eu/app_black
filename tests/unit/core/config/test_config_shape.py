@@ -1,8 +1,8 @@
 """A section reaches the running objects in the shape Cerberus gave it.
 
 The shapes in config_shape/<section>.json were written from Cerberus'
-normalization of every factory config and of every valid entry the
-differential test builds (test_models_match_cerberus.py). They outlive
+normalization of every factory config and of every valid entry
+test_section_models.py builds. They outlive
 Cerberus: whatever start-up validates with, the components get these.
 
 Two differences are deliberate, and the shapes hold the model's side:
@@ -80,17 +80,16 @@ def _write() -> None:
     """Every factory config's sections and every valid differential case."""
     import glob
 
-    from boneio.core.config.yaml_util import _get_schema, _run_config_migrations, load_yaml_file, validate_section
-    from tests.unit.core.config import test_models_match_cerberus as diff
+    from boneio.core.config.yaml_util import _run_config_migrations, load_yaml_file, validate_section
+    from tests.unit.core.config import test_section_models as diff
 
     found: list[tuple[str, Any, dict]] = []
     for path in sorted(glob.glob("boneio/factory_config/*/*/config.yaml")):
         raw, _ = _run_config_migrations(load_yaml_file(path), config_file=None)
         found += [(s, raw[s], raw["boneio"]) for s in sorted(models.SECTIONS & raw.keys())]
-    for section, base, focus, typed in diff._bases():
-        rule = _get_schema()[section]["schema"] if diff._is_list(section) else _get_schema()[section]
-        mutated = [diff._apply(base, p, m) for p, m in diff._mutations(base, rule) if diff._in_focus(p, focus, typed)]
-        found += [(section, diff._data(section, e), diff.BONEIO) for e in [base, *mutated]]
+    for base in diff._BASES:
+        found += [(base[0], diff._data(base[0], base[1]), diff.BONEIO)]
+        found += [(base[0], data, diff.BONEIO) for _, _, data in diff._cases(*base)]
     # The differential test has no base for it.
     found += [("usage_history", d, diff.BONEIO) for d in ({}, {"enabled": True}, {"enabled": False, "days": 90})]
 

@@ -1,46 +1,40 @@
-"""The Pydantic models never accept a section the Cerberus schema refuses.
+"""What the section models accept, held still.
 
-Start-up still validates config.yaml with Cerberus, while a save of a section
-that has a model is checked by the model and written as posted. A section the
-model let through and Cerberus refuses would stop the controller at its next
-start. So every factory config, and thousands of mutations of a valid entry
-— each field of each level set to a wrong value or removed — go through both,
-and the model must refuse whatever Cerberus refuses.
+Every factory config is accepted as written. Beyond them, small valid
+entries reach every field between them, and each field of each level is set
+to a wrong value of every kind or removed: thousands of cases. Which of them
+a model refuses is frozen in config_verdicts.json — written while Cerberus
+was still the reference and every difference from it was a listed decision —
+so a change in what start-up accepts is always seen, and made on purpose.
 
-The model may refuse more. What it refuses on purpose is listed in
-STRICTER_ON_PURPOSE; anything else it refuses that Cerberus accepts fails here
-too, so a difference is always a decision rather than an accident.
+Regenerate after a deliberate change:
+``python -m tests.unit.core.config.test_section_models``.
 """
 
 from __future__ import annotations
 
 import copy
+import functools
 import glob
-import re
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from boneio.core.config import models
+from boneio.core.config.json_schema import section_schema
 from boneio.core.config.yaml_util import (
-    _cerberus_section_errors,
-    _get_schema,
+    _read_sections,
     _run_config_migrations,
-    _section_document,
     load_yaml_file,
+    merge_board_config,
     validate_section,
 )
 
-BONEIO = {"config_version": 7, "name": "t", "version": 1.1, "device_type": "24x16A"}
+VERDICTS = Path(__file__).parent / "config_verdicts.json"
 
-#: Fields the board mapping looks up; a wrong one fails the whole list.
-MAPPED = {("boneio_input",), ("boneio_output",)}
-
-#: Sections whose entries must resolve to distinct identifiers (from id, else
-#: name). Batched, the copies of one entry would all collide; each gets an id
-#: of its own instead, and mutations of id and name run alone.
-RESOLVED_IDS = {"virtual_switch", "schedule", "output_group"}
-IDENTITY = {("id",), ("name",)}
+BONEIO = {"config_version": 8, "name": "t", "version": 1.1, "device_type": "24x16A"}
 
 #: A wrong value of every kind, and the marker for "field removed".
 REMOVED = object()
@@ -80,7 +74,7 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
 
     Each comes with the part of it that is mutated, and whether only the
     fields that depend on the action type are: what surrounds that part is
-    mutated with another base, and every case costs a Cerberus validation.
+    mutated with another base.
     """
     event = {"boneio_input": "in_01", "name": "In 1", "mqtt_sequences": {"double_then_long": True}}
     sensor = {"boneio_input": "in_02", "device_class": "door"}
@@ -277,21 +271,67 @@ def _in_focus(path: tuple, focus: tuple, typed_only: bool) -> bool:
     return len(path) == len(focus) + 1 and path[-1] in TYPED_FIELDS
 
 
-def _mutations(value: Any, rule: dict, path: tuple = ()):
-    """Every (path, mutant) the schema rule for ``value`` reaches."""
-    if rule.get("type") == "dict" and isinstance(rule.get("schema"), dict) and isinstance(value, dict):
-        for field, field_rule in rule["schema"].items():
+def _resolved(node, defs: dict):
+    if isinstance(node, dict):
+        if "$ref" in node:
+            node = {**defs[node["$ref"].rsplit("/", 1)[1]], **{k: v for k, v in node.items() if k != "$ref"}}
+        return {k: _resolved(v, defs) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_resolved(v, defs) for v in node]
+    return node
+
+
+def _flat_actions(node):
+    """An action union read as one object with every field of every type."""
+    if isinstance(node, list):
+        return [_flat_actions(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    node = {k: _flat_actions(v) for k, v in node.items()}
+    branches = node.get("oneOf", [])
+    if not branches or not all("action" in b.get("properties", {}) for b in branches):
+        return node
+    fields: dict = {}
+    for branch in branches:
+        for name, field in branch["properties"].items():
+            if name != "action":
+                assert fields.setdefault(name, field) == field, f"{name} differs between action types"
+    spellings = sorted(v for b in branches for v in b["properties"]["action"]["enum"])
+    fields["action"] = {"type": "string", "enum": spellings}
+    rest = {k: v for k, v in node.items() if k != "oneOf"}
+    return {**rest, "type": ["object", "string"], "properties": fields}
+
+
+@functools.cache
+def _schema(section: str) -> dict:
+    node, defs = section_schema(section)
+    return _flat_actions(_resolved(node, defs))
+
+
+def _is_list(section: str) -> bool:
+    return "array" in _schema(section)["type"]
+
+
+def _data(section: str, entry: dict) -> object:
+    """A list section holds entries; a dict section is the entry itself."""
+    return [entry] if _is_list(section) else entry
+
+
+def _mutations(value: Any, node: dict, path: tuple = ()):
+    """Every (path, mutant) the section's schema reaches from ``value``."""
+    if "properties" in node and isinstance(value, dict):
+        for field, field_node in node["properties"].items():
             for mutant in MUTANTS:
                 if mutant is REMOVED and field not in value:
                     continue
                 yield path + (field,), mutant
-            if field in value and isinstance(field_rule, dict):
-                yield from _mutations(value[field], field_rule, path + (field,))
-    elif rule.get("type") == "list" and isinstance(rule.get("schema"), dict) and isinstance(value, list):
+            if field in value:
+                yield from _mutations(value[field], field_node, path + (field,))
+    elif "items" in node and isinstance(value, list):
         for i, item in enumerate(value):
             for mutant in MUTANTS[1:]:
                 yield path + (i,), mutant
-            yield from _mutations(item, rule["schema"], path + (i,))
+            yield from _mutations(item, node["items"], path + (i,))
 
 
 def _apply(entry: dict, path: tuple, mutant: Any) -> dict:
@@ -306,89 +346,6 @@ def _apply(entry: dict, path: tuple, mutant: Any) -> dict:
     return entry
 
 
-def _verdicts(section: str, entries: list) -> tuple[list[str], list[str]]:
-    cerberus = _cerberus_section_errors(section, _section_document(section, entries, BONEIO))
-    model = validate_section(section, entries, BONEIO)
-    return cerberus, model
-
-
-_INDEX = re.compile(r"^\w+\[(\d+)\]|index (\d+)")
-
-
-def _by_entry(errors: list[str]) -> dict[int, list[str]] | None:
-    """Errors keyed by the entry they are about; None if one names no entry."""
-    found: dict[int, list[str]] = {}
-    for error in errors:
-        match = _INDEX.search(error)
-        if match is None:
-            return None
-        found.setdefault(int(match.group(1) or match.group(2)), []).append(error)
-    return found
-
-
-def _verdicts_each(section: str, entries: list) -> list[tuple[list[str], list[str]]]:
-    """``_verdicts`` for every entry, validated as one list where that is safe.
-
-    A Cerberus validation costs about the same for one entry as for fifty, so
-    the entries go through together and the errors are split by index. When
-    an error names no entry (the board mapping refusing the whole list), each
-    entry is validated on its own instead.
-    """
-    cerberus, model = (_by_entry(e) for e in _verdicts(section, entries))
-    if cerberus is None or model is None:
-        return [_verdicts(section, [entry]) for entry in entries]
-    return [(cerberus.get(i, []), model.get(i, [])) for i in range(len(entries))]
-
-
-#: Where the model refuses what Cerberus lets through, and why that is right:
-#: (end of the error's path, or "" for any; text in the error message).
-STRICTER_ON_PURPOSE = [
-    # An action without `action` passes Cerberus (nothing requires it) and
-    # does nothing at runtime; the model cannot tell which action it is.
-    ("", "Unable to extract tag using discriminator"),
-    # Cerberus takes True for an integer (bool is an int in Python).
-    ("", "Input should be a valid integer"),
-    ("", "Input should be a valid number"),
-    # With boneio_input set, Cerberus checks the pin the board mapping wrote
-    # over the one in the entry; the model checks what was written.
-    (".pin", ""),
-    ("", "null value not allowed: pin"),
-    # min: 1s in the schema never ran (TimePeriod against a string).
-    (".update_interval", "at least 1s"),
-    # Start-up loads a 1-Wire address it cannot read, so one bad entry does
-    # not stop the controller; a save has to give a real one.
-    (".address", "not a 1-Wire address"),
-    (".address", "CRC byte does not match"),
-]
-
-
-def _on_purpose(errors: list[str]) -> bool:
-    def explained(error: str) -> bool:
-        where, _, message = error.partition(": ")
-        # A string-or-integer field reports each member of the union; True is
-        # refused as an integer (above), and so as a string too.
-        if where.endswith(".str") and "Input should be a valid string" in message:
-            return any(e.startswith(where[:-4] + ".int: Input should be a valid integer") for e in errors)
-        # required_if in the Cerberus schema only runs for a field that is
-        # present, so an action missing what its type needs passes there.
-        if "Field required" in message and ".actions" in where:
-            return True
-        return any(where.endswith(end) and text in message for end, text in STRICTER_ON_PURPOSE)
-
-    return all(explained(e) for e in errors)
-
-
-def test_every_factory_config_gets_the_same_verdict():
-    checked = 0
-    for path in sorted(glob.glob("boneio/factory_config/*/*/config.yaml")):
-        raw, _ = _run_config_migrations(load_yaml_file(path), config_file=None)
-        for section in models.SECTIONS & raw.keys():
-            cerberus, model = _verdicts(section, raw[section])
-            assert (not cerberus) == (not model), (path, section, cerberus, model)
-            checked += 1
-    assert checked > 20
-
-
 def _name(section: str, base: dict, focus: tuple, typed_only: bool) -> str:
     part = base
     for key in focus:
@@ -397,20 +354,53 @@ def _name(section: str, base: dict, focus: tuple, typed_only: bool) -> str:
     return "-".join(str(x) for x in (section, *focus, kind) if x is not None and x != 0)
 
 
-def test_what_get_api_config_serves_is_accepted():
-    """The panel saves a section as it was served: normalized, board-merged."""
-    import json
+def _cases(section: str, base: dict, focus: tuple, typed_only: bool) -> list[tuple[tuple, Any, object]]:
+    rule = _schema(section)
+    rule = rule["items"] if _is_list(section) else rule
+    out = []
+    for path, mutant in _mutations(base, rule):
+        if not _in_focus(path, focus, typed_only):
+            continue
+        out.append((path, mutant, _data(section, _apply(base, path, mutant))))
+    return out
 
+
+def _key(index: int, base: tuple) -> str:
+    return f"{index}:{_name(*base)}"
+
+
+def _verdicts(section: str, base: tuple) -> str:
+    """One character per case: 1 when the model refuses it."""
+    return "".join("1" if validate_section(section, data, BONEIO) else "0" for _, _, data in _cases(*base))
+
+
+_BASES = _bases()
+
+
+@pytest.mark.parametrize("index", range(len(_BASES)), ids=[_name(*b) for b in _BASES])
+def test_what_the_models_refuse_has_not_moved(index):
+    base = _BASES[index]
+    section = base[0]
+    assert validate_section(section, _data(section, base[1]), BONEIO) == [], "the base must be valid"
+    cases = _cases(*base)
+    assert len(cases) > 20
+    expected = json.loads(VERDICTS.read_text())[_key(index, base)]
+    found = _verdicts(section, base)
+    moved = [(path, mutant, "now refused" if now == "1" else "now accepted")
+             for (path, mutant, _), was, now in zip(cases, expected, found) if was != now]
+    assert len(found) == len(expected) and not moved, moved[:10]
+
+
+def test_what_get_api_config_serves_is_accepted():
+    """The panel saves a section as it was served: read, board-merged."""
     from fastapi.encoders import jsonable_encoder
 
-    from boneio.core.config.yaml_util import CustomValidator, merge_board_config
     from boneio.core.utils.timeperiod import plain_time_periods
 
     checked = 0
     for path in sorted(glob.glob("boneio/factory_config/*/*/config.yaml")):
         raw, _ = _run_config_migrations(load_yaml_file(path), config_file=None)
-        validator = CustomValidator(_get_schema(), purge_unknown=True)
-        doc = merge_board_config(validator.normalized(raw, always_return_document=True))
+        doc = merge_board_config(_read_sections(raw))
         served = json.loads(json.dumps(jsonable_encoder(plain_time_periods(doc))))
         for section in models.SECTIONS & served.keys():
             assert validate_section(section, served[section], served["boneio"]) == [], (path, section)
@@ -418,111 +408,58 @@ def test_what_get_api_config_serves_is_accepted():
     assert checked > 20
 
 
-def _is_list(section: str) -> bool:
-    return _get_schema()[section]["type"] == "list"
-
-
-def _data(section: str, entry: dict) -> object:
-    """A list section holds entries; a dict section is the entry itself."""
-    return [entry] if _is_list(section) else entry
-
-
-@pytest.mark.parametrize(
-    "section, base, focus, typed_only", [pytest.param(*b, id=_name(*b)) for b in _bases()]
-)
-def test_the_model_refuses_whatever_cerberus_refuses(section, base, focus, typed_only):
-    assert _verdicts(section, _data(section, base)) == ([], []), "the base must be valid for both"
-    rule = _get_schema()[section]["schema"] if _is_list(section) else _get_schema()[section]
-    lenient, stricter = [], []
-    mutations = [(p, m) for p, m in _mutations(base, rule) if _in_focus(p, focus, typed_only)]
-    assert len(mutations) > 20
-    # Mutating what the board mapping looks up breaks it for the whole list;
-    # a dict section has no list to batch into.
-    solo = MAPPED | (IDENTITY if section in RESOLVED_IDS else set())
-    if not _is_list(section):
-        solo = {p for p, _ in mutations}
-    alone = [(p, m) for p, m in mutations if p in solo]
-    together = [(p, m) for p, m in mutations if p not in solo]
-    batch = [_apply(base, p, m) for p, m in together]
-    if section in RESOLVED_IDS:
-        for i, entry in enumerate(batch):
-            entry["id"] = f"batch_{i}"
-    verdicts = _verdicts_each(section, batch) if batch else []
-    verdicts += [_verdicts(section, _data(section, _apply(base, p, m))) for p, m in alone]
-    for (path, mutant), (cerberus, model) in zip(together + alone, verdicts):
-        if cerberus and not model:
-            lenient.append((path, mutant, cerberus))
-        elif model and not cerberus and not _on_purpose(model):
-            stricter.append((path, mutant, model))
-    assert not lenient, f"model accepts what Cerberus refuses: {lenient[:5]}"
-    assert not stricter, f"model refuses what Cerberus accepts: {stricter[:5]}"
-
-
-def test_duplicate_output_ids_are_refused_by_both():
-    entries = [{"id": "lamp", "kind": "gpio", "pin": 5, "output_type": "light"},
-               {"id": "lamp", "kind": "gpio", "pin": 6, "output_type": "switch"}]
-    cerberus, model = _verdicts("output", entries)
-    assert cerberus == model == ["output: Output IDs are not unique."]
-
-
-def test_remote_input_actions_are_checked_though_cerberus_takes_any():
-    """Stricter on purpose: Cerberus takes any dictionary of actions here."""
-    entry = {"remote_source": "mqtt", "device_id": "shelly", "input_id": "in0",
-             "actions": {"pressed": [{"action": "output"}]}}
-    cerberus, model = _verdicts("remote_inputs", [entry])
-    assert cerberus == []
-    assert model == ["remote_inputs[0].actions.pressed[0].boneio_output: Field required"]
-
-
-def test_a_virtual_switch_setting_itself_is_refused_by_both():
-    entry = {"name": "Night", "actions": {"on_turn_on": [
-        {"action": "virtual_switch", "boneio_virtual_switch": "night"}]}}
-    cerberus, model = _verdicts("virtual_switch", [entry])
-    assert cerberus and model
-
-
-def test_virtual_switches_resolving_to_one_id_are_refused_by_both():
-    cerberus, model = _verdicts("virtual_switch", [{"name": "Salon"}, {"name": "salon!"}])
-    assert cerberus and model
-
-
-@pytest.mark.parametrize("section, base", [pytest.param(b[0], b[1], id=_name(*b)) for b in _bases()])
+@pytest.mark.parametrize("section, base", [pytest.param(b[0], b[1], id=_name(*b)) for b in _BASES])
 def test_each_base_entry_as_get_serves_it_is_accepted(section, base):
     """What the panel posts back after a read, for sections the factory configs lack."""
-    import json
-
     from fastapi.encoders import jsonable_encoder
 
-    from boneio.core.config.yaml_util import CustomValidator, merge_board_config
     from boneio.core.utils.timeperiod import plain_time_periods
 
-    schema = {k: _get_schema()[k] for k in (section, "boneio")}
-    validator = CustomValidator(schema, purge_unknown=True)
-    doc = {"boneio": dict(BONEIO), section: _data(section, copy.deepcopy(base))}
-    doc = validator.normalized(doc, always_return_document=True)
+    doc = _read_sections({"boneio": dict(BONEIO), section: _data(section, copy.deepcopy(base))})
     served = json.loads(json.dumps(jsonable_encoder(plain_time_periods(merge_board_config(doc)))))
     assert validate_section(section, served[section], served["boneio"]) == []
 
 
-def test_a_protocol_block_on_another_protocol_is_refused_by_both():
+def test_duplicate_output_ids_are_refused():
+    entries = [{"id": "lamp", "kind": "gpio", "pin": 5, "output_type": "light"},
+               {"id": "lamp", "kind": "gpio", "pin": 6, "output_type": "switch"}]
+    assert validate_section("output", entries, BONEIO) == ["output: Output IDs are not unique."]
+
+
+def test_remote_input_actions_are_checked():
+    entry = {"remote_source": "mqtt", "device_id": "shelly", "input_id": "in0",
+             "actions": {"pressed": [{"action": "output"}]}}
+    assert validate_section("remote_inputs", [entry], BONEIO) == [
+        "remote_inputs[0].actions.pressed[0].boneio_output: Field required"
+    ]
+
+
+def test_a_virtual_switch_setting_itself_is_refused():
+    entry = {"name": "Night", "actions": {"on_turn_on": [
+        {"action": "virtual_switch", "boneio_virtual_switch": "night"}]}}
+    assert validate_section("virtual_switch", [entry], BONEIO)
+
+
+def test_virtual_switches_resolving_to_one_id_are_refused():
+    assert validate_section("virtual_switch", [{"name": "Salon"}, {"name": "salon!"}], BONEIO)
+
+
+def test_a_protocol_block_on_another_protocol_is_refused():
     entry = {"id": "esp", "name": "ESP", "protocol": "esphome_api", "wled": {"host": "h"}}
-    cerberus, model = _verdicts("remote_devices", [entry])
-    assert cerberus and model
+    assert validate_section("remote_devices", [entry], BONEIO)
 
 
-def test_duplicate_output_group_ids_are_refused_by_both():
+def test_duplicate_output_group_ids_are_refused():
     groups = [{"id": "all", "outputs": ["OUT_01"]}, {"id": "all", "outputs": ["OUT_02"]}]
-    assert _verdicts("output_group", groups) == (["output_group: Output IDs are not unique."],) * 2
+    assert validate_section("output_group", groups, BONEIO) == ["output_group: Output IDs are not unique."]
 
 
-def test_a_certificate_without_its_key_is_refused_by_both():
-    mqtt = {"host": "b", "tls": {"enabled": True, "certfile": "/cert"}}
-    cerberus, model = _verdicts("mqtt", mqtt)
-    assert cerberus and model
+def test_a_certificate_without_its_key_is_refused():
+    assert validate_section("mqtt", {"host": "b", "tls": {"enabled": True, "certfile": "/cert"}}, BONEIO)
 
 
-def test_web_may_be_null_for_both():
-    assert _verdicts("web", None) == ([], [])
+def test_web_may_be_null():
+    assert validate_section("web", None, BONEIO) == []
 
 
 @pytest.mark.parametrize(
@@ -534,18 +471,16 @@ def test_web_may_be_null_for_both():
         ("virtual_energy_sensor", {"name": "n", "output_id": "o", "sensor_type": "power", "flow_rate": 5}),
     ],
 )
-def test_a_block_for_another_type_is_refused_by_both(section, entry):
-    cerberus, model = _verdicts(section, [entry])
-    assert cerberus and model
+def test_a_block_for_another_type_is_refused(section, entry):
+    assert validate_section(section, [entry], BONEIO)
 
 
-def test_the_modbus_update_interval_minimum_holds_on_save_only():
-    """min: 1s compares a TimePeriod with a string; Cerberus swallows the TypeError."""
+def test_the_modbus_update_interval_is_at_least_a_second():
+    # Start-up holds it too; migration v8 raised what was lower.
     entry = {"address": 1, "model": "cwt", "update_interval": "500ms"}
-    cerberus, model = _verdicts("modbus_devices", [entry])
-    assert cerberus == []  # start-up still loads a config that has it
-    assert len(model) == 1 and "update_interval" in model[0] and "at least 1s" in model[0]
-    assert _verdicts("modbus_devices", [{**entry, "update_interval": "1s"}]) == ([], [])
+    errors = validate_section("modbus_devices", [entry], BONEIO)
+    assert len(errors) == 1 and "update_interval" in errors[0] and "at least 1s" in errors[0]
+    assert validate_section("modbus_devices", [{**entry, "update_interval": "1s"}], BONEIO) == []
 
 
 def test_a_binary_sensor_keeps_its_name():
@@ -556,7 +491,7 @@ def test_a_binary_sensor_keeps_its_name():
     adapter = SECTION_ADAPTERS["binary_sensor"]
     entry = {"name": "Kontaktron", "boneio_input": "in_01"}
     assert adapter.dump_python(adapter.validate_python([entry]))[0]["name"] == "Kontaktron"
-    assert _verdicts("binary_sensor", [entry]) == ([], [])
+    assert validate_section("binary_sensor", [entry], BONEIO) == []
 
 
 def test_every_factory_config_section_is_accepted_as_written():
@@ -600,3 +535,30 @@ def test_start_up_refuses_an_output_with_no_type():
     with pytest.raises(ConfigurationException, match=r"output\[0\]\.output_type: required field"):
         load_config_from_string(config)
     assert load_config_from_string(config + "    output_type: switch\n")["output"][0]["output_type"] == "switch"
+
+
+def _write() -> None:
+    VERDICTS.write_text(json.dumps(
+        {_key(i, base): _verdicts(base[0], base) for i, base in enumerate(_BASES)}, indent=1
+    ) + "\n")
+
+
+if __name__ == "__main__":
+    _write()
+
+
+def test_after_a_downgrade_what_reads_is_kept():
+    from boneio.exceptions import ConfigurationException
+
+    doc = {
+        "boneio": dict(BONEIO),
+        "virtual_switch": [{"name": "Night"}, {"name": 7, "unknown_to_this_version": True}],
+        "lox_udp": {"enabled": True},  # no host: the whole section goes
+        "location": {"latitude": 52.4, "longitude": 16.9},
+    }
+    with pytest.raises(ConfigurationException, match="virtual_switch"):
+        _read_sections(copy.deepcopy(doc))
+    read = _read_sections(copy.deepcopy(doc), downgraded=True)
+    assert [s["name"] for s in read["virtual_switch"]] == ["Night"]
+    assert "lox_udp" not in read
+    assert read["location"]["latitude"] == 52.4

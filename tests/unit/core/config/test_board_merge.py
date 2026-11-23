@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from boneio.core.config.yaml_util import merge_board_config
+from boneio.core.config.yaml_util import merge_board_config, validate_section
 
 BONEIO = {"config_version": 7, "name": "t", "version": 1.1, "device_type": "24x16A"}
 
@@ -23,19 +23,14 @@ def test_an_output_named_by_a_string_is_still_mapped():
 
 @pytest.mark.parametrize("actions", [None, [], "x", 7, {"on_turn_on": True}, {"on_turn_off": "x"}])
 def test_a_virtual_switch_whose_actions_are_not_a_dict_is_reported_not_a_crash(actions):
-    from boneio.core.config.yaml_util import _cerberus_section_errors, _section_document
-
-    doc = _section_document("virtual_switch", [{"name": "Night", "actions": actions}], None)
-    errors = _cerberus_section_errors("virtual_switch", doc)
+    errors = validate_section("virtual_switch", [{"name": "Night", "actions": actions}], None)
     assert errors and all("actions" in e for e in errors)
 
 
 @pytest.mark.parametrize("trigger", ["x", 7, ["sunset"], {"event": "sunset", "earliest": 7, "latest": "21:00"}])
 def test_a_schedule_with_a_malformed_trigger_is_reported_not_a_crash(trigger):
-    from boneio.core.config.yaml_util import _cerberus_section_errors, _section_document
-
     entry = {"name": "Dusk", "trigger": trigger, "actions": [{"action": "mqtt", "topic": "t", "action_mqtt_msg": "m"}]}
-    assert _cerberus_section_errors("schedule", _section_document("schedule", [entry], None))
+    assert validate_section("schedule", [entry], None)
 
 
 class TestIdUniqueness:
@@ -43,26 +38,21 @@ class TestIdUniqueness:
 
     @staticmethod
     def _errors(doc):
-        from boneio.core.config.yaml_util import CustomValidator, _get_schema
-
-        schema = {k: _get_schema()[k] for k in doc}
-        validator = CustomValidator(schema, purge_unknown=True)
-        validator.validate(validator.normalized(doc, always_return_document=True), schema)
-        return validator.errors
+        return {s: e for s, data in doc.items() if (e := validate_section(s, data, None))}
 
     def test_output_groups_alone_do_not_raise(self):
         assert self._errors({"output_group": [{"id": "all", "outputs": ["OUT_01"]}]}) == {}
 
     def test_duplicate_group_ids_are_refused(self):
         groups = [{"id": "all", "outputs": ["OUT_01"]}, {"id": "all", "outputs": ["OUT_02"]}]
-        assert self._errors({"output_group": groups}) == {"output_group": ["Output IDs are not unique."]}
+        assert self._errors({"output_group": groups}) == {"output_group": ["output_group: Output IDs are not unique."]}
 
     def test_a_duplicate_output_is_reported_on_the_outputs_only(self):
         outputs = [{"id": "a", "kind": "gpio", "pin": 1, "output_type": "switch"},
                    {"id": "a", "kind": "gpio", "pin": 2, "output_type": "switch"}]
         groups = [{"id": "all", "outputs": ["a"]}]
         assert self._errors({"output": outputs, "output_group": groups}) == {
-            "output": ["Output IDs are not unique."]
+            "output": ["output: Output IDs are not unique."]
         }
 
 
