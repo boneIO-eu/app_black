@@ -227,6 +227,7 @@ if os.environ.get("BONEIO_DEV"):
 
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides
+from boneio.webui.routes import can as can_module
 from boneio.webui.routes import covers as covers_module
 from boneio.webui.routes import dashboard as dashboard_module
 from boneio.webui.routes import irrigation as irrigation_module
@@ -244,6 +245,7 @@ from boneio.webui.routes import update as update_module
 
 # Use dependency_overrides to replace the placeholder get_manager functions
 app.dependency_overrides[outputs_module.get_manager] = get_manager
+app.dependency_overrides[can_module.get_manager] = get_manager
 app.dependency_overrides[covers_module.get_manager] = get_manager
 app.dependency_overrides[dashboard_module.get_manager] = get_manager
 app.dependency_overrides[irrigation_module.get_manager] = get_manager
