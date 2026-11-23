@@ -286,7 +286,7 @@ only from Settings.
 |---|---|
 | `boneio/components/virtual_switch.py` | The entity: state, commands, publishing |
 | `boneio/core/manager/virtual_switches.py` | Building, restoring, discovery, reload |
-| `boneio/schema/schema.yaml` | The `virtual_switch:` section |
+| `boneio/core/config/models/virtual_switches.py` | The `virtual_switch:` section |
 | `boneio/webui/routes/outputs.py` | `POST /api/virtual_switch/{id}/toggle` |
 | `frontend/src/components/UISettings/tables/VirtualSwitchTable.tsx` | The list |
 | `frontend/src/components/UISettings/VirtualSwitchForm.tsx` | The editor, with a tab per edge |

@@ -25,11 +25,11 @@ The sensor and UART side of this table is also encoded in `HARDWARE_SENSORS`
 
 Adding a revision means: a directory here, an entry in `HARDWARE_SENSORS`
 (`webui/routes/update.py`), the overlay maps in `webui/routes/system.py` and the
-frontend's `useOverlayCheck.ts`, the `allowed` list in `schema/schema.yaml` —
+frontend's `useOverlayCheck.ts`, `_VERSIONS` in `core/config/models/system.py` —
 and then regenerating `webui/schema/*.json` with
 
 ```bash
-python -m boneio.core.config.schema_converter
+python -m boneio.core.config.json_schema
 ```
 
 ## The buzzer

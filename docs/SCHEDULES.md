@@ -247,8 +247,8 @@ reason instead of being hidden.
 | File | Role |
 |---|---|
 | `boneio/core/manager/scheduler.py` | The runtime: planning, arming, catching up, firing |
-| `boneio/schema/schema.yaml` | The `schedule:` section |
-| `boneio/core/config/yaml_util.py` | `_check_with_schedule_shape` |
+| `boneio/core/config/models/schedules.py` | The `schedule:` section |
+| `boneio/core/config/coerce.py` | `schedule_shape_errors` |
 | `boneio/webui/routes/schedule.py` | Status and run-now |
 | `frontend/src/components/UISettings/tables/ScheduleTable.tsx` | The list, with next firing and run-now |
 | `frontend/src/components/UISettings/ScheduleForm.tsx` | The editor, four tabs |

@@ -2,7 +2,7 @@
 
 The cache next to ``config.yaml`` is a pickle of boneIO objects — ``TimePeriod``,
 ``OrderedDict`` and friends — and it is keyed on a hash of the config and of
-``schema.yaml``.  Neither hash says anything about the *code*, so a release that
+the section models.  Neither hash covers the classes in the payload, so a release that
 only moves or renames a class leaves a stale cache looking perfectly valid.
 Unpickling it then fails on the import, and that has to come out as a cache miss
 rather than as a failure to start: the fallback costs seconds of
