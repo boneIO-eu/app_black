@@ -1,0 +1,17 @@
+[
+{"input": [{"address": 64, "id": "pca1", "init_sleep": "0s"}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "init_sleep": "0s"}], "shape": [{"address": 64, "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "id": "x", "init_sleep": "0s"}], "shape": [{"address": 64, "id": "x", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "id": "TOGGLE", "init_sleep": "0s"}], "shape": [{"address": 64, "id": "TOGGLE", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "id": "30s", "init_sleep": "0s"}], "shape": [{"address": 64, "id": "30s", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 7, "id": "pca1", "init_sleep": "0s"}], "shape": [{"address": 7, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": -1, "id": "pca1", "init_sleep": "0s"}], "shape": [{"address": -1, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 1000, "id": "pca1", "init_sleep": "0s"}], "shape": [{"address": 1000, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "id": "pca1"}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "id": "pca1", "init_sleep": null}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 64, "id": "pca1", "init_sleep": 7}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<7ms>>"}]},
+{"input": [{"address": 64, "id": "pca1", "init_sleep": -1}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<-1ms>>"}]},
+{"input": [{"address": 64, "id": "pca1", "init_sleep": 1000}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<1000ms>>"}]},
+{"input": [{"address": 64, "id": "pca1", "init_sleep": 1.5}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<1500us>>"}]},
+{"input": [{"address": 64, "id": "pca1", "init_sleep": "30s"}], "shape": [{"address": 64, "id": "pca1", "init_sleep": "<TimePeriod TimePeriod<30s>>"}]}
+]

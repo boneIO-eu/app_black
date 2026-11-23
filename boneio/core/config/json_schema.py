@@ -22,7 +22,8 @@ import json
 from collections import Counter
 from typing import Any
 
-from pydantic.json_schema import GenerateJsonSchema
+from pydantic import BaseModel
+from pydantic.json_schema import GenerateJsonSchema, NoDefault
 
 from boneio.core.config.models import _MODULES
 from boneio.core.utils import TimePeriod
@@ -56,8 +57,14 @@ class _Generator(GenerateJsonSchema):
     def get_default_value(self, schema: Any) -> Any:
         factory = schema.get("default_factory")
         if factory and not schema.get("default_factory_takes_data"):
-            return factory()
-        return super().get_default_value(schema)
+            value = factory()
+        else:
+            value = super().get_default_value(schema)
+        if isinstance(value, BaseModel):
+            # A model's default instance, as start-up gives it; one that sets
+            # nothing is no default worth showing.
+            return value.model_dump() or NoDefault
+        return value
 
 
 def section_schema(section: str) -> tuple[dict, dict]:
@@ -105,11 +112,6 @@ def _panel(node: dict, defs: dict, shared: set, name: str | None = None) -> dict
             node[keyword] = node.pop(bound)
     if node.get("items") == {}:
         del node["items"]  # a plain ``list``
-    if isinstance(node.get("default"), dict) and None in node["default"].values():
-        # A model's default instance, with every field it leaves unset as null.
-        node["default"] = {k: v for k, v in node["default"].items() if v is not None}
-        if not node["default"]:
-            del node["default"]
     if "default" in node and node["default"] is None:
         del node["default"]
 

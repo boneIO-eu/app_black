@@ -24,8 +24,8 @@ class Output(Model):
     # coerce: str turns a null into "None" in Cerberus, so it passes there.
     nullable = frozenset({"name", "id"})
 
-    name: Str | None = Field(None, description="Display Name")
-    id: Str | None = Field(None, description="Output ID")
+    name: Str = Field(None, description="Display Name")
+    id: Str = Field(None, description="Output ID")
     boneio_output: str | None = Field(None, description="BoneIO Output")
     area: str | None = Field(None, description="Area/Room")
     kind: Literal["gpio", "mcp", "pca", "pcf", "buzzer"] | None = Field(

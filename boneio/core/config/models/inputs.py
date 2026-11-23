@@ -59,8 +59,8 @@ class Condition(Model):
     type: Literal["time", "date", "state", "sun"] = Field(description="Condition type")
     after: str | None = Field(None, description="After (start of range)")
     before: str | None = Field(None, description="Before (end of range)")
-    after_offset: SunOffset | None = Field(None, description="Offset from the 'after' anchor (sun only)")
-    before_offset: SunOffset | None = Field(None, description="Offset from the 'before' anchor (sun only)")
+    after_offset: SunOffset = Field(None, description="Offset from the 'after' anchor (sun only)")
+    before_offset: SunOffset = Field(None, description="Offset from the 'before' anchor (sun only)")
     phase: Literal["day", "civil_twilight", "nautical_twilight", "astronomical_twilight",
                    "night", "golden_hour", "blue_hour"] | None = Field(None, description="Sun phase (sun only)")
     above: Elevation | None = Field(None, description="Sun elevation above (degrees, sun only)")

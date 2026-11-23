@@ -21,7 +21,7 @@ class OutputGroup(Model):
     nullable = frozenset({"id", "name"})
 
     id: Str = Field(description="Group ID")
-    name: Str | None = Field(None, description="Display Name")
+    name: Str = Field(None, description="Display Name")
     outputs: list = Field(description="Output IDs")
     all_on_behaviour: bool = Field(
         False,

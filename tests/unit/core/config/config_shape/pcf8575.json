@@ -1,0 +1,17 @@
+[
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": "500ms"}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 33, "init_sleep": "500ms"}], "shape": [{"address": 33, "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 33, "id": "x", "init_sleep": "500ms"}], "shape": [{"address": 33, "id": "x", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 33, "id": "TOGGLE", "init_sleep": "500ms"}], "shape": [{"address": 33, "id": "TOGGLE", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 33, "id": "30s", "init_sleep": "500ms"}], "shape": [{"address": 33, "id": "30s", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 7, "id": "pcf1", "init_sleep": "500ms"}], "shape": [{"address": 7, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": -1, "id": "pcf1", "init_sleep": "500ms"}], "shape": [{"address": -1, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 1000, "id": "pcf1", "init_sleep": "500ms"}], "shape": [{"address": 1000, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<500ms>>"}]},
+{"input": [{"address": 33, "id": "pcf1"}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": null}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<0s>>"}]},
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": 7}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<7ms>>"}]},
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": -1}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<-1ms>>"}]},
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": 1000}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<1000ms>>"}]},
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": 1.5}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<1500us>>"}]},
+{"input": [{"address": 33, "id": "pcf1", "init_sleep": "30s"}], "shape": [{"address": 33, "id": "pcf1", "init_sleep": "<TimePeriod TimePeriod<30s>>"}]}
+]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, ClassVar
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_serializer, model_validator
 from pydantic_core import PydanticUndefined
 
 from boneio.core.config.yaml_util import CustomValidator
@@ -65,7 +65,8 @@ class Model(BaseModel):
     model_config = ConfigDict(extra="ignore", strict=True, arbitrary_types_allowed=True)
 
     #: Fields whose null Cerberus' coercion turns into a value (str() into
-    #: "None", sun_offset into 0); handed to the field's own coercion.
+    #: "None", sun_offset into 0); handed to the field's own coercion, so such
+    #: a field is not declared ``| None``, only defaults to None when absent.
     nullable: ClassVar[frozenset[str]] = frozenset()
 
     @model_validator(mode="before")
@@ -94,6 +95,13 @@ class Model(BaseModel):
     def _refuse_forbidden(cls, data: dict) -> dict:
         """Refuse fields this model may not carry; runs after nulls are read."""
         return data
+
+    @model_serializer(mode="wrap")
+    def _as_cerberus_gives_it(self, handler: Any) -> Any:
+        # Cerberus adds a default it has, and nothing for a field without one;
+        # a null left in would beat the default of a cfg.get("x", default).
+        data = handler(self)
+        return {k: v for k, v in data.items() if v is not None or k in self.model_fields_set}
 
 
 def unique_explicit_ids(entries: list) -> list:

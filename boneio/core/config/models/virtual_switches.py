@@ -26,7 +26,7 @@ class VirtualSwitch(Model):
 
     name: str = Field(description="Name")
     description: str | None = Field(None, description="What this flag is for.")
-    id: Str | None = Field(None, description="Identifier, if the one made from the name will not do.")
+    id: Str = Field(None, description="Identifier, if the one made from the name will not do.")
     area: str | None = Field(None, description="Area/room for Home Assistant grouping.")
     icon: str | None = Field(None, description="Home Assistant icon, e.g. `mdi:weather-night`.")
     restore_state: bool = Field(True, description="Remember the state across a restart.")

@@ -1,0 +1,18 @@
+[
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 5000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 5000}},
+{"input": {"host": "10.0.0.10", "listen_port": 5001, "send_port": 5000}, "shape": {"enabled": false, "host": "10.0.0.10", "listen_port": 5001, "send_port": 5000}},
+{"input": {"enabled": null, "host": "10.0.0.10", "listen_port": 5001, "send_port": 5000}, "shape": {"enabled": false, "host": "10.0.0.10", "listen_port": 5001, "send_port": 5000}},
+{"input": {"enabled": true, "host": "x", "listen_port": 5001, "send_port": 5000}, "shape": {"enabled": true, "host": "x", "listen_port": 5001, "send_port": 5000}},
+{"input": {"enabled": true, "host": "TOGGLE", "listen_port": 5001, "send_port": 5000}, "shape": {"enabled": true, "host": "TOGGLE", "listen_port": 5001, "send_port": 5000}},
+{"input": {"enabled": true, "host": "30s", "listen_port": 5001, "send_port": 5000}, "shape": {"enabled": true, "host": "30s", "listen_port": 5001, "send_port": 5000}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 4444}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": null}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 4444}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 7}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 7}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": -1}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": -1}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 1000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 5001, "send_port": 1000}},
+{"input": {"enabled": true, "host": "10.0.0.10", "send_port": 5000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 4445, "send_port": 5000}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": null, "send_port": 5000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 4445, "send_port": 5000}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 7, "send_port": 5000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 7, "send_port": 5000}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": -1, "send_port": 5000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": -1, "send_port": 5000}},
+{"input": {"enabled": true, "host": "10.0.0.10", "listen_port": 1000, "send_port": 5000}, "shape": {"enabled": true, "host": "10.0.0.10", "listen_port": 1000, "send_port": 5000}}
+]

@@ -1,0 +1,5 @@
+[
+{"input": {}, "shape": {"days": 30, "enabled": false}},
+{"input": {"enabled": true}, "shape": {"days": 30, "enabled": true}},
+{"input": {"days": 90, "enabled": false}, "shape": {"days": 90, "enabled": false}}
+]

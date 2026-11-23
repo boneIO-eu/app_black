@@ -35,7 +35,7 @@ class ExtraScreenSensor(Model):
     nullable = frozenset({"modbus_id", "sensor_id"})
 
     sensor_type: Literal["modbus", "dallas"]
-    modbus_id: SensorRef | None = Field(None, description="Only needed if sensor type is modbus.")
+    modbus_id: SensorRef = Field(None, description="Only needed if sensor type is modbus.")
     sensor_id: SensorRef
 
 

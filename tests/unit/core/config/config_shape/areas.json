@@ -1,0 +1,17 @@
+[
+{"input": [{"id": "living", "name": "Living room"}], "shape": [{"id": "living", "name": "Living room"}]},
+{"input": [{"id": null, "name": "Living room"}], "shape": [{"id": "None", "name": "Living room"}]},
+{"input": [{"id": true, "name": "Living room"}], "shape": [{"id": "True", "name": "Living room"}]},
+{"input": [{"id": 7, "name": "Living room"}], "shape": [{"id": "7", "name": "Living room"}]},
+{"input": [{"id": -1, "name": "Living room"}], "shape": [{"id": "-1", "name": "Living room"}]},
+{"input": [{"id": 1000, "name": "Living room"}], "shape": [{"id": "1000", "name": "Living room"}]},
+{"input": [{"id": 1.5, "name": "Living room"}], "shape": [{"id": "1.5", "name": "Living room"}]},
+{"input": [{"id": "x", "name": "Living room"}], "shape": [{"id": "x", "name": "Living room"}]},
+{"input": [{"id": "TOGGLE", "name": "Living room"}], "shape": [{"id": "TOGGLE", "name": "Living room"}]},
+{"input": [{"id": "30s", "name": "Living room"}], "shape": [{"id": "30s", "name": "Living room"}]},
+{"input": [{"id": [], "name": "Living room"}], "shape": [{"id": "[]", "name": "Living room"}]},
+{"input": [{"id": {}, "name": "Living room"}], "shape": [{"id": "{}", "name": "Living room"}]},
+{"input": [{"id": "living", "name": "x"}], "shape": [{"id": "living", "name": "x"}]},
+{"input": [{"id": "living", "name": "TOGGLE"}], "shape": [{"id": "living", "name": "TOGGLE"}]},
+{"input": [{"id": "living", "name": "30s"}], "shape": [{"id": "living", "name": "30s"}]}
+]

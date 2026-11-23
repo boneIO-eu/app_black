@@ -16,7 +16,7 @@ class RemoteOutput(Model):
     # coerce: str turns a null into "None" in Cerberus, so it passes there.
     nullable = frozenset({"id"})
 
-    id: Str | None = Field(None, description="Output ID")
+    id: Str = Field(None, description="Output ID")
     name: str | None = Field(None, description="Display Name")
     remote_source: Literal["esphome_api", "can", "mqtt", "wled"] = Field(description="Remote Source Protocol")
     device_id: str = Field(description="Remote Device ID")

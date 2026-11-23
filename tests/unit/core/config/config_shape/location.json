@@ -1,0 +1,15 @@
+[
+{"input": {"elevation": 80, "latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": 80, "latitude": 52.4, "longitude": 16.9}},
+{"input": {"elevation": 80, "latitude": 7, "longitude": 16.9}, "shape": {"elevation": 80, "latitude": 7, "longitude": 16.9}},
+{"input": {"elevation": 80, "latitude": -1, "longitude": 16.9}, "shape": {"elevation": 80, "latitude": -1, "longitude": 16.9}},
+{"input": {"elevation": 80, "latitude": 1.5, "longitude": 16.9}, "shape": {"elevation": 80, "latitude": 1.5, "longitude": 16.9}},
+{"input": {"elevation": 80, "latitude": 52.4, "longitude": 7}, "shape": {"elevation": 80, "latitude": 52.4, "longitude": 7}},
+{"input": {"elevation": 80, "latitude": 52.4, "longitude": -1}, "shape": {"elevation": 80, "latitude": 52.4, "longitude": -1}},
+{"input": {"elevation": 80, "latitude": 52.4, "longitude": 1.5}, "shape": {"elevation": 80, "latitude": 52.4, "longitude": 1.5}},
+{"input": {"latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": 0, "latitude": 52.4, "longitude": 16.9}},
+{"input": {"elevation": null, "latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": 0, "latitude": 52.4, "longitude": 16.9}},
+{"input": {"elevation": 7, "latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": 7, "latitude": 52.4, "longitude": 16.9}},
+{"input": {"elevation": -1, "latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": -1, "latitude": 52.4, "longitude": 16.9}},
+{"input": {"elevation": 1000, "latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": 1000, "latitude": 52.4, "longitude": 16.9}},
+{"input": {"elevation": 1.5, "latitude": 52.4, "longitude": 16.9}, "shape": {"elevation": 1.5, "latitude": 52.4, "longitude": 16.9}}
+]

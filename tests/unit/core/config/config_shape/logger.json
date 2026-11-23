@@ -1,0 +1,7 @@
+[
+{"input": {"default": "info"}, "shape": {"default": "info"}},
+{"input": {"default": "INFO", "logs": {"boneio.core": "debug"}}, "shape": {"default": "info", "logs": {"boneio.core": "debug"}}},
+{"input": {"logs": {"boneio.core": "debug"}}, "shape": {"logs": {"boneio.core": "debug"}}},
+{"input": {"default": "INFO"}, "shape": {"default": "info"}},
+{"input": {"default": "INFO", "logs": {}}, "shape": {"default": "info", "logs": {}}}
+]

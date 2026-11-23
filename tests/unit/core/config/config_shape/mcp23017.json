@@ -1,0 +1,18 @@
+[
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": "1s", "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 32, "init_sleep": "1s", "inverted": true}], "shape": [{"address": 32, "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "x", "init_sleep": "1s", "inverted": true}], "shape": [{"address": 32, "id": "x", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "TOGGLE", "init_sleep": "1s", "inverted": true}], "shape": [{"address": 32, "id": "TOGGLE", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "30s", "init_sleep": "1s", "inverted": true}], "shape": [{"address": 32, "id": "30s", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 7, "id": "mcp1", "init_sleep": "1s", "inverted": true}], "shape": [{"address": 7, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": -1, "id": "mcp1", "init_sleep": "1s", "inverted": true}], "shape": [{"address": -1, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 1000, "id": "mcp1", "init_sleep": "1s", "inverted": true}], "shape": [{"address": 1000, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<0s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": null, "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<0s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": 7, "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<7ms>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": -1, "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<-1ms>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": 1000, "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1000ms>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": 1.5, "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1500us>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": "30s", "inverted": true}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<30s>>", "inverted": true}]},
+{"input": [{"address": 32, "id": "mcp1", "init_sleep": "1s"}], "shape": [{"address": 32, "id": "mcp1", "init_sleep": "<TimePeriod TimePeriod<1s>>"}]}
+]

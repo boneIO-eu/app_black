@@ -32,7 +32,7 @@ class Trigger(Model):
     event: str | None = Field(None, description="Sun event (sun triggers only)")
     cover: str | None = Field(None, description="Cover whose window the Sun reaches or leaves (facade events only)")
     at: ClockTime | None = Field(None, description="Clock time in HH:MM (time triggers only)")
-    offset: SunOffset | None = Field(None, description="Shift the moment")
+    offset: SunOffset = Field(None, description="Shift the moment")
     earliest: ClockTime | None = Field(None, description="Not before this clock time (sun triggers only)")
     latest: ClockTime | None = Field(None, description="Not after this clock time (sun triggers only)")
     jitter: Seconds = Field(0, description="Random spread")
@@ -46,7 +46,7 @@ class Schedule(Model):
 
     name: str = Field(description="Name")
     description: str | None = Field(None, description="What this schedule is for.")
-    id: Str | None = Field(None, description="Identifier, if the one made from the name will not do.")
+    id: Str = Field(None, description="Identifier, if the one made from the name will not do.")
     enabled: bool = Field(True, description="Whether this schedule is armed.")
     trigger: Trigger = Field(description="When this schedule fires.")
     on_missed: Literal["skip", "run"] = Field(

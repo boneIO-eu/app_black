@@ -69,6 +69,17 @@ def validate(section: str, data: Any) -> list[str]:
     return []
 
 
+def load(section: str, data: Any) -> Any:
+    """The section as the running objects read it: coerced, with its defaults.
+
+    Args:
+        section: One of :data:`SECTIONS`.
+        data: The section as written; must be valid (see :func:`validate`).
+    """
+    adapter = importlib.import_module(f"{__name__}.{_MODULES[section]}").SECTION_ADAPTERS[section]
+    return adapter.dump_python(adapter.validate_python(data))
+
+
 def _path(section: str, loc: tuple, tags: frozenset[str]) -> str:
     """``event[0].actions.single[1].boneio_output`` from a pydantic location.
 

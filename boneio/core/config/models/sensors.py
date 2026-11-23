@@ -253,7 +253,7 @@ class VirtualEnergySensor(Model):
     # coerce: str turns a null into "None" in Cerberus, so it passes there.
     nullable = frozenset({"id"})
 
-    id: Str | None = Field(None, description="Sensor ID")
+    id: Str = Field(None, description="Sensor ID")
     name: str = Field(description="Sensor Name")
     output_id: str = Field(description="Output ID")
     sensor_type: Literal["power", "water"] = Field(description="Sensor Type")
