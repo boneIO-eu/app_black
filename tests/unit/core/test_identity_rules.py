@@ -20,7 +20,7 @@ from boneio.exceptions import ConfigurationException
 HEAD = "boneio:\n  name: T\n"
 
 TRIGGER = "    trigger:\n      type: time\n      at: \"20:00\"\n"
-ACTIONS = "    actions:\n      - action: mqtt\n        topic: t/x\n"
+ACTIONS = "    actions:\n      - action: mqtt\n        topic: t/x\n        action_mqtt_msg: \"on\"\n"
 
 
 def load(body: str) -> dict:
@@ -192,6 +192,7 @@ class TestDanglingVirtualSwitchReferences:
                 "      single:\n"
                 "        - action: mqtt\n"
                 "          topic: t/x\n"
+                "          action_mqtt_msg: \"on\"\n"
                 "          condition:\n"
                 "            type: state\n"
                 "            entity: virtual_switch\n"

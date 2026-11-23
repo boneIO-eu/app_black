@@ -8,7 +8,7 @@ import stat
 import pytest
 import yaml
 
-from boneio.core.config.migrations import _has_legacy_fields, run_migrations
+from boneio.core.config.migrations import CURRENT_SCHEMA_VERSION, _has_legacy_fields, run_migrations
 from boneio.core.config.migrations.v7_mqtt_password_secret import (
     _persist_mqtt_password_secret,
 )
@@ -110,8 +110,8 @@ def test_run_migrations_from_v6(tmp_path):
     config_file = _device(tmp_path, "host: localhost\npassword: mine\n")
     doc = load_yaml_file(config_file)
     doc, version = run_migrations(doc, 6, config_file)
-    assert version == 7
-    assert "config_version: 7" in (tmp_path / "config.yaml").read_text()
+    assert version == CURRENT_SCHEMA_VERSION
+    assert f"config_version: {CURRENT_SCHEMA_VERSION}" in (tmp_path / "config.yaml").read_text()
     assert yaml.safe_load((tmp_path / "secrets.yaml").read_text()) == {"mqtt_password": "mine"}
     assert doc["mqtt"]["password"] == "mine"
 

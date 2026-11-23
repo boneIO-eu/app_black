@@ -26,7 +26,7 @@ output: !include outputCoverMix.yaml
 cover: !include cover.yaml
 
 boneio:
-  config_version: 7
+  config_version: 8
   name: "boneIO Black Cover Mix"
   version: 0.8
   device_type: "Cover Mix"
