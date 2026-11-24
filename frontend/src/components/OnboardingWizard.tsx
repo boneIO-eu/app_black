@@ -220,6 +220,12 @@ export default function OnboardingWizard() {
    * leave anybody guessing about.
    */
   const [sshOutcome, setSshOutcome] = useState<string | null>(null);
+  /**
+   * The SSH login's state before the account is created, so the account step
+   * says what the password will do to it instead of promising and correcting
+   * itself on the done step. Undefined while asking; null when nobody could say.
+   */
+  const [sshBefore, setSshBefore] = useState<string | null | undefined>(undefined);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [cloudDone, setCloudDone] = useState<'live' | 'deferred' | false>(false);
   const [isEnablingCloud, setIsEnablingCloud] = useState(false);
@@ -466,6 +472,19 @@ export default function OnboardingWizard() {
       setIsImporting(false);
     }
   };
+
+  // Asked on mount: the helper takes a couple of seconds on a BeagleBone, and
+  // the welcome step covers that.
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get('/api/onboarding/ssh-password', { timeout: 30_000 })
+      .then(({ data }) => !cancelled && setSshBefore(typeof data.state === 'string' ? data.state : null))
+      .catch(() => !cancelled && setSshBefore(null));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Read on entering the step rather than up front: the import step may have
   // just replaced the whole configuration, so asking earlier would describe a
@@ -814,10 +833,22 @@ export default function OnboardingWizard() {
               </div>
             </div>
 
-            {/* Said before the password is sent, not after. It becomes the
-                root-capable SSH login as well, and somebody choosing a
-                password deserves to know what it will open. */}
-            <NoticeCallout variant="info" message={t('onboarding.ssh_password_notice')} />
+            {/* Said before the password is sent, not after. On a login the
+                factory left it becomes the root-capable SSH password as well,
+                and somebody choosing a password deserves to know what it will
+                open — or that it will not touch SSH at all. */}
+            {sshBefore !== undefined && (
+              <NoticeCallout
+                variant="info"
+                message={t(
+                  sshBefore === 'set'
+                    ? 'onboarding.ssh_password_notice_kept'
+                    : sshBefore === 'locked' || sshBefore === 'shipped' || sshBefore === 'empty'
+                      ? 'onboarding.ssh_password_notice'
+                      : 'onboarding.ssh_password_notice_unavailable',
+                )}
+              />
+            )}
             {/* Node-RED keeps no accounts of its own: its login asks boneIO
                 (settings.js, adminAuth), administrators only. */}
             <NoticeCallout variant="info" message={t('onboarding.nodered_login_notice')} />
@@ -1198,6 +1229,9 @@ export default function OnboardingWizard() {
             )}
             {sshOutcome === 'kept' && (
               <NoticeCallout variant="info" message={t('onboarding.ssh_kept')} />
+            )}
+            {sshOutcome === 'unavailable' && (
+              <NoticeCallout variant="warning" message={t('onboarding.ssh_unavailable')} />
             )}
             {sshOutcome === 'failed' && (
               <NoticeCallout variant="warning" message={t('onboarding.ssh_failed')} />
