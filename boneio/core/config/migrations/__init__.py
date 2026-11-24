@@ -33,7 +33,7 @@ SCHEMA_VERSION_APP_MAP: dict[int, str] = {
     6: "1.6.0dev15",  # gpio_mode, clear_message removed from inputs
     7: "1.6.0dev16",  # MQTT password moved to secrets.yaml
     8: "1.7.0dev1",   # dead actions, overridden pins, sub-second Modbus intervals removed
-    9: "1.7.0dev2",   # modbus section → list of buses
+    9: "1.7.0dev1",   # modbus section → list of buses
 }
 
 
