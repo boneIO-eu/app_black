@@ -455,7 +455,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                         onClick={() => handleModelSelect(device)}
                         className="flex justify-between items-center hover:bg-base-200/50 p-3.5 border-none first:rounded-t-lg last:rounded-b-lg w-full text-left transition-all cursor-pointer"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
                             {device.displayName}
                             {device.manufacturer && (
@@ -471,7 +471,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                             {getDeviceDescription(device)}
                           </div>
                         </div>
-                        <FaChevronRight className="text-xs text-base-content/30" />
+                        <FaChevronRight className="shrink-0 text-xs text-base-content/30" />
                       </button>
                     ))}
                     {searchResults.length === 0 && (
@@ -507,7 +507,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                     onClick={() => handleModelSelect(device)}
                     className="flex justify-between items-center hover:bg-base-200/50 p-3.5 border-none first:rounded-t-lg last:rounded-b-lg w-full text-left transition-all cursor-pointer"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
                         {device.displayName}
                         {device.manufacturer && (
@@ -520,7 +520,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                         {getDeviceDescription(device)}
                       </div>
                     </div>
-                    <FaChevronRight className="text-xs text-base-content/30" />
+                    <FaChevronRight className="shrink-0 text-xs text-base-content/30" />
                   </button>
                 ))}
                 {filteredDevices.length === 0 && (

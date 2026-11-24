@@ -118,7 +118,13 @@ function SelectValue({
   const itemLabels = React.useContext(SelectLabelContext)
 
   return (
-    <BaseSelect.Value placeholder={placeholder} className={className} {...props}>
+    // min-w-0 + truncate: a long label is cut with an ellipsis instead of
+    // pushing the trigger, and whatever holds it, wider than its box.
+    <BaseSelect.Value
+      placeholder={placeholder}
+      className={typeof className === "function" ? className : cn("min-w-0 truncate", className)}
+      {...props}
+    >
       {(value: string | null) => {
         // Allow consumer render prop to take precedence
         if (childrenProp != null) {
