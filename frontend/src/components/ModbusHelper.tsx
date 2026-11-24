@@ -376,7 +376,7 @@ export default function ModbusHelper() {
         device: configDevice,
         current_address: effectiveAddress,
         current_baudrate: configCurrentBaudrate,
-        new_address: configOperation === 'address' && !configBroadcast ? (configNewAddress || null) : null,
+        new_address: configOperation === 'address' ? (configNewAddress || null) : null,
         new_baudrate: configOperation === 'baudrate' ? (configNewBaudrate || null) : null,
       });
       setResult(data);
@@ -571,7 +571,7 @@ export default function ModbusHelper() {
               type="button"
               role="tab"
               aria-selected={isActive}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); setResult(null); }}
               className={cn(
                 'flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
@@ -1006,18 +1006,17 @@ export default function ModbusHelper() {
                   label={t('modbus_helper.broadcast_mode') || 'Broadcast Mode (address 0)'}
                   onChange={(checked) => {
                     setConfigBroadcast(checked);
-                    if (checked) {
-                      setConfigOperation('baudrate');
-                      setConfigCurrentAddress(0);
-                    } else {
-                      setConfigCurrentAddress(1);
-                    }
+                    setConfigCurrentAddress(checked ? 0 : 1);
                   }}
                 />
                 {configBroadcast && (
                   <NoticeCallout
                     variant="error"
-                    message={t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this bus!'}
+                    message={
+                      configOperation === 'address'
+                        ? t('modbus_helper.broadcast_address_warning')
+                        : t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this bus!'
+                    }
                   />
                 )}
               </div>
@@ -1026,18 +1025,16 @@ export default function ModbusHelper() {
             {/* Operation Type Selection */}
             <FormField label={t('modbus_helper.select_operation')}>
               <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {!configBroadcast && (
-                  <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="radio"
-                      name="operation"
-                      className="radio radio-primary radio-sm"
-                      checked={configOperation === 'address'}
-                      onChange={() => setConfigOperation('address')}
-                    />
-                    {t('modbus_helper.change_address')}
-                  </label>
-                )}
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="radio"
+                    name="operation"
+                    className="radio radio-primary radio-sm"
+                    checked={configOperation === 'address'}
+                    onChange={() => setConfigOperation('address')}
+                  />
+                  {t('modbus_helper.change_address')}
+                </label>
                 {configDevice !== 'dyp-a12-ultrasonic' && (
                   <label className="flex items-center gap-2 cursor-pointer text-sm">
                     <input
@@ -1054,14 +1051,16 @@ export default function ModbusHelper() {
             </FormField>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label={t('modbus_helper.current_address')}>
-                <NumericInput
-                  value={configCurrentAddress}
-                  onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
-                  min={1}
-                  max={247}
-                />
-              </FormField>
+              {!configBroadcast && (
+                <FormField label={t('modbus_helper.current_address')}>
+                  <NumericInput
+                    value={configCurrentAddress}
+                    onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
+                    min={1}
+                    max={247}
+                  />
+                </FormField>
+              )}
 
               <FormField label={t('modbus_helper.current_baudrate')}>
                 {configOperation === 'address' && configDevice === 'dyp-a12-ultrasonic' ? (

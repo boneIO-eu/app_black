@@ -146,3 +146,33 @@ async def test_a_read_from_the_broadcast_address_is_refused_before_the_bus():
 
     assert result == {"success": False, "error_key": "read_broadcast"}
     client.suspend.assert_not_called()
+
+
+def _configure(**kw):
+    from boneio.webui.routes.modbus import ModbusConfigureDeviceRequest
+
+    return ModbusConfigureDeviceRequest(device="boneio-edge-temp", current_baudrate=9600, **kw)
+
+
+async def test_a_broadcast_sets_the_address_of_the_one_device_on_the_bus():
+    from boneio.webui.routes.modbus import modbus_configure_device
+
+    manager, client = _manager()
+    client.client = None
+
+    result = await modbus_configure_device(_configure(current_address=0, new_address=7), manager)
+
+    assert result["success"]
+    assert client.write_register_direct.await_args.kwargs["unit"] == 0
+    assert client.write_register_direct.await_args.kwargs["value"] == 7
+
+
+async def test_configure_does_not_reach_a_read_only_device():
+    """Its address register is a register of the read only device too."""
+    from boneio.webui.routes.modbus import modbus_configure_device
+
+    manager, client = _manager({"lg": _pump(read_only=True, address="5")})
+
+    with pytest.raises(HTTPException):
+        await modbus_configure_device(_configure(current_address=0, new_baudrate=19200), manager)
+    client.write_register_direct.assert_not_awaited()

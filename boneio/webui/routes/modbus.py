@@ -800,7 +800,9 @@ async def modbus_configure_device(
             "success": False,
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
-    
+
+    _refuse_read_only_unit(boneio_manager, request.current_address, modbus_client)
+
     modbus_client.suspend()
     async with _modbus_helper_lock:
         original_baudrate = None
