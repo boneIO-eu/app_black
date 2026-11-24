@@ -460,7 +460,8 @@
     "unknown": "Nieznany",
     "unknown_event": "Nieznane Event",
     "unknown_sensor": "Nieznany Sensor",
-    "update_interval_minimum": "Update interval musi wynosić co najmniej 1 sekundę (1000ms)"
+    "update_interval_minimum": "Update interval musi wynosić co najmniej 1 sekundę (1000ms)",
+    "bus_fields_required": "ID magistrali (małe litery, cyfry, _) i port są wymagane"
   },
   "binary_sensor_form": {
     "action_type_required": "Typ akcji jest wymagany",
@@ -925,7 +926,9 @@
       "ha": "Home Assistant",
       "panel_hint": "Pokaż tę encję w panelu boneIO.",
       "ha_hint": "Ogłaszaj tę encję w Home Assistant."
-    }
+    },
+    "bus": "Magistrala",
+    "bus_hint": "Magistrala Modbus, do której podłączone jest urządzenie"
   },
   "modbus_view": {
     "title": "Urządzenia Modbus",
@@ -954,10 +957,6 @@
     "failing_count": "Z błędami: {{count}}"
   },
   "modbus_config": {
-    "uart": "UART",
-    "uart_required": "UART",
-    "select_uart": "-- Wybierz UART --",
-    "uart_help": "ID UART do użycia. Dla nowego boneIO użyj uart4, dla starego boneIO użyj uart1.",
     "baudrate": "Prędkość transmisji",
     "baudrate_help": "Prędkość komunikacji (domyślnie: 9600)",
     "data_bits": "Bity danych",
@@ -969,7 +968,16 @@
     "timeout": "Timeout",
     "timeout_help": "Czas oczekiwania na odpowiedź (domyślnie: 1500ms). Zwiększ dla wolnych urządzeń lub długich kabli.",
     "inter_device_delay": "Opóźnienie między urządzeniami",
-    "inter_device_delay_help": "Opóźnienie między transakcjami (domyślnie: 5ms). Pomaga przy topologii gwiazdy. Zalecane 5-50ms dla gwiazdy, 0ms dla łańcucha."
+    "inter_device_delay_help": "Opóźnienie między transakcjami (domyślnie: 5ms). Pomaga przy topologii gwiazdy. Zalecane 5-50ms dla gwiazdy, 0ms dla łańcucha.",
+    "bus": "Magistrala",
+    "bus_id": "ID magistrali",
+    "bus_id_help": "Małe litery, cyfry i _. Urządzenie wskazuje magistralę tym ID; urządzenie bez niego jest na pierwszej magistrali.",
+    "port": "Port",
+    "select_port": "-- Wybierz port --",
+    "port_other": "Inny… (wpisz ścieżkę)",
+    "port_not_found": "nie znaleziono",
+    "port_help": "Wbudowany RS485 (uart4) albo adapter USB RS485. Adapter wybieraj po ścieżce /dev/serial/by-id, która nie zmienia się po ponownym podłączeniu.",
+    "line_settings": "Parametry linii"
   },
   "can_config": {
     "enabled": "Włącz magistralę CAN",
@@ -1207,7 +1215,6 @@
     "change_address": "Zmień Adres",
     "change_baudrate": "Zmień Prędkość",
     "device_model": "Model Urządzenia",
-    "uart": "UART",
     "current_address": "Aktualny Adres",
     "current_baudrate": "Aktualna Prędkość",
     "new_address": "Nowy Adres",
@@ -1228,7 +1235,7 @@
     "configure_error_write_baudrate": "Nie udało się zapisać nowej prędkości. Sprawdź połączenie z urządzeniem.",
     "configure_error_no_operation": "Musisz określić nowy adres lub nową prędkość.",
     "broadcast_mode": "Tryb Broadcast (adres 0)",
-    "broadcast_warning": "Tryb broadcast zmieni ustawienia na WSZYSTKICH urządzeniach podłączonych do tej magistrali UART!",
+    "broadcast_warning": "Tryb broadcast zmieni ustawienia na WSZYSTKICH urządzeniach podłączonych do tej magistrali!",
     "creator": "Kreator",
     "device_creator": "Kreator Konfiguracji Urządzenia",
     "fc05_coil": "Cewka",
@@ -1262,7 +1269,8 @@
     "write_register_desc": "Zapisz wartość do rejestru urządzenia. Zmiana trafia prosto do sprzętu — upewnij się co do adresu.",
     "configure_desc": "Zmień adres lub prędkość transmisji obsługiwanego czujnika.",
     "creator_desc": "Zbuduj konfigurację urządzenia Modbus krok po kroku.",
-    "active_simulations_desc": "Symulowane urządzenia widoczne w Home Assistant."
+    "active_simulations_desc": "Symulowane urządzenia widoczne w Home Assistant.",
+    "bus": "Magistrala"
   },
   "modbus_creator": {
     "device_info": "Informacje o Urządzeniu",

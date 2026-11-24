@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useOverlayCheck } from './hooks/useOverlayCheck';
 import OverlayChangeDialog from './components/OverlayChangeDialog';
+import { busIdsOf, withExplicitBus } from './helpers/modbusBus';
 import type { ConfigSection, SettingsFormData } from './types/section';
 import { isRecord, type ConfigRecord, type JsonSchema } from '@/types/jsonSchema';
 
@@ -571,6 +572,7 @@ export default function UISettings() {
                   'input',
                   'event',
                   'binary_sensor',
+                  'modbus',
                   'modbus_devices',
                   'areas',
                   'sensor',
@@ -812,6 +814,7 @@ export default function UISettings() {
       'output',
       'output_group',
       'cover',
+      'modbus',
       'modbus_devices',
       'areas',
       'sensor',
@@ -840,6 +843,15 @@ export default function UISettings() {
    */
   const saveSection = async (sectionName: string, dataOverride?: unknown) => {
     if (!formReady) return;
+    // With more than one bus every saved device names its bus. The ids are
+    // the saved section's, which is what the server checks the devices against.
+    if (sectionName === 'modbus_devices') {
+      const devices = dataOverride !== undefined ? dataOverride : formData.modbus_devices;
+      if (Array.isArray(devices)) {
+        const busIds = busIdsOf(originalData.modbus);
+        dataOverride = devices.map((device: ConfigRecord) => withExplicitBus(device, busIds));
+      }
+    }
     console.log('🔄 saveSection called for:', sectionName);
     console.log('📦 formData[sectionName]:', formData[sectionName]);
     console.log('📦 dataOverride:', dataOverride);

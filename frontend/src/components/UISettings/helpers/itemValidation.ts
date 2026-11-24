@@ -38,6 +38,7 @@ interface ItemToValidate {
   close_output?: unknown;
   pulse_output?: unknown;
   pin?: unknown;
+  port?: unknown;
 }
 
 /** An input entry as areAllItemsUsed counts it. */
@@ -129,6 +130,13 @@ export function validateItem(
       }
       return { isValid, errorMessage };
     }
+
+    case 'modbus':
+      // Same pattern as the server: a device names its bus by this id.
+      return {
+        isValid: /^[a-z0-9_]+$/.test(dataToSave.id || '') && !!dataToSave.port,
+        errorMessage: t('array_table_widget.bus_fields_required'),
+      };
 
     case 'remote_devices': {
       let isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol;

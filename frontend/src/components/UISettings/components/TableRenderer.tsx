@@ -10,6 +10,7 @@ import OutputGroupTable from '../tables/OutputGroupTable';
 import CoverTable from '../tables/CoverTable';
 import BinarySensorEventTable from '../tables/BinarySensorEventTable';
 import ModbusDeviceTable from '../tables/ModbusDeviceTable';
+import ModbusBusTable from '../tables/ModbusBusTable';
 import SensorTable from '../tables/SensorTable';
 import VirtualEnergySensorTable from '../tables/VirtualEnergySensorTable';
 import RemoteDeviceTable from '../tables/RemoteDeviceTable';
@@ -77,6 +78,8 @@ const TableRenderer: React.FC<TableRendererProps> = ({
     case 'local_inputs':
     case 'remote_inputs':
       return <BinarySensorEventTable {...commonProps} allAreas={allAreas} allOutputs={allOutputs} allCovers={allCovers} allRemoteDevices={allRemoteDevices} />;
+    case 'modbus':
+      return <ModbusBusTable {...commonProps} />;
     case 'modbus_devices':
       return <ModbusDeviceTable {...commonProps} allAreas={allAreas} formatTimeperiod={formatTimeperiod} />;
     case 'areas':

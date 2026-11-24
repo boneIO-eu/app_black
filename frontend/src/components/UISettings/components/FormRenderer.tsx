@@ -10,6 +10,7 @@ import OutputForm from '../OutputForm';
 import OutputGroupForm from '../OutputGroupForm';
 import CoverForm from '../CoverForm';
 import ModbusDeviceForm from '../ModbusDeviceForm';
+import ModbusForm from '../ModbusForm';
 import AreasForm from '../AreasForm';
 import SensorForm from '../SensorForm';
 import VirtualEnergySensorForm from '../VirtualEnergySensorForm';
@@ -61,6 +62,7 @@ interface FormRendererProps {
   allAreas: AreaEntity[];
   allSensors: ConfigRecord[];
   allModbusDevices: ConfigRecord[];
+  modbusBusIds: string[];
   allRemoteDevices: RemoteDeviceEntity[];
   allRemoteInputs?: ConfigRecord[];
   allVirtualSwitches?: ConfigRecord[];
@@ -260,8 +262,12 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           data={editingItem}
           onChange={props.onChange}
           areas={props.allAreas}
+          busIds={props.modbusBusIds}
         />
       );
+
+    case 'modbus':
+      return <ModbusForm data={editingItem} onChange={props.onChange} />;
 
     case 'areas':
       return <AreasForm data={editingItem} onChange={props.onChange} />;

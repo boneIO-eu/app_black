@@ -11,7 +11,6 @@ import BoneIOForm from '../BoneIOForm';
 import MqttSectionForm from '../MqttSectionForm';
 import LoxUdpSectionForm from '../LoxUdpSectionForm';
 import WebServerForm from '../WebServerForm';
-import ModbusForm from '../ModbusForm';
 import CANForm from '../CANForm';
 import LoggerForm from '../LoggerForm';
 import Mcp23017Form from '../Mcp23017Form';
@@ -19,6 +18,7 @@ import OledForm from '../OledForm';
 import { ARRAY_SECTIONS, type ArraySectionType } from '../constants/sectionDefinitions';
 import { SettingsPage, SettingsCard, NoticeCallout } from '../ui';
 import { normalizeCovers } from '../helpers/coverUtils';
+import { busIdsOf } from '../helpers/modbusBus';
 import type { ConfigSection, SettingsFormData } from '../types/section';
 import type { ConfigRecord } from '@/types/jsonSchema';
 import UsageHistoryForm from '../UsageHistoryForm';
@@ -117,7 +117,7 @@ function ArraySectionContent({
       uiSchema={activeSectionData.uiSchema.items as ConfigRecord | undefined}
       onChange={(newData) => onSectionChange(activeSection, newData)}
       schema={activeSectionData.normalizedSchema}
-      sectionType={activeSection as 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'schedule' | 'other'}
+      sectionType={activeSection as 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'virtual_switch' | 'schedule' | 'other'}
       deviceType={formData.boneio?.device_type}
       allBinarySensors={formData.binary_sensor || (formData.local_inputs || []).filter((i) => i._type === 'binary_sensor')}
       allEvents={formData.event || (formData.local_inputs || []).filter((i) => i._type === 'event')}
@@ -131,6 +131,8 @@ function ArraySectionContent({
         ...(formData.mcp9808 || []).map((s) => ({ ...s, _source: 'mcp9808' })),
       ]}
       allModbusDevices={formData.modbus_devices || []}
+      /* The saved buses: the device ids are checked against the stored section. */
+      modbusBusIds={busIdsOf(originalData.modbus)}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
       allRemoteInputs={formData.remote_inputs || []}
@@ -190,13 +192,6 @@ function CustomFormContent({
     case 'web':
       return (
         <WebServerForm
-          data={formData[activeSection] as ConfigRecord}
-          onChange={handleChange}
-        />
-      );
-    case 'modbus':
-      return (
-        <ModbusForm
           data={formData[activeSection] as ConfigRecord}
           onChange={handleChange}
         />

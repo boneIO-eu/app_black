@@ -73,7 +73,7 @@ interface FakeDevice {
  *
  * When this component is mounted, coordinator polling is automatically
  * paused so manual operations don't conflict with background reads on
- * the same UART bus.
+ * the selected bus.
  */
 export default function ModbusHelper() {
   const { t } = useTranslation();
@@ -106,7 +106,6 @@ export default function ModbusHelper() {
 
   // CONFIGURE parameters
   const [configDevice, setConfigDevice] = useState('boneio-edge-temp');
-  const [configUart, setConfigUart] = useState('uart4');
   const [configCurrentAddress, setConfigCurrentAddress] = useState(1);
   const [configCurrentBaudrate, setConfigCurrentBaudrate] = useState(9600);
   const [configOperation, setConfigOperation] = useState<'address' | 'baudrate'>('address');
@@ -139,21 +138,39 @@ export default function ModbusHelper() {
     }
   };
 
+  // BUS: null until /ports answers. Named explicitly, because a call without one
+  // goes to the first configured bus, which is not running when its port is gone.
+  // '' (no running bus listed) leaves the choice to the server.
+  const [buses, setBuses] = useState<string[]>([]);
+  const [bus, setBus] = useState<string | null>(null);
+
   // Load config on mount
   useEffect(() => {
     axios.get('/api/modbus/config')
       .then(res => setConfig(res.data))
       .catch(err => console.error('Failed to load modbus config:', err));
+    axios.get('/api/modbus/ports')
+      .then(res => {
+        const running = (res.data as { buses?: string[] }).buses || [];
+        setBuses(running);
+        setBus(running[0] ?? '');
+      })
+      .catch(err => {
+        console.error('Failed to load Modbus buses:', err);
+        setBus('');
+      });
     loadFakeDevices();
   }, []);
 
-  // Pause coordinator polling on mount, resume on unmount
+  // Pause polling of the bus in use; resume it on unmount or when another bus is picked
   useEffect(() => {
+    if (bus === null) return;
     let cancelled = false;
+    const busParams = { params: { bus: bus || undefined } };
 
     const pausePolling = async () => {
       try {
-        const { data } = await axios.post('/api/modbus/pause');
+        const { data } = await axios.post('/api/modbus/pause', null, busParams);
         if (!cancelled && data.success) {
           setSuspended(true);
         }
@@ -167,16 +184,17 @@ export default function ModbusHelper() {
     return () => {
       cancelled = true;
       // Fire-and-forget resume on unmount
-      axios.post('/api/modbus/resume').catch(() => {});
+      axios.post('/api/modbus/resume', null, busParams).catch(() => {});
       setSuspended(false);
     };
-  }, []);
+  }, [bus]);
 
   const handleGet = async () => {
     setLoading(true);
     setResult(null);
     try {
       const { data } = await axios.post('/api/modbus/get', {
+        bus: bus || undefined,
         address,
         register_address: registerAddress,
         register_type: registerType,
@@ -199,6 +217,7 @@ export default function ModbusHelper() {
     setResult(null);
     try {
       const { data } = await axios.post('/api/modbus/set', {
+        bus: bus || undefined,
         address,
         register_address: writeRegisterAddress,
         value: writeValue,
@@ -239,6 +258,7 @@ export default function ModbusHelper() {
     setResult(null);
     try {
       const { data } = await axios.post('/api/modbus/set_multiple', {
+        bus: bus || undefined,
         address,
         register_address: writeRegisterAddress,
         values,
@@ -263,6 +283,7 @@ export default function ModbusHelper() {
       register_type: searchRegisterType,
       timeout: searchTimeout.toString(),
     });
+    if (bus) params.set('bus', bus);
 
     // Add token to query params for SSE (EventSource doesn't support headers)
     const token = localStorage.getItem('token');
@@ -350,8 +371,8 @@ export default function ModbusHelper() {
     try {
       const effectiveAddress = configBroadcast ? 0 : configCurrentAddress;
       const { data } = await axios.post('/api/modbus/configure-device', {
+        bus: bus || undefined,
         device: configDevice,
-        uart: configUart,
         current_address: effectiveAddress,
         current_baudrate: configCurrentBaudrate,
         new_address: configOperation === 'address' && !configBroadcast ? (configNewAddress || null) : null,
@@ -511,6 +532,24 @@ export default function ModbusHelper() {
           icon={<FaPause />}
           message={t('tools.modbus_paused')}
         />
+      )}
+
+      {/* Every tool works on this bus */}
+      {buses.length > 1 && (
+        <div className="stg-card p-3">
+          <FormField label={t('modbus_helper.bus')}>
+            <Select value={bus ?? ''} onValueChange={setBus}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {buses.map(id => (
+                  <SelectItem key={id} value={id}>{id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
       )}
 
       {/* Tabs — a segmented control on the canvas, like the rest of the app */}
@@ -950,20 +989,6 @@ export default function ModbusHelper() {
                   </SelectContent>
                 </Select>
               </FormField>
-
-              <FormField label={t('modbus_helper.uart')}>
-                <Select value={configUart} onValueChange={setConfigUart}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="uart1">UART1</SelectItem>
-                    <SelectItem value="uart2">UART2</SelectItem>
-                    <SelectItem value="uart4">UART4</SelectItem>
-                    <SelectItem value="uart5">UART5</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormField>
             </div>
 
             {/* Broadcast mode for edge-temp */}
@@ -986,7 +1011,7 @@ export default function ModbusHelper() {
                 {configBroadcast && (
                   <NoticeCallout
                     variant="error"
-                    message={t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this UART bus!'}
+                    message={t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this bus!'}
                   />
                 )}
               </div>

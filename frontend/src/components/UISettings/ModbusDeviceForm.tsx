@@ -126,6 +126,7 @@ interface ModbusDeviceFormData {
   area?: string;
   address?: number;
   model?: string;
+  bus?: string;
   update_interval?: string | number;
   sensors_filters?: { temperature?: Filter[]; humidity?: Filter[] };
   data?: { width?: string; length?: string };
@@ -148,6 +149,8 @@ interface ModbusDeviceFormProps {
   data: ModbusDeviceFormData;
   onChange: (data: ModbusDeviceFormData) => void;
   areas?: Array<{ id: string; name: string }>;
+  /** Ids of the saved buses; the bus select shows only when there is more than one. */
+  busIds?: string[];
 }
 
 /**
@@ -161,7 +164,8 @@ interface ModbusDeviceFormProps {
 const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({ 
   data, 
   onChange, 
-  areas = []
+  areas = [],
+  busIds = [],
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'filters' | 'data' | 'labels'>('basic');
@@ -378,6 +382,27 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               <HelpLabel className="py-0.5">{t('modbus.model_hint')}</HelpLabel>
             </div>
           </div>
+
+          {/* Bus — without one the device is on the first bus. A bus that is no
+              longer saved stays listed so the device does not silently move. */}
+          {busIds.length > 1 && (
+            <div className="form-control">
+              <label className="label py-1">
+                <span className="label-text font-medium">{t('modbus.bus')}</span>
+              </label>
+              <Select value={data.bus || busIds[0]} onValueChange={(value) => updateField('bus', value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(data.bus && !busIds.includes(data.bus) ? [...busIds, data.bus] : busIds).map((id) => (
+                    <SelectItem key={id} value={id}>{id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <HelpLabel className="py-0.5">{t('modbus.bus_hint')}</HelpLabel>
+            </div>
+          )}
 
           {/* Model description / notes from i18n — full width below the grid */}
           {selectedModel && (() => {

@@ -68,6 +68,8 @@ export interface EditItemDialogProps {
   allSensors?: ConfigRecord[];
   /** All modbus devices. */
   allModbusDevices?: ConfigRecord[];
+  /** Ids of the saved Modbus buses, for the device form's bus select. */
+  modbusBusIds?: string[];
   /** All remote devices. */
   allRemoteDevices?: RemoteDeviceEntity[];
   /** All remote inputs. `object` so BindingMatrix's typed rows (no index
@@ -129,6 +131,7 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
   allAreas = [],
   allSensors = [],
   allModbusDevices = [],
+  modbusBusIds = [],
   allRemoteDevices = [],
   allRemoteInputs = [],
   allVirtualSwitches = [],
@@ -202,6 +205,7 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
                 allAreas={allAreas}
                 allSensors={allSensors}
                 allModbusDevices={allModbusDevices}
+                modbusBusIds={modbusBusIds}
                 allRemoteDevices={allRemoteDevices}
                 allRemoteInputs={allRemoteInputs as ConfigRecord[]}
                 allVirtualSwitches={allVirtualSwitches}

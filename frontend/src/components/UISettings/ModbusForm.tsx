@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { sanitizeId } from './helpers/idValidation';
 
-/** The `modbus` section as edited here (other keys pass through untouched). */
-interface ModbusFormData {
+/** One bus of the `modbus` section as edited here (other keys pass through untouched). */
+interface ModbusBusFormData {
   [key: string]: unknown;
-  uart?: string;
+  id?: string;
+  port?: string;
   baudrate?: number;
   stopbits?: number;
   bytesize?: number;
@@ -15,14 +18,23 @@ interface ModbusFormData {
   inter_device_delay?: string | number;
 }
 
-interface ModbusFormProps {
-  data: ModbusFormData;
-  onChange: (data: ModbusFormData) => void;
+/** A port as `GET /api/modbus/ports` lists it. */
+interface SerialPort {
+  port: string;
+  label: string;
+  kind: 'builtin' | 'usb';
 }
 
+interface ModbusFormProps {
+  data: ModbusBusFormData;
+  onChange: (data: ModbusBusFormData) => void;
+}
+
+/** Select value that reveals the text input for a hand-typed port. */
+const OTHER_PORT = '__other__';
+
 /**
- * Custom form for Modbus section configuration.
- * Fields: uart, baudrate, stopbits, bytesize, parity
+ * Form for one Modbus bus: its id, the serial port it uses and the line settings.
  */
 const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
@@ -30,32 +42,73 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
     onChange({ ...data, [field]: value });
   };
 
-  // Normalize uart value to lowercase for matching with options
-  // Handle both "uart4" and "UART4" formats
-  const rawUart = data?.uart || '';
-  const uartValue = typeof rawUart === 'string' ? rawUart.toLowerCase() : '';
+  const [ports, setPorts] = useState<SerialPort[]>([]);
+  const [typingPort, setTypingPort] = useState(false);
+  useEffect(() => {
+    axios.get('/api/modbus/ports')
+      .then((res) => setPorts((res.data as { ports?: SerialPort[] }).ports || []))
+      .catch(() => {});
+  }, []);
+
+  // The configured port stays selectable while it is not listed (an unplugged adapter).
+  const port = data.port || '';
+  const portOptions = ports.map((p) => ({ port: p.port, text: p.kind === 'usb' ? `USB: ${p.label}` : p.label }));
+  if (port && !ports.some((p) => p.port === port)) {
+    portOptions.push({ port, text: `${port} (${t('modbus_config.port_not_found')})` });
+  }
 
   return (
     <div className="stg-cols">
-      {/* UART */}
+      {/* Bus ID */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">{t('modbus_config.uart')} <span className="text-error">*</span></span>
+          <span className="label-text font-medium">{t('modbus_config.bus_id')} <span className="text-error">*</span></span>
+        </label>
+        <input
+          type="text"
+          className="input input-bordered w-full"
+          value={data.id || ''}
+          onChange={(e) => handleChange('id', sanitizeId(e.target.value).replace(/-/g, '_'))}
+          placeholder="rs485"
+          required
+        />
+        <HelpLabel>{t('modbus_config.bus_id_help')}</HelpLabel>
+      </div>
+
+      {/* Port */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">{t('modbus_config.port')} <span className="text-error">*</span></span>
         </label>
         <select
           className="select select-bordered w-full"
-          value={uartValue}
-          onChange={(e) => handleChange('uart', e.target.value)}
+          value={typingPort ? OTHER_PORT : port}
+          onChange={(e) => {
+            if (e.target.value === OTHER_PORT) {
+              setTypingPort(true);
+              return;
+            }
+            setTypingPort(false);
+            handleChange('port', e.target.value);
+          }}
           required
         >
-          <option value="">{t('modbus_config.select_uart')}</option>
-          <option value="uart1">UART1 (old BoneIO)</option>
-          <option value="uart2">UART2</option>
-          <option value="uart3">UART3</option>
-          <option value="uart4">UART4 (current BoneIO)</option>
-          <option value="uart5">UART5</option>
+          <option value="">{t('modbus_config.select_port')}</option>
+          {portOptions.map((p) => (
+            <option key={p.port} value={p.port}>{p.text}</option>
+          ))}
+          <option value={OTHER_PORT}>{t('modbus_config.port_other')}</option>
         </select>
-        <HelpLabel>{t('modbus_config.uart_help')}</HelpLabel>
+        {typingPort && (
+          <input
+            type="text"
+            className="input input-bordered w-full mt-2"
+            value={port}
+            onChange={(e) => handleChange('port', e.target.value.trim())}
+            placeholder="/dev/serial/by-id/..."
+          />
+        )}
+        <HelpLabel>{t('modbus_config.port_help')}</HelpLabel>
       </div>
 
       {/* Baudrate */}

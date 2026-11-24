@@ -165,6 +165,7 @@ export const ARRAY_SECTIONS = [
   'output',
   'output_group',
   'cover',
+  'modbus',
   'modbus_devices',
   'areas',
   'sensor',
