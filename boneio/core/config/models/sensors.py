@@ -139,7 +139,11 @@ def _unique_buses(buses: list[ModbusBus]) -> list[ModbusBus]:
     return buses
 
 
-def _unique_device_ids(devices: list[ModbusDevice]) -> list[ModbusDevice]:
+def _unique_device_ids(devices: list[ModbusDevice], info: ValidationInfo) -> list[ModbusDevice]:
+    # A save refuses two devices with one id; start-up lets them through and
+    # the Modbus manager keeps the first, with an error for the other.
+    if (info.context or {}).get("at_start"):
+        return devices
     seen: dict[str, int] = {}
     for index, device in enumerate(devices):
         resolved = device_id(device.model_dump())

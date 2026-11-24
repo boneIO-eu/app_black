@@ -158,3 +158,23 @@ async def test_devices_without_buses_warns(caplog):
     assert modbus.get_modbus_client() is None
     assert modbus.bus_ids() == []
     assert any(r.levelno == logging.WARNING and "bus" in r.getMessage() for r in caplog.records)
+
+
+async def test_duplicate_device_ids_load_and_start_with_one(sim, caplog):
+    """Start-up lets two devices with one id through; the manager keeps the first."""
+    from boneio.core.config import models
+    from boneio.core.config.yaml_util import load_config_from_string
+
+    twins = [{"address": 1, "model": "sdm630"}, {"address": 1, "model": "sdm630"}]
+    assert models.validate("modbus_devices", twins)
+    config = load_config_from_string(
+        "boneio:\n  name: test\nmodbus:\n  - id: a\n    port: uart4\n"
+        "modbus_devices:\n  - {address: 1, model: sdm630}\n  - {address: 1, model: sdm630}\n"
+    )
+    assert len(config["modbus_devices"]) == 2
+
+    caplog.set_level(logging.ERROR)
+    modbus, _ = _manager(config["modbus"], config["modbus_devices"])
+
+    assert list(modbus.get_all_coordinators()) == ["1_sdm630"]
+    assert any("1_sdm630" in r.getMessage() and "skipped" in r.getMessage() for r in caplog.records)
