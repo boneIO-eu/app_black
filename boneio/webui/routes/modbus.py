@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from boneio.core.config.modbus_buses import device_bus
 from boneio.core.manager import Manager
-from boneio.modbus.client import FC06_MAX, FC06_MIN, fits_register
+from boneio.modbus.client import BROADCAST, FC06_MAX, FC06_MIN, Modbus, fits_register
 from boneio.modbus.coordinator import ModbusWriteFailed, ModbusWriteRejected
 from boneio.modbus.definition import device_models, load_definition
 from boneio.modbus.heat_pump import SCHEMES
@@ -123,10 +123,26 @@ def _heat_pump_coordinator(manager: Manager, coordinator_id: str):
     return coordinator
 
 
-def _refuse_read_only_unit(manager: Manager, unit: int) -> None:
-    """A raw Tools write must not reach a device configured read only."""
+# Nobody answers a broadcast, so "written" would claim more than is known.
+_BROADCAST_SENT = {"success": True, "message_key": "write_broadcast_sent"}
+
+
+def _refuse_read_only_unit(manager: Manager, unit: int, modbus_client: Modbus) -> None:
+    """A raw Tools write must not reach a device configured read only.
+
+    A broadcast reaches every device on its bus, so any read only one there
+    refuses it.
+    """
     for coordinator in manager.modbus.get_all_coordinators().values():
-        if coordinator.read_only and str(coordinator.address) == str(unit):
+        if not coordinator.read_only or coordinator.modbus is not modbus_client:
+            continue
+        if unit == BROADCAST:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A broadcast (address 0) reaches {coordinator.name}, which is set read only. "
+                "Turn read only off in its settings, or write to each device's own address.",
+            )
+        if str(coordinator.address) == str(unit):
             raise HTTPException(
                 status_code=400,
                 detail=f"Device {unit} is {coordinator.name}, which is set read only. "
@@ -248,6 +264,9 @@ async def modbus_get(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
+    if request.address == BROADCAST:
+        return {"success": False, "error_key": "read_broadcast"}
+
     modbus_client.suspend()
     async with _modbus_helper_lock:
         try:
@@ -305,7 +324,7 @@ async def modbus_set(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
-    _refuse_read_only_unit(boneio_manager, request.address)
+    _refuse_read_only_unit(boneio_manager, request.address, modbus_client)
     if request.register_type != "coil" and not fits_register(request.value):
         raise HTTPException(
             status_code=400,
@@ -322,6 +341,8 @@ async def modbus_set(
                 coil=request.register_type == "coil",
             )
             
+            if result and request.address == BROADCAST:
+                return _BROADCAST_SENT
             if result:
                 return {
                     "success": True,
@@ -363,7 +384,7 @@ async def modbus_set_multiple(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
 
-    _refuse_read_only_unit(boneio_manager, request.address)
+    _refuse_read_only_unit(boneio_manager, request.address, modbus_client)
 
     if not request.values:
         return {
@@ -388,6 +409,8 @@ async def modbus_set_multiple(
                 values=request.values,
             )
 
+            if result and request.address == BROADCAST:
+                return _BROADCAST_SENT
             if result:
                 return {
                     "success": True,

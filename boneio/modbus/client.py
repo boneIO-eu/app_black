@@ -101,6 +101,10 @@ FC06_MIN = -32768
 FC06_MAX = 65535
 
 
+# Unit 0: every device on the bus obeys a write to it and none answers.
+BROADCAST = 0
+
+
 def fits_register(value: int | float) -> bool:
     """Whether one FC06 write can carry the value."""
     return math.isfinite(value) and FC06_MIN <= int(value) <= FC06_MAX
@@ -563,10 +567,18 @@ class Modbus:
             # Use device_id parameter (pymodbus 3.10+)
             # _pymodbus_connect() guarantees self._client is not None here
             assert self._client is not None
+            broadcast = int(unit) == BROADCAST
             if coil:
-                result = self._client.write_coil(address=address, value=bool(value), device_id=int(unit))
+                result = self._client.write_coil(
+                    address=address, value=bool(value), device_id=int(unit), no_response_expected=broadcast
+                )
             else:
-                result = self._client.write_register(address=address, value=int(value) & 0xFFFF, device_id=int(unit))
+                result = self._client.write_register(
+                    address=address, value=int(value) & 0xFFFF, device_id=int(unit), no_response_expected=broadcast
+                )
+            if broadcast:
+                # Nobody answers a broadcast; pymodbus returns a placeholder.
+                return True
 
             # Same key as reads: a holding register is usually both polled and
             # written, and a device that is down fails both.
@@ -795,7 +807,7 @@ class Modbus:
         a list of 16-bit values starting at the given register address.
 
         Args:
-            unit: Device address (1-247).
+            unit: Device address (1-247), or 0 to broadcast: sent, nobody answers.
             address: Starting register address.
             values: List of 16-bit integer values to write.
 
@@ -820,9 +832,12 @@ class Modbus:
             )
 
             assert self._client is not None
+            broadcast = int(unit) == BROADCAST
             result = self._client.write_registers(
-                address=address, values=values, device_id=int(unit)
+                address=address, values=values, device_id=int(unit), no_response_expected=broadcast
             )
+            if broadcast:
+                return True
 
             key = (str(unit), address)
             if isinstance(result, ExceptionResponse):
@@ -885,7 +900,7 @@ class Modbus:
         Returns None immediately when suspended.
 
         Args:
-            unit: Device address (1-247).
+            unit: Device address (1-247), or 0 to broadcast: sent, nobody answers.
             address: Starting register address.
             values: List of 16-bit integer values to write.
         """
@@ -906,7 +921,7 @@ class Modbus:
         suspended.  Still acquires the UART lock to serialize access.
 
         Args:
-            unit: Device address (1-247).
+            unit: Device address (1-247), or 0 to broadcast: sent, nobody answers.
             address: Starting register address.
             values: List of 16-bit integer values to write.
         """

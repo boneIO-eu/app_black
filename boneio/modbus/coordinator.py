@@ -247,6 +247,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     def read_only(self) -> bool:
         return self._read_only
 
+    @property
+    def modbus(self) -> "Modbus":
+        """The client of the bus this device is on."""
+        return self._modbus
+
     def __init_modbus_entities__(self):
         self._registers_by_name = {
             register.decoded_name: register

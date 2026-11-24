@@ -69,14 +69,14 @@ def test_discrete_input_read_uses_fc02(modbus):
 def test_coil_write_uses_fc05(modbus, value, state):
     modbus.write_register_blocking(unit=1, address=3, value=value, coil=True)
 
-    modbus._client.write_coil.assert_called_once_with(address=3, value=state, device_id=1)
+    modbus._client.write_coil.assert_called_once_with(address=3, value=state, device_id=1, no_response_expected=False)
     modbus._client.write_register.assert_not_called()
 
 
 def test_register_write_still_uses_fc06(modbus):
     modbus.write_register_blocking(unit=1, address=3, value=7)
 
-    modbus._client.write_register.assert_called_once_with(address=3, value=7, device_id=1)
+    modbus._client.write_register.assert_called_once_with(address=3, value=7, device_id=1, no_response_expected=False)
     modbus._client.write_coil.assert_not_called()
 
 
@@ -84,14 +84,14 @@ def test_register_write_still_uses_fc06(modbus):
 def test_negative_register_value_is_written_as_twos_complement(modbus, value, word):
     modbus.write_register_blocking(unit=1, address=4, value=value)
 
-    modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1)
+    modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1, no_response_expected=False)
 
 
 @pytest.mark.parametrize(("value", "word"), [(65535, 65535), (-32768, 32768)])
 def test_register_value_at_the_edge_of_a_word_is_written(modbus, value, word):
     assert modbus.write_register_blocking(unit=1, address=4, value=value) is not None
 
-    modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1)
+    modbus._client.write_register.assert_called_once_with(address=4, value=word, device_id=1, no_response_expected=False)
 
 
 @pytest.mark.parametrize("value", [70000, 65536, -40000, -32769, -65532, float("nan"), float("inf")])

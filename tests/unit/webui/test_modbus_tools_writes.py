@@ -14,8 +14,10 @@ import pytest
 from fastapi import HTTPException
 
 from boneio.webui.routes.modbus import (
+    ModbusGetRequest,
     ModbusSetMultipleRequest,
     ModbusSetRequest,
+    modbus_get,
     modbus_set,
     modbus_set_multiple,
 )
@@ -23,6 +25,8 @@ from boneio.webui.routes.modbus import (
 
 def _manager(coordinators=None):
     client = MagicMock(write_register_direct=AsyncMock(return_value=MagicMock()))
+    for coordinator in (coordinators or {}).values():
+        coordinator.__dict__.setdefault("modbus", client)
     modbus = SimpleNamespace(
         get_modbus_client=lambda bus=None: client,
         get_all_coordinators=lambda: coordinators or {},
@@ -93,3 +97,52 @@ async def test_other_units_and_writeable_devices_still_take_raw_writes(pump):
 
     assert result["success"]
     client.write_register_direct.assert_awaited_once()
+
+
+async def test_a_read_only_device_on_another_bus_does_not_block_its_address():
+    other_bus = MagicMock()
+    pump = _pump(read_only=True)
+    pump.modbus = other_bus
+    manager, client = _manager({"lg": pump})
+
+    result = await modbus_set(ModbusSetRequest(address=1, register_address=0, value=4), manager)
+
+    assert result["success"]
+    client.write_register_direct.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        lambda m: modbus_set(ModbusSetRequest(address=0, register_address=0, value=4), m),
+        lambda m: modbus_set_multiple(ModbusSetMultipleRequest(address=0, register_address=0, values=[4]), m),
+    ],
+)
+async def test_a_broadcast_is_refused_while_the_bus_has_a_read_only_device(write):
+    """Address 0 reaches every device on the bus, the read only one too."""
+    manager, client = _manager({"lg": _pump(read_only=True, address="5")})
+
+    with pytest.raises(HTTPException) as err:
+        await write(manager)
+
+    assert err.value.status_code == 400
+    assert "LG" in err.value.detail
+    client.write_register_direct.assert_not_awaited()
+
+
+async def test_a_broadcast_says_it_was_sent_not_answered():
+    manager, client = _manager()
+
+    result = await modbus_set(ModbusSetRequest(address=0, register_address=0, value=4), manager)
+
+    assert result["success"]
+    assert result["message_key"] == "write_broadcast_sent"
+
+
+async def test_a_read_from_the_broadcast_address_is_refused_before_the_bus():
+    manager, client = _manager()
+
+    result = await modbus_get(ModbusGetRequest(address=0, register_address=0), manager)
+
+    assert result == {"success": False, "error_key": "read_broadcast"}
+    client.suspend.assert_not_called()

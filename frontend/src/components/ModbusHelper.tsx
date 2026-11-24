@@ -500,12 +500,17 @@ export default function ModbusHelper() {
     </>
   );
 
-  const addressField = (
-    <FormField label={t('modbus_helper.address')}>
+  // Writes take 0 too: a broadcast every device on the bus obeys. Nothing
+  // answers it, so reads start at 1.
+  const addressField = (broadcast: boolean) => (
+    <FormField
+      label={t('modbus_helper.address')}
+      help={broadcast && address === 0 ? t('modbus_helper.broadcast_hint') : undefined}
+    >
       <NumericInput
         value={address}
         onChange={(v) => setAddress(v === '' ? 1 : v)}
-        min={1}
+        min={broadcast ? 0 : 1}
         max={247}
       />
     </FormField>
@@ -602,7 +607,7 @@ export default function ModbusHelper() {
           }
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {addressField}
+            {addressField(false)}
 
             <FormField label={t('modbus_helper.register_address')}>
               <NumericInput
@@ -698,7 +703,7 @@ export default function ModbusHelper() {
           {/* FC05 / FC06 – single coil or register */}
           {writeMode !== 'fc16' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {addressField}
+              {addressField(true)}
 
               <FormField label={t('modbus_helper.register_address')}>
                 <NumericInput
@@ -726,7 +731,7 @@ export default function ModbusHelper() {
                 {t('modbus_helper.fc16_hint')}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {addressField}
+                {addressField(true)}
 
                 <FormField
                   label={t('modbus_helper.fc16_start_register')}

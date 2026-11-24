@@ -297,3 +297,40 @@ class TestModbusValueDecoding:
         value = struct.unpack(">I", packed)[0]
         
         assert value == 65536
+
+
+class TestBroadcastWrite:
+    """Address 0 is a broadcast: every device obeys and none answers."""
+
+    @pytest.fixture
+    def modbus(self):
+        import logging
+
+        from boneio.modbus.client import FailureLog, Modbus
+
+        client = Modbus.__new__(Modbus)
+        client._port = "/dev/ttyS4"
+        client._failures = FailureLog(logging.getLogger("boneio.modbus.client"))
+        client._client = MagicMock(connected=True)
+        return client
+
+    @pytest.mark.parametrize(
+        ("write", "method"),
+        [
+            (lambda m: m.write_register_blocking(0, 10, 4), "write_register"),
+            (lambda m: m.write_register_blocking(0, 10, 1, coil=True), "write_coil"),
+            (lambda m: m.write_registers_blocking(0, 10, [4, 5]), "write_registers"),
+        ],
+    )
+    def test_is_sent_once_without_waiting_for_a_reply(self, modbus, write, method):
+        from pymodbus.pdu import ExceptionResponse
+
+        getattr(modbus._client, method).return_value = ExceptionResponse(0xFF)
+        assert write(modbus)
+        call = getattr(modbus._client, method).call_args
+        assert call.kwargs["device_id"] == 0
+        assert call.kwargs["no_response_expected"] is True
+
+    def test_a_unit_write_still_waits_for_its_reply(self, modbus):
+        modbus.write_register_blocking(3, 10, 4)
+        assert modbus._client.write_register.call_args.kwargs["no_response_expected"] is False
