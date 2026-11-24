@@ -4,7 +4,7 @@ import logging
 
 from pymodbus.pdu import ExceptionResponse
 
-from boneio.const import UARTS
+from boneio.core.config.modbus_buses import serial_device
 
 from .client import Modbus
 from .definition import load_definition
@@ -36,7 +36,7 @@ class ModbusHelper:
     ) -> None:
         """Initialize Modbus Helper."""
         self._modbus = Modbus(
-            uart=UARTS[uart],
+            port=serial_device(uart),
             baudrate=baudrate,
             stopbits=stopbits,
             bytesize=bytesize,
@@ -214,7 +214,7 @@ async def async_run_modbus_search(
 ):
     """Run Modbus Search Function."""
     _modbus = Modbus(
-        uart=UARTS[uart],
+        port=serial_device(uart),
         baudrate=baudrate,
         stopbits=stopbits,
         bytesize=bytesize,
@@ -261,7 +261,7 @@ async def async_run_modbus_get(
         f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
     )
     _modbus = Modbus(
-        uart=UARTS[uart],
+        port=serial_device(uart),
         baudrate=baudrate,
         stopbits=stopbits,
         bytesize=bytesize,

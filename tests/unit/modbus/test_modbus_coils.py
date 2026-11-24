@@ -25,7 +25,7 @@ from tests.unit.modbus.definitions import definition
 def modbus():
     # Bypass __init__: it opens a serial client and wants an event loop.
     client = Modbus.__new__(Modbus)
-    client._uart = {"id": "/dev/ttyS4"}
+    client._port = "/dev/ttyS4"
     client._failures = FailureLog(logging.getLogger("boneio.modbus.client"))
     client._client = MagicMock()
     client._client.connected = True

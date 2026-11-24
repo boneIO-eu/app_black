@@ -77,7 +77,7 @@ class TestReadRegisters:
     def modbus(self):
         # Bypass __init__: it opens a serial client and wants an event loop.
         client = Modbus.__new__(Modbus)
-        client._uart = {"id": "/dev/ttyS4"}
+        client._port = "/dev/ttyS4"
         client._failures = FailureLog(logging.getLogger(LOGGER_NAME))
         client._client = MagicMock()
         client._client.connected = True

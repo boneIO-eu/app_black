@@ -25,7 +25,8 @@ def _modbus_manager(devices: list[dict]) -> tuple[ModbusManager, dict]:
     manager = MagicMock(config_helper=helper, _config_helper=helper)
     modbus = ModbusManager.__new__(ModbusManager)
     modbus._manager = manager
-    modbus._modbus = MagicMock(read_and_decode=AsyncMock(return_value=None))
+    modbus._bus_configs = [{"id": "rs485", "port": "uart4"}]
+    modbus._buses = {"rs485": MagicMock(read_and_decode=AsyncMock(return_value=None))}
     modbus._coordinator_built_from = {}
     modbus._modbus_coordinators = modbus._configure_modbus_coordinators(devices)
     return modbus, config

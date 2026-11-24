@@ -245,7 +245,7 @@ config_modules = [
     {"name": PCA9685, "default": []},
     {"name": ADC, "default": []},
     {"name": COVER, "default": []},
-    {"name": MODBUS, "default": {}},
+    {"name": MODBUS, "default": []},
     {"name": OLED, "default": {}},
     {"name": DALLAS, "default": None},
     {"name": OUTPUT_GROUP, "default": []},

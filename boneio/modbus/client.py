@@ -16,8 +16,7 @@ from pymodbus.exceptions import ModbusException
 from pymodbus.framer import FramerType
 from pymodbus.pdu import ExceptionResponse
 
-from boneio.const import ID, REGISTERS, RX, TX
-from boneio.exceptions import ModbusUartException
+from boneio.const import REGISTERS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -107,10 +106,6 @@ def fits_register(value: int | float) -> bool:
     return math.isfinite(value) and FC06_MIN <= int(value) <= FC06_MAX
 
 
-#: Failure-tracker key for the serial port itself, as opposed to one register.
-PORT_KEY = "port"
-
-
 class FailureLog:
     """Report a repeating Modbus failure once loudly, then quietly.
 
@@ -171,11 +166,11 @@ class FailureLog:
 
 
 class Modbus:
-    """Represent modbus connection over chosen UART."""
+    """One Modbus RTU bus: its serial port, client, lock and failure log."""
 
     def __init__(
         self,
-        uart: dict[str, Any],
+        port: str,
         baudrate: int = 9600,
         stopbits: int = 1,
         bytesize: int = 8,
@@ -186,7 +181,7 @@ class Modbus:
         """Initialize the Modbus hub.
 
         Args:
-            uart: UART configuration dict with RX/TX pins.
+            port: Serial device path, e.g. /dev/ttyS4 or /dev/serial/by-id/....
             baudrate: Serial baudrate (default 9600).
             stopbits: Number of stop bits (default 1).
             bytesize: Number of data bits (default 8).
@@ -200,14 +195,11 @@ class Modbus:
         from boneio.modbus.simulator import SimulatedClient, simulator_enabled
 
         simulated = simulator_enabled()
-        rx = uart.get(RX)
-        tx = uart.get(TX)
-        if not simulated and (not tx or not rx):
-            raise ModbusUartException
         _LOGGER.debug(
-            f"Setting UART for modbus communication: {uart} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
+            f"Setting port for modbus communication: {port} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
         )
-        self._uart = uart
+        # Also the failure-log key of the port itself, as opposed to one register.
+        self._port = port
         self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
         # Suspend mechanism: when True, coordinator polling is skipped
@@ -233,7 +225,7 @@ class Modbus:
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
         self._failures = FailureLog(_LOGGER)
 
-        _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
+        _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._port}")
         # Calculate inter-character timeout based on baudrate (3.5 characters)
         # At 9600 baud: 1 char = 11 bits (start + 8 data + parity + stop) = ~1.15ms
         # 3.5 chars = ~4ms, we use slightly more for safety
@@ -245,7 +237,7 @@ class Modbus:
             self._client = SimulatedClient(timeout=timeout)
         else:
             self._client = ModbusSerialClient(
-                port=self._uart[ID],
+                port=self._port,
                 framer=FramerType.RTU,
                 baudrate=baudrate,
                 stopbits=stopbits,
@@ -351,7 +343,7 @@ class Modbus:
         try:
             if not self._client:
                 if not silent:
-                    self._failures.failed(PORT_KEY, "Modbus client was closed")
+                    self._failures.failed(self._port, "Modbus client on %s was closed", self._port)
                 return False
 
             # Check if already connected
@@ -371,21 +363,22 @@ class Modbus:
             else:
                 if not silent:
                     self._failures.failed(
-                        PORT_KEY, "Failed to connect Modbus client to %s", self._uart[ID]
+                        self._port, "Failed to connect Modbus client to %s", self._port
                     )
                 return False
 
         except ModbusException as exception_error:
             if not silent:
                 self._failures.failed(
-                    PORT_KEY, "ModbusException during connect: %s", exception_error
+                    self._port, "ModbusException during connect to %s: %s", self._port, exception_error
                 )
             return False
         except Exception as e:
             if not silent:
                 self._failures.failed(
-                    PORT_KEY,
-                    "Unexpected error during Modbus connect: %s: %s",
+                    self._port,
+                    "Unexpected error during Modbus connect to %s: %s: %s",
+                    self._port,
                     type(e).__name__,
                     e,
                 )
@@ -393,7 +386,7 @@ class Modbus:
 
     def _port_ok(self) -> None:
         """Record that the serial port is usable again."""
-        self._failures.succeeded(PORT_KEY, f"Modbus port {self._uart[ID]}")
+        self._failures.succeeded(self._port, f"Modbus port {self._port}")
 
     async def read_and_decode(
         self,

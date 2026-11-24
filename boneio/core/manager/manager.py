@@ -101,8 +101,8 @@ class Manager:
         binary_pins: List of binary sensor configurations
         output_group: List of output group configurations
         sensors: Dictionary of sensor configurations
-        modbus: Modbus client configuration
-        modbus_devices: Dictionary of Modbus device configurations
+        modbus: List of Modbus buses
+        modbus_devices: List of Modbus device configurations
         pca9685: List of PCA9685 configurations
         mcp23017: List of MCP23017 configurations
         pcf8575: List of PCF8575 configurations
@@ -127,7 +127,7 @@ class Manager:
         binary_pins: list[dict] | None = None,
         output_group: list[dict] | None = None,
         sensors: dict[str, list] | None = None,
-        modbus: dict[str, Any] | None = None,
+        modbus: list[dict[str, Any]] | None = None,
         modbus_devices: list[dict[str, Any]] | None = None,
         pca9685: list[dict] | None = None,
         mcp23017: list[dict] | None = None,
@@ -156,7 +156,7 @@ class Manager:
         binary_pins = binary_pins or []
         output_group = output_group or []
         sensors = sensors or {}
-        modbus = modbus or {}
+        modbus = modbus or []
         modbus_devices = modbus_devices or []
         pca9685 = pca9685 or []
         mcp23017 = mcp23017 or []

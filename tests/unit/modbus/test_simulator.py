@@ -15,7 +15,7 @@ from boneio.modbus.simulator import SimulatedClient, simulator_enabled
 from tests.unit.modbus.definitions import definition
 
 LG = "lg-therma-v-r290"
-UART = {"id": "/dev/sim", "rx": "x", "tx": "y"}
+PORT = "/dev/sim"
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def sim(monkeypatch):
 
 
 def _modbus(timeout: float = 0.1) -> Modbus:
-    modbus = Modbus(uart=UART, timeout=timeout, inter_device_delay=0)
+    modbus = Modbus(port=PORT, timeout=timeout, inter_device_delay=0)
     assert isinstance(modbus.client, SimulatedClient)
     return modbus
 
