@@ -1122,7 +1122,7 @@ export default function ModbusHelper() {
           title={t('modbus_helper.device_creator')}
           description={t('modbus_helper.creator_desc')}
         >
-          <ModbusDeviceCreator />
+          <ModbusDeviceCreator bus={bus || undefined} />
         </SettingsCard>
       )}
 

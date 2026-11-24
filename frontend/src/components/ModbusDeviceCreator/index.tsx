@@ -9,7 +9,8 @@ import SetBaseSection from './SetBaseSection';
 import RegistersSection from './RegistersSection';
 import ActionsSection from './ActionsSection';
 
-export default function ModbusDeviceCreator() {
+/** `bus`: the bus the register test reads from; omitted, the server's first bus. */
+export default function ModbusDeviceCreator({ bus }: { bus?: string }) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelName, setModelName] = useState('');
@@ -168,6 +169,7 @@ export default function ModbusDeviceCreator() {
     
     try {
       const { data: result } = await axios.post('/api/modbus/get', {
+        bus: bus || undefined,
         address: testDeviceAddress,
         register_address: register.address,
         register_type: register.register_type,
