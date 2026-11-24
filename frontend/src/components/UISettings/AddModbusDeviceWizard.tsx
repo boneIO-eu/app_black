@@ -15,6 +15,9 @@ import {
 } from '../../generated/modbusDeviceCatalog';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
+import HelpLabel from './components/HelpLabel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { onSameBus, resolvedBus } from './helpers/modbusBus';
 import {
   FaBolt,
   FaWind,
@@ -35,6 +38,8 @@ interface Area {
 
 interface UsedAddress {
   address: number;
+  /** The bus the device is on; the server resolves it, null with no buses. */
+  bus?: string | null;
   model: string;
   id: string;
   name: string;
@@ -47,6 +52,7 @@ interface ExistingModbusDevice {
   model?: string;
   id?: string;
   name?: string;
+  bus?: string;
 }
 
 /** The new `modbus_devices` item the wizard hands to `onAdd`. */
@@ -59,6 +65,7 @@ interface NewModbusDeviceConfig {
   area?: string;
   id?: string;
   read_only?: boolean;
+  bus?: string;
 }
 
 interface AddModbusDeviceWizardProps {
@@ -66,6 +73,8 @@ interface AddModbusDeviceWizardProps {
   onOpenChange: (open: boolean) => void;
   allAreas: Area[];
   allModbusDevices: ExistingModbusDevice[];
+  /** Ids of the saved buses; with more than one the new device names its bus. */
+  busIds?: string[];
   onAdd: (deviceConfig: NewModbusDeviceConfig) => void;
 }
 
@@ -74,6 +83,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
   onOpenChange,
   allAreas,
   allModbusDevices,
+  busIds = [],
   onAdd,
 }) => {
   const { t } = useTranslation();
@@ -151,6 +161,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
   const [area, setArea] = useState<string>('');
   const [updateInterval, setUpdateInterval] = useState<string>('30s');
   const [customId, setCustomId] = useState<string>('');
+  const [bus, setBus] = useState<string>('');
   // A heat pump starts read only: its readings are checked against its own
   // display before anything is written to it.
   const [heatPumpModels, setHeatPumpModels] = useState<Set<string>>(new Set());
@@ -170,14 +181,16 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
             .filter(d => d.address !== undefined)
             .map(d => ({
               address: Number(d.address),
+              bus: resolvedBus(d.bus, busIds),
               model: d.model || '',
               id: d.id || '',
               name: d.name || '',
             }));
-          // Merge based on address to prevent duplicates
-          const mergedMap = new Map<number, UsedAddress>();
-          apiUsed.forEach((u: UsedAddress) => mergedMap.set(u.address, u));
-          localUsed.forEach((u: UsedAddress) => mergedMap.set(u.address, u));
+          // One entry per bus and address: the same address on two buses is two devices
+          const key = (u: UsedAddress) => `${resolvedBus(u.bus, busIds)}|${u.address}`;
+          const mergedMap = new Map<string, UsedAddress>();
+          apiUsed.forEach((u: UsedAddress) => mergedMap.set(key(u), u));
+          localUsed.forEach((u: UsedAddress) => mergedMap.set(key(u), u));
           setUsedAddresses(Array.from(mergedMap.values()));
         })
         .catch(err => {
@@ -186,6 +199,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
             .filter(d => d.address !== undefined)
             .map(d => ({
               address: Number(d.address),
+              bus: resolvedBus(d.bus, busIds),
               model: d.model || '',
               id: d.id || '',
               name: d.name || '',
@@ -193,7 +207,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
           setUsedAddresses(localUsed);
         });
     }
-  }, [open, allModbusDevices]);
+  }, [open, allModbusDevices, busIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -221,6 +235,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
       setArea('');
       setUpdateInterval('30s');
       setCustomId('');
+      setBus('');
     }
   }, [open]);
 
@@ -244,11 +259,14 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
       );
     });
 
-  // Find conflicts and suggestions when address or model changes
+  // Addresses already taken on the bus the new device goes on
+  const usedOnBus = onSameBus(usedAddresses, bus, busIds);
+
+  // Find conflicts and suggestions when address, bus or model changes
   useEffect(() => {
     if (!open) return;
 
-    const usedSet = new Set(usedAddresses.map(u => u.address));
+    const usedSet = new Set(onSameBus(usedAddresses, bus, busIds).map(u => u.address));
     let nextFree = 1;
     while (usedSet.has(nextFree)) {
       nextFree++;
@@ -260,15 +278,19 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
       setAddress(usedSet.has(defaultAddr) ? nextFree : defaultAddr);
       setUpdateInterval(selectedModel.defaultUpdateInterval || '30s');
     }
-  }, [selectedModel, usedAddresses, open]);
+  }, [selectedModel, usedAddresses, open, bus, busIds]);
 
-  // Auto-generate ID suffix when address or model changes
+  // Auto-generate ID suffix when address, bus or model changes. Off the first
+  // bus the id names the bus, so the same address and model on two buses
+  // gets two ids.
   useEffect(() => {
     if (selectedModel) {
-      const genId = `${address}_${selectedModel.modelKey}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const onBus = resolvedBus(bus, busIds);
+      const suffix = onBus && onBus !== busIds[0] ? `_${onBus}` : '';
+      const genId = `${address}_${selectedModel.modelKey}${suffix}`.toLowerCase().replace(/[^a-z0-9]+/g, '_');
       setCustomId(genId);
     }
-  }, [address, selectedModel]);
+  }, [address, selectedModel, bus, busIds]);
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
@@ -290,7 +312,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
     }
   };
 
-  const addressConflict = usedAddresses.find(u => u.address === address);
+  const addressConflict = usedOnBus.find(u => u.address === address);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,6 +338,9 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
     }
     if (readOnly) {
       deviceConfig.read_only = true;
+    }
+    if (busIds.length > 1) {
+      deviceConfig.bus = bus || busIds[0];
     }
 
     onAdd(deviceConfig);
@@ -569,6 +594,26 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Bus — without one the device is on the first bus */}
+                {busIds.length > 1 && (
+                  <div className="w-full form-control">
+                    <label className="py-1 label">
+                      <span className="font-semibold label-text">{t('modbus.bus')}</span>
+                    </label>
+                    <Select value={bus || busIds[0]} onValueChange={setBus}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {busIds.map((id) => (
+                          <SelectItem key={id} value={id}>{id}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <HelpLabel className="py-0.5">{t('modbus.bus_hint')}</HelpLabel>
+                  </div>
+                )}
 
                 {/* Modbus Address */}
                 <div className="w-full form-control">

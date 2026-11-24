@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { busIdsOf, withExplicitBus } from './modbusBus';
+import { busIdsOf, onSameBus, withExplicitBus } from './modbusBus';
 
 describe('withExplicitBus', () => {
   it('leaves a device alone when there is one bus', () => {
@@ -24,5 +24,23 @@ describe('busIdsOf', () => {
     expect(busIdsOf(undefined)).toEqual([]);
     expect(busIdsOf({ uart: 'uart4' })).toEqual([]);
     expect(busIdsOf([{ port: 'uart4' }, null])).toEqual([]);
+  });
+});
+
+describe('onSameBus', () => {
+  const used = [
+    { address: 1, bus: 'a' },
+    { address: 1, bus: 'b' },
+    { address: 2 },
+  ];
+
+  it('keeps only the entries on the chosen bus, a device naming none being on the first', () => {
+    expect(onSameBus(used, 'a', ['a', 'b'])).toEqual([{ address: 1, bus: 'a' }, { address: 2 }]);
+    expect(onSameBus(used, 'b', ['a', 'b'])).toEqual([{ address: 1, bus: 'b' }]);
+    expect(onSameBus(used, undefined, ['a', 'b'])).toEqual([{ address: 1, bus: 'a' }, { address: 2 }]);
+  });
+
+  it('treats a null bus from the server like a missing one when there are no buses', () => {
+    expect(onSameBus([{ address: 3, bus: null }, { address: 4 }], undefined, [])).toHaveLength(2);
   });
 });

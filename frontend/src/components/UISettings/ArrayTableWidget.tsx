@@ -671,6 +671,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           onOpenChange={setIsModbusWizardOpen}
           allAreas={allAreas}
           allModbusDevices={value}
+          busIds={modbusBusIds}
           onAdd={(deviceConfig) => {
             const newValue = [...value, deviceConfig];
             onChange(newValue);

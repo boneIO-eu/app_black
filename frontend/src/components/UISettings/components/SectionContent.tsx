@@ -3,7 +3,7 @@
  * Handles both array sections (ArrayTableWidget) and custom form sections.
  */
 import { useTranslation } from '@/hooks/useTranslation';
-import { useState, type ComponentProps } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import ArrayTableWidget from '../ArrayTableWidget';
 import PresenceSimulationWizard from '../PresenceSimulationWizard';
@@ -84,6 +84,8 @@ function ArraySectionContent({
 }: Omit<SectionContentProps, 'schemaLoaded'>) {
   const { t } = useTranslation();
   const [wizardOpen, setWizardOpen] = useState(false);
+  // One array per saved section: the add-device wizard re-runs its effects when it changes.
+  const modbusBusIds = useMemo(() => busIdsOf(originalData.modbus), [originalData.modbus]);
 
   // A presence simulation is a handful of ordinary schedules, so the way in is
   // here rather than as a section of its own: a page for it would have nothing
@@ -132,7 +134,7 @@ function ArraySectionContent({
       ]}
       allModbusDevices={formData.modbus_devices || []}
       /* The saved buses: the device ids are checked against the stored section. */
-      modbusBusIds={busIdsOf(originalData.modbus)}
+      modbusBusIds={modbusBusIds}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
       allRemoteInputs={formData.remote_inputs || []}

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from boneio.core.config.modbus_buses import device_bus
 from boneio.core.manager import Manager
 from boneio.modbus.client import FC06_MAX, FC06_MIN, fits_register
 from boneio.modbus.coordinator import ModbusWriteFailed, ModbusWriteRejected
@@ -982,15 +983,20 @@ async def get_used_addresses(
 ):
     """Return Modbus addresses currently configured in config.yaml.
 
-    Used by the frontend wizard to prevent address conflicts.
+    Used by the frontend wizard to prevent address conflicts. An address is
+    taken only on its own bus, so each entry names the bus its device is on
+    (None with no buses).
     """
     config = manager.config_helper.get_config()
+    buses = config.get("modbus")
+    buses = buses if isinstance(buses, list) else []
     used = []
     for device in config.get("modbus_devices", []):
         addr = device.get("address")
         if addr is not None:
             used.append({
                 "address": int(addr),
+                "bus": device_bus(device, buses),
                 "model": device.get("model", ""),
                 "id": device.get("id", ""),
                 "name": device.get("name", ""),

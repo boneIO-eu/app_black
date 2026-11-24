@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -82,3 +83,26 @@ def test_configure_device_ignores_legacy_uart_field():
         device="x", uart="uart4", current_address=1, current_baudrate=9600
     )
     assert request.bus is None
+
+
+def test_used_addresses_name_each_device_bus():
+    from boneio.webui.routes.modbus import get_used_addresses
+
+    manager = MagicMock()
+    manager.config_helper.get_config.return_value = {
+        "modbus": [{"id": "a", "port": "uart4"}, {"id": "b", "port": "/dev/ttyUSB0"}],
+        "modbus_devices": [
+            {"address": 1, "model": "sdm630"},
+            {"address": 1, "model": "sdm630", "id": "pump", "bus": "b"},
+        ],
+    }
+    result = asyncio.run(get_used_addresses(manager))
+    assert [(u["bus"], u["address"]) for u in result["used_addresses"]] == [("a", 1), ("b", 1)]
+
+
+def test_used_addresses_without_buses_name_none():
+    from boneio.webui.routes.modbus import get_used_addresses
+
+    manager = MagicMock()
+    manager.config_helper.get_config.return_value = {"modbus_devices": [{"address": 3, "model": "sdm630"}]}
+    assert asyncio.run(get_used_addresses(manager))["used_addresses"][0]["bus"] is None
