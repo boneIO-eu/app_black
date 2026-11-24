@@ -996,13 +996,14 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
             config_content
         )
     
-    # Update modbus uart if different from default (uart4)
+    # The built-in RS485 bus is on uart1 on the oldest boards
     modbus_uart = hw_config.get("modbus_uart", "uart4")
     if modbus_uart != "uart4":
         config_content = re.sub(
-            r'(modbus:\s*\n\s*)uart:\s*uart4',
-            f'\\1uart: {modbus_uart}',
-            config_content
+            r'(^modbus:[ \t]*\n(?:[ \t]+[^\n]*\n)*?[ \t]+)port:[ \t]*uart4\b',
+            f'\\g<1>port: {modbus_uart}',
+            config_content,
+            flags=re.MULTILINE,
         )
     
     # Update boneio version in config

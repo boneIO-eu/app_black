@@ -48,16 +48,23 @@ def test_reset_writes_the_template_of_that_revision(home, board, version):
     assert written == (FACTORY_CONFIG_DIR / version / board / "config.yaml").read_text()
 
 
-@pytest.mark.parametrize(("version", "temp", "power"), [
-    ("0.2", "mcp9808", None),
-    ("0.4", "lm75", "ina219"),
+@pytest.mark.parametrize(("version", "temp", "power", "port"), [
+    ("0.2", "mcp9808", None, "uart1"),
+    ("0.4", "lm75", "ina219", "uart4"),
 ])
-def test_an_older_revision_is_fitted(home, version, temp, power):
+def test_an_older_revision_is_fitted(home, version, temp, power, port):
     assert _reset("32x10", version)["status"] == "success"
     config = load_yaml_file(str(home / "boneio" / "config.yaml"))
     assert str(config["boneio"]["version"]) == version
     assert temp in config
     assert ("ina226" not in config) and (power is None or power in config)
+    assert config["modbus"] == [{"id": "rs485", "port": port}]
+
+
+def test_fitting_keeps_uart4_where_the_board_has_it():
+    template = (FACTORY_CONFIG_DIR / "0.8" / "32x10" / "config.yaml").read_text()
+    fitted = update._adjust_config_for_hardware_version(template, "1.1", "32x10")
+    assert "modbus:\n  - id: rs485\n    port: uart4\n" in fitted
 
 
 def test_without_a_version_the_reset_keeps_the_boards(home):
