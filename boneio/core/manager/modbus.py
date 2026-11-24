@@ -83,7 +83,7 @@ class ModbusManager:
                 bytesize=bus.get("bytesize", 8),
                 parity=bus.get("parity", "N"),
                 timeout=parse_time_to_seconds(bus.get("timeout"), default=1.5),
-                inter_device_delay=parse_time_to_ms(bus.get("inter_device_delay"), default=5) or 5,
+                inter_device_delay=parse_time_to_ms(bus.get("inter_device_delay"), default=5),
             )
             _LOGGER.info("Modbus bus %s configured on %s", bus[ID], bus["port"])
         except Exception as err:

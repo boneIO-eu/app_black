@@ -160,6 +160,12 @@ async def test_devices_without_buses_warns(caplog):
     assert any(r.levelno == logging.WARNING and "bus" in r.getMessage() for r in caplog.records)
 
 
+async def test_zero_inter_device_delay_is_honoured(sim):
+    modbus, _ = _manager([{**BUSES[0], "inter_device_delay": "0ms"}], [])
+
+    assert modbus.get_modbus_client("a")._inter_device_delay == 0
+
+
 async def test_duplicate_device_ids_load_and_start_with_one(sim, caplog):
     """Start-up lets two devices with one id through; the manager keeps the first."""
     from boneio.core.config import models
