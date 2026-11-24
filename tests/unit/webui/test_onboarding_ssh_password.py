@@ -103,3 +103,16 @@ def test_a_refusal_does_not_stop_the_wizard(client, helper):
 
     assert reply.status_code == 201
     assert reply.json()["ssh"] == "failed"
+
+
+@pytest.mark.parametrize("state", ["locked", "shipped", "set", None])
+def test_the_wizard_can_ask_first(client, helper, state):
+    # So it can say what the password will do to SSH before it is sent, not
+    # promise it and correct itself afterwards.
+    helper.state = state
+    assert client.get("/api/onboarding/ssh-password").json() == {"state": state}
+
+
+def test_asking_closes_with_the_first_account(client, helper):
+    client.post("/api/onboarding/admin", json=ADMIN)
+    assert client.get("/api/onboarding/ssh-password").status_code == 409

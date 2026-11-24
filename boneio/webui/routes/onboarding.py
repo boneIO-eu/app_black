@@ -228,6 +228,27 @@ async def create_first_admin(payload: FirstAdminRequest):
     return {"user": user.to_public_dict(), "token": token, "ssh": ssh}
 
 
+@router.get("/ssh-password")
+async def ssh_password_before_admin():
+    """How the boneio SSH login stands, before the first account exists.
+
+    The wizard says what the password it asks for will do to SSH before it is
+    sent, and that depends on this: only a login the factory left gets the
+    owner's password. Open like the rest of onboarding, and closed the same
+    way once an admin exists — after that it is /api/accounts/ssh-password.
+
+    Returns:
+        ``state`` — locked, empty, shipped, set, unknown, or None when the
+        helper is not there to ask.
+
+    Raises:
+        HTTPException: 409 once the device has an admin.
+    """
+    if _get_store().is_provisioned():
+        raise HTTPException(status_code=409, detail="This device is already set up.")
+    return {"state": await asyncio.to_thread(system_ops.service_password_state)}
+
+
 def _set_service_password(password: str) -> str:
     """Make the owner's first password the boneio login too, where allowed.
 
