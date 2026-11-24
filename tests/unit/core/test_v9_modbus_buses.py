@@ -121,3 +121,23 @@ def test_an_edit_that_does_not_read_back_is_undone(tmp_path, monkeypatch):
     config.write_text(BONEIO + MODBUS)
     _persist(str(config))
     assert config.read_text() == BONEIO + MODBUS
+
+
+def test_an_edit_that_cannot_be_read_back_is_undone(tmp_path, monkeypatch):
+    from boneio.core.config import yaml_util
+
+    real = yaml_util.load_yaml_file
+    calls = []
+
+    def load(path):
+        calls.append(path)
+        if len(calls) > 1:
+            raise OSError("read back failed")
+        return real(path)
+
+    monkeypatch.setattr(yaml_util, "load_yaml_file", load)
+    config = tmp_path / "config.yaml"
+    config.write_text(BONEIO + MODBUS)
+    _persist(str(config))
+    assert len(calls) == 2
+    assert config.read_text() == BONEIO + MODBUS

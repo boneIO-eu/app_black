@@ -98,7 +98,11 @@ def _persist(config_file: str) -> None:
     backup.parent.mkdir(exist_ok=True)
     shutil.copy2(file, backup)
     write_atomically(file, "".join(edited))
-    if load_yaml_file(str(main)) != {**doc, "modbus": [_bus(doc["modbus"])]}:
+    try:
+        applied = load_yaml_file(str(main)) == {**doc, "modbus": [_bus(doc["modbus"])]}
+    except Exception:
+        applied = False
+    if not applied:
         # The file does not read back as intended: put it back and let
         # start-up report the section instead.
         write_atomically(file, text)
