@@ -29,6 +29,20 @@ TASK_CANCELATION_TIMEOUT = 1
 _LOGGER = logging.getLogger(__name__)
 
 
+def _port_arg(value: str) -> str:
+    """Accept a UART key or a USB adapter path; reject anything else."""
+    import re
+
+    from boneio.const import UARTS
+    from boneio.core.config.modbus_buses import PORT_PATTERN
+
+    if value in UARTS or re.fullmatch(PORT_PATTERN, value):
+        return value
+    raise argparse.ArgumentTypeError(
+        f"{value!r} is not a UART ({', '.join(UARTS)}) or a USB adapter path"
+    )
+
+
 def get_arguments() -> argparse.Namespace:
     """Get parsed passed in arguments."""
     from boneio.const import ACTION
@@ -74,10 +88,11 @@ def get_arguments() -> argparse.Namespace:
         default=0,
     )
     modbus_parser.add_argument(
+        "--port",
         "--uart",
-        type=str,
-        choices=["uart1", "uart4"],
-        help="Choose UART",
+        dest="port",
+        type=_port_arg,
+        help="UART name (uart1, uart4) or USB adapter path (/dev/ttyUSB0, /dev/serial/by-id/...)",
         required=True,
     )
     modbus_parser.add_argument(
@@ -347,7 +362,7 @@ def run_modbus_command(
             ret = asyncio.run(
                 async_run_modbus_set(
                     device=args.device,
-                    uart=args.uart,
+                    port=args.port,
                     address=args.address,
                     baudrate=args.baudrate,
                     parity=args.parity,
@@ -362,7 +377,7 @@ def run_modbus_command(
         elif args.modbus_action == "get":
             ret = asyncio.run(
                 async_run_modbus_get(
-                    uart=args.uart,
+                    port=args.port,
                     device_address=args.address,
                     baudrate=args.baudrate,
                     register_address=args.register_address,
@@ -377,7 +392,7 @@ def run_modbus_command(
         else:
             ret = asyncio.run(
                 async_run_modbus_search(
-                    uart=args.uart,
+                    port=args.port,
                     baudrate=args.baudrate,
                     register_address=args.register_address,
                     register_type=args.register_type,

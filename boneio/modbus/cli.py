@@ -24,7 +24,7 @@ class ModbusHelper:
     def __init__(
         self,
         device: str,
-        uart: str,
+        port: str,
         address: int,
         baudrate: int,
         model: dict,
@@ -36,7 +36,7 @@ class ModbusHelper:
     ) -> None:
         """Initialize Modbus Helper."""
         self._modbus = Modbus(
-            port=serial_device(uart),
+            port=serial_device(port),
             baudrate=baudrate,
             stopbits=stopbits,
             bytesize=bytesize,
@@ -137,7 +137,7 @@ class ModbusHelper:
 
 async def async_run_modbus_set(
     device: str,
-    uart: str,
+    port: str,
     address: int,
     baudrate: int,
     new_baudrate: int | None = None,
@@ -164,14 +164,14 @@ async def async_run_modbus_set(
         first_record = first_reg_base.registers[0].model_dump()
         check_method = first_reg_base.register_type
         _LOGGER.debug(
-            f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+            f"Connecting with params port: {port}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
         )
     else:
         first_record = {}
         check_method = "input"
     modbus_helper = ModbusHelper(
         device=device,
-        uart=uart,
+        port=port,
         address=address,
         baudrate=baudrate,
         model=set_base,
@@ -204,7 +204,7 @@ async def async_run_modbus_set(
 
 
 async def async_run_modbus_search(
-    uart: str,
+    port: str,
     baudrate: int,
     register_address: int,
     register_type: str = "holding",
@@ -214,7 +214,7 @@ async def async_run_modbus_search(
 ):
     """Run Modbus Search Function."""
     _modbus = Modbus(
-        port=serial_device(uart),
+        port=serial_device(port),
         baudrate=baudrate,
         stopbits=stopbits,
         bytesize=bytesize,
@@ -245,7 +245,7 @@ async def async_run_modbus_search(
 
 
 async def async_run_modbus_get(
-    uart: str,
+    port: str,
     device_address: int,
     register_address: int,
     register_type: str,
@@ -258,10 +258,10 @@ async def async_run_modbus_get(
 ):
     """Run Modbus Get Function."""
     _LOGGER.debug(
-        f"Connecting with params uart: {uart}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
+        f"Connecting with params port: {port}, baudrate: {baudrate}, stopbits: {stopbits}, bytesize: {bytesize}, parity: {parity}."
     )
     _modbus = Modbus(
-        port=serial_device(uart),
+        port=serial_device(port),
         baudrate=baudrate,
         stopbits=stopbits,
         bytesize=bytesize,
