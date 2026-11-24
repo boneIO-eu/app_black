@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 from boneio.core import containers
 from boneio.core.auth.models import Role
 from boneio.core.config import models as config_models
+from boneio.core.config.modbus_buses import bus_change_errors, bus_reference_errors
 from boneio.core.config.secret_masking import mask_secrets, restore_secrets
 from boneio.core.config.sections import AGENT_SECRET_KEYS, RESTART_REQUIRED_SECTIONS
 from boneio.core.config.yaml_util import (
@@ -749,7 +750,7 @@ async def _stored_section(section: str) -> list | None:
         loop = asyncio.get_running_loop()
         stored = await loop.run_in_executor(None, helper.get_section, section)
     except Exception as err:  # noqa: BLE001 - a missing baseline only skips a check
-        _LOGGER.warning("Could not read stored %s to compare bounce times: %s", section, err)
+        _LOGGER.warning("Could not read stored %s: %s", section, err)
         return None
     return stored if isinstance(stored, list) else []
 
@@ -809,6 +810,20 @@ def _facade_trigger_errors(schedules: list) -> list[str]:
     return errors
 
 
+async def _modbus_bus_errors(section: str, data: list) -> list[str]:
+    """Devices must stay on the bus they name; skipped when the other section is unreadable."""
+    # Raw panel JSON: the models report malformed entries, this only skips them.
+    buses_of = lambda items: [b for b in items if isinstance(b, dict) and isinstance(b.get("id"), str)]  # noqa: E731
+    devices_of = lambda items: [d for d in items if isinstance(d, dict)]  # noqa: E731
+    if section == "modbus_devices":
+        buses = await _stored_section("modbus")
+        return [] if buses is None else bus_reference_errors(devices_of(data), buses_of(buses))
+    old, devices = await _stored_section("modbus"), await _stored_section("modbus_devices")
+    if old is None or devices is None:
+        return []
+    return bus_change_errors(buses_of(old), buses_of(data), devices_of(devices))
+
+
 async def _section_errors(section: str, data: dict | list) -> list[str]:
     """Why a save of this section would be refused; empty when it would not.
 
@@ -834,6 +849,9 @@ async def _section_errors(section: str, data: dict | list) -> list[str]:
 
     if section == "schedule" and isinstance(data, list):
         errors += _facade_trigger_errors(data)
+
+    if section in ("modbus", "modbus_devices") and isinstance(data, list):
+        errors += await _modbus_bus_errors(section, data)
 
     if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
         host = str(data.get("host", "")).strip()
