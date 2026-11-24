@@ -593,6 +593,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           onDuplicate={sectionType === 'template' ? handleDuplicate : undefined}
           onAddFromDiscovery={handleAddFromDiscovery}
           isDirty={isDirty}
+          modbusBusIds={modbusBusIds}
         />
       ) : (
         <div className="text-center py-8 text-base-content/60">

@@ -5,6 +5,7 @@ import TableActions from './TableActions';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import { resolvedBus } from '../helpers/modbusBus';
 
 interface Area {
   id: string;
@@ -19,6 +20,7 @@ export interface ModbusDeviceRow {
   address?: string | number;
   model?: string;
   update_interval?: string | number;
+  bus?: string;
 }
 
 interface ModbusDeviceTableProps {
@@ -27,16 +29,22 @@ interface ModbusDeviceTableProps {
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
   formatTimeperiod: (value: string | number) => string;
+  /** Ids of the saved buses; the bus column shows only when there are several. */
+  busIds?: string[];
 }
 
-const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({ 
-  items, 
+const NO_BUSES: string[] = [];
+
+const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
+  items,
   allAreas,
-  onEdit, 
+  onEdit,
   onDelete,
-  formatTimeperiod 
+  formatTimeperiod,
+  busIds = NO_BUSES,
 }) => {
   const { t } = useTranslation();
+  const showBus = busIds.length > 1;
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('modbus_devices');
 
   // Wrap items with originalIndex for sorting
@@ -85,6 +93,7 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
               onDelete={() => onDelete(originalIndex)}
               fields={[
                 ...(item.model ? [{ label: t('modbus.model'), value: <span className="badge badge-info h-auto py-0.5 px-2 text-[10px] uppercase font-medium">{item.model}</span> }] : []),
+                ...(showBus ? [{ label: t('modbus.bus'), value: resolvedBus(item.bus, busIds) }] : []),
                 { label: t('modbus.address'), value: item.address || '-' },
                 ...(item.update_interval ? [{ label: t('modbus.update_interval'), value: formatTimeperiod(item.update_interval) }] : []),
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
@@ -101,6 +110,7 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
             <Tr>
               <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('modbus.name_id')}</SortableHeader>
               <SortableHeader column="model" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('modbus.model')}</SortableHeader>
+              {showBus && <Th>{t('modbus.bus')}</Th>}
               <SortableHeader column="address" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('modbus.address')}</SortableHeader>
               <SortableHeader column="update_interval" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('modbus.update_interval')}</SortableHeader>
               <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.area')}</SortableHeader>
@@ -133,6 +143,7 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
                       '-'
                     )}
                   </Td>
+                  {showBus && <Td>{resolvedBus(item.bus, busIds)}</Td>}
                   <Td>{item.address || '-'}</Td>
                   <Td>{item.update_interval ? formatTimeperiod(item.update_interval) : '-'}</Td>
                   <Td>{areaName}</Td>

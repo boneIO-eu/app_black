@@ -46,6 +46,8 @@ interface TableRendererProps {
   /** True while the section has edits that have not been saved.
    *  Only the schedules table reads it, to keep "run now" off a draft. */
   isDirty?: boolean;
+  /** Ids of the saved Modbus buses, for the device table's bus column. */
+  modbusBusIds?: string[];
 }
 
 /**
@@ -63,6 +65,7 @@ const TableRenderer: React.FC<TableRendererProps> = ({
   onDuplicate,
   onAddFromDiscovery,
   isDirty,
+  modbusBusIds,
 }) => {
   const commonProps = { items, onEdit, onDelete };
 
@@ -81,7 +84,7 @@ const TableRenderer: React.FC<TableRendererProps> = ({
     case 'modbus':
       return <ModbusBusTable {...commonProps} />;
     case 'modbus_devices':
-      return <ModbusDeviceTable {...commonProps} allAreas={allAreas} formatTimeperiod={formatTimeperiod} />;
+      return <ModbusDeviceTable {...commonProps} allAreas={allAreas} formatTimeperiod={formatTimeperiod} busIds={modbusBusIds} />;
     case 'areas':
       return <AreasTable {...commonProps} />;
     case 'sensor':
