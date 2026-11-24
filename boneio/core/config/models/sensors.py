@@ -8,7 +8,6 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AfterValidator, BeforeValidator, Field, ValidationInfo, model_validator
 
-from boneio.const import UARTS
 from boneio.core.config.modbus_buses import PORT_PATTERN, device_id
 from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, section, str_lower
 from boneio.core.config.onewire_address import kernel_address, loaded_address
@@ -116,7 +115,7 @@ BusId = Annotated[str, Field(pattern=r"^[a-z0-9_]+$")]
 
 class ModbusBus(Model):
     id: BusId = Field(description="Bus ID, which a device names in its 'bus'.")
-    port: Annotated[str, Field(pattern=f"^({'|'.join(UARTS)})$|{PORT_PATTERN}")] = Field(
+    port: Annotated[str, Field(pattern=PORT_PATTERN)] = Field(
         description="The built-in RS485 by its UART (uart4), or a USB adapter by its /dev/serial/by-id path."
     )
     baudrate: int = 9600

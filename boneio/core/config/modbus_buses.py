@@ -8,13 +8,23 @@ not change its entities in Home Assistant.
 
 from __future__ import annotations
 
+import re
+
 from boneio.const import ADDRESS, ID, MODEL, UARTS
 
-#: A USB serial adapter, by a name that does not change when it is replugged
-#: (by-id, by-path) or by its kernel name. A by-id/by-path name is one path
-#: component with no dot first, so no other file is reachable through it.
-#: Outside a model check it with re.fullmatch: re.match lets a newline end it.
-PORT_PATTERN = r"^/dev/(serial/by-id/[^/.][^/]*|serial/by-path/[^/.][^/]*|ttyUSB\d+|ttyACM\d+)$"
+#: A bus port: a built-in UART by its key, or a USB serial adapter by a name
+#: that does not change when it is replugged (by-id, by-path) or by its kernel
+#: name. A by-id/by-path name is one path component of letters, digits and
+#: ``_.:+-``, with no dot first, so no other file is reachable through it.
+PORT_PATTERN = (
+    rf"^({'|'.join(UARTS)})$"
+    r"|^/dev/(serial/by-(id|path)/[A-Za-z0-9_][A-Za-z0-9_.:+-]*|ttyUSB\d+|ttyACM\d+)$"
+)
+
+
+def is_valid_port(port: str) -> bool:
+    """Whether ``port`` names a bus port :data:`PORT_PATTERN` allows."""
+    return isinstance(port, str) and re.fullmatch(PORT_PATTERN, port) is not None
 
 
 def serial_device(port: str) -> str:

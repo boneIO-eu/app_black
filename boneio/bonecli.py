@@ -31,12 +31,10 @@ _LOGGER = logging.getLogger(__name__)
 
 def _port_arg(value: str) -> str:
     """Accept a UART key or a USB adapter path; reject anything else."""
-    import re
-
     from boneio.const import UARTS
-    from boneio.core.config.modbus_buses import PORT_PATTERN
+    from boneio.core.config.modbus_buses import is_valid_port
 
-    if value in UARTS or re.fullmatch(PORT_PATTERN, value):
+    if is_valid_port(value):
         return value
     raise argparse.ArgumentTypeError(
         f"{value!r} is not a UART ({', '.join(UARTS)}) or a USB adapter path"

@@ -101,3 +101,28 @@ def test_bus_change_lets_a_dangling_reference_be_fixed():
     devs = [{"address": 1, "model": "m", "bus": "c"}]
     assert bus_change_errors([{"id": "a"}], [{"id": "a"}, {"id": "c"}], devs) == []
     assert bus_change_errors([], [{"id": "a"}], [{"address": 1, "model": "m"}]) == []
+
+
+@pytest.mark.parametrize("port", ["/dev/serial/by-id/usb-a\nb", "/dev/serial/by-id/usb-a\x01b",
+                                  "/dev/serial/by-path/a b"])
+def test_port_with_control_characters_refused(port):
+    import argparse
+
+    from boneio.bonecli import _port_arg
+    from boneio.core.config.modbus_buses import is_valid_port
+
+    assert not is_valid_port(port)
+    assert models.validate("modbus", [{"id": "a", "port": port}])
+    with pytest.raises(argparse.ArgumentTypeError):
+        _port_arg(port)
+
+
+@pytest.mark.parametrize("port", ["uart4", "/dev/serial/by-path/platform-musb-hdrc.1-usb-0:1:1.0-port0",
+                                  "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A10K1234-if00-port0"])
+def test_real_port_names_accepted(port):
+    from boneio.bonecli import _port_arg
+    from boneio.core.config.modbus_buses import is_valid_port
+
+    assert is_valid_port(port)
+    assert models.validate("modbus", [{"id": "a", "port": port}]) == []
+    assert _port_arg(port) == port

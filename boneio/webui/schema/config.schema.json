@@ -3874,7 +3874,7 @@
           },
           "port": {
             "description": "The built-in RS485 by its UART (uart4), or a USB adapter by its /dev/serial/by-id path.",
-            "pattern": "^(uart1|uart4)$|^/dev/(serial/by-id/[^/.][^/]*|serial/by-path/[^/.][^/]*|ttyUSB\\d+|ttyACM\\d+)$",
+            "pattern": "^(uart1|uart4)$|^/dev/(serial/by-(id|path)/[A-Za-z0-9_][A-Za-z0-9_.:+-]*|ttyUSB\\d+|ttyACM\\d+)$",
             "type": "string",
             "title": "Port"
           },
