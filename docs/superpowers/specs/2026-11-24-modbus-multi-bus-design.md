@@ -45,9 +45,9 @@ USB‑RS232) z własnymi ustawieniami portu.
   ramki lub parzystości blokuje odbiór albo odpowiada śmieciami. Różna
   parzystość oznacza osobną magistralę.
 - Modbus TCP.
-- Definicja urządzenia dla pompy z RX910‑SE21. To osobne zadanie: trzeba
-  pierwszym odczytem na sprzęcie potwierdzić przesunięcie adresów (4001 →
-  holding 0?).
+- Definicja urządzenia dla pompy z RX910‑SE21 (osobne zadanie). Z flow
+  Node-RED klienta: FC03, adres = liczba z PDF wprost (bez przesunięcia),
+  unit 1, 9600 8N1, temperatury ×0,1. Kodowanie ujemnych do sprawdzenia.
 - Drugi wbudowany UART (nie ma go na sterowniku).
 - Wykrywanie podłączenia lub odłączenia przejściówki w locie. Magistrala bez
   portu zachowuje się jak dziś przy braku odpowiedzi, czyli encje stają się
