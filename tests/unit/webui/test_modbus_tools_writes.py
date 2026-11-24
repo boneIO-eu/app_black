@@ -24,7 +24,7 @@ from boneio.webui.routes.modbus import (
 def _manager(coordinators=None):
     client = MagicMock(write_register_direct=AsyncMock(return_value=MagicMock()))
     modbus = SimpleNamespace(
-        get_modbus_client=lambda: client,
+        get_modbus_client=lambda bus=None: client,
         get_all_coordinators=lambda: coordinators or {},
     )
     return SimpleNamespace(modbus=modbus), client

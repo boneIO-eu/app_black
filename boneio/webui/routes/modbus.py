@@ -16,6 +16,7 @@ from boneio.modbus.client import FC06_MAX, FC06_MIN, fits_register
 from boneio.modbus.coordinator import ModbusWriteFailed, ModbusWriteRejected
 from boneio.modbus.definition import device_models, load_definition
 from boneio.modbus.heat_pump import SCHEMES
+from boneio.modbus.ports import list_serial_ports
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class ModbusGetRequest(BaseModel):
     register_address: int
     register_type: str = "holding"
     value_type: str = "S_WORD"
+    bus: str | None = None
 
 
 class ModbusSetRequest(BaseModel):
@@ -55,6 +57,7 @@ class ModbusSetRequest(BaseModel):
     register_address: int
     value: int | float
     register_type: str = "holding"
+    bus: str | None = None
 
 
 class ModbusSetMultipleRequest(BaseModel):
@@ -66,6 +69,7 @@ class ModbusSetMultipleRequest(BaseModel):
     address: int
     register_address: int
     values: list[int]
+    bus: str | None = None
 
 
 class ModbusSearchRequest(BaseModel):
@@ -75,16 +79,37 @@ class ModbusSearchRequest(BaseModel):
     start_address: int = 1
     end_address: int = 247
     timeout: float = 0.3
+    bus: str | None = None
 
 
 class ModbusConfigureDeviceRequest(BaseModel):
     """Request model for Modbus device configuration."""
     device: str
-    uart: str
+    bus: str | None = None
     current_address: int
     current_baudrate: int
     new_address: int | None = None
     new_baudrate: int | None = None
+
+
+def _bus_client(manager: Manager, bus: str | None):
+    """The client of ``bus`` (default: the first), None if no bus is configured.
+
+    A named bus that is not running is a 404.
+    """
+    client = manager.modbus.get_modbus_client(bus)
+    if client is None and bus is not None:
+        raise HTTPException(status_code=404, detail=f"Unknown Modbus bus: {bus}")
+    return client
+
+
+@router.get("/modbus/ports")
+async def modbus_ports(boneio_manager: Manager = Depends(get_manager)):
+    """Serial ports to pick for a bus, and the ids of the running buses."""
+    return {
+        "ports": list_serial_ports(boneio_manager.modbus.bus_ports()),
+        "buses": boneio_manager.modbus.bus_ids(),
+    }
 
 
 def _heat_pump_coordinator(manager: Manager, coordinator_id: str):
@@ -215,7 +240,7 @@ async def modbus_get(
     Returns:
         Read value or error.
     """
-    modbus_client = boneio_manager.modbus.get_modbus_client()
+    modbus_client = _bus_client(boneio_manager, request.bus)
     if not modbus_client:
         return {
             "success": False,
@@ -275,7 +300,7 @@ async def modbus_set(
     Returns:
         Success status.
     """
-    modbus_client = boneio_manager.modbus.get_modbus_client()
+    modbus_client = _bus_client(boneio_manager, request.bus)
     if not modbus_client:
         return {
             "success": False,
@@ -336,7 +361,7 @@ async def modbus_set_multiple(
     Returns:
         Success status with number of registers written.
     """
-    modbus_client = boneio_manager.modbus.get_modbus_client()
+    modbus_client = _bus_client(boneio_manager, request.bus)
     if not modbus_client:
         return {
             "success": False,
@@ -396,6 +421,7 @@ async def modbus_search_stream(
     register_address: int = 1,
     register_type: str = "input",
     timeout: float = 0.3,
+    bus: str | None = None,
     boneio_manager: Manager = Depends(get_manager)
 ):
     """
@@ -412,11 +438,11 @@ async def modbus_search_stream(
         SSE stream with progress updates.
     """
     global _modbus_search_cancel
-    
+    modbus_client = _bus_client(boneio_manager, bus)
+
     async def event_generator():
         global _modbus_search_cancel
-        
-        modbus_client = boneio_manager.modbus.get_modbus_client()
+
         if not modbus_client:
             yield f"data: {json.dumps({'type': 'error', 'error': 'Modbus is not configured'})}\n\n"
             return
@@ -482,6 +508,7 @@ async def modbus_search_cancel():
 
 @router.post("/modbus/pause")
 async def modbus_pause(
+    bus: str | None = None,
     boneio_manager: Manager = Depends(get_manager),
 ):
     """Suspend coordinator polling.
@@ -493,7 +520,7 @@ async def modbus_pause(
     Returns:
         Current suspended status.
     """
-    modbus_client = boneio_manager.modbus.get_modbus_client()
+    modbus_client = _bus_client(boneio_manager, bus)
     if not modbus_client:
         return {"success": False, "error": "Modbus is not configured."}
     modbus_client.suspend()
@@ -502,6 +529,7 @@ async def modbus_pause(
 
 @router.post("/modbus/resume")
 async def modbus_resume(
+    bus: str | None = None,
     boneio_manager: Manager = Depends(get_manager),
 ):
     """Resume coordinator polling.
@@ -511,7 +539,7 @@ async def modbus_resume(
     Returns:
         Current suspended status.
     """
-    modbus_client = boneio_manager.modbus.get_modbus_client()
+    modbus_client = _bus_client(boneio_manager, bus)
     if not modbus_client:
         return {"success": False, "error": "Modbus is not configured."}
     modbus_client.resume()
@@ -549,6 +577,9 @@ async def modbus_status(
 class ModbusPollingRequest(BaseModel):
     """Request model for Modbus polling toggle."""
     enabled: bool
+    # Polling is per coordinator, which already knows its bus; accepted so
+    # the helper sends one shape for every call.
+    bus: str | None = None
 
 
 @router.post("/modbus/{coordinator_id}/polling")
@@ -732,7 +763,7 @@ async def modbus_configure_device(
     Returns:
         Success status.
     """
-    modbus_client = boneio_manager.modbus.get_modbus_client()
+    modbus_client = _bus_client(boneio_manager, request.bus)
     if not modbus_client:
         return {
             "success": False,
@@ -744,7 +775,7 @@ async def modbus_configure_device(
         original_baudrate = None
         try:
             _LOGGER.info(
-                f"Configuring device {request.device} on {request.uart} at address {request.current_address}, "
+                f"Configuring device {request.device} on bus {request.bus} at address {request.current_address}, "
                 f"baudrate {request.current_baudrate}, new_address={request.new_address}, "
                 f"new_baudrate={request.new_baudrate}"
             )

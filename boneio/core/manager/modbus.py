@@ -182,6 +182,10 @@ class ModbusManager:
             bus = self._bus_configs[0][ID]
         return self._buses.get(bus)
 
+    def bus_ports(self) -> list[str]:
+        """The ``port`` of every configured bus, in config order."""
+        return [bus["port"] for bus in self._bus_configs]
+
     def bus_ids(self) -> list[str]:
         """Ids of the running buses, in config order."""
         return list(self._buses)
