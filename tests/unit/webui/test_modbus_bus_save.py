@@ -70,5 +70,7 @@ async def test_unreadable_stored_section_skips_check(stored):
 async def test_malformed_entries_do_not_crash(stored):
     stored["modbus"] = [A, "junk", {"port": "x"}]
     stored["modbus_devices"] = [DEV, None]
-    await config_core._section_errors("modbus_devices", [None, "x", {"bus": "q"}])
-    await config_core._section_errors("modbus", ["junk", {"id": None}, A])
+    assert await config_core._section_errors("modbus_devices", [None, "x", {"bus": "q"}]) == [
+        "Modbus device '_' is on bus 'q', which is not configured."
+    ]
+    assert await config_core._section_errors("modbus", ["junk", {"id": None}, A]) == []

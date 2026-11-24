@@ -996,7 +996,7 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
             config_content
         )
     
-    # The built-in RS485 bus is on uart1 on the oldest boards
+    # The built-in RS485 bus is on uart1 on the oldest controllers
     modbus_uart = hw_config.get("modbus_uart", "uart4")
     if modbus_uart != "uart4":
         config_content = re.sub(
