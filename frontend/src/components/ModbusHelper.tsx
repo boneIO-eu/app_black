@@ -47,6 +47,7 @@ interface ModbusResult {
   error_params?: {
     device?: string;
     supported?: string;
+    port?: string;
   };
   devices?: number[];
   count?: number;
@@ -339,7 +340,7 @@ export default function ModbusHelper() {
             setLoading(false);
             break;
           case 'error':
-            setResult({ success: false, error: data.error });
+            setResult({ success: false, error: data.error, error_key: data.error_key, error_params: data.error_params });
             eventSource.close();
             setLoading(false);
             break;
@@ -901,7 +902,7 @@ export default function ModbusHelper() {
 
             {result.error_key && (
               <p className="text-sm text-error">
-                {t(`modbus_helper.${result.error_key}`)}
+                {t(`modbus_helper.${result.error_key}`, result.error_params)}
                 {result.error_params?.supported && ` ${result.error_params.supported}`}
               </p>
             )}

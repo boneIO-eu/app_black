@@ -1227,6 +1227,7 @@
     "configure_step1": "After configuration, you MUST power-cycle (disconnect and reconnect) the device.",
     "configure_step2": "If you need to change both address and baudrate, do them separately with a power-cycle between each operation.",
     "configure_success": "Device configured successfully. Please power-cycle (disconnect and reconnect) the device for changes to take effect.",
+    "port_not_open": "Cannot open port {{port}}. Check that the USB adapter is plugged in.",
     "configure_error_no_support": "Device does not support configuration.",
     "configure_error_no_address": "Device does not support address change.",
     "configure_error_no_baudrate": "Device does not support baudrate change.",

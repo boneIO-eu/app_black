@@ -192,7 +192,7 @@ export default function ModbusDeviceCreator({ bus }: { bus?: string }) {
         updateRegister(register.id, {
           tested: false,
           testResult: undefined,
-          testError: result.error || 'No response',
+          testError: result.error_key ? t(`modbus_helper.${result.error_key}`, result.error_params) : result.error || 'No response',
         });
       }
     } catch (error) {

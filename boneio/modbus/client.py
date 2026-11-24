@@ -258,6 +258,16 @@ class Modbus:
         return self._client
 
     @property
+    def port(self) -> str:
+        """The serial device this client talks through."""
+        return self._port
+
+    @property
+    def port_open(self) -> bool:
+        """False when the port could not be opened, e.g. an unplugged USB adapter."""
+        return self._client is not None and self._client.connected
+
+    @property
     def is_suspended(self) -> bool:
         """Return True if coordinator polling is suspended (Tools active)."""
         return self._suspended

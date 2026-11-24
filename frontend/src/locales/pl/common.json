@@ -1227,6 +1227,7 @@
     "configure_step1": "Po konfiguracji MUSISZ zrestartować (odłączyć i podłączyć) urządzenie.",
     "configure_step2": "Jeśli musisz zmienić zarówno adres jak i prędkość, zrób to osobno z restartem urządzenia między operacjami.",
     "configure_success": "Urządzenie skonfigurowane pomyślnie. Zrestartuj (odłącz i podłącz) urządzenie, aby zmiany zaczęły działać.",
+    "port_not_open": "Nie można otworzyć portu {{port}}. Sprawdź, czy przejściówka USB jest podłączona.",
     "configure_error_no_support": "Urządzenie nie obsługuje konfiguracji.",
     "configure_error_no_address": "Urządzenie nie obsługuje zmiany adresu.",
     "configure_error_no_baudrate": "Urządzenie nie obsługuje zmiany prędkości.",

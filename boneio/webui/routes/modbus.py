@@ -272,10 +272,7 @@ async def modbus_get(
                     "raw_registers": list(payload),
                 }
             else:
-                return {
-                    "success": False,
-                    "error": "No response from device",
-                }
+                return _no_answer(modbus_client, "No response from device")
                 
         except Exception as e:
             _LOGGER.error(f"Modbus GET error: {e}")
@@ -331,10 +328,7 @@ async def modbus_set(
                     "message": "Value written successfully.",
                 }
             else:
-                return {
-                    "success": False,
-                    "error": "Write operation failed - no response from device",
-                }
+                return _no_answer(modbus_client, "Write operation failed - no response from device")
                 
         except Exception as e:
             _LOGGER.error(f"Modbus SET error: {e}")
@@ -402,10 +396,7 @@ async def modbus_set_multiple(
                     "count": len(request.values),
                 }
             else:
-                return {
-                    "success": False,
-                    "error": "FC16 write operation failed - no response from device",
-                }
+                return _no_answer(modbus_client, "FC16 write operation failed - no response from device")
 
         except Exception as e:
             _LOGGER.error("Modbus SET_MULTIPLE (FC16) error: %s", e)
@@ -413,6 +404,17 @@ async def modbus_set_multiple(
                 "success": False,
                 "error": str(e),
             }
+
+
+def _port_not_open(modbus_client) -> dict:
+    return {"error_key": "port_not_open", "error_params": {"port": modbus_client.port}}
+
+
+def _no_answer(modbus_client, error: str) -> dict:
+    """A failed helper call: a port that never opened, or a silent device."""
+    if not modbus_client.port_open:
+        return {"success": False, **_port_not_open(modbus_client)}
+    return {"success": False, "error": error}
 
 
 @router.get("/modbus/search/stream")
@@ -478,7 +480,12 @@ async def modbus_search_stream(
                         
                 except Exception:
                     pass
-                
+
+                if not modbus_client.port_open:
+                    # Every address would fail the same way; say why at once.
+                    yield f"data: {json.dumps({'type': 'error', **_port_not_open(modbus_client)})}\n\n"
+                    return
+
                 scanned += 1
                 
                 if scanned % 5 == 0:
