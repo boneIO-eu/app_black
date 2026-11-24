@@ -32,6 +32,12 @@
             ],
             "title": "Address"
           },
+          "bus": {
+            "pattern": "^[a-z0-9_]+$",
+            "type": "string",
+            "description": "ID of the bus the device is on. Without it, the first bus.",
+            "title": "Bus"
+          },
           "model": {
             "description": "Model to load from database.",
             "type": "string",

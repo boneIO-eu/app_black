@@ -185,7 +185,7 @@ async def test_a_reload_that_fails_leaves_it_saved_and_out_of_the_queue(device):
 
 @pytest.mark.asyncio
 async def test_a_section_applied_at_restart_is_not_reloaded(device):
-    made = await _propose(section="modbus", data={"uart": "uart1"})
+    made = await _propose(section="modbus", data=[{"id": "rs485", "port": "uart1"}])
     result = await routes.approve_proposal(made["id"], AGENT, None)
     assert result["restart_required"] is True
     device.manager.reload_config.assert_not_awaited()

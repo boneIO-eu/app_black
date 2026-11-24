@@ -8,6 +8,8 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AfterValidator, BeforeValidator, Field, ValidationInfo, model_validator
 
+from boneio.const import UARTS
+from boneio.core.config.modbus_buses import PORT_PATTERN, device_id
 from boneio.core.config.models.base import Model, Str, StrPeriod, coerce, section, str_lower
 from boneio.core.config.onewire_address import kernel_address, loaded_address
 
@@ -109,8 +111,14 @@ class Mcp9808(Lm75):
 # ------------------------------------------------------------------- modbus
 
 
-class Modbus(Model):
-    uart: Literal["uart1", "uart2", "uart3", "uart4", "uart5"] = Field(description="Uart ID to use")
+BusId = Annotated[str, Field(pattern=r"^[a-z0-9_]+$")]
+
+
+class ModbusBus(Model):
+    id: BusId = Field(description="Bus ID, which a device names in its 'bus'.")
+    port: Annotated[str, Field(pattern=f"^({'|'.join(UARTS)})$|{PORT_PATTERN}")] = Field(
+        description="The built-in RS485 by its UART (uart4), or a USB adapter by its /dev/serial/by-id path."
+    )
     baudrate: int = 9600
     stopbits: Literal[1, 2] = 1
     bytesize: int = 8
@@ -121,6 +129,27 @@ class Modbus(Model):
         "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need "
         "time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
     )
+
+
+def _unique_buses(buses: list[ModbusBus]) -> list[ModbusBus]:
+    for field in ("id", "port"):
+        values = [getattr(bus, field) for bus in buses]
+        if duplicate := next((v for v in values if values.count(v) > 1), None):
+            raise ValueError(f"Two buses have the {field} {duplicate!r}.")
+    return buses
+
+
+def _unique_device_ids(devices: list[ModbusDevice]) -> list[ModbusDevice]:
+    seen: dict[str, int] = {}
+    for index, device in enumerate(devices):
+        resolved = device_id(device.model_dump())
+        if resolved in seen:
+            raise ValueError(
+                f"Devices {seen[resolved] + 1} and {index + 1} both have the id {resolved!r}, also when on "
+                "different buses — give one of them an explicit 'id'."
+            )
+        seen[resolved] = index
+    return devices
 
 
 def _known_model(value: str) -> str:
@@ -165,6 +194,7 @@ class ModbusDevice(Model):
         None, description="Device ID"
     )
     address: Address = Field(description="Address of Modbus sensor to use.")
+    bus: BusId | None = Field(None, description="ID of the bus the device is on. Without it, the first bus.")
     # No enum in the schema: _known_model reads the device files, so a new
     # device needs no schema rebuild.
     model: Annotated[str, BeforeValidator(str_lower), AfterValidator(_known_model)] = Field(
@@ -304,13 +334,12 @@ SECTION_ADAPTERS = {
         "one MCP9808 instead of LM75on board, which measures temperature.",
     ),
     "modbus": section(
-        Modbus,
-        "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables "
-        "modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old "
-        "boneIO it is uart1.",
+        Annotated[list[ModbusBus], AfterValidator(_unique_buses)],
+        "https://boneio.eu/docs/black/configuration/modbus \n Modbus buses of boneIO Black: the built-in "
+        "RS485 (uart4; uart1 on old boneIO) and USB RS485 adapters. A device without 'bus' is on the first.",
     ),
     "modbus_devices": section(
-        list[ModbusDevice],
+        Annotated[list[ModbusDevice], AfterValidator(_unique_device_ids)],
         "https://boneio.eu/docs/black/configuration/modbus-sensors \n List of modbus sensors. You can use "
         "predefined modbus sensors. It would fetch data from them and publish to mqtt.",
     ),

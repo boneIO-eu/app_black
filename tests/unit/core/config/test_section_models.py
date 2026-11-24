@@ -228,7 +228,7 @@ def _bases() -> list[tuple[str, dict, tuple, bool]]:
         ("lm75", {"id": "board", "address": 73, "update_interval": "2min", "filters": [{"round": 1}],
                   "unit_of_measurement": "°C"}, (), False),
         ("mcp9808", {"id": "mcp", "address": "0x18", "update_interval": "1min"}, (), False),
-        ("modbus", {"uart": "uart4", "baudrate": 19200, "stopbits": 2, "bytesize": 7, "parity": "E",
+        ("modbus", {"id": "rs485", "port": "uart4", "baudrate": 19200, "stopbits": 2, "bytesize": 7, "parity": "E",
                     "timeout": "2s", "inter_device_delay": "10ms"}, (), False),
         ("modbus_devices", {"name": "Air", "area": "living", "id": "air_1", "address": 3, "model": "cwt",
                             "update_interval": "1min", "entity_labels": {"temperature": "Temp"},

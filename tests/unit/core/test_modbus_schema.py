@@ -92,7 +92,7 @@ class TestModbusDeviceConfigValidation:
         }
         device.update(modbus_overrides)
 
-        lines = ["boneio:", "  name: test", "modbus:", "  uart: uart4", "modbus_devices:"]
+        lines = ["boneio:", "  name: test", "modbus:", "  - id: rs485", "    port: uart4", "modbus_devices:"]
         lines.append("  - " + "\n    ".join(f"{k}: {v}" for k, v in device.items()))
         return "\n".join(lines) + "\n"
 
@@ -125,7 +125,8 @@ class TestModbusDeviceConfigValidation:
 boneio:
   name: test
 modbus:
-  uart: uart4
+  - id: rs485
+    port: uart4
 modbus_devices:
   - address: 1
     update_interval: 30s
@@ -139,7 +140,8 @@ modbus_devices:
 boneio:
   name: test
 modbus:
-  uart: uart4
+  - id: rs485
+    port: uart4
 modbus_devices:
   - model: sdm120
     update_interval: 30s
@@ -169,7 +171,8 @@ modbus_devices:
 boneio:
   name: test
 modbus:
-  uart: uart4
+  - id: rs485
+    port: uart4
 modbus_devices:
   - model: sdm120
     address: 1

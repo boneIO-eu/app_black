@@ -25,7 +25,8 @@ boneio:
   version: 1.0
 
 modbus:
-  uart: uart4
+  - id: rs485
+    port: uart4
 
 logger:
   default: info

@@ -3863,82 +3863,89 @@
       "title": "Oled"
     },
     "modbus": {
-      "properties": {
-        "uart": {
-          "description": "Uart ID to use",
-          "enum": [
-            "uart1",
-            "uart2",
-            "uart3",
-            "uart4",
-            "uart5"
-          ],
-          "type": "string",
-          "title": "Uart"
+      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus buses of boneIO Black: the built-in RS485 (uart4; uart1 on old boneIO) and USB RS485 adapters. A device without 'bus' is on the first.",
+      "items": {
+        "properties": {
+          "id": {
+            "description": "Bus ID, which a device names in its 'bus'.",
+            "pattern": "^[a-z0-9_]+$",
+            "type": "string",
+            "title": "Id"
+          },
+          "port": {
+            "description": "The built-in RS485 by its UART (uart4), or a USB adapter by its /dev/serial/by-id path.",
+            "pattern": "^(uart1|uart4)$|^/dev/(serial/by-id/[^/.][^/]*|serial/by-path/[^/.][^/]*|ttyUSB\\d+|ttyACM\\d+)$",
+            "type": "string",
+            "title": "Port"
+          },
+          "baudrate": {
+            "default": 9600,
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "stopbits": {
+            "default": 1,
+            "enum": [
+              1,
+              2
+            ],
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "bytesize": {
+            "default": 8,
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "parity": {
+            "default": "N",
+            "enum": [
+              "N",
+              "E",
+              "O"
+            ],
+            "type": "string"
+          },
+          "timeout": {
+            "default": "1500ms",
+            "description": "Response timeout. Increase for slow devices or long cables.",
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "title": "Timeout"
+          },
+          "inter_device_delay": {
+            "default": "5ms",
+            "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "title": "Inter device delay"
+          }
         },
-        "baudrate": {
-          "default": 9600,
-          "type": [
-            "integer",
-            "string"
-          ]
-        },
-        "stopbits": {
-          "default": 1,
-          "enum": [
-            1,
-            2
-          ],
-          "type": [
-            "integer",
-            "string"
-          ]
-        },
-        "bytesize": {
-          "default": 8,
-          "type": [
-            "integer",
-            "string"
-          ]
-        },
-        "parity": {
-          "default": "N",
-          "enum": [
-            "N",
-            "E",
-            "O"
-          ],
-          "type": "string"
-        },
-        "timeout": {
-          "default": "1500ms",
-          "description": "Response timeout. Increase for slow devices or long cables.",
-          "type": [
-            "number",
-            "string"
-          ],
-          "x-timeperiod": true,
-          "title": "Timeout"
-        },
-        "inter_device_delay": {
-          "default": "5ms",
-          "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
-          "type": [
-            "number",
-            "string"
-          ],
-          "x-timeperiod": true,
-          "title": "Inter device delay"
-        }
+        "required": [
+          "id",
+          "port"
+        ],
+        "type": [
+          "object",
+          "string"
+        ]
       },
-      "required": [
-        "uart"
-      ],
       "type": [
-        "object",
+        "array",
         "string"
       ],
-      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
       "title": "Modbus"
     },
     "can": {
@@ -4096,6 +4103,12 @@
               "string"
             ],
             "title": "Address"
+          },
+          "bus": {
+            "pattern": "^[a-z0-9_]+$",
+            "type": "string",
+            "description": "ID of the bus the device is on. Without it, the first bus.",
+            "title": "Bus"
           },
           "model": {
             "description": "Model to load from database.",

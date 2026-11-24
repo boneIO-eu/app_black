@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import ADDRESS, ID, MODEL, NAME, UART, UARTS, UPDATE_INTERVAL
+from boneio.core.config.modbus_buses import device_id as modbus_device_id
 from boneio.core.config.yaml_util import normalize_section
 from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_ms, parse_time_to_seconds
 from boneio.exceptions import ModbusUartException
@@ -220,12 +221,7 @@ class ModbusManager:
         Returns:
             Generated device ID
         """
-        if device_config.get(ID):
-            return str(device_config[ID]).replace(" ", "").lower()
-        else:
-            address = device_config.get(ADDRESS, "")
-            model = device_config.get(MODEL, "")
-            return f"{address}_{model}".lower().replace(" ", "_")
+        return modbus_device_id(device_config)
 
     def _coordinator_inputs(self, device_config: dict[str, Any]) -> dict[str, Any]:
         """Constructor arguments of a device's coordinator, in one form.
