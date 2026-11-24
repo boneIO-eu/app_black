@@ -199,6 +199,24 @@ class TestPymodbusFilter:
         Log.error("Frame check failed")
         assert [r.getMessage() for r in caplog.records] == ["Frame check failed"]
 
+    def test_a_port_that_cannot_be_opened_is_logged_once_per_reason(self, caplog):
+        """An unplugged adapter: pymodbus logs the open error on every retry."""
+        from pymodbus.logging import Log
+
+        boneio_logger.configure_logger(log_config={}, debug=0)
+        caplog.set_level(logging.INFO, logger=boneio_logger.PYMODBUS_INTERNAL_LOGGER)
+        Log.last_log_text = ""
+        missing = "[Errno 2] could not open port /dev/ttyUSB7: [Errno 2] No such file or directory"
+        for _ in range(4):
+            Log.error("{}", missing)
+        Log.error("{}", "[Errno 13] could not open port /dev/ttyUSB7: [Errno 13] Permission denied")
+
+        records = [r for r in caplog.records if r.name == boneio_logger.PYMODBUS_INTERNAL_LOGGER]
+        assert [(r.levelname, r.getMessage()) for r in records] == [
+            ("WARNING", missing),
+            ("WARNING", "[Errno 13] could not open port /dev/ttyUSB7: [Errno 13] Permission denied"),
+        ]
+
     def test_repeating_marker_is_kept_after_other_messages(self):
         f = boneio_logger._PymodbusNoResponseFilter()
 

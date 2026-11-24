@@ -38,22 +38,36 @@ class _PymodbusNoResponseFilter(logging.Filter):
     pymodbus copy stays at ERROR forever. Everything else pymodbus logs is
     left alone.
 
+    A port that cannot be opened (an unplugged USB adapter) is logged by
+    pymodbus at ERROR on every reconnect attempt, while the client already
+    reports "Failed to connect" rate-limited. Only pymodbus names the reason
+    (missing, permission denied, busy), so each distinct text passes once, as a
+    WARNING, and its repeats are dropped.
+
     pymodbus replaces the second identical message in a row with
-    "Repeating....", so that is dropped too, but only straight after a dropped
-    no-response line; after anything else it is the only trace of a repeat.
+    "Repeating....", so that is dropped too, but only straight after one of
+    the messages above; after anything else it is the only trace of a repeat.
     """
 
     def __init__(self) -> None:
         """Initialize the filter."""
         super().__init__()
         self._dropped_last = False
+        self._open_errors_seen: set[str] = set()
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Return False for the duplicated no-response message."""
+        """Return False for messages the Modbus client already reports."""
         msg = str(record.msg)
         if msg.startswith("No response received after"):
             self._dropped_last = True
             return False
+        if "could not open port" in msg:
+            self._dropped_last = True
+            if msg in self._open_errors_seen:
+                return False
+            self._open_errors_seen.add(msg)
+            record.levelno, record.levelname = logging.WARNING, "WARNING"
+            return True
         # pymodbus appends the last frames it sent to an error, so the marker
         # is a prefix, not the whole message.
         if msg.startswith("Repeating....") and self._dropped_last:
