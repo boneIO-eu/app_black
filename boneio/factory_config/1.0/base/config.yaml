@@ -20,7 +20,7 @@ ina226:
 
 
 boneio:
-  config_version: 8
+  config_version: 9
   name: "boneIO Black"
   version: 1.0
 

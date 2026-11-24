@@ -217,6 +217,22 @@ def _change(lines: list[str], node: yaml.Node, key: yaml.Node | None, value: Any
     return None
 
 
+def _section_roots(main: Path) -> dict[str, tuple[Path, yaml.Node]]:
+    """Each top-level section's file and node: config.yaml or, whole, the file it !includes.
+
+    A section behind any other tag is left out.
+    """
+    roots: dict[str, tuple[Path, yaml.Node]] = {}
+    main_root = yaml.compose(main.read_text(encoding="utf-8"), Loader=yaml.SafeLoader)
+    for key, value in main_root.value if isinstance(main_root, yaml.MappingNode) else []:
+        if value.tag == "!include" and (main.parent / value.value).is_file():
+            path = main.parent / value.value
+            roots[key.value] = (path, yaml.compose(path.read_text(encoding="utf-8"), Loader=yaml.SafeLoader))
+        elif not value.tag.startswith("!"):
+            roots[key.value] = (main, value)
+    return roots
+
+
 def _persist(config_file: str) -> None:
     from boneio.core.config.yaml_util import load_yaml_file
 
@@ -226,16 +242,7 @@ def _persist(config_file: str) -> None:
     if not fixes:
         return
 
-    # Each section lives in config.yaml or, whole, in the file it !includes.
-    roots: dict[str, tuple[Path, yaml.Node]] = {}
-    main_root = yaml.compose(main.read_text(encoding="utf-8"), Loader=yaml.SafeLoader)
-    for key, value in main_root.value if isinstance(main_root, yaml.MappingNode) else []:
-        if value.tag == "!include" and (main.parent / value.value).is_file():
-            path = main.parent / value.value
-            roots[key.value] = (path, yaml.compose(path.read_text(encoding="utf-8"), Loader=yaml.SafeLoader))
-        elif not value.tag.startswith("!"):
-            roots[key.value] = (main, value)
-
+    roots = _section_roots(main)
     planned: dict[Path, list[tuple[tuple, yaml.Node, yaml.Node | None, Any]]] = {}
     for path, value in fixes:
         file, root = roots.get(path[0], (None, None))

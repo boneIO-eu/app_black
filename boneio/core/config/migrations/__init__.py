@@ -19,7 +19,7 @@ from boneio.core.atomic_file import write_atomically
 _LOGGER = logging.getLogger(__name__)
 
 # Current schema version — bump this when adding new migrations
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 
 # Minimum app version that introduced each schema version.
 # Used by the WebUI to warn before rolling back to an incompatible version.
@@ -33,6 +33,7 @@ SCHEMA_VERSION_APP_MAP: dict[int, str] = {
     6: "1.6.0dev15",  # gpio_mode, clear_message removed from inputs
     7: "1.6.0dev16",  # MQTT password moved to secrets.yaml
     8: "1.7.0dev1",   # dead actions, overridden pins, sub-second Modbus intervals removed
+    9: "1.7.0dev2",   # modbus section → list of buses
 }
 
 
@@ -176,6 +177,10 @@ def _has_legacy_fields(doc: dict) -> bool:
         password = mqtt.get("password")
         if password not in (None, "") and not isinstance(password, SecretStr):
             return True
+
+    # v9: the single modbus section, now a list of buses
+    if isinstance(doc.get("modbus"), dict):
+        return True
 
     # v8: entries that never ran and the section models refuse
     from boneio.core.config.migrations.v8_dead_entries import _fixes
@@ -339,4 +344,5 @@ from boneio.core.config.migrations import (
     v6_input_keys,  # noqa: E402, F401
     v7_mqtt_password_secret,  # noqa: E402, F401
     v8_dead_entries,  # noqa: E402, F401
+    v9_modbus_buses,  # noqa: E402, F401
 )

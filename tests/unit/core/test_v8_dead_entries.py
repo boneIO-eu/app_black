@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import glob
 
-from boneio.core.config.migrations import _has_legacy_fields, run_migrations
+from boneio.core.config.migrations import CURRENT_SCHEMA_VERSION, _has_legacy_fields, run_migrations
 from boneio.core.config.migrations.v8_dead_entries import _fixes, _persist, migrate_v8_dead_entries
 from boneio.core.config.yaml_util import load_yaml_file, validate_section
 
@@ -123,8 +123,8 @@ def test_a_version_7_config_is_migrated_on_load(tmp_path):
     config = tmp_path / "config.yaml"
     config.write_text(BONEIO + EVENT)
     doc, version = run_migrations(load_yaml_file(str(config)), config_file=str(config))
-    assert version == 8
-    assert "config_version: 8" in config.read_text()
+    assert version == CURRENT_SCHEMA_VERSION
+    assert f"config_version: {CURRENT_SCHEMA_VERSION}" in config.read_text()
     assert load_yaml_file(str(config))["event"] == doc["event"]
 
 

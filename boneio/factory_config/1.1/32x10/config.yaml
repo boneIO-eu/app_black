@@ -25,7 +25,7 @@ binary_sensor: !include binary_sensor.yaml
 output: !include output32x10A.yaml
 
 boneio:
-  config_version: 8
+  config_version: 9
   name: "boneIO Black 32x10A"
   version: 1.1
   device_type: "32x10A"
