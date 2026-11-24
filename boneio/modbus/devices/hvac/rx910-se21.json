@@ -1,0 +1,486 @@
+{
+  "model": "RX910-SE21",
+  "manufacturer": "Generic",
+  "description": "Heat pump controller RX910-SE21, Modbus RTU over RS232 (USB-RS232 adapter). Read only.",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
+  "registers_base": [
+    {
+      "base": 4065,
+      "length": 9,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Temperatura zewnętrzna",
+          "address": 4065,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura wewnętrzna",
+          "address": 4066,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura CO",
+          "address": 4067,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura CWU",
+          "address": 4069,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Dolne źródło wejście",
+          "address": 4070,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Dolne źródło wyjście",
+          "address": 4071,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura wyjścia pompy ciepła",
+          "address": 4072,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "negative_above": 32765
+            },
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Presostat",
+          "address": 4073,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "problem",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 4112,
+      "length": 8,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Pompa CO",
+          "address": 4112,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        },
+        {
+          "name": "Pompa bufora",
+          "address": 4113,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        },
+        {
+          "name": "Sprężarka",
+          "address": 4114,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "wył.",
+            "33": "1 stopień",
+            "66": "2 stopień",
+            "100": "3 stopień"
+          }
+        },
+        {
+          "name": "Grzałka CWU",
+          "address": 4115,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        },
+        {
+          "name": "Pompa CCW",
+          "address": 4116,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        },
+        {
+          "name": "Pompa dolnego źródła",
+          "address": 4117,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        },
+        {
+          "name": "Pompa CWU",
+          "address": 4118,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        },
+        {
+          "name": "Wyjście CHL",
+          "address": 4119,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "running",
+          "payload_on": "100",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 4121,
+      "length": 5,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Sezon",
+          "address": 4121,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "lato",
+            "1": "zima"
+          }
+        },
+        {
+          "name": "Wybór sezonu",
+          "address": 4123,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "lato",
+            "1": "zima",
+            "2": "auto"
+          }
+        },
+        {
+          "name": "Tryb pracy",
+          "address": 4125,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "stop",
+            "1": "praca"
+          }
+        }
+      ]
+    },
+    {
+      "base": 4131,
+      "length": 4,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Nastawa CO eko",
+          "address": 4131,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Nastawa CO komfort",
+          "address": 4132,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Nastawa CO ferie",
+          "address": 4133,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Krzywa grzewcza",
+          "address": 4134,
+          "entity_type": "sensor",
+          "value_type": "U_WORD"
+        }
+      ]
+    },
+    {
+      "base": 4143,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Nastawa CWU eko",
+          "address": 4143,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature"
+        },
+        {
+          "name": "Nastawa CWU komfort",
+          "address": 4144,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature"
+        },
+        {
+          "name": "Dezynfekcja",
+          "address": 4145,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "wył.",
+            "1": "zał.",
+            "2": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "base": 4201,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Zadana temperatura wewnętrzna",
+          "address": 4201,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Zadana temperatura CO",
+          "address": 4202,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "Zadana temperatura CWU",
+          "address": 4203,
+          "entity_type": "sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 4221,
+      "length": 1,
+      "register_type": "holding",
+      "optional": true,
+      "registers": [
+        {
+          "name": "Awaria instalacji",
+          "address": 4221,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "device_class": "problem",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 4226,
+      "length": 2,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Program",
+          "address": 4226,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "ferie",
+            "1": "tygodniowy",
+            "2": "party",
+            "3": "rozruch",
+            "4": "stop",
+            "5": "dezynfekcja"
+          }
+        },
+        {
+          "name": "Stan pracy",
+          "address": 4227,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "stop",
+            "1": "CO",
+            "2": "CWU",
+            "3": "CO i CWU"
+          }
+        }
+      ]
+    }
+  ]
+}

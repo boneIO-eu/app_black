@@ -2447,6 +2447,9 @@
     "r4dcb08": {
       "description": "8-kanałowy sterownik przekaźników Modbus R4DCB08"
     },
+    "rx910-se21": {
+      "description": "Sterownik pompy ciepła RX910-SE21 (RS232)"
+    },
     "sdm120": {
       "description": "1-fazowy licznik energii Eastron SDM120"
     },

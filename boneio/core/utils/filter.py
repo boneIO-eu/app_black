@@ -15,6 +15,8 @@ FILTERS = {
     "filter_out_greater": lambda x, y: None if x > y else x,
     "filter_out_lower": lambda x, y: None if x < y else x,
     "encode_temperature": lambda x, y: (int(x * y) << 1) | 1,
+    # Sign-and-magnitude above a threshold: raw y+n reads as -n.
+    "negative_above": lambda x, y: -(x - y) if x > y else x,
     "firmware_version": lambda x, y: f"v{int(x) >> 8}.{int(x) & 0xFF}",
 }
 

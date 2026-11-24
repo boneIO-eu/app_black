@@ -2448,6 +2448,9 @@
     "r4dcb08": {
       "description": "R4DCB08 8-channel Modbus relay board"
     },
+    "rx910-se21": {
+      "description": "RX910-SE21 heat pump controller (RS232)"
+    },
     "sdm120": {
       "description": "Eastron SDM120 1-phase energy meter"
     },

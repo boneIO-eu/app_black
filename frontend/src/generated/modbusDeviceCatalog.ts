@@ -144,6 +144,16 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "defaultUpdateInterval": "30s",
     "hasSetBase": false
   },
+  "rx910-se21": {
+    "modelKey": "rx910-se21",
+    "displayName": "RX910-SE21",
+    "manufacturer": "Generic",
+    "description": "Heat pump controller RX910-SE21, Modbus RTU over RS232 (USB-RS232 adapter). Read only.",
+    "category": "hvac",
+    "defaultAddress": 1,
+    "defaultUpdateInterval": "30s",
+    "hasSetBase": false
+  },
   "thessla": {
     "modelKey": "thessla",
     "displayName": "Thessla Green",
