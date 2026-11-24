@@ -95,6 +95,7 @@ def test_viewer_may_not_read_credential_carriers(path):
         "/api/i2c/scan",
         "/api/can/status",
         "/api/can/nodes",
+        "/api/modbus/ports",
     ],
 )
 def test_viewer_may_not_read_diagnostics(path):
