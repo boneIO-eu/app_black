@@ -6,6 +6,55 @@ All notable changes to boneIO Black are documented in this file.
 
 ## Unreleased
 
+## v1.6.6 (2026-11-25) — 1.6.x security series
+
+A backup from another controller version restores without breaking the
+hardware settings, and system updates finish on every controller, including
+those with an old helper. See RELEASE_NOTES.md before updating.
+
+### 💾 Backup and restore
+
+- **Restoring a backup made on boneIO Black 0.8 onto a 1.0 or 1.1 controller
+  keeps this controller's hardware.** The whole `config.yaml` used to be
+  written back, so the controller came up with the 0.8 revision (the 0.8
+  input/output pin map), the old INA219 instead of INA226 and the 0.8 ADC
+  pins, and a leaked `mcp23017` section with `inverted: false` would have
+  driven the 1.x relays inverted. After a restore the controller keeps its own
+  revision, power and temperature sensor, Modbus UART, ADC pins and board
+  expander polarity.
+- **The restore dialog shows the version difference and asks.** A "keep this
+  controller's hardware settings" checkbox is ticked by default. Onboarding
+  and the recovery page always fit the hardware, without asking.
+- **ADC voltage range is yours to check.** The 0.8 range (0-1.8 V) differs
+  from 1.0 and later (0-13.8 V with a buffer); the panel says so after the
+  restore, and sensor scaling that depends on it has to be verified by hand.
+- An empty `ina226: []` left in old backups is dropped instead of duplicating
+  the key. The restore result shows the path of the backup it made first.
+
+### 🔐 MQTT over TLS
+
+- **The OpenSSL recipe in the panel makes a CA that Home Assistant accepts
+  with OpenSSL 4.** OpenSSL 4 no longer adds the key identifiers by default,
+  and Python 3.13's default context rejects such certificates. The recipe now
+  adds them explicitly (same output on OpenSSL 3.x). A CA and certificates
+  made with the 1.6.0-1.6.5 recipe under OpenSSL 4 should be made again.
+
+### 🛟 System migrations
+
+- **"Apply pending migrations" works once only the v2 helper is left.** The
+  button in the panel (and the bootstrap step) checked only for the legacy
+  helper, which the system migrations retire, so on every controller past that
+  point it answered "helper not installed. Complete bootstrap first."
+  Both now check for the v2 helper.
+- **A stale v2 helper is replaced before it blocks the queue.** Controllers
+  that once ran 1.6.0.dev2 keep a v2 helper without `remove_from_group`.
+  Migration 1.6.11 was rejected at every start ("disallowed action type"), and
+  the migrations that reinstall the helper waited behind it. Every pending
+  migration whose signed plan installs `boneio-migrate-v2` now runs right
+  after 1.6.5 and 1.6.6, so such a controller repairs itself after updating,
+  without SSH.
+- **System migrations 1.6.1–1.6.46**, signed; no new migration since 1.6.4.
+
 ## v1.6.5 (2026-11-03) — 1.6.x security series
 
 Modbus coil devices work, and the Wanas 415 ventilation unit reads real values.

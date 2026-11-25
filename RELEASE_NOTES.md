@@ -1,26 +1,38 @@
-# boneIO Black 1.6.5
+# boneIO Black 1.6.6
 
-A small fix release after 1.6.4, for Modbus devices. On a controller already
-running 1.6.0 to 1.6.4 it brings the fixes below. Coming from 1.5.x, this is
+A small fix release after 1.6.5, for restoring backups and system updates. On a controller already
+running 1.6.0 to 1.6.5 it brings the fixes below. Coming from 1.5.x, this is
 your update to the 1.6 series: read "Before you update" first.
 
-## What 1.6.5 fixes
+## What 1.6.6 fixes
 
-- **Modbus coils work.** A block of type `coil` returned nothing, so coil
-  sensors never showed a value. Coils are now read with FC01, and entities of a
-  coil block are written with FC05, which is the only write that relay modules
-  such as the Waveshare Modbus RTU Relay 16CH accept. That module is now in the
-  device list, with 16 relay switches.
-- **The Wanas 415 ventilation unit shows real values.** The definition used the
-  register numbers from the manual as they are printed (from 4001), while on
-  the wire they start at 0, so the unit refused every read and no
-  entity got a value. It now reads the registers the manual describes: air
-  flows and zone temperatures are in whole units, the exhaust and room
-  temperatures are no longer swapped, and the entities called "Błąd strefy N"
-  are now "Bieg strefy N", because they hold the zone fan speed. Renamed
-  entities appear in Home Assistant under new entity IDs, so automations that
-  used the old ones need updating. Set the slave address of your unit in the
-  device.
+- **A backup from a boneIO Black 0.8 restores onto a 1.0 or 1.1 controller
+  without breaking it.** Restoring used to write the old configuration back
+  whole, so a 1.1 controller came up with the 0.8 revision, the old power
+  sensor and the 0.8 ADC pins, and its relays could be driven inverted. Now
+  the controller keeps its own hardware: revision, power and temperature
+  sensor, Modbus UART, ADC pins and expander polarity. The restore dialog
+  shows the difference in versions and has a "keep this controller's hardware
+  settings" checkbox, ticked by default; onboarding and the recovery page
+  always do it. One thing is left to you: the ADC voltage range is 0-1.8 V on
+  0.8 and 0-13.8 V from 1.0, so check the scaling of your analogue sensors
+  after restoring. The panel reminds you.
+- **The MQTT TLS recipe works with OpenSSL 4.** The commands in the panel now
+  give the CA the key identifier that Home Assistant requires. If you made
+  your CA and certificates with the earlier recipe under OpenSSL 4, make them
+  again.
+- **"Apply pending migrations" works again.** Once the system migrations have
+  retired the old helper, the button in the panel answered "helper not
+  installed. Complete bootstrap first." on every controller, although nothing
+  was missing. It now checks for the current helper, so pending migrations can
+  be applied from the panel again.
+- **A controller with an outdated helper repairs itself.** Controllers that
+  once ran 1.6.0.dev2 keep an older copy of the system helper. A migration
+  that needs a newer operation was rejected at every start, and the migrations
+  that would replace the helper waited behind it in the queue, so the update
+  never finished. Migrations that install the helper now run first, right
+  after 1.6.5 and 1.6.6, so such a controller fixes itself after the update,
+  without SSH.
 
 ## Before you update
 
