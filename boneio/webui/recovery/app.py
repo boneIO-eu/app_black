@@ -232,7 +232,13 @@ def _restore_backup(config_dir: Path, backup_file: Path) -> list[str]:
     Only regular YAML files, and only to paths that stay inside the
     directory: the archive is a file anyone with an admin login could have
     uploaded through the regular panel.
+
+    A backup from another controller revision keeps this one's hardware, as
+    the regular panel's restore does by default.
     """
+    from boneio.core.config.hardware_fit import current_hardware, fit_restored_config
+
+    revision = current_hardware(config_dir / "config.yaml")["version"]
     root = config_dir.resolve()
     restored: list[str] = []
     with tarfile.open(backup_file, mode="r:gz") as tar:
@@ -253,6 +259,7 @@ def _restore_backup(config_dir: Path, backup_file: Path) -> list[str]:
             else:
                 target.write_bytes(data)
             restored.append(member.name)
+    fit_restored_config(config_dir, revision)
     return restored
 
 

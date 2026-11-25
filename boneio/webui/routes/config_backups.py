@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import Body, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
+from boneio.core.config.hardware_fit import compare_hardware, current_hardware, fit_restored_config
 from boneio.core.config.yaml_util import (
     load_config_from_file,
     load_yaml_file,
@@ -129,10 +130,19 @@ async def download_config():
 
 
 @router.post("/config/restore")
-async def restore_config(file: UploadFile = File(...), override_serial: bool = Form(False)):
-    """Restore configuration from a tar.gz archive."""
+async def restore_config(
+    file: UploadFile = File(...),
+    override_serial: bool = Form(False),
+    keep_hardware: bool = Form(True),
+):
+    """Restore configuration from a tar.gz archive.
+
+    ``keep_hardware`` keeps this controller's revision, sensors and ADC pins
+    when the backup comes from another revision (see hardware_fit).
+    """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
+    hardware = current_hardware(config_file)
 
     try:
         if not file.filename or not file.filename.endswith((".tar.gz", ".tgz")):
@@ -192,6 +202,10 @@ async def restore_config(file: UploadFile = File(...), override_serial: bool = F
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
 
+        hardware_kept, adc_range_changed = (
+            fit_restored_config(config_dir, hardware["version"]) if keep_hardware else ([], False)
+        )
+
         if override_serial:
             _apply_serial_override_from_tar(io.BytesIO(contents), config_file)
 
@@ -212,6 +226,8 @@ async def restore_config(file: UploadFile = File(...), override_serial: bool = F
             "message": f"Restored {len(restored_files)} files from backup",
             "restored_files": restored_files,
             "backup_path": str(backup_path),
+            "hardware_kept": hardware_kept,
+            "adc_range_changed": adc_range_changed,
             "validation_status": validation_status,
             "validation_message": validation_message,
             "restart_required": True,
@@ -283,10 +299,12 @@ async def list_config_backups():
 async def restore_config_backup(
     backup_path: str = Body(..., embed=True),
     override_serial: bool = Body(False, embed=True),
+    keep_hardware: bool = Body(True, embed=True),
 ):
-    """Restore configuration from a backup file on disk."""
+    """Restore configuration from a backup file on disk (``keep_hardware`` as in restore_config)."""
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
+    hardware = current_hardware(config_file)
     backup_file = Path(backup_path)
 
     backup_dir = config_dir / "backups"
@@ -343,6 +361,10 @@ async def restore_config_backup(
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
 
+        hardware_kept, adc_range_changed = (
+            fit_restored_config(config_dir, hardware["version"]) if keep_hardware else ([], False)
+        )
+
         if override_serial:
             with open(backup_file, "rb") as f:
                 _apply_serial_override_from_tar(f, config_file)
@@ -363,6 +385,8 @@ async def restore_config_backup(
             "message": f"Restored {len(restored_files)} files from backup",
             "restored_files": restored_files,
             "backup_created": str(new_backup_path),
+            "hardware_kept": hardware_kept,
+            "adc_range_changed": adc_range_changed,
             "validation_status": validation_status,
             "validation_message": validation_message,
             "restart_required": True,
@@ -504,7 +528,7 @@ async def inspect_backup_file(file: UploadFile = File(...)):
         contents = await file.read()
         fileobj = io.BytesIO(contents)
         config_helper = _get_app_state().manager.config_helper
-        return _inspect_tar_fileobj(fileobj, config_helper)
+        return _inspect_tar_fileobj(fileobj, config_helper, _get_app_state().yaml_config_file)
     except Exception as e:
         _LOGGER.error("Failed to inspect backup file: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
@@ -529,7 +553,7 @@ async def inspect_backup_path(backup_path: str = Body(..., embed=True)):
 
         config_helper = _get_app_state().manager.config_helper
         with open(backup_file, "rb") as f:
-            return _inspect_tar_fileobj(f, config_helper)
+            return _inspect_tar_fileobj(f, config_helper, config_file)
     except HTTPException:
         raise
     except Exception as e:
@@ -537,9 +561,10 @@ async def inspect_backup_path(backup_path: str = Body(..., embed=True)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _inspect_tar_fileobj(fileobj, config_helper):
+def _inspect_tar_fileobj(fileobj, config_helper, config_file):
     import json
     meta = None
+    backup_config = ""
     try:
         try:
             fileobj.seek(0)
@@ -551,6 +576,12 @@ def _inspect_tar_fileobj(fileobj, config_helper):
                 meta_file = tar.extractfile(meta_member)
                 if meta_file:
                     meta = json.loads(meta_file.read().decode("utf-8"))
+            except KeyError:
+                pass
+            try:
+                config_member = tar.extractfile("config.yaml")
+                if config_member:
+                    backup_config = config_member.read().decode("utf-8", errors="replace")
             except KeyError:
                 pass
     except Exception as e:
@@ -565,4 +596,5 @@ def _inspect_tar_fileobj(fileobj, config_helper):
         "backup_meta": meta,
         "current_serial": current_serial,
         "serial_mismatch": mismatch,
+        "hardware": compare_hardware(backup_config, Path(config_file).read_text(encoding="utf-8")),
     }

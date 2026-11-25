@@ -25,7 +25,7 @@ from boneio.core.config.yaml_util import (
     normalize_board_name,
     normalize_version,
 )
-from boneio.factory_config import OLDEST_REVISION, template_dir, type_folder
+from boneio.factory_config import HARDWARE_SENSORS, OLDEST_REVISION, template_dir, type_folder
 from boneio.version import __version__
 from boneio.webui.routes.system import get_config_helper
 from boneio.webui.services.logs import is_running_as_service
@@ -708,22 +708,6 @@ async def check_config_compat(target_version: str):
 
 # Available device types for factory reset
 DEVICE_TYPES = ["24x16", "32x10", "48x4", "cover", "cover_mix"]
-
-# Hardware version to sensor mapping
-# Different hardware versions have different temperature sensors, power monitoring, and UART for modbus
-HARDWARE_SENSORS = {
-    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "power_sensor": None, "modbus_uart": "uart1"},
-    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "power_sensor": None, "modbus_uart": "uart1"},
-    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
-    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
-    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
-    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
-    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
-    "1.0": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": False, "power_sensor": "ina226", "modbus_uart": "uart4"},
-    # 1.1 differs from 1.0 only by the buzzer, which touches neither the
-    # sensors nor the UART.
-    "1.1": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": False, "power_sensor": "ina226", "modbus_uart": "uart4"},
-}
 
 # Available hardware versions
 HARDWARE_VERSIONS = list(HARDWARE_SENSORS.keys())

@@ -31,11 +31,25 @@ interface BackupMeta {
   created_at?: string;
 }
 
+/** `hardware` of an inspected backup: its controller against this one. */
+interface HardwareCompare {
+  backup_version?: string | null;
+  current_version?: string | null;
+  backup_device_type?: string | null;
+  current_device_type?: string | null;
+  version_mismatch?: boolean;
+  device_type_mismatch?: boolean;
+}
+
 /** Answer of the restore endpoints. */
 interface RestoreResponse {
   status: string;
   message?: string;
   backup_path?: string;
+  // the on-disk restore answers with backup_created instead
+  backup_created?: string;
+  hardware_kept?: string[];
+  adc_range_changed?: boolean;
   validation_status?: string;
   validation_message?: string;
 }
@@ -52,9 +66,22 @@ interface AvailableBackup {
 interface MismatchData {
   backupMeta: BackupMeta | null | undefined;
   currentSerial: string;
-  onConfirm: (keepOld: boolean) => void;
+  serialMismatch: boolean;
+  hardware: HardwareCompare | undefined;
+  onConfirm: (keepOldSerial: boolean, keepHardware: boolean) => void;
   onCancel: () => void;
 }
+
+/** Inspect answer as the restore dialog needs it. */
+interface InspectResponse {
+  backup_meta?: BackupMeta | null;
+  current_serial: string;
+  serial_mismatch?: boolean;
+  hardware?: HardwareCompare;
+}
+
+const needsDialog = (data: InspectResponse) =>
+  Boolean(data.serial_mismatch || data.hardware?.version_mismatch || data.hardware?.device_type_mismatch);
 
 /**
  * Section for configuration backup, restore, download, and management.
@@ -69,6 +96,7 @@ export default function BackupSection() {
   const [availableBackups, setAvailableBackups] = useState<AvailableBackup[]>([]);
   const [showAvailableBackups, setShowAvailableBackups] = useState(false);
   const [mismatchData, setMismatchData] = useState<MismatchData | null>(null);
+  const [keepHardware, setKeepHardware] = useState(true);
 
   const fetchAvailableBackups = useCallback(async () => {
     try {
@@ -139,7 +167,13 @@ export default function BackupSection() {
   const handleRestoreResponse = async (data: RestoreResponse) => {
     if (data.status === 'success') {
       setRestoreResult(data);
-      if (confirm(t('device_management.restore_success_restart'))) {
+      // The page reloads after a restart, so what was kept is said here too.
+      const kept = data.hardware_kept ?? [];
+      const notes = [
+        ...(kept.length ? [t('device_management.hardware_kept_title'), ...kept.map((c) => `• ${c}`)] : []),
+        ...(data.adc_range_changed ? [t('device_management.adc_range_note')] : []),
+      ];
+      if (confirm([...notes, ...(notes.length ? [''] : []), t('device_management.restore_success_restart')].join('\n'))) {
         await axios.post('/api/restart');
         setTimeout(() => window.location.reload(), 3000);
       }
@@ -148,12 +182,12 @@ export default function BackupSection() {
     }
   };
 
-  const performPathRestore = async (backupPath: string, keepOld: boolean) => {
+  const performPathRestore = async (backupPath: string, keepOld: boolean, keepHw = true) => {
     setIsRestoring(true);
     try {
       const { data } = await axios.post(
         '/api/config/restore_backup',
-        { backup_path: backupPath, override_serial: keepOld },
+        { backup_path: backupPath, override_serial: keepOld, keep_hardware: keepHw },
         { timeout: 30000 }
       );
       await handleRestoreResponse(data);
@@ -170,15 +204,18 @@ export default function BackupSection() {
     setError(null);
     setRestoreResult(null);
     try {
-      const { data: inspectData } = await axios.post('/api/config/inspect_backup_path', { backup_path: backupPath });
-      
-      if (inspectData.serial_mismatch) {
+      const { data: inspectData } = await axios.post<InspectResponse>('/api/config/inspect_backup_path', { backup_path: backupPath });
+
+      if (needsDialog(inspectData)) {
+        setKeepHardware(true);
         setMismatchData({
           backupMeta: inspectData.backup_meta,
           currentSerial: inspectData.current_serial,
-          onConfirm: (keepOld: boolean) => {
+          serialMismatch: Boolean(inspectData.serial_mismatch),
+          hardware: inspectData.hardware,
+          onConfirm: (keepOld: boolean, keepHw: boolean) => {
             setMismatchData(null);
-            performPathRestore(backupPath, keepOld);
+            performPathRestore(backupPath, keepOld, keepHw);
           },
           onCancel: () => {
             setMismatchData(null);
@@ -227,12 +264,13 @@ export default function BackupSection() {
     }
   };
 
-  const performFileRestore = async (file: File, keepOld: boolean) => {
+  const performFileRestore = async (file: File, keepOld: boolean, keepHw = true) => {
     setIsRestoring(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('override_serial', keepOld ? 'true' : 'false');
+      formData.append('keep_hardware', keepHw ? 'true' : 'false');
       const { data } = await axios.post('/api/config/restore', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000,
@@ -255,17 +293,20 @@ export default function BackupSection() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const { data: inspectData } = await axios.post('/api/config/inspect_backup_file', formData, {
+        const { data: inspectData } = await axios.post<InspectResponse>('/api/config/inspect_backup_file', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        if (inspectData.serial_mismatch) {
+        if (needsDialog(inspectData)) {
+          setKeepHardware(true);
           setMismatchData({
             backupMeta: inspectData.backup_meta,
             currentSerial: inspectData.current_serial,
-            onConfirm: (keepOld: boolean) => {
+            serialMismatch: Boolean(inspectData.serial_mismatch),
+            hardware: inspectData.hardware,
+            onConfirm: (keepOld: boolean, keepHw: boolean) => {
               setMismatchData(null);
-              performFileRestore(file, keepOld);
+              performFileRestore(file, keepOld, keepHw);
             },
             onCancel: () => {
               setMismatchData(null);
@@ -381,10 +422,23 @@ export default function BackupSection() {
                 <>
                   <span className="block">{restoreResult.message}</span>
                   <span className="block text-xs opacity-70 mt-1 break-all">
-                    {t('device_management.backup_created')}: {restoreResult.backup_path}
+                    {t('device_management.backup_created')}: {restoreResult.backup_path ?? restoreResult.backup_created}
                   </span>
                   {restoreResult.validation_status === 'warning' && (
                     <span className="block text-xs mt-1">{restoreResult.validation_message}</span>
+                  )}
+                  {restoreResult.hardware_kept && restoreResult.hardware_kept.length > 0 && (
+                    <div className="text-xs mt-1">
+                      {t('device_management.hardware_kept_title')}
+                      <ul className="list-disc ml-4 font-mono">
+                        {restoreResult.hardware_kept.map((change) => (
+                          <li key={change}>{change}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {restoreResult.adc_range_changed && (
+                    <span className="block text-xs mt-1">{t('device_management.adc_range_note')}</span>
                   )}
                 </>
               }
@@ -492,10 +546,53 @@ export default function BackupSection() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-warning">
                 <FaExclamationTriangle />
-                {t('device_management.serial_mismatch_title') || 'Serial Number Mismatch'}
+                {mismatchData.serialMismatch
+                  ? t('device_management.serial_mismatch_title')
+                  : t('device_management.hardware_mismatch_title')}
               </DialogTitle>
             </DialogHeader>
             <div className="py-4 text-sm space-y-4">
+              {mismatchData.hardware?.version_mismatch && (
+                <div className="space-y-2">
+                  <p>
+                    {t('device_management.hardware_mismatch_desc', {
+                      backup: mismatchData.hardware.backup_version ?? '?',
+                      current: mismatchData.hardware.current_version ?? '?',
+                    })}
+                  </p>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm checkbox-primary mt-0.5"
+                      checked={keepHardware}
+                      onChange={(e) => setKeepHardware(e.target.checked)}
+                    />
+                    <span>{t('device_management.keep_hardware')}</span>
+                  </label>
+                  {!keepHardware && (
+                    <div className="alert alert-warning text-xs">
+                      <FaExclamationTriangle className="shrink-0" />
+                      <span>
+                        {t('device_management.keep_hardware_off_warning', {
+                          backup: mismatchData.hardware.backup_version ?? '?',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {mismatchData.hardware?.device_type_mismatch && (
+                <div className="alert alert-warning text-xs">
+                  <FaExclamationTriangle className="shrink-0" />
+                  <span>
+                    {t('device_management.device_type_mismatch', {
+                      backup: mismatchData.hardware.backup_device_type ?? '?',
+                      current: mismatchData.hardware.current_device_type ?? '?',
+                    })}
+                  </span>
+                </div>
+              )}
+              {mismatchData.serialMismatch && (<>
               <p>
                 {t('device_management.serial_mismatch_desc') || 
                   'The uploaded configuration backup was created on a device with a different serial number:'}
@@ -533,20 +630,32 @@ export default function BackupSection() {
                     'WARNING: If both controllers are running at the same time on the same MQTT broker with the same serial number, conflicts will occur!'}
                 </span>
               </div>
+              </>)}
             </div>
             <DialogFooter className="flex flex-col sm:flex-row gap-2">
-              <button
-                className="btn btn-warning btn-sm"
-                onClick={() => mismatchData.onConfirm(true)}
-              >
-                {t('device_management.keep_old_serial') || 'Keep Old Serial'}
-              </button>
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() => mismatchData.onConfirm(false)}
-              >
-                {t('device_management.use_new_serial') || 'Use New Serial'}
-              </button>
+              {mismatchData.serialMismatch ? (
+                <>
+                  <button
+                    className="btn btn-warning btn-sm"
+                    onClick={() => mismatchData.onConfirm(true, keepHardware)}
+                  >
+                    {t('device_management.keep_old_serial') || 'Keep Old Serial'}
+                  </button>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => mismatchData.onConfirm(false, keepHardware)}
+                  >
+                    {t('device_management.use_new_serial') || 'Use New Serial'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => mismatchData.onConfirm(false, keepHardware)}
+                >
+                  {t('device_management.restore_confirm_button')}
+                </button>
+              )}
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={mismatchData.onCancel}

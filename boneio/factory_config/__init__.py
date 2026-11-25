@@ -19,6 +19,22 @@ FACTORY_CONFIG_DIR = Path(__file__).parent
 #: oldest one to them (see update._adjust_config_for_hardware_version).
 OLDEST_REVISION = "0.8"
 
+# Hardware version to sensor mapping
+# Different hardware versions have different temperature sensors, power monitoring, and UART for modbus
+HARDWARE_SENSORS = {
+    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "power_sensor": None, "modbus_uart": "uart1"},
+    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "power_sensor": None, "modbus_uart": "uart1"},
+    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "1.0": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": False, "power_sensor": "ina226", "modbus_uart": "uart4"},
+    # 1.1 differs from 1.0 only by the buzzer, which touches neither the
+    # sensors nor the UART.
+    "1.1": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": False, "power_sensor": "ina226", "modbus_uart": "uart4"},
+}
+
 _FOLDERS = {"32_10": "32x10", "24_16": "24x16", "48_4": "48x4"}
 
 

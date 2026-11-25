@@ -446,8 +446,17 @@ export default function OnboardingWizard() {
         setImportError(t('onboarding.import_empty'));
         return;
       }
+      // A backup from another controller version had this one's hardware
+      // put back; the ADC range is the part only the user can fit.
+      const kept: string[] = Array.isArray(data?.hardware_kept) ? data.hardware_kept : [];
+      const hardwareNote = [
+        ...(kept.length ? [`${t('device_management.hardware_kept_title')} ${kept.join('; ')}`] : []),
+        ...(data?.adc_range_changed ? [t('device_management.adc_range_note')] : []),
+      ].join(' ');
       if (outcome.status === 'warning') {
-        setImportWarning(outcome.message || t('onboarding.import_invalid_config'));
+        setImportWarning([outcome.message || t('onboarding.import_invalid_config'), hardwareNote].filter(Boolean).join(' '));
+      } else if (hardwareNote) {
+        setImportWarning(hardwareNote);
       }
 
       setImportDone(true);
