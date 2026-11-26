@@ -185,11 +185,12 @@ def test_nothing_reaches_the_tools_without_a_key(device):
     ("scope", "tools"),
     [
         (KeyScope.READ, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
-                         "boneio_discover_devices"}),
+                         "boneio_discover_devices", "boneio_list_outputs", "boneio_list_inputs"}),
         (KeyScope.PROPOSE, {"boneio_list_sections", "boneio_get_config", "boneio_describe_schema",
                             "boneio_discover_devices", "boneio_validate", "boneio_propose",
                             "boneio_proposal_status", "boneio_add_discovered_device",
-                            "boneio_usage_summary"}),
+                            "boneio_usage_summary", "boneio_list_outputs", "boneio_list_inputs",
+                            "boneio_wait_for_press"}),
         (KeyScope.WRITE, {t.name for t in mcp_routes.TOOLS}),
     ],
 )
@@ -422,3 +423,13 @@ def test_modbus_schema_names_the_device_models():
 
     model = _schema("modbus_devices")["properties"]["modbus_devices"]["items"]["properties"]["model"]
     assert "sdm120" in model["enum"]
+
+
+def test_an_output_that_may_not_be_switched_is_refused_with_the_reason(device):
+    cover = MagicMock(output_type="cover", _interlock_groups=[], _momentary_turn_on=None,
+                      _adjustable_duration_enabled=False)
+    cover.name = "Roleta salon"
+    device.state.manager.outputs.get_output.return_value = cover
+    reply = _call(device, _key(device, KeyScope.WRITE), "boneio_identify_output", output_id="roleta")
+    assert reply["result"]["isError"] is True and "'cover'" in _text(reply)
+    cover.async_turn_on.assert_not_called()

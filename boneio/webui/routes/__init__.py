@@ -8,6 +8,7 @@ from boneio.webui.routes.config import router as config_router
 from boneio.webui.routes.covers import router as covers_router
 from boneio.webui.routes.dashboard import router as dashboard_router
 from boneio.webui.routes.irrigation import router as irrigation_router
+from boneio.webui.routes.learn import router as learn_router
 from boneio.webui.routes.mcp import router as mcp_router
 from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.modbus import router as modbus_router
@@ -37,6 +38,7 @@ from boneio.webui.routes.dev_fake_device import router as dev_fake_device_router
 __all__ = [
     "accounts_router",
     "api_keys_router",
+    "learn_router",
     "mcp_router",
     "usage_router",
     "remote_add_router",

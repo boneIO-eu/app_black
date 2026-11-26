@@ -291,6 +291,8 @@ _KEY_READ: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("GET", r"^/api/remote-devices/managed-by$"),
         ("GET", r"^/api/remote-devices/scan-esphome$"),
         ("GET", r"^/api/remote-devices/scan-wled$"),
+        # Which outputs and inputs there are and their state right now.
+        ("GET", r"^/api/learn/(outputs|inputs)$"),
         # The MCP endpoint checks each tool against these tables itself.
         # GET and DELETE only answer 405, which a client must see as such.
         ("POST", r"^/api/mcp$"),
@@ -305,10 +307,17 @@ _KEY_PROPOSE = _KEY_READ + (
     # secret: proposed for a propose key, saved for a write key.
     ("POST", re.compile(r"^/api/remote-devices/add-discovered$")),
     ("GET", re.compile(r"^/api/usage-summary$")),
+    # Waiting for a press: who presses what, as it happens - like the usage
+    # summary, it says somebody is at home.
+    ("GET", re.compile(r"^/api/learn/press$")),
 )
 _KEY_WRITE = _KEY_PROPOSE + (
     ("PUT", re.compile(r"^/api/config/(?P<section>[a-z][a-z0-9_]*)$")),
     ("POST", re.compile(r"^/api/config/reload$")),
+    # The one thing a key switches: a light, or a switch the person allowed,
+    # on for a few seconds and back, so the person sees which one it is. The
+    # route refuses covers, valves, interlocked and pulse-driven outputs.
+    ("POST", re.compile(r"^/api/learn/outputs/[^/]+/identify$")),
 )
 _KEY_ROUTES = {
     KeyScope.READ: _KEY_READ,

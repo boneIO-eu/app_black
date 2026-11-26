@@ -67,6 +67,7 @@ from boneio.webui.routes import (
     accounts_router,
     api_keys_router,
     proposals_router,
+    learn_router,
     mcp_router,
     remote_add_router,
     usage_router,
@@ -195,6 +196,7 @@ app.include_router(accounts_router)
 app.include_router(api_keys_router)
 app.include_router(proposals_router)
 app.include_router(mcp_router)
+app.include_router(learn_router)
 app.include_router(remote_add_router)
 app.include_router(usage_router)
 app.include_router(outputs_router)
