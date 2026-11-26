@@ -2908,7 +2908,7 @@
     "name_placeholder": "np. Claude na laptopie",
     "scope": "Zakres",
     "scope_read": "Odczyt",
-    "scope_read_hint": "Czyta konfigurację, bez haseł, kluczy szyfrowania i kodów alarmu, oraz bieżący stan wyjść i wejść. Niczego nie zmienia.",
+    "scope_read_hint": "Czyta konfigurację (bez haseł, kluczy szyfrowania i kodów alarmu), bieżący stan wyjść i listę wejść. Niczego nie zmienia.",
     "scope_propose": "Propozycje",
     "scope_propose_hint": "Czyta konfigurację, sprawdza zmiany i je proponuje. Propozycja zapisuje się dopiero po zatwierdzeniu przez administratora w Dostęp → Propozycje AI. Może też czekać na naciśnięcie przycisku, więc na bieżąco widzi, kto co naciska.",
     "scope_write": "Zapis",

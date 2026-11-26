@@ -102,6 +102,7 @@ from boneio.webui.routes import config as config_module
 from boneio.webui.routes import onboarding as onboarding_module
 from boneio.webui.routes import diagnostics as diagnostics_module
 from boneio.webui.routes import mqtt_tls as mqtt_tls_module
+from boneio.webui.routes import learn as learn_module
 from boneio.webui.routes import security as security_module
 from boneio.webui.routes import system as system_module
 
@@ -945,6 +946,9 @@ def init_app(
     security_module.warm_system_state()
     diagnostics_module.set_app_state(app.state)
     mqtt_tls_module.set_app_state(app.state)
+    # From the start, so a press made just before an agent first asks still counts.
+    if manager is not None:
+        learn_module.install()
 
     # Pre-populate config cache if initial_config provided
     if initial_config is not None:

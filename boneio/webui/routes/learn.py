@@ -186,7 +186,11 @@ async def list_outputs():
 
 @router.get("/inputs")
 async def list_inputs():
-    """Every input that reports presses, with the config section it is set up in."""
+    """Every input that reports presses, with the config section it is set up in.
+
+    Without their last state or press: polled, that says when somebody is at
+    home, which only the press wait (a higher key scope) may tell.
+    """
     from boneio.components.input.remote.base import RemoteInputBase
 
     install()
@@ -195,8 +199,6 @@ async def list_inputs():
             "id": i.id, "name": i.name, "pin": i.pin, "boneio_input": i.boneio_input or None,
             "area": getattr(i, "area", None),
             "section": _input_section(i.input_type, isinstance(i, RemoteInputBase)),
-            "last_state": i.last_state,
-            "last_press_at": round(i.last_press_timestamp, 3) if i.last_press_timestamp else None,
         }
         for i in _manager().inputs.get_inputs_list()
     ], "note": "An input that is not in the event or binary_sensor section does not report presses."}

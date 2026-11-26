@@ -55,9 +55,9 @@ def outputs(monkeypatch):
     config_core.set_app_state(None)
 
 
-def _press(input_id="in_01", click="single", publish_only=False):
+def _press(input_id="in_01", click="single", publish_only=False, remote=False):
     state = InputState(name=input_id, state=click or "", type="input", pin="P8_7",
-                       timestamp=time.time(), boneio_input="IN_01")
+                       timestamp=time.time(), boneio_input="IN_01", remote=remote)
     return InputEvent(entity_id=input_id, click_type=click, state=state, publish_only=publish_only)
 
 
@@ -82,6 +82,12 @@ async def test_a_press_answers_with_the_input_and_what_it_switched(outputs):
     assert reply["pressed"] is True
     assert [(i["id"], i["clicks"], i["section"]) for i in reply["inputs"]] == [("in_01", ["single"], "event")]
     assert [o["id"] for o in reply["outputs_switched"]] == ["out_05"]
+
+
+async def test_a_remote_button_is_answered_in_its_own_section(outputs):
+    learn._record(_press("esp_btn", remote=True))
+    reply = await learn.wait_for_press(since=None, timeout=1)
+    assert reply["inputs"][0]["section"] == "remote_inputs"
 
 
 async def test_no_press_ends_with_a_cursor_to_continue_from(outputs):

@@ -355,7 +355,7 @@ TOOLS = (
          {}, (), "GET", "/api/learn/outputs", _list_outputs),
     Tool("boneio_list_inputs",
          "Every input that reports presses: id, name, pin, boneio_input (IN_xx), area, the config "
-         "section it is set up in, and its last press. An input missing from the event and "
+         "section it is set up in. An input missing from the event and "
          "binary_sensor sections reports nothing until it is added there.",
          {}, (), "GET", "/api/learn/inputs", _list_inputs),
     Tool("boneio_wait_for_press",
